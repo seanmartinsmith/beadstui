@@ -158,11 +158,11 @@ func GenerateInteractiveGraphHTML(opts InteractiveGraphOptions) (string, error) 
 		articulationSet[id] = true
 	}
 
-	// Build reverse dependency map (who blocks who)
+	// Build reverse dependency map (who blocks/parents who)
 	blocksMap := make(map[string][]string)
 	for _, iss := range opts.Issues {
 		for _, dep := range iss.Dependencies {
-			if dep != nil && issueMap[dep.DependsOnID] && dep.Type.IsBlocking() {
+			if dep != nil && issueMap[dep.DependsOnID] && dep.Type.IsGraphEdge() {
 				blocksMap[dep.DependsOnID] = append(blocksMap[dep.DependsOnID], iss.ID)
 			}
 		}
@@ -173,7 +173,7 @@ func GenerateInteractiveGraphHTML(opts InteractiveGraphOptions) (string, error) 
 		// Compute blocked_by list
 		var blockedBy []string
 		for _, dep := range iss.Dependencies {
-			if dep != nil && issueMap[dep.DependsOnID] && dep.Type.IsBlocking() {
+			if dep != nil && issueMap[dep.DependsOnID] && dep.Type.IsGraphEdge() {
 				blockedBy = append(blockedBy, dep.DependsOnID)
 			}
 		}

@@ -231,6 +231,13 @@ func (d DependencyType) IsBlocking() bool {
 	return d == "" || d == DepBlocks
 }
 
+// IsGraphEdge returns true if this dependency type should appear as an edge
+// in the dependency graph. Includes blocking relationships and parent-child
+// hierarchy, but excludes purely informational links like "related".
+func (d DependencyType) IsGraphEdge() bool {
+	return d.IsBlocking() || d == DepParentChild
+}
+
 // Comment represents a comment on an issue
 type Comment struct {
 	ID        int64     `json:"id"`

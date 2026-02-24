@@ -1278,8 +1278,8 @@ func NewAnalyzer(issues []model.Issue) *Analyzer {
 				continue
 			}
 
-			// Only model blocking relationships in the analysis graph
-			if !dep.Type.IsBlocking() {
+			// Model blocking and parent-child relationships in the analysis graph
+			if !dep.Type.IsGraphEdge() {
 				continue
 			}
 
