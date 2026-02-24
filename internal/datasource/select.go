@@ -171,6 +171,8 @@ func buildSelectionReason(selected DataSource, candidates []DataSource, opts Sel
 
 	// Check source type
 	switch selected.Type {
+	case SourceTypeDolt:
+		reasons = append(reasons, "Dolt is most authoritative")
 	case SourceTypeSQLite:
 		reasons = append(reasons, "SQLite is most authoritative")
 	case SourceTypeJSONLWorktree:

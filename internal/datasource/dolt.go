@@ -1,0 +1,334 @@
+package datasource
+
+import (
+	"database/sql"
+	"fmt"
+	"time"
+
+	_ "github.com/go-sql-driver/mysql"
+
+	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
+)
+
+// DoltReader provides read access to a Dolt SQL server.
+type DoltReader struct {
+	db  *sql.DB
+	dsn string
+}
+
+// NewDoltReader opens a MySQL connection to the running Dolt server.
+func NewDoltReader(source DataSource) (*DoltReader, error) {
+	if source.Type != SourceTypeDolt {
+		return nil, fmt.Errorf("source is not Dolt: %s", source.Type)
+	}
+
+	db, err := sql.Open("mysql", source.Path) // Path holds the DSN
+	if err != nil {
+		return nil, fmt.Errorf("cannot open Dolt connection: %w", err)
+	}
+
+	db.SetMaxOpenConns(5)
+	db.SetMaxIdleConns(2)
+	db.SetConnMaxLifetime(5 * time.Minute)
+
+	if err := db.Ping(); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("cannot reach Dolt server: %w", err)
+	}
+
+	return &DoltReader{db: db, dsn: source.Path}, nil
+}
+
+// Close closes the database connection.
+func (r *DoltReader) Close() error {
+	if r.db != nil {
+		return r.db.Close()
+	}
+	return nil
+}
+
+// LoadIssues reads all non-tombstone issues.
+func (r *DoltReader) LoadIssues() ([]model.Issue, error) {
+	return r.LoadIssuesFiltered(nil)
+}
+
+// LoadIssuesFiltered reads issues matching an optional filter function.
+func (r *DoltReader) LoadIssuesFiltered(filter func(*model.Issue) bool) ([]model.Issue, error) {
+	query := `
+		SELECT
+			id, title, description, status, priority, issue_type,
+			assignee, estimated_minutes, created_at, updated_at,
+			due_at, closed_at, external_ref, compaction_level,
+			compacted_at, compacted_at_commit, original_size,
+			design, acceptance_criteria, notes, source_repo,
+			close_reason
+		FROM issues
+		WHERE status != 'tombstone'
+		ORDER BY updated_at DESC
+	`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return r.loadIssuesSimple(filter)
+	}
+	defer rows.Close()
+
+	var issues []model.Issue
+	for rows.Next() {
+		var issue model.Issue
+		var estimatedMinutes, compactionLevel, originalSize sql.NullInt64
+		var createdAt, updatedAt, dueAt, closedAt, compactedAt sql.NullTime
+		var description, assignee, externalRef, design, acceptanceCriteria, notes, sourceRepo, compactedAtCommit, closeReason sql.NullString
+		var issueType string
+
+		err := rows.Scan(
+			&issue.ID, &issue.Title, &description, &issue.Status, &issue.Priority, &issueType,
+			&assignee, &estimatedMinutes, &createdAt, &updatedAt,
+			&dueAt, &closedAt, &externalRef, &compactionLevel,
+			&compactedAt, &compactedAtCommit, &originalSize,
+			&design, &acceptanceCriteria, &notes, &sourceRepo,
+			&closeReason,
+		)
+		if err != nil {
+			continue
+		}
+
+		if description.Valid {
+			issue.Description = description.String
+		}
+		issue.IssueType = model.IssueType(issueType)
+		if assignee.Valid {
+			issue.Assignee = assignee.String
+		}
+		if estimatedMinutes.Valid {
+			v := int(estimatedMinutes.Int64)
+			issue.EstimatedMinutes = &v
+		}
+		if createdAt.Valid {
+			issue.CreatedAt = createdAt.Time
+		}
+		if updatedAt.Valid {
+			issue.UpdatedAt = updatedAt.Time
+		}
+		if dueAt.Valid {
+			t := dueAt.Time
+			issue.DueDate = &t
+		}
+		if closedAt.Valid {
+			t := closedAt.Time
+			issue.ClosedAt = &t
+		}
+		if closeReason.Valid && closeReason.String != "" {
+			s := closeReason.String
+			issue.CloseReason = &s
+		}
+		if externalRef.Valid {
+			s := externalRef.String
+			issue.ExternalRef = &s
+		}
+		if compactionLevel.Valid {
+			issue.CompactionLevel = int(compactionLevel.Int64)
+		}
+		if compactedAt.Valid {
+			t := compactedAt.Time
+			issue.CompactedAt = &t
+		}
+		if compactedAtCommit.Valid {
+			s := compactedAtCommit.String
+			issue.CompactedAtCommit = &s
+		}
+		if originalSize.Valid {
+			issue.OriginalSize = int(originalSize.Int64)
+		}
+		if design.Valid {
+			issue.Design = design.String
+		}
+		if acceptanceCriteria.Valid {
+			issue.AcceptanceCriteria = acceptanceCriteria.String
+		}
+		if notes.Valid {
+			issue.Notes = notes.String
+		}
+		if sourceRepo.Valid {
+			issue.SourceRepo = sourceRepo.String
+		}
+
+		// Labels come from a separate table in Dolt
+		issue.Labels = r.loadLabels(issue.ID)
+
+		// Dependencies
+		issue.Dependencies = r.loadDependencies(issue.ID)
+
+		// Comments
+		issue.Comments = r.loadComments(issue.ID)
+
+		if filter != nil && !filter(&issue) {
+			continue
+		}
+
+		issues = append(issues, issue)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating issues: %w", err)
+	}
+
+	return issues, nil
+}
+
+// loadIssuesSimple is a fallback with fewer columns.
+func (r *DoltReader) loadIssuesSimple(filter func(*model.Issue) bool) ([]model.Issue, error) {
+	query := `
+		SELECT id, title, description, status, priority, issue_type, created_at, updated_at
+		FROM issues
+		WHERE status != 'tombstone'
+		ORDER BY updated_at DESC
+	`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("query failed: %w", err)
+	}
+	defer rows.Close()
+
+	var issues []model.Issue
+	for rows.Next() {
+		var issue model.Issue
+		var description sql.NullString
+		var createdAt, updatedAt sql.NullTime
+		var issueType string
+
+		err := rows.Scan(
+			&issue.ID, &issue.Title, &description, &issue.Status, &issue.Priority, &issueType,
+			&createdAt, &updatedAt,
+		)
+		if err != nil {
+			continue
+		}
+
+		if description.Valid {
+			issue.Description = description.String
+		}
+		issue.IssueType = model.IssueType(issueType)
+		if createdAt.Valid {
+			issue.CreatedAt = createdAt.Time
+		}
+		if updatedAt.Valid {
+			issue.UpdatedAt = updatedAt.Time
+		}
+
+		issue.Labels = r.loadLabels(issue.ID)
+
+		if filter != nil && !filter(&issue) {
+			continue
+		}
+
+		issues = append(issues, issue)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating issues: %w", err)
+	}
+
+	return issues, nil
+}
+
+// loadLabels reads labels from the separate labels table.
+func (r *DoltReader) loadLabels(issueID string) []string {
+	rows, err := r.db.Query("SELECT label FROM labels WHERE issue_id = ?", issueID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var labels []string
+	for rows.Next() {
+		var label string
+		if err := rows.Scan(&label); err != nil {
+			continue
+		}
+		labels = append(labels, label)
+	}
+	return labels
+}
+
+// loadDependencies reads dependencies (uses `type` column, not `dependency_type`).
+func (r *DoltReader) loadDependencies(issueID string) []*model.Dependency {
+	rows, err := r.db.Query("SELECT depends_on_id, type FROM dependencies WHERE issue_id = ?", issueID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var deps []*model.Dependency
+	for rows.Next() {
+		var dep model.Dependency
+		var depType string
+		if err := rows.Scan(&dep.DependsOnID, &depType); err != nil {
+			continue
+		}
+		dep.IssueID = issueID
+		dep.Type = model.DependencyType(depType)
+		deps = append(deps, &dep)
+	}
+	return deps
+}
+
+// loadComments reads comments for an issue.
+func (r *DoltReader) loadComments(issueID string) []*model.Comment {
+	rows, err := r.db.Query("SELECT id, author, text, created_at FROM comments WHERE issue_id = ? ORDER BY created_at", issueID)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	var comments []*model.Comment
+	for rows.Next() {
+		var comment model.Comment
+		var createdAt sql.NullTime
+		if err := rows.Scan(&comment.ID, &comment.Author, &comment.Text, &createdAt); err != nil {
+			continue
+		}
+		if createdAt.Valid {
+			comment.CreatedAt = createdAt.Time
+		}
+		comment.IssueID = issueID
+		comments = append(comments, &comment)
+	}
+	return comments
+}
+
+// CountIssues returns the count of non-tombstone issues.
+func (r *DoltReader) CountIssues() (int, error) {
+	var count int
+	err := r.db.QueryRow("SELECT COUNT(*) FROM issues WHERE status != 'tombstone'").Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// GetIssueByID retrieves a single issue by ID.
+func (r *DoltReader) GetIssueByID(id string) (*model.Issue, error) {
+	issues, err := r.LoadIssuesFiltered(func(issue *model.Issue) bool {
+		return issue.ID == id
+	})
+	if err != nil {
+		return nil, err
+	}
+	if len(issues) == 0 {
+		return nil, fmt.Errorf("issue not found: %s", id)
+	}
+	return &issues[0], nil
+}
+
+// GetLastModified returns the most recent update time.
+func (r *DoltReader) GetLastModified() (time.Time, error) {
+	var updatedAt sql.NullTime
+	err := r.db.QueryRow("SELECT MAX(updated_at) FROM issues").Scan(&updatedAt)
+	if err != nil {
+		return time.Time{}, err
+	}
+	if !updatedAt.Valid {
+		return time.Time{}, nil
+	}
+	return updatedAt.Time, nil
+}

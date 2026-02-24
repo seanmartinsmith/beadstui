@@ -6741,8 +6741,11 @@ func countIssuesInBeadsDir(beadsDir string) (int, error) {
 }
 
 type beadsMetadata struct {
-	Database    string `json:"database"`
-	JSONLExport string `json:"jsonl_export"`
+	Database     string `json:"database"`
+	JSONLExport  string `json:"jsonl_export"`
+	Backend      string `json:"backend"`
+	DoltMode     string `json:"dolt_mode"`
+	DoltDatabase string `json:"dolt_database"`
 }
 
 func metadataPreferredSource(beadsDir string) (string, datasource.SourceType) {
@@ -6755,6 +6758,15 @@ func metadataPreferredSource(beadsDir string) (string, datasource.SourceType) {
 	if err := json.Unmarshal(data, &meta); err != nil {
 		return "", ""
 	}
+
+	// Dolt backend takes priority when configured
+	if meta.Backend == "dolt" {
+		cfg, ok := datasource.ReadDoltConfig(beadsDir)
+		if ok {
+			return cfg.DSN(), datasource.SourceTypeDolt
+		}
+	}
+
 	if meta.Database != "" {
 		path := meta.Database
 		if !filepath.IsAbs(path) {
@@ -6779,6 +6791,18 @@ func metadataPreferredSource(beadsDir string) (string, datasource.SourceType) {
 func loadIssuesFromBeadsDir(beadsDir string) ([]model.Issue, error) {
 	if path, typ := metadataPreferredSource(beadsDir); path != "" {
 		switch typ {
+		case datasource.SourceTypeDolt:
+			reader, err := datasource.NewDoltReader(datasource.DataSource{
+				Type: datasource.SourceTypeDolt,
+				Path: path,
+			})
+			if err != nil {
+				break
+			}
+			defer reader.Close()
+			if issues, err := reader.LoadIssues(); err == nil {
+				return issues, nil
+			}
 		case datasource.SourceTypeSQLite:
 			reader, err := datasource.NewSQLiteReader(datasource.DataSource{
 				Type: datasource.SourceTypeSQLite,

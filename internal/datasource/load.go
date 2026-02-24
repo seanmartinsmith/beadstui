@@ -73,6 +73,14 @@ func loadSmart(beadsDir, repoPath string) ([]model.Issue, error) {
 // appropriate reader based on source type.
 func LoadFromSource(source DataSource) ([]model.Issue, error) {
 	switch source.Type {
+	case SourceTypeDolt:
+		reader, err := NewDoltReader(source)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open Dolt source %s: %w", source.Path, err)
+		}
+		defer reader.Close()
+		return reader.LoadIssues()
+
 	case SourceTypeSQLite:
 		reader, err := NewSQLiteReader(source)
 		if err != nil {

@@ -179,6 +179,13 @@ func CompareSources(sourceA, sourceB DataSource, opts DiffOptions) (*SourceDiff,
 // loadIssuesFromSource loads issues from any source type
 func loadIssuesFromSource(source DataSource) ([]model.Issue, error) {
 	switch source.Type {
+	case SourceTypeDolt:
+		reader, err := NewDoltReader(source)
+		if err != nil {
+			return nil, err
+		}
+		defer reader.Close()
+		return reader.LoadIssues()
 	case SourceTypeSQLite:
 		reader, err := NewSQLiteReader(source)
 		if err != nil {
