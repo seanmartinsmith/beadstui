@@ -161,7 +161,7 @@ func (g *GraphModel) rebuildGraph() {
 	// Build relationships
 	for _, issue := range g.issues {
 		for _, dep := range issue.Dependencies {
-			if dep != nil && dep.Type.IsBlocking() {
+			if dep != nil && dep.Type.IsGraphEdge() {
 				g.blockers[issue.ID] = append(g.blockers[issue.ID], dep.DependsOnID)
 				g.dependents[dep.DependsOnID] = append(g.dependents[dep.DependsOnID], issue.ID)
 			}
