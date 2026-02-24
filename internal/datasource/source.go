@@ -4,6 +4,7 @@
 package datasource
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,12 +12,16 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	_ "github.com/go-sql-driver/mysql"
 )
 
 // SourceType identifies the type of data source
 type SourceType string
 
 const (
+	// SourceTypeDolt is a running Dolt SQL server
+	SourceTypeDolt SourceType = "dolt"
 	// SourceTypeSQLite is a SQLite database (beads.db)
 	SourceTypeSQLite SourceType = "sqlite"
 	// SourceTypeJSONLWorktree is a JSONL file from a git worktree
@@ -27,6 +32,7 @@ const (
 
 // Priority values for source types (higher = more authoritative)
 const (
+	PriorityDolt          = 110
 	PrioritySQLite        = 100
 	PriorityJSONLWorktree = 80
 	PriorityJSONLLocal    = 50
@@ -109,6 +115,13 @@ func DiscoverSources(opts DiscoveryOptions) ([]DataSource, error) {
 	}
 
 	var sources []DataSource
+
+	// Discover Dolt server (highest priority - authoritative when available)
+	doltSources, err := discoverDoltSources(beadsDir, opts)
+	if err != nil && opts.Verbose {
+		opts.Logger(fmt.Sprintf("Dolt discovery warning: %v", err))
+	}
+	sources = append(sources, doltSources...)
 
 	// Discover SQLite database
 	sqliteSources, err := discoverSQLiteSources(beadsDir, opts)
@@ -307,4 +320,52 @@ func discoverWorktreeSources(repoPath string, opts DiscoveryOptions) ([]DataSour
 	}
 
 	return sources, nil
+}
+
+// discoverDoltSources checks if the beads project uses a Dolt backend and
+// the server is reachable. Returns a DataSource with the DSN in the Path field.
+func discoverDoltSources(beadsDir string, opts DiscoveryOptions) ([]DataSource, error) {
+	cfg, ok := ReadDoltConfig(beadsDir)
+	if !ok {
+		return nil, nil
+	}
+
+	dsn := cfg.DSN()
+
+	// Ping the server to see if it's actually running
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		if opts.Verbose {
+			opts.Logger(fmt.Sprintf("Dolt: cannot open connection: %v", err))
+		}
+		return nil, nil
+	}
+	defer db.Close()
+
+	if err := db.Ping(); err != nil {
+		if opts.Verbose {
+			opts.Logger(fmt.Sprintf("Dolt: server not reachable at %s:%d: %v", cfg.Host, cfg.Port, err))
+		}
+		return nil, nil
+	}
+
+	// Get the most recent update time to use as ModTime
+	var modTime time.Time
+	var updatedAt sql.NullTime
+	if err := db.QueryRow("SELECT MAX(updated_at) FROM issues").Scan(&updatedAt); err == nil && updatedAt.Valid {
+		modTime = updatedAt.Time
+	} else {
+		modTime = time.Now()
+	}
+
+	if opts.Verbose {
+		opts.Logger(fmt.Sprintf("Found Dolt server: %s:%d db=%s (mod=%s)", cfg.Host, cfg.Port, cfg.Database, modTime.Format(time.RFC3339)))
+	}
+
+	return []DataSource{{
+		Type:     SourceTypeDolt,
+		Path:     dsn,
+		Priority: PriorityDolt,
+		ModTime:  modTime,
+	}}, nil
 }

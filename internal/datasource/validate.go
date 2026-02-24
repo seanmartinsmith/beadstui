@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	json "github.com/goccy/go-json"
+	_ "github.com/go-sql-driver/mysql"
 	_ "modernc.org/sqlite"
 )
 
@@ -59,6 +60,8 @@ func ValidateSourceWithOptions(source *DataSource, opts ValidationOptions) error
 
 	var err error
 	switch source.Type {
+	case SourceTypeDolt:
+		err = validateDolt(source, opts)
 	case SourceTypeSQLite:
 		err = validateSQLite(source, opts)
 	case SourceTypeJSONLLocal, SourceTypeJSONLWorktree:
@@ -75,6 +78,41 @@ func ValidateSourceWithOptions(source *DataSource, opts ValidationOptions) error
 
 	source.Valid = true
 	source.ValidationError = ""
+	return nil
+}
+
+// validateDolt validates a Dolt server connection
+func validateDolt(source *DataSource, opts ValidationOptions) error {
+	db, err := sql.Open("mysql", source.Path)
+	if err != nil {
+		return fmt.Errorf("cannot open Dolt connection: %w", err)
+	}
+	defer db.Close()
+
+	if err := db.Ping(); err != nil {
+		return fmt.Errorf("Dolt server not reachable: %w", err)
+	}
+
+	// Check issues table exists
+	var tableName string
+	err = db.QueryRow("SELECT TABLE_NAME FROM information_schema.tables WHERE TABLE_NAME = 'issues' AND TABLE_SCHEMA = DATABASE()").Scan(&tableName)
+	if err != nil {
+		return fmt.Errorf("missing issues table: %w", err)
+	}
+
+	if opts.CountIssues {
+		var count int
+		err = db.QueryRow("SELECT COUNT(*) FROM issues WHERE status != 'tombstone'").Scan(&count)
+		if err != nil {
+			return fmt.Errorf("cannot count issues: %w", err)
+		}
+		source.IssueCount = count
+	}
+
+	if opts.Verbose {
+		opts.Logger(fmt.Sprintf("Dolt validation passed: %s (%d issues)", source.Path, source.IssueCount))
+	}
+
 	return nil
 }
 
