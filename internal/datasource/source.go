@@ -1,5 +1,5 @@
 // Package datasource provides intelligent multi-source data detection and selection
-// for beads_viewer. It discovers, validates, and selects the freshest valid source
+// for beadstui. It discovers, validates, and selects the freshest valid source
 // from SQLite databases, worktree JSONL files, and local JSONL files.
 package datasource
 

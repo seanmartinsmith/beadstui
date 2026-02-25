@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -546,7 +546,7 @@ func (t *TreeModel) renderEmptyState() string {
 	sb.WriteString("\n\n")
 	sb.WriteString(mutedStyle.Render("To create hierarchy, add parent-child dependencies:"))
 	sb.WriteString("\n")
-	sb.WriteString(mutedStyle.Render("  br dep add <child> parent-child:<parent>"))
+	sb.WriteString(mutedStyle.Render("  bd dep add <child> parent-child:<parent>"))
 	sb.WriteString("\n\n")
 	sb.WriteString(mutedStyle.Render("Press E to return to list view."))
 

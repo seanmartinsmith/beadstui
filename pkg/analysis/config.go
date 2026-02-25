@@ -335,31 +335,31 @@ type SkippedMetric struct {
 
 const (
 	// EnvSkipPhase2 disables most Phase 2 metrics (centrality, cycles, critical path).
-	EnvSkipPhase2 = "BV_SKIP_PHASE2"
+	EnvSkipPhase2 = "BT_SKIP_PHASE2"
 	// EnvPhase2TimeoutSeconds overrides per-metric Phase 2 timeouts when set (>0).
-	EnvPhase2TimeoutSeconds = "BV_PHASE2_TIMEOUT_S"
+	EnvPhase2TimeoutSeconds = "BT_PHASE2_TIMEOUT_S"
 )
 
 // ApplyEnvOverrides applies environment-variable tunables to the analysis config.
 //
 // Supported:
-//   - BV_SKIP_PHASE2=1: skip expensive Phase 2 metrics (PageRank, Betweenness, HITS, Cycles,
+//   - BT_SKIP_PHASE2=1: skip expensive Phase 2 metrics (PageRank, Betweenness, HITS, Cycles,
 //     Eigenvector, Critical Path). (k-core/articulation/slack remain enabled.)
-//   - BV_PHASE2_TIMEOUT_S=N: override per-metric timeouts to N seconds (must be >0).
+//   - BT_PHASE2_TIMEOUT_S=N: override per-metric timeouts to N seconds (must be >0).
 func ApplyEnvOverrides(cfg AnalysisConfig) AnalysisConfig {
 	if envBool(EnvSkipPhase2) {
 		cfg.ComputeBetweenness = false
 		cfg.BetweennessMode = BetweennessSkip
-		cfg.BetweennessSkipReason = "BV_SKIP_PHASE2 set"
+		cfg.BetweennessSkipReason = "BT_SKIP_PHASE2 set"
 
 		cfg.ComputePageRank = false
-		cfg.PageRankSkipReason = "BV_SKIP_PHASE2 set"
+		cfg.PageRankSkipReason = "BT_SKIP_PHASE2 set"
 
 		cfg.ComputeHITS = false
-		cfg.HITSSkipReason = "BV_SKIP_PHASE2 set"
+		cfg.HITSSkipReason = "BT_SKIP_PHASE2 set"
 
 		cfg.ComputeCycles = false
-		cfg.CyclesSkipReason = "BV_SKIP_PHASE2 set"
+		cfg.CyclesSkipReason = "BT_SKIP_PHASE2 set"
 
 		cfg.ComputeEigenvector = false
 		cfg.ComputeCriticalPath = false

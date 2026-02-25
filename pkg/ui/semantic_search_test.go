@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/search"
+	"github.com/seanmartinsmith/beadstui/pkg/search"
 )
 
 // =============================================================================

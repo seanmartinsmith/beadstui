@@ -14,13 +14,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 const (
 	robotAnalysisDiskCacheVersion      = 1
 	robotAnalysisDiskCacheFileName     = "analysis_cache.json"
-	robotAnalysisDiskCacheDirName      = "bv"
+	robotAnalysisDiskCacheDirName      = "bt"
 	robotAnalysisDiskCacheMaxEntries   = 10
 	robotAnalysisDiskCacheMaxAge       = 24 * time.Hour
 	robotAnalysisDiskCacheMaxEntrySize = 10 << 20 // 10MB
@@ -714,11 +714,11 @@ func (b graphStatsCacheBlob) toGraphStats() *GraphStats {
 }
 
 func robotDiskCacheEnabled() bool {
-	return os.Getenv("BV_ROBOT") == "1"
+	return os.Getenv("BT_ROBOT") == "1"
 }
 
 func robotAnalysisDiskCachePath(create bool) (string, error) {
-	base := os.Getenv("BV_CACHE_DIR")
+	base := os.Getenv("BT_CACHE_DIR")
 	if base == "" {
 		dir, err := os.UserCacheDir()
 		if err != nil {

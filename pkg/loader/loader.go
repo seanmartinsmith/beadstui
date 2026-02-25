@@ -12,7 +12,7 @@ import (
 
 	json "github.com/goccy/go-json"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // BeadsDirEnvVar is the name of the environment variable for custom beads directory
@@ -156,7 +156,7 @@ func FindJSONLPathWithWarnings(beadsDir string, warnFunc func(msg string)) (stri
 
 	// Warn about detected merge artifacts
 	if len(mergeArtifacts) > 0 && warnFunc != nil {
-		warnFunc(fmt.Sprintf("Merge artifact files detected: %s. Consider running 'br clean' to remove them.",
+		warnFunc(fmt.Sprintf("Merge artifact files detected: %s. Consider running 'bd clean' to remove them.",
 			strings.Join(mergeArtifacts, ", ")))
 	}
 
@@ -334,7 +334,7 @@ func parseIssuesWithOptions(r io.Reader, opts ParseOptions, usePool bool) ([]mod
 	// Default warning handler prints to stderr (suppressed in robot mode).
 	warn := opts.WarningHandler
 	if warn == nil {
-		if os.Getenv("BV_ROBOT") == "1" {
+		if os.Getenv("BT_ROBOT") == "1" {
 			warn = func(string) {}
 		} else {
 			warn = func(msg string) {

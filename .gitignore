@@ -1,8 +1,8 @@
 beads_reference/
-/bv
+/bt
 /main
 *.test
-cmd/bv/bv
+cmd/bt/bt
 .DS_Store
 
 *.exe
@@ -15,27 +15,27 @@ cover*.out
 *.cov
 coverage.html
 coverage_report.txt
-bv_profile
+bt_profile
 
 # Benchmark outputs
 benchmarks/baseline.txt
 benchmarks/current.txt
 
-# Local BV state and reports
-.bv/
-beads_report_beads_viewer_*.md
+# Local BT state and reports
+.bt/
+beads_report_beadstui_*.md
 
 # Nix build artifacts
 result
 result-*
 
 # Rust/WASM build artifacts
-bv-graph-wasm/target/
-bv-graph-wasm/pkg/
+bt-graph-wasm/target/
+bt-graph-wasm/pkg/
 pkg/export/wasm_scorer/target/
 pkg/export/wasm_scorer/pkg/
 node_modules/
-beads_viewer_graph*.html
+beadstui_graph*.html
 test-results/
 
 # Nested beads state

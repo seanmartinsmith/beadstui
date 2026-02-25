@@ -96,8 +96,8 @@ func TestAppendBlurb(t *testing.T) {
 	}
 
 	// Should contain key content
-	if !strings.Contains(result, "br ready") {
-		t.Error("AppendBlurb() result missing 'br ready' command")
+	if !strings.Contains(result, "bd ready") {
+		t.Error("AppendBlurb() result missing 'bd ready' command")
 	}
 
 	// Should preserve original content
@@ -154,7 +154,7 @@ func TestUpdateBlurb(t *testing.T) {
 	}
 
 	// Should have current blurb content
-	if !strings.Contains(result, "br ready") {
+	if !strings.Contains(result, "bd ready") {
 		t.Error("UpdateBlurb() result missing current blurb content")
 	}
 
@@ -195,14 +195,14 @@ func TestNeedsUpdate(t *testing.T) {
 func TestAgentBlurbContent(t *testing.T) {
 	// Verify blurb contains essential commands
 	essentials := []string{
-		"br ready",
-		"br list",
-		"br show",
-		"br create",
-		"br update",
-		"br close",
-		"br sync",
-		"br dep add",
+		"bd ready",
+		"bd list",
+		"bd show",
+		"bd create",
+		"bd update",
+		"bd close",
+		"bd sync",
+		"bd dep add",
 	}
 
 	for _, cmd := range essentials {
@@ -242,13 +242,13 @@ func TestSupportedAgentFiles(t *testing.T) {
 }
 
 // LegacyBlurbContent is a sample of the old-format blurb (pre-v1, without HTML markers)
-const LegacyBlurbContent = `### Using bv as an AI sidecar
+const LegacyBlurbContent = `### Using bt as an AI sidecar
 
 If you're an AI agent (like Claude, GPT, Codex, etc.), bv can serve as your
 external memory and decision-support system for handling complex multi-part
 coding tasks.
 
-**Entry point**: Always start with ` + "`" + `bv --robot-triage` + "`" + `
+**Entry point**: Always start with ` + "`" + `bt --robot-triage` + "`" + `
 
 **Available robot flags**:
 - ` + "`" + `--robot-triage` + "`" + ` - Get structured task overview and priorities
@@ -256,7 +256,7 @@ coding tasks.
 - ` + "`" + `--robot-plan` + "`" + ` - Generate actionable task breakdown
 
 **Why use robot flags?**
-bv already computes the hard parts for you.
+bt already computes the hard parts for you.
 ` + "```"
 
 func TestContainsLegacyBlurb(t *testing.T) {
@@ -287,7 +287,7 @@ func TestContainsLegacyBlurb(t *testing.T) {
 		},
 		{
 			name:     "partial legacy (missing patterns)",
-			content:  "# My AGENTS.md\n\n### Using bv as an AI sidecar\nJust a header.",
+			content:  "# My AGENTS.md\n\n### Using bt as an AI sidecar\nJust a header.",
 			expected: false,
 		},
 	}
@@ -341,7 +341,7 @@ func TestRemoveLegacyBlurb(t *testing.T) {
 	result := RemoveLegacyBlurb(withLegacy)
 
 	// Should not contain legacy markers
-	if strings.Contains(result, "### Using bv as an AI sidecar") {
+	if strings.Contains(result, "### Using bt as an AI sidecar") {
 		t.Error("RemoveLegacyBlurb() result still contains legacy header")
 	}
 	if strings.Contains(result, "--robot-insights") {
@@ -371,7 +371,7 @@ func TestRemoveLegacyBlurbNoTrailingBackticks(t *testing.T) {
 	// Legacy content WITHOUT trailing triple backticks (regression test for regex fix)
 	legacyNoBackticks := `# My AGENTS.md
 
-### Using bv as an AI sidecar
+### Using bt as an AI sidecar
 
 Some description here.
 
@@ -379,20 +379,20 @@ Some description here.
 - --robot-insights - Analysis
 - --robot-plan - Planning
 
-bv already computes the hard parts for you.
+bt already computes the hard parts for you.
 
 ## Next Section
 `
 	result := RemoveLegacyBlurb(legacyNoBackticks)
 
 	// Should not contain legacy markers
-	if strings.Contains(result, "### Using bv as an AI sidecar") {
+	if strings.Contains(result, "### Using bt as an AI sidecar") {
 		t.Error("RemoveLegacyBlurb() did not remove legacy header (no trailing backticks case)")
 	}
 	if strings.Contains(result, "--robot-insights") {
 		t.Error("RemoveLegacyBlurb() did not remove robot flags (no trailing backticks case)")
 	}
-	if strings.Contains(result, "bv already computes the hard parts") {
+	if strings.Contains(result, "bt already computes the hard parts") {
 		t.Error("RemoveLegacyBlurb() did not remove end phrase (no trailing backticks case)")
 	}
 
@@ -417,7 +417,7 @@ func TestUpdateBlurbFromLegacy(t *testing.T) {
 	}
 
 	// Should have current blurb content
-	if !strings.Contains(result, "br ready") {
+	if !strings.Contains(result, "bd ready") {
 		t.Error("UpdateBlurb() from legacy missing current blurb content")
 	}
 
@@ -475,7 +475,7 @@ func TestContainsLegacyBlurbEdgeCases(t *testing.T) {
 			name: "only 2 of 4 patterns (header + one flag)",
 			content: `# AGENTS.md
 
-### Using bv as an AI sidecar
+### Using bt as an AI sidecar
 
 Some description that mentions --robot-insights but nothing else.
 `,
@@ -484,10 +484,10 @@ Some description that mentions --robot-insights but nothing else.
 		{
 			name: "3 of 4 patterns (missing key differentiator)",
 			// Has: header, --robot-insights, --robot-plan
-			// Missing: "bv already computes the hard parts"
+			// Missing: "bt already computes the hard parts"
 			content: `# AGENTS.md
 
-### Using bv as an AI sidecar
+### Using bt as an AI sidecar
 
 Use these flags:
 - --robot-insights for analysis
@@ -498,10 +498,10 @@ Use these flags:
 		{
 			name: "documentation about flags (like this project's AGENTS.md)",
 			// Content similar to what appears in bv's own AGENTS.md
-			// Has 3 patterns but NOT "bv already computes the hard parts"
+			// Has 3 patterns but NOT "bt already computes the hard parts"
 			content: `# AGENTS.md
 
-### Using bv as an AI sidecar
+### Using bt as an AI sidecar
 
 bv is a graph-aware triage engine for Beads projects.
 
@@ -517,29 +517,29 @@ Use bv instead of parsing beads.jsonl—it computes PageRank deterministically.
 		},
 		{
 			name: "patterns without start header",
-			// Has all the patterns but not the "### Using bv as an AI sidecar" header
+			// Has all the patterns but not the "### Using bt as an AI sidecar" header
 			content: `# AGENTS.md
 
 ## Some Other Section
 
 Mentions --robot-insights and --robot-plan.
-bv already computes the hard parts for you.
+bt already computes the hard parts for you.
 `,
 			expected: false,
 		},
 		{
 			name: "header with ## instead of ### (not legacy)",
-			// LegacyBlurbPatterns[0] requires exactly "### Using bv as an AI sidecar" (3 #)
+			// LegacyBlurbPatterns[0] requires exactly "### Using bt as an AI sidecar" (3 #)
 			// while legacyBlurbStartPattern regex allows 2-3 #, the string match requires 3 #
 			content: `# AGENTS.md
 
-## Using bv as an AI sidecar
+## Using bt as an AI sidecar
 
 Some description.
 - --robot-insights
 - --robot-plan
 
-bv already computes the hard parts for you.
+bt already computes the hard parts for you.
 `,
 			expected: false, // Pattern match requires exact "### Using..." string
 		},
@@ -547,12 +547,12 @@ bv already computes the hard parts for you.
 			name: "all 4 patterns present (true positive)",
 			content: `# AGENTS.md
 
-### Using bv as an AI sidecar
+### Using bt as an AI sidecar
 
 Full legacy blurb with:
 - --robot-insights
 - --robot-plan
-bv already computes the hard parts for you.
+bt already computes the hard parts for you.
 `,
 			expected: true,
 		},
@@ -560,7 +560,7 @@ bv already computes the hard parts for you.
 			name: "patterns scattered across unrelated sections",
 			content: `# AGENTS.md
 
-### Using bv as an AI sidecar
+### Using bt as an AI sidecar
 
 Intro only.
 
@@ -574,7 +574,7 @@ Use --robot-plan to get plans.
 
 ## Footer
 
-Note: bv already computes the hard parts - use it!
+Note: bt already computes the hard parts - use it!
 `,
 			expected: true, // All patterns are present, even if scattered
 		},
@@ -600,18 +600,18 @@ func TestRemoveLegacyBlurbEdgeCases(t *testing.T) {
 	}{
 		{
 			name: "legacy blurb at file start",
-			content: `### Using bv as an AI sidecar
+			content: `### Using bt as an AI sidecar
 
 Some description.
 --robot-insights
 --robot-plan
-bv already computes the hard parts for you.
+bt already computes the hard parts for you.
 
 ## Real Content
 
 This should be preserved.
 `,
-			expectRemoved:   []string{"### Using bv as an AI sidecar", "--robot-insights"},
+			expectRemoved:   []string{"### Using bt as an AI sidecar", "--robot-insights"},
 			expectPreserved: []string{"## Real Content", "This should be preserved"},
 		},
 		{
@@ -620,43 +620,43 @@ This should be preserved.
 
 Some intro content.
 
-### Using bv as an AI sidecar
+### Using bt as an AI sidecar
 
 Description.
 --robot-insights
 --robot-plan
-bv already computes the hard parts for you.
+bt already computes the hard parts for you.
 `,
-			expectRemoved:   []string{"### Using bv as an AI sidecar", "--robot-insights"},
+			expectRemoved:   []string{"### Using bt as an AI sidecar", "--robot-insights"},
 			expectPreserved: []string{"# AGENTS.md", "Some intro content"},
 		},
 		{
 			name: "legacy blurb with CRLF line endings",
-			content: "# AGENTS.md\r\n\r\n### Using bv as an AI sidecar\r\n\r\n" +
+			content: "# AGENTS.md\r\n\r\n### Using bt as an AI sidecar\r\n\r\n" +
 				"Description.\r\n--robot-insights\r\n--robot-plan\r\n" +
-				"bv already computes the hard parts for you.\r\n\r\n" +
+				"bt already computes the hard parts for you.\r\n\r\n" +
 				"## Next Section\r\n",
-			expectRemoved:   []string{"### Using bv as an AI sidecar", "--robot-insights"},
+			expectRemoved:   []string{"### Using bt as an AI sidecar", "--robot-insights"},
 			expectPreserved: []string{"# AGENTS.md", "## Next Section"},
 		},
 		{
 			name: "legacy blurb with mixed LF and CRLF",
-			content: "# AGENTS.md\n\n### Using bv as an AI sidecar\r\n\n" +
+			content: "# AGENTS.md\n\n### Using bt as an AI sidecar\r\n\n" +
 				"Description.\n--robot-insights\r\n--robot-plan\n" +
-				"bv already computes the hard parts for you.\n\n" +
+				"bt already computes the hard parts for you.\n\n" +
 				"## Next Section\n",
-			expectRemoved:   []string{"### Using bv as an AI sidecar", "--robot-insights"},
+			expectRemoved:   []string{"### Using bt as an AI sidecar", "--robot-insights"},
 			expectPreserved: []string{"# AGENTS.md", "## Next Section"},
 		},
 		{
 			name: "legacy blurb only content in file",
-			content: `### Using bv as an AI sidecar
+			content: `### Using bt as an AI sidecar
 
 --robot-insights
 --robot-plan
-bv already computes the hard parts for you.
+bt already computes the hard parts for you.
 `,
-			expectRemoved:   []string{"### Using bv as an AI sidecar"},
+			expectRemoved:   []string{"### Using bt as an AI sidecar"},
 			expectPreserved: []string{}, // file should be nearly empty
 		},
 	}
@@ -817,11 +817,11 @@ func TestContainsAnyBlurbEdgeCases(t *testing.T) {
 			name: "both legacy and current (should not happen but test anyway)",
 			content: `# AGENTS.md
 
-### Using bv as an AI sidecar
+### Using bt as an AI sidecar
 
 --robot-insights
 --robot-plan
-bv already computes the hard parts for you.
+bt already computes the hard parts for you.
 
 <!-- bv-agent-instructions-v1 -->
 Current blurb

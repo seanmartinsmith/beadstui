@@ -9,8 +9,8 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/loader"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/loader"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // LoadResult contains the result of loading a single repository
@@ -240,7 +240,7 @@ func LoadAllFromConfig(ctx context.Context, configPath string) ([]model.Issue, [
 		return nil, nil, fmt.Errorf("failed to load workspace config: %w", err)
 	}
 
-	workspaceRoot := filepath.Dir(filepath.Dir(configPath)) // .bv/workspace.yaml -> workspace root
+	workspaceRoot := filepath.Dir(filepath.Dir(configPath)) // .bt/workspace.yaml -> workspace root
 	loader := NewAggregateLoader(config, workspaceRoot)
 
 	return loader.LoadAll(ctx)

@@ -9,18 +9,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
 # Ensure we use the correct bv binary (project binary or user's local install)
-BV_BIN="${PROJECT_DIR}/bv"
-if [[ ! -x "$BV_BIN" ]]; then
-    if [[ -x "/home/ubuntu/.local/bin/bv" ]]; then
-        BV_BIN="/home/ubuntu/.local/bin/bv"
+BT_BIN="${PROJECT_DIR}/bt"
+if [[ ! -x "$BT_BIN" ]]; then
+    if [[ -x "/home/ubuntu/.local/bin/bt" ]]; then
+        BT_BIN="/home/ubuntu/.local/bin/bt"
     else
         # Try to build from project
         echo "Building bv..."
-        (cd "$PROJECT_DIR" && go build -o bv ./cmd/bv/) || {
+        (cd "$PROJECT_DIR" && go build -o bv ./cmd/bt/) || {
             echo "Failed to build bv"
             exit 1
         }
-        BV_BIN="${PROJECT_DIR}/bv"
+        BT_BIN="${PROJECT_DIR}/bt"
     fi
 fi
 
@@ -70,7 +70,7 @@ log ""
 log "--- Phase 1: Prerequisites ---"
 
 # Check prerequisites (bv is already verified above)
-log_info "bv: $BV_BIN"
+log_info "bv: $BT_BIN"
 record_pass "bv available"
 
 for cmd in tru jq; do
@@ -87,8 +87,8 @@ log ""
 # Phase 2: Format Flag Tests
 log "--- Phase 2: Format Flag Tests ---"
 
-log_info "Test 2.1: "$BV_BIN" -format=json --robot-next"
-if json_output=$("$BV_BIN" -format=json --robot-next 2>/dev/null); then
+log_info "Test 2.1: "$BT_BIN" -format=json --robot-next"
+if json_output=$("$BT_BIN" -format=json --robot-next 2>/dev/null); then
     if echo "$json_output" | jq . >/dev/null 2>&1; then
         record_pass "-format=json produces valid JSON"
         json_bytes=$(echo -n "$json_output" | wc -c | tr -d ' ')
@@ -97,11 +97,11 @@ if json_output=$("$BV_BIN" -format=json --robot-next 2>/dev/null); then
         record_fail "-format=json invalid"
     fi
 else
-    record_skip ""$BV_BIN" -format=json error"
+    record_skip ""$BT_BIN" -format=json error"
 fi
 
-log_info "Test 2.2: "$BV_BIN" -format=toon --robot-next"
-if toon_output=$("$BV_BIN" -format=toon --robot-next 2>/dev/null); then
+log_info "Test 2.2: "$BT_BIN" -format=toon --robot-next"
+if toon_output=$("$BT_BIN" -format=toon --robot-next 2>/dev/null); then
     if [[ -n "$toon_output" && "${toon_output:0:1}" != "{" && "${toon_output:0:1}" != "[" ]]; then
         record_pass "-format=toon produces TOON"
         toon_bytes=$(echo -n "$toon_output" | wc -c | tr -d ' ')
@@ -114,7 +114,7 @@ if toon_output=$("$BV_BIN" -format=toon --robot-next 2>/dev/null); then
         fi
     fi
 else
-    record_skip ""$BV_BIN" -format=toon error"
+    record_skip ""$BT_BIN" -format=toon error"
 fi
 log ""
 
@@ -155,24 +155,24 @@ log ""
 log "--- Phase 4: Environment Variables ---"
 
 # Clear any existing env vars
-unset BV_OUTPUT_FORMAT TOON_DEFAULT_FORMAT TOON_STATS 2>/dev/null || true
+unset BT_OUTPUT_FORMAT TOON_DEFAULT_FORMAT TOON_STATS 2>/dev/null || true
 
-log_info "Test 4.1: BV_OUTPUT_FORMAT=toon"
-export BV_OUTPUT_FORMAT=toon
-if env_out=$("$BV_BIN" --robot-next 2>/dev/null); then
+log_info "Test 4.1: BT_OUTPUT_FORMAT=toon"
+export BT_OUTPUT_FORMAT=toon
+if env_out=$("$BT_BIN" --robot-next 2>/dev/null); then
     if [[ -n "$env_out" && "${env_out:0:1}" != "{" ]]; then
-        record_pass "BV_OUTPUT_FORMAT=toon produces TOON"
+        record_pass "BT_OUTPUT_FORMAT=toon produces TOON"
     else
-        record_pass "BV_OUTPUT_FORMAT=toon accepted"
+        record_pass "BT_OUTPUT_FORMAT=toon accepted"
     fi
 else
-    record_skip "BV_OUTPUT_FORMAT test error"
+    record_skip "BT_OUTPUT_FORMAT test error"
 fi
-unset BV_OUTPUT_FORMAT
+unset BT_OUTPUT_FORMAT
 
 log_info "Test 4.2: TOON_DEFAULT_FORMAT=toon"
 export TOON_DEFAULT_FORMAT=toon
-if env_out=$("$BV_BIN" --robot-next 2>/dev/null); then
+if env_out=$("$BT_BIN" --robot-next 2>/dev/null); then
     if [[ -n "$env_out" ]]; then
         record_pass "TOON_DEFAULT_FORMAT=toon accepted"
     else
@@ -183,7 +183,7 @@ else
 fi
 
 log_info "Test 4.3: CLI -format=json overrides TOON_DEFAULT_FORMAT=toon"
-if override=$("$BV_BIN" -format=json --robot-next 2>/dev/null) && echo "$override" | jq . >/dev/null 2>&1; then
+if override=$("$BT_BIN" -format=json --robot-next 2>/dev/null) && echo "$override" | jq . >/dev/null 2>&1; then
     if [[ "${override:0:1}" == "{" ]]; then
         record_pass "CLI -format=json overrides env var"
     else
@@ -203,8 +203,8 @@ total_json_bytes=0
 total_toon_bytes=0
 
 for cmd in --robot-next --robot-alerts --robot-triage; do
-    json_b=$("$BV_BIN" -format=json $cmd 2>/dev/null | wc -c | tr -d ' ')
-    toon_b=$("$BV_BIN" -format=toon $cmd 2>/dev/null | wc -c | tr -d ' ')
+    json_b=$("$BT_BIN" -format=json $cmd 2>/dev/null | wc -c | tr -d ' ')
+    toon_b=$("$BT_BIN" -format=toon $cmd 2>/dev/null | wc -c | tr -d ' ')
     if [[ -n "$json_b" && "$json_b" -gt 0 && -n "$toon_b" && "$toon_b" -gt 0 ]]; then
         savings=$(( (json_b - toon_b) * 100 / json_b ))
         log_info "  $cmd: JSON=${json_b}b TOON=${toon_b}b (${savings}% savings)"
@@ -246,7 +246,7 @@ ROBOT_CMDS=(
 passed_cmds=0
 failed_cmds=0
 for cmd in "${ROBOT_CMDS[@]}"; do
-    if output=$("$BV_BIN" -format=toon $cmd 2>/dev/null); then
+    if output=$("$BT_BIN" -format=toon $cmd 2>/dev/null); then
         if [[ -n "$output" ]]; then
             ((passed_cmds++)) || true
             log_info "  ✓ $cmd"
@@ -268,14 +268,14 @@ if [[ $failed_cmds -gt 0 ]]; then
 fi
 log ""
 
-# Phase 7: Go Unit Tests (if in beads_viewer repo)
+# Phase 7: Go Unit Tests (if in beadstui repo)
 log "--- Phase 7: Unit Tests ---"
 
-if [[ -d "$PROJECT_DIR/cmd/bv" ]]; then
+if [[ -d "$PROJECT_DI./cmd/bt" ]]; then
     cd "$PROJECT_DIR"
     # Use pipefail to capture go test exit code through the pipe
     set +e
-    test_output=$(go test ./cmd/bv/... -run "TOON" -v 2>&1)
+    test_output=$(go test ./cmd/bt/... -run "TOON" -v 2>&1)
     test_exit=$?
     set -e
     echo "$test_output" | tail -20
@@ -285,7 +285,7 @@ if [[ -d "$PROJECT_DIR/cmd/bv" ]]; then
         record_fail "go test TOON tests failed (exit $test_exit)"
     fi
 else
-    record_skip "beads_viewer repo not found"
+    record_skip "beadstui repo not found"
 fi
 log ""
 

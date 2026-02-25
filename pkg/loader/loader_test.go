@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/loader"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/loader"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // =============================================================================
@@ -202,8 +202,8 @@ func TestFindJSONLPathWithWarnings_ReportsMergeArtifacts(t *testing.T) {
 	if !strings.Contains(warnings[0], "beads.left.jsonl") {
 		t.Errorf("Warning should mention beads.left.jsonl: %s", warnings[0])
 	}
-	if !strings.Contains(warnings[0], "br clean") {
-		t.Errorf("Warning should suggest 'br clean': %s", warnings[0])
+	if !strings.Contains(warnings[0], "bd clean") {
+		t.Errorf("Warning should suggest 'bd clean': %s", warnings[0])
 	}
 }
 

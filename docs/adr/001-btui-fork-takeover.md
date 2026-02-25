@@ -58,23 +58,29 @@ We forked beads_viewer to restore upstream beads compatibility. This fork is now
 **Key risk**: SQLite (priority 100) beats Dolt (priority 110) when Dolt connection is flaky. If metadata says `backend: dolt`, bt should not silently fall back to stale SQLite.
 
 ### Stream 2: Rename bv -> beadstui/bt (mechanical, parallelizable)
-**Status**: Ready to start (env var strategy decided)
+**Status**: DONE (session 3, 2026-02-25)
 **Depends on**: Nothing (env var strategy resolved: hard rename BT_*)
 **Blocks**: Nothing (can ship independently)
 **Bead**: bv-nk9c
 
-Scope:
-- Go module path: `github.com/Dicklesworthstone/beads_viewer` -> `github.com/seanmartinsmith/beadstui`
-- Binary: `bv` -> `bt`
-- Package path: `cmd/bv/` -> `cmd/bt/`
-- Import paths: ~100+ .go files
-- Env vars: `BV_*` -> `BT_*` (hard rename, no fallback - 42 vars, 400+ refs)
-- Data directory: `.bv/` -> `.bt/`
-- User-facing strings: `br` -> `beads` (CLI references, help text, error messages)
-- goreleaser: binary name, tap/bucket, descriptions
-- AGENTS.md: extensive br command references
-- LICENSE: add our copyright line
-- .gitignore: `.bv/` patterns
+Scope (all completed):
+- [x] Go module path: `github.com/Dicklesworthstone/beads_viewer` -> `github.com/seanmartinsmith/beadstui`
+- [x] Binary: `bv` -> `bt`
+- [x] Package path: `cmd/bv/` -> `cmd/bt/`
+- [x] Import paths: 179 .go files (302 occurrences)
+- [x] Env vars: `BV_*` -> `BT_*` (hard rename, no fallback - 46 files, 235 occurrences)
+- [x] Data directory: `.bv/` -> `.bt/`
+- [x] User-facing strings: `br` -> `bd` (CLI command references)
+- [x] goreleaser: binary name, tap/bucket, descriptions, URLs
+- [x] AGENTS.md content rewrite (filename stays - code dependency)
+- [x] SKILL.md content rewrite
+- [x] README.md mechanical rename pass
+- [x] LICENSE: added Sean Martin Smith copyright line
+- [x] .gitignore: `.bv/` -> `.bt/` patterns
+- [x] install.sh, install.ps1: repo owner, name, binary
+- [x] flake.nix: pname, subPackages, ldflags, meta
+- [x] CI workflows: build paths, module paths
+- [x] Project CLAUDE.md updated (removed "In Transition" section)
 
 ### Stream 3: Data migration + dogfooding
 **Status**: In progress
@@ -97,12 +103,12 @@ Codebase audit and cleanup as part of the fork takeover:
 - [x] **Archive Jeffrey-era artifacts**: moved to `docs/archive/` (tracked in git). CLEANED_UP_PROMPTS, optimization plans -> `jeffrey-era/`. Perf research docs -> `optimization-research/`. AGENT_FRIENDLINESS_REPORT, TOON_INTEGRATION_BRIEF -> root archive.
 - [x] **Build artifact cleanup**: removed bv_profile (50MB), coverage_report.txt. Fixed .gitignore gaps.
 - [ ] **Release vs personal audit**: separate what ships vs dev-only. .goreleaser.yaml excludes, .beads/ state handling.
-- [ ] **Documentation refresh**: README rewrite, AGENTS.md rewrite, SKILL.md rewrite (all depend on Stream 2 naming)
-- [ ] **Root .md consolidation**: move UPGRADE_LOG.md and GOLANG_BEST_PRACTICES.md to docs/ (bv-a3g8). AGENTS.md:368 references GOLANG_BEST_PRACTICES.md - must update together.
+- [x] **Documentation refresh**: AGENTS.md and SKILL.md content rewritten, README.md mechanical rename (session 3). Full README prose rewrite still TODO.
+- [x] **Root .md consolidation**: moved UPGRADE_LOG.md and GOLANG_BEST_PRACTICES.md to docs/ (bv-a3g8). Updated AGENTS.md:368 reference.
 - [ ] Review .beads/ and .beads-local/ state
 - [ ] Audit test data and benchmark artifacts
 
-**New bug discovered**: bv-1p3a - Dolt poll loop floods TUI with connection errors when server is down. No backoff, no suppression. Affects all projects using bv with Dolt.
+**Bug fixed (session 3)**: bv-1p3a - Dolt poll loop now has exponential backoff (5s -> 2min cap), duplicate suppression (first error only at warn level, subsequent at trace), and status bar integration via DoltConnectionStatusMsg.
 
 ## Implementation Already Done
 
@@ -141,3 +147,4 @@ This ADR is the spine. Each work stream spawns its own plan (linked above). With
 | 2026-02-25 | Repo created at `seanmartinsmith/beadstui`, pushed main branch. Commit history rewritten to remove s070681 attribution. Remotes: origin=beadstui (SSH), upstream=Dicklesworthstone/beads_viewer (read-only reference). Git config set to seanmartinsmith for future commits. Added Stream 4 (spring cleaning). |
 | 2026-02-25 | Stream 1 mostly verified: Ctrl+R, live auto-refresh, and schema compatibility all confirmed working. Fixed Dolt auto-polling to not require BV_BACKGROUND_MODE. Migrated 541 issues to Dolt, set up remote sync, cleaned stale SQLite. Handoff plan written. |
 | 2026-02-25 (session 2) | Closed all 21 Jeffrey-era beads issues (clean slate). Created fresh beads for fork work streams. Env var strategy decided: hard rename BT_* no fallback (42 vars, 400+ refs). Spring cleaning Phase 1: archived 8 files to docs/archive/, removed build artifacts (50MB), fixed .gitignore. Discovered bv-1p3a: Dolt poll loop floods TUI when server down - affects all Dolt projects. SKILL.md confirmed as legitimate agent CLI guide (keep + rewrite). AGENTS.md has code dependency in pkg/agents/ (15 Go files). Beads data separation researched: refs/dolt/data is hidden from git clone by default (more isolated than old branch sync) - deferred until contributors are a concern. Handoff doc (beads-dolt-migration.md) has issues: Dolt remote didn't persist, Mac bootstrap flow incomplete. Set BD_ACTOR=sms in PowerShell profile. Commits: 715d412, 2cae49d. |
+| 2026-02-25 (session 3) | **Fixed bv-1p3a**: Dolt poll loop now has exponential backoff (5s base, 2min cap), duplicate error suppression (first at warn, subsequent at trace), and status bar integration via new DoltConnectionStatusMsg. **Stream 2 DONE**: Full atomic rename - module path (179 files), cmd/bv->cmd/bt, BV_*->BT_ (46 files), .bv->.bt, br->bd (CLI refs), goreleaser, install scripts, flake.nix, CI workflows, AGENTS.md/SKILL.md content rewrites, README.md mechanical rename, LICENSE copyright, .gitignore, project CLAUDE.md. Build passes, no new test failures. **Spring cleaning Phase 2 partial**: moved UPGRADE_LOG.md and GOLANG_BEST_PRACTICES.md to docs/ (bv-a3g8), updated AGENTS.md:368 reference. |

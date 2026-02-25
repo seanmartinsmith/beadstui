@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/updater"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/version"
+	"github.com/seanmartinsmith/beadstui/pkg/updater"
+	"github.com/seanmartinsmith/beadstui/pkg/version"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"

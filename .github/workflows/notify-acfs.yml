@@ -27,7 +27,7 @@ jobs:
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.ACFS_REPO_DISPATCH_TOKEN }}
-          repository: Dicklesworthstone/agentic_coding_flywheel_setup
+          repository: seanmartinsmith/agentic_coding_flywheel_setup
           event-type: upstream-changed
           client-payload: |
             {

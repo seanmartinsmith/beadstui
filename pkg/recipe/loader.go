@@ -66,7 +66,7 @@ func NewLoader(opts ...LoaderOption) *Loader {
 	if l.userPath == "" {
 		home, err := os.UserHomeDir()
 		if err == nil {
-			l.userPath = filepath.Join(home, ".config", "bv", "recipes.yaml")
+			l.userPath = filepath.Join(home, ".config", "bt", "recipes.yaml")
 		}
 	}
 
@@ -96,7 +96,7 @@ func (l *Loader) Load() error {
 
 	// 3. Load project config (optional, no error if missing)
 	if l.projectDir != "" {
-		projectPath := filepath.Join(l.projectDir, ".bv", "recipes.yaml")
+		projectPath := filepath.Join(l.projectDir, ".bt", "recipes.yaml")
 		if err := l.loadFromFile(projectPath, "project"); err != nil {
 			if !os.IsNotExist(err) {
 				l.warnings = append(l.warnings, fmt.Sprintf("project config: %v", err))

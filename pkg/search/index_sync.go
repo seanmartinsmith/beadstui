@@ -19,7 +19,7 @@ func DefaultIndexPath(projectDir string, cfg EmbeddingConfig) string {
 		provider = ProviderHash
 	}
 	safeProvider := strings.NewReplacer("/", "_", "\\", "_", " ", "_").Replace(string(provider))
-	return filepath.Join(projectDir, ".bv", "semantic", fmt.Sprintf("index-%s-%d.bvvi", safeProvider, cfg.Dim))
+	return filepath.Join(projectDir, ".bt", "semantic", fmt.Sprintf("index-%s-%d.bvvi", safeProvider, cfg.Dim))
 }
 
 type IndexSyncStats struct {

@@ -11,7 +11,7 @@ import (
 )
 
 // TestTUIPrioritySnapshot launches the TUI briefly to ensure it initializes and exits cleanly.
-// We rely on BV_TUI_AUTOCLOSE_MS to avoid hanging in CI.
+// We rely on BT_TUI_AUTOCLOSE_MS to avoid hanging in CI.
 func TestTUIPrioritySnapshot(t *testing.T) {
 	skipIfNoScript(t)
 	bv := buildBvBinary(t)
@@ -35,7 +35,7 @@ func TestTUIPrioritySnapshot(t *testing.T) {
 	cmd.Dir = tempDir
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
-		"BV_TUI_AUTOCLOSE_MS=1500",
+		"BT_TUI_AUTOCLOSE_MS=1500",
 	)
 
 	ensureCmdStdinCloses(t, ctx, cmd, 3*time.Second)
@@ -83,7 +83,7 @@ func TestTUIBackgroundModeRapidWrites(t *testing.T) {
 	cmd.Dir = tempDir
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
-		"BV_TUI_AUTOCLOSE_MS=2000",
+		"BT_TUI_AUTOCLOSE_MS=2000",
 	)
 
 	stdinR, stdinW := io.Pipe()

@@ -21,10 +21,10 @@ func TestExportContextToEnv(t *testing.T) {
 	env := ctx.ToEnv()
 
 	expected := map[string]string{
-		"BV_EXPORT_PATH":   "/tmp/export.md",
-		"BV_EXPORT_FORMAT": "markdown",
-		"BV_ISSUE_COUNT":   "42",
-		"BV_TIMESTAMP":     "2025-11-30T10:30:00Z",
+		"BT_EXPORT_PATH":   "/tmp/export.md",
+		"BT_EXPORT_FORMAT": "markdown",
+		"BT_ISSUE_COUNT":   "42",
+		"BT_TIMESTAMP":     "2025-11-30T10:30:00Z",
 	}
 
 	for _, e := range env {
@@ -62,9 +62,9 @@ func TestLoaderNoConfig(t *testing.T) {
 }
 
 func TestLoaderWithValidConfig(t *testing.T) {
-	// Create temp directory with .bv/hooks.yaml
+	// Create temp directory with .bt/hooks.yaml
 	tmpDir := t.TempDir()
-	bvDir := filepath.Join(tmpDir, ".bv")
+	bvDir := filepath.Join(tmpDir, ".bt")
 	if err := os.MkdirAll(bvDir, 0755); err != nil {
 		t.Fatalf("failed to create .bv dir: %v", err)
 	}
@@ -294,7 +294,7 @@ func TestExecutorEnvironmentVariables(t *testing.T) {
 			PreExport: []Hook{
 				{
 					Name:    "env-test",
-					Command: "echo $BV_EXPORT_PATH $BV_ISSUE_COUNT",
+					Command: "echo $BT_EXPORT_PATH $BT_ISSUE_COUNT",
 					Timeout: 5 * time.Second,
 					OnError: "fail",
 				},
@@ -420,7 +420,7 @@ func containsHelper(s, substr string) bool {
 
 func TestLoaderInvalidYAML(t *testing.T) {
 	tmpDir := t.TempDir()
-	bvDir := filepath.Join(tmpDir, ".bv")
+	bvDir := filepath.Join(tmpDir, ".bt")
 	if err := os.MkdirAll(bvDir, 0755); err != nil {
 		t.Fatalf("failed to create .bv dir: %v", err)
 	}
@@ -445,7 +445,7 @@ hooks:
 
 func TestLoaderSkipsEmptyCommands(t *testing.T) {
 	tmpDir := t.TempDir()
-	bvDir := filepath.Join(tmpDir, ".bv")
+	bvDir := filepath.Join(tmpDir, ".bt")
 	if err := os.MkdirAll(bvDir, 0755); err != nil {
 		t.Fatalf("failed to create .bv dir: %v", err)
 	}

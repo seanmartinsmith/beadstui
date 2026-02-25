@@ -10,7 +10,7 @@ import (
 
 func TestBaselineSaveLoad(t *testing.T) {
 	tmpDir := t.TempDir()
-	path := filepath.Join(tmpDir, ".bv", "baseline.json")
+	path := filepath.Join(tmpDir, ".bt", "baseline.json")
 
 	original := &Baseline{
 		Version:       CurrentVersion,
@@ -103,7 +103,7 @@ func TestExistsNonExistent(t *testing.T) {
 
 func TestDefaultPath(t *testing.T) {
 	path := DefaultPath("/project")
-	expected := filepath.Join("/project", ".bv", "baseline.json")
+	expected := filepath.Join("/project", ".bt", "baseline.json")
 	if path != expected {
 		t.Errorf("got %s, want %s", path, expected)
 	}

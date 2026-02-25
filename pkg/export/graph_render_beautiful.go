@@ -17,7 +17,7 @@ func generateUltimateHTML(title, dataHash, graphDataJSON string, nodeCount, edge
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>%s | bv Graph</title>
+    <title>%s | bt Graph</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -860,7 +860,7 @@ func generateUltimateHTML(title, dataHash, graphDataJSON string, nodeCount, edge
     </main>
     <footer>
         <div>Generated %s | Hash: %s</div>
-        <div>Project: %s | <a href="https://github.com/Dicklesworthstone/beads_viewer">bv</a></div>
+        <div>Project: %s | <a href="https://github.com/seanmartinsmith/beadstui">bv</a></div>
     </footer>
     <div class="toast" id="toast"></div>
     <div class="context-menu" id="context-menu">

@@ -12,7 +12,7 @@ import (
 )
 
 // TestBoardTUIWorkflow launches the TUI in board view mode to verify it initializes cleanly.
-// Uses BV_TUI_AUTOCLOSE_MS to avoid hanging.
+// Uses BT_TUI_AUTOCLOSE_MS to avoid hanging.
 func TestBoardTUIWorkflow(t *testing.T) {
 	skipIfNoScript(t)
 	bv := buildBvBinary(t)
@@ -42,7 +42,7 @@ func TestBoardTUIWorkflow(t *testing.T) {
 	cmd.Dir = tempDir
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
-		"BV_TUI_AUTOCLOSE_MS=1500", // Auto-close after 1.5s
+		"BT_TUI_AUTOCLOSE_MS=1500", // Auto-close after 1.5s
 	)
 
 	out, err := runCmdToFile(t, cmd)
@@ -469,8 +469,8 @@ func TestBoardSearchIntegration(t *testing.T) {
 	cmd := exec.CommandContext(ctx, bv, "--search", "authentication", "--robot-search")
 	cmd.Dir = tempDir
 	cmd.Env = append(os.Environ(),
-		"BV_SEMANTIC_EMBEDDER=hash",
-		"BV_SEMANTIC_DIM=2048",
+		"BT_SEMANTIC_EMBEDDER=hash",
+		"BT_SEMANTIC_DIM=2048",
 	)
 	out, err := cmd.CombinedOutput()
 	if err != nil {

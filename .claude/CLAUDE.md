@@ -1,4 +1,4 @@
-# beadstui (beads_viewer fork)
+# beadstui
 
 ## Session Start - READ THIS FIRST
 
@@ -29,12 +29,12 @@ Fork of Jeffrey Emanuel's beads_viewer, retargeted to upstream beads (Go/Dolt) i
 - **Language**: Go (1.25+)
 - **TUI framework**: Charm Bracelet (Bubble Tea, Lipgloss, Bubbles, Glamour)
 - **Data backends**: JSONL, SQLite, Dolt (MySQL protocol)
-- **Binary**: `bv` (being renamed to `bt`)
-- **Module**: `github.com/Dicklesworthstone/beads_viewer` (being renamed to `github.com/seanmartinsmith/beadstui`)
+- **Binary**: `bt`
+- **Module**: `github.com/seanmartinsmith/beadstui`
 
 ### Key Directories
 
-- `cmd/bv/` - main entry point (will become `cmd/bt/`)
+- `cmd/bt/` - main entry point
 - `pkg/ui/` - Bubble Tea model, update loop, views
 - `internal/datasource/` - data loading (JSONL, SQLite, Dolt)
 - `internal/dolt/` - Dolt-specific reader
@@ -72,14 +72,18 @@ If the session is ending abruptly (context limits, user stopping), at minimum do
 ## Build & Test
 
 ```bash
-go build ./cmd/bv/          # build
+go build ./cmd/bt/          # build
 go test ./...               # all tests
-go install ./cmd/bv/        # install binary
+go install ./cmd/bt/        # install binary
 ```
 
-## Naming (In Transition)
+## Naming
 
-The codebase is mid-rename. Until Stream 2 completes:
-- Code still uses `bv`, `BV_*`, `br` in places
-- The target names are: binary `bt`, env vars `BT_*`, CLI references `beads` (not `br`)
-- Don't rename things piecemeal - Stream 2 is a single atomic rename pass
+Rename complete (Stream 2). The codebase uses:
+- Binary: `bt`
+- Env vars: `BT_*`
+- CLI references: `bd` (the beads CLI)
+- Module: `github.com/seanmartinsmith/beadstui`
+- Data dir: `.bt/`
+
+Note: AGENTS.md filename is hardcoded in `pkg/agents/` (15 Go files) - content was rewritten but filename must stay `AGENTS.md`.

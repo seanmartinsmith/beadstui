@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/testutil"
+	"github.com/seanmartinsmith/beadstui/pkg/testutil"
 )
 
 func BenchmarkLoadIssuesFromFile(b *testing.B) {

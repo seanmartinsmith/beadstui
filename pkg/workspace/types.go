@@ -9,7 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Config represents a workspace configuration file (.bv/workspace.yaml)
+// Config represents a workspace configuration file (.bt/workspace.yaml)
 type Config struct {
 	// Name is the workspace display name
 	Name string `yaml:"name,omitempty" json:"name,omitempty"`
@@ -180,7 +180,7 @@ func LoadConfig(path string) (*Config, error) {
 	return &config, nil
 }
 
-// FindWorkspaceConfig searches for .bv/workspace.yaml starting from dir
+// FindWorkspaceConfig searches for .bt/workspace.yaml starting from dir
 func FindWorkspaceConfig(dir string) (string, error) {
 	if dir == "" {
 		var err error
@@ -190,9 +190,9 @@ func FindWorkspaceConfig(dir string) (string, error) {
 		}
 	}
 
-	// Walk up the directory tree looking for .bv/workspace.yaml
+	// Walk up the directory tree looking for .bt/workspace.yaml
 	for {
-		candidate := filepath.Join(dir, ".bv", "workspace.yaml")
+		candidate := filepath.Join(dir, ".bt", "workspace.yaml")
 		if _, err := os.Stat(candidate); err == nil {
 			return candidate, nil
 		}

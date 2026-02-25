@@ -7,7 +7,7 @@ import (
 
 // version is set at build time by GoReleaser or manual ldflags:
 //
-//	go build -ldflags "-X github.com/Dicklesworthstone/beads_viewer/pkg/version.version=v1.2.3"
+//	go build -ldflags "-X github.com/seanmartinsmith/beadstui/pkg/version.version=v1.2.3"
 //
 // It starts empty so init() can distinguish "ldflags set it" from "no injection".
 var version string

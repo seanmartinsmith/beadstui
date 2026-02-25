@@ -1,4 +1,4 @@
-# AGENTS.md — beads_viewer
+# AGENTS.md — beadstui
 
 > Guidelines for AI coding agents working in this Go codebase.
 
@@ -158,14 +158,14 @@ Cross-package integration tests live in the `tests/` directory.
 
 ### Never Open Browsers
 
-**Tests must NEVER automatically open a browser.** All browser-opening functions check `BV_NO_BROWSER` and `BV_TEST_MODE` environment variables. These are set globally via `TestMain` in:
+**Tests must NEVER automatically open a browser.** All browser-opening functions check `BT_NO_BROWSER` and `BT_TEST_MODE` environment variables. These are set globally via `TestMain` in:
 - `tests/e2e/common_test.go`
 - `pkg/export/main_test.go`
 - `pkg/ui/main_test.go`
 
 When adding new browser-opening code, always check these env vars first:
 ```go
-if os.Getenv("BV_NO_BROWSER") != "" || os.Getenv("BV_TEST_MODE") != "" {
+if os.Getenv("BT_NO_BROWSER") != "" || os.Getenv("BT_TEST_MODE") != "" {
     return nil
 }
 ```
@@ -228,9 +228,9 @@ If you aren't 100% sure how to use a third-party library, **SEARCH ONLINE** to f
 
 ---
 
-## beads_viewer — This Project
+## beadstui — This Project
 
-**This is the project you're working on.** beads_viewer (`bv`) is a graph-aware triage engine for Beads projects (`.beads/beads.jsonl`). It computes PageRank, betweenness, critical path, cycles, HITS, eigenvector, and k-core metrics deterministically. It provides both an interactive TUI and machine-readable `--robot-*` JSON outputs for AI agent consumption.
+**This is the project you're working on.** beadstui (`bt`) is a graph-aware triage engine for Beads projects (`.beads/beads.jsonl`). It computes PageRank, betweenness, critical path, cycles, HITS, eigenvector, and k-core metrics deterministically. It provides both an interactive TUI and machine-readable `--robot-*` JSON outputs for AI agent consumption.
 
 ### What It Does
 
@@ -257,7 +257,7 @@ Analyzes Beads issue graphs to produce actionable triage recommendations, parall
 ### Project Structure
 
 ```
-beads_viewer/
+beadstui/
 ├── go.mod                          # Module root (Go 1.25+)
 ├── cmd/bv/                         # CLI entry point (cobra)
 ├── pkg/
@@ -300,7 +300,7 @@ beads_viewer/
 - **Division safety** — always guard against division by zero before computing averages/ratios
 - **Nil checks** — always check for nil before dereferencing pointers, especially in graph traversal
 - **Concurrency** — use `sync.RWMutex` for shared state; capture channels before unlock to avoid races
-- **Browser safety** — all browser-opening functions gated by `BV_NO_BROWSER` / `BV_TEST_MODE` env vars
+- **Browser safety** — all browser-opening functions gated by `BT_NO_BROWSER` / `BT_TEST_MODE` env vars
 
 ### Logging & Console Output
 
@@ -329,9 +329,9 @@ bv --search "login oauth" --search-mode hybrid --robot-search
 ```
 
 Env defaults:
-- `BV_SEARCH_MODE` (text|hybrid)
-- `BV_SEARCH_PRESET` (default|bug-hunting|sprint-planning|impact-first|text-only)
-- `BV_SEARCH_WEIGHTS` (JSON string, overrides preset)
+- `BT_SEARCH_MODE` (text|hybrid)
+- `BT_SEARCH_PRESET` (default|bug-hunting|sprint-planning|impact-first|text-only)
+- `BT_SEARCH_WEIGHTS` (JSON string, overrides preset)
 
 ### Static Site Export for Stakeholder Reporting
 
@@ -339,10 +339,10 @@ Generate a static dashboard for non-technical stakeholders:
 
 ```bash
 # Interactive wizard (recommended)
-bv --pages
+bt --pages
 
 # Or export locally
-bv --export-pages ./dashboard --pages-title "Sprint 42 Status"
+bt --export-pages ./dashboard --pages-title "Sprint 42 Status"
 ```
 
 The output is a self-contained HTML/JS bundle that:
@@ -353,19 +353,19 @@ The output is a self-contained HTML/JS bundle that:
 - Requires no installation to view
 
 **Deployment options:**
-- `bv --pages` → Interactive wizard for GitHub Pages deployment
-- `bv --export-pages ./dir` → Local export for custom hosting
+- `bt --pages` → Interactive wizard for GitHub Pages deployment
+- `bt --export-pages ./dir` → Local export for custom hosting
 - `bv --preview-pages ./dir` → Preview bundle locally
 
 **For CI/CD integration:**
 ```bash
-bv --export-pages ./bv-pages --pages-title "Nightly Build"
+bt --export-pages ./bv-pages --pages-title "Nightly Build"
 # Then deploy ./bv-pages to your hosting of choice
 ```
 
 ### Go Best Practices
 
-Follow all practices in `GOLANG_BEST_PRACTICES.md`. Key points:
+Follow all practices in `docs/GOLANG_BEST_PRACTICES.md`. Key points:
 
 **Error Handling:**
 ```go
@@ -472,7 +472,7 @@ A mail-like layer that lets coding agents coordinate asynchronously via MCP tool
 
 Beads provides a lightweight, dependency-aware issue database and CLI (`br` - beads_rust) for selecting "ready work," setting priorities, and tracking status. It complements MCP Agent Mail's messaging and file reservations.
 
-**Important:** `br` is non-invasive—it NEVER runs git commands automatically. You must manually commit changes after `br sync --flush-only`.
+**Important:** `br` is non-invasive—it NEVER runs git commands automatically. You must manually commit changes after `bd sync --flush-only`.
 
 ### Conventions
 
@@ -484,7 +484,7 @@ Beads provides a lightweight, dependency-aware issue database and CLI (`br` - be
 
 1. **Pick ready work (Beads):**
    ```bash
-   br ready --json  # Choose highest priority, no blockers
+   bd ready --json  # Choose highest priority, no blockers
    ```
 
 2. **Reserve edit surface (Mail):**
@@ -501,8 +501,8 @@ Beads provides a lightweight, dependency-aware issue database and CLI (`br` - be
 
 5. **Complete and release:**
    ```bash
-   br close 123 --reason "Completed"
-   br sync --flush-only  # Export to JSONL (no git operations)
+   bd close 123 --reason "Completed"
+   bd sync --flush-only  # Export to JSONL (no git operations)
    ```
    ```
    release_file_reservations(project_key, agent_name, paths=["pkg/**"])
@@ -526,11 +526,11 @@ bv is a graph-aware triage engine for Beads projects (`.beads/beads.jsonl`). It 
 
 **Scope boundary:** bv handles *what to work on* (triage, priority, planning). For agent-to-agent coordination (messaging, work claiming, file reservations), use MCP Agent Mail.
 
-**CRITICAL: Use ONLY `--robot-*` flags. Bare `bv` launches an interactive TUI that blocks your session.**
+**CRITICAL: Use ONLY `--robot-*` flags. Bare `bt` launches an interactive TUI that blocks your session.**
 
 ### The Workflow: Start With Triage
 
-**`bv --robot-triage` is your single entry point.** It returns:
+**`bt --robot-triage` is your single entry point.** It returns:
 - `quick_ref`: at-a-glance counts + top 3 picks
 - `recommendations`: ranked actionable items with scores, reasons, unblock info
 - `quick_wins`: low-effort high-impact items
@@ -539,8 +539,8 @@ bv is a graph-aware triage engine for Beads projects (`.beads/beads.jsonl`). It 
 - `commands`: copy-paste shell commands for next steps
 
 ```bash
-bv --robot-triage        # THE MEGA-COMMAND: start here
-bv --robot-next          # Minimal: just the single top pick + claim command
+bt --robot-triage        # THE MEGA-COMMAND: start here
+bt --robot-next          # Minimal: just the single top pick + claim command
 ```
 
 ### Command Reference
@@ -578,12 +578,12 @@ bv --robot-next          # Minimal: just the single top pick + claim command
 ### Scoping & Filtering
 
 ```bash
-bv --robot-plan --label backend              # Scope to label's subgraph
-bv --robot-insights --as-of HEAD~30          # Historical point-in-time
+bt --robot-plan --label backend              # Scope to label's subgraph
+bt --robot-insights --as-of HEAD~30          # Historical point-in-time
 bv --recipe actionable --robot-plan          # Pre-filter: ready to work
 bv --recipe high-impact --robot-triage       # Pre-filter: top PageRank
-bv --robot-triage --robot-triage-by-track    # Group by parallel work streams
-bv --robot-triage --robot-triage-by-label    # Group by domain
+bt --robot-triage --robot-triage-by-track    # Group by parallel work streams
+bt --robot-triage --robot-triage-by-label    # Group by domain
 ```
 
 ### Understanding Robot Output
@@ -600,11 +600,11 @@ bv --robot-triage --robot-triage-by-label    # Group by domain
 ### jq Quick Reference
 
 ```bash
-bv --robot-triage | jq '.quick_ref'                        # At-a-glance summary
-bv --robot-triage | jq '.recommendations[0]'               # Top recommendation
-bv --robot-plan | jq '.plan.summary.highest_impact'        # Best unblock target
-bv --robot-insights | jq '.status'                         # Check metric readiness
-bv --robot-insights | jq '.Cycles'                         # Circular deps (must fix!)
+bt --robot-triage | jq '.quick_ref'                        # At-a-glance summary
+bt --robot-triage | jq '.recommendations[0]'               # Top recommendation
+bt --robot-plan | jq '.plan.summary.highest_impact'        # Best unblock target
+bt --robot-insights | jq '.status'                         # Check metric readiness
+bt --robot-insights | jq '.Cycles'                         # Circular deps (must fix!)
 ```
 
 ---
@@ -737,7 +737,7 @@ rg -l -t go 'sync.Mutex' | xargs ast-grep run -l Go -p 'mu.Lock()'
 
 ```
 mcp__morph-mcp__warp_grep(
-  repoPath: "/dp/beads_viewer",
+  repoPath: "/dp/beadstui",
   query: "How does the correlation package detect orphan commits?"
 )
 ```
@@ -756,9 +756,9 @@ Returns structured results with file paths, line ranges, and extracted code snip
 
 ## Beads Workflow Integration
 
-This project uses [beads_rust](https://github.com/Dicklesworthstone/beads_rust) (`br`) for issue tracking. Issues are stored in `.beads/` and tracked in git.
+This project uses [beads](https://github.com/yegge/beads) (`bd`) for issue tracking. Issues are stored in `.beads/` and tracked in git (with Dolt as the primary backend).
 
-**Important:** `br` is non-invasive—it NEVER executes git commands. After `br sync --flush-only`, you must manually run `git add .beads/ && git commit`.
+**Important:** `bd` is non-invasive - it NEVER executes git commands. After `bd sync --flush-only`, you must manually run `git add .beads/ && git commit`.
 
 ### Essential Commands
 
@@ -767,30 +767,30 @@ This project uses [beads_rust](https://github.com/Dicklesworthstone/beads_rust) 
 bv
 
 # CLI commands for agents (use these instead)
-br ready              # Show issues ready to work (no blockers)
-br list --status=open # All open issues
-br show <id>          # Full issue details with dependencies
-br create --title="..." --type=task --priority=2
-br update <id> --status=in_progress
-br close <id> --reason "Completed"
-br close <id1> <id2>  # Close multiple issues at once
-br sync --flush-only  # Export to JSONL (NO git operations)
+bd ready              # Show issues ready to work (no blockers)
+bd list --status=open # All open issues
+bd show <id>          # Full issue details with dependencies
+bd create --title="..." --type=task --priority=2
+bd update <id> --status=in_progress
+bd close <id> --reason "Completed"
+bd close <id1> <id2>  # Close multiple issues at once
+bd sync --flush-only  # Export to JSONL (NO git operations)
 ```
 
 ### Workflow Pattern
 
-1. **Start**: Run `br ready` to find actionable work
-2. **Claim**: Use `br update <id> --status=in_progress`
+1. **Start**: Run `bd ready` to find actionable work
+2. **Claim**: Use `bd update <id> --status=in_progress`
 3. **Work**: Implement the task
-4. **Complete**: Use `br close <id>`
-5. **Sync**: Run `br sync --flush-only` then manually commit
+4. **Complete**: Use `bd close <id>`
+5. **Sync**: Run `bd sync --flush-only` then manually commit
 
 ### Key Concepts
 
-- **Dependencies**: Issues can block other issues. `br ready` shows only unblocked work.
+- **Dependencies**: Issues can block other issues. `bd ready` shows only unblocked work.
 - **Priority**: P0=critical, P1=high, P2=medium, P3=low, P4=backlog (use numbers, not words)
 - **Types**: task, bug, feature, epic, question, docs
-- **Blocking**: `br dep add <issue> <depends-on>` to add dependencies
+- **Blocking**: `bd dep add <issue> <depends-on>` to add dependencies
 
 ### Session Protocol
 
@@ -799,7 +799,7 @@ br sync --flush-only  # Export to JSONL (NO git operations)
 ```bash
 git status              # Check what changed
 git add <files>         # Stage code changes
-br sync --flush-only    # Export beads to JSONL
+bd sync --flush-only    # Export beads to JSONL
 git add .beads/         # Stage beads changes
 git commit -m "..."     # Commit everything together
 git push                # Push to remote
@@ -807,11 +807,11 @@ git push                # Push to remote
 
 ### Best Practices
 
-- Check `br ready` at session start to find available work
+- Check `bd ready` at session start to find available work
 - Update status as you work (in_progress → closed)
-- Create new issues with `br create` when you discover tasks
+- Create new issues with `bd create` when you discover tasks
 - Use descriptive titles and set appropriate priority/type
-- Always `br sync --flush-only && git add .beads/` before ending session
+- Always `bd sync --flush-only && git add .beads/` before ending session
 
 <!-- end-bv-agent-instructions -->
 
@@ -892,7 +892,7 @@ Treat cass as a way to avoid re-solving problems other agents already handled.
 1. **File issues for remaining work** - Create issues for anything that needs follow-up
 2. **Run quality gates** (if code changed) - Tests, linters, builds
 3. **Update issue status** - Close finished work, update in-progress items
-4. **Sync beads** - `br sync --flush-only` to export to JSONL
+4. **Sync beads** - `bd sync --flush-only` to export to JSONL
 5. **Hand off** - Provide context for next session
 
 ---

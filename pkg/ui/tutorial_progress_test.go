@@ -99,7 +99,7 @@ func TestTutorialProgressManager_SaveLoad(t *testing.T) {
 	}
 
 	// Verify file exists
-	configPath := filepath.Join(tmpDir, ".config", "bv", "tutorial-progress.json")
+	configPath := filepath.Join(tmpDir, ".config", "bt", "tutorial-progress.json")
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		t.Fatal("Config file was not created")
 	}
@@ -154,7 +154,7 @@ func TestTutorialProgressManager_LoadInvalidJSON(t *testing.T) {
 	t.Setenv("HOME", tmpDir)
 
 	// Create invalid JSON file
-	configPath := filepath.Join(tmpDir, ".config", "bv", "tutorial-progress.json")
+	configPath := filepath.Join(tmpDir, ".config", "bt", "tutorial-progress.json")
 	if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
 		t.Fatalf("MkdirAll failed: %v", err)
 	}
@@ -344,7 +344,7 @@ func TestTutorialModel_SaveProgress(t *testing.T) {
 	}
 
 	// Verify file was created
-	configPath := filepath.Join(tmpDir, ".config", "bv", "tutorial-progress.json")
+	configPath := filepath.Join(tmpDir, ".config", "bt", "tutorial-progress.json")
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		t.Fatal("Progress file was not created")
 	}

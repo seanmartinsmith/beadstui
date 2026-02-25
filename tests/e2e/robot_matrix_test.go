@@ -461,13 +461,13 @@ func TestRobotMode_IgnoresBackgroundModeFlagAndEnv(t *testing.T) {
 		t.Fatalf("baseline missing data_hash")
 	}
 
-	// BV_BACKGROUND_MODE should not impact robot mode behavior/output.
+	// BT_BACKGROUND_MODE should not impact robot mode behavior/output.
 	envCmd := exec.CommandContext(ctx, bv, "--robot-triage")
 	envCmd.Dir = env
-	envCmd.Env = append(os.Environ(), "BV_BACKGROUND_MODE=1")
+	envCmd.Env = append(os.Environ(), "BT_BACKGROUND_MODE=1")
 	envOut, err := envCmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("BV_BACKGROUND_MODE=1 --robot-triage failed: %v\n%s", err, envOut)
+		t.Fatalf("BT_BACKGROUND_MODE=1 --robot-triage failed: %v\n%s", err, envOut)
 	}
 	var envPayload struct {
 		DataHash string `json:"data_hash"`
@@ -476,7 +476,7 @@ func TestRobotMode_IgnoresBackgroundModeFlagAndEnv(t *testing.T) {
 		t.Fatalf("env json decode: %v\nout=%s", err, envOut)
 	}
 	if envPayload.DataHash != baseline.DataHash {
-		t.Fatalf("data_hash changed with BV_BACKGROUND_MODE=1: %s vs %s", envPayload.DataHash, baseline.DataHash)
+		t.Fatalf("data_hash changed with BT_BACKGROUND_MODE=1: %s vs %s", envPayload.DataHash, baseline.DataHash)
 	}
 
 	// --background-mode flag should be accepted but ignored for robot commands.

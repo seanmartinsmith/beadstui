@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 func TestComputeTriage_Empty(t *testing.T) {
@@ -68,8 +68,8 @@ func TestComputeTriage_BasicIssues(t *testing.T) {
 	}
 
 	// Commands should be populated
-	if triage.Commands.ListReady != "CI=1 br ready --json" {
-		t.Errorf("expected 'CI=1 br ready --json' command, got %s", triage.Commands.ListReady)
+	if triage.Commands.ListReady != "CI=1 bd ready --json" {
+		t.Errorf("expected 'CI=1 bd ready --json' command, got %s", triage.Commands.ListReady)
 	}
 }
 
@@ -355,7 +355,7 @@ func TestTriageEmptyCommands(t *testing.T) {
 
 	triage := ComputeTriage(issues)
 
-	if triage.Commands.ClaimTop != "CI=1 br ready --json  # No top pick available" {
+	if triage.Commands.ClaimTop != "CI=1 bd ready --json  # No top pick available" {
 		t.Errorf("unexpected ClaimTop fallback: %q", triage.Commands.ClaimTop)
 	}
 }
@@ -365,10 +365,10 @@ func TestTriageNoRecommendationsCommands(t *testing.T) {
 	triage := ComputeTriage(nil)
 
 	// Commands should be valid even with no recommendations
-	if triage.Commands.ListReady != "CI=1 br ready --json" {
-		t.Errorf("expected 'CI=1 br ready --json', got %s", triage.Commands.ListReady)
+	if triage.Commands.ListReady != "CI=1 bd ready --json" {
+		t.Errorf("expected 'CI=1 bd ready --json', got %s", triage.Commands.ListReady)
 	}
-	if triage.Commands.ClaimTop != "CI=1 br ready --json  # No top pick available" {
+	if triage.Commands.ClaimTop != "CI=1 bd ready --json  # No top pick available" {
 		t.Errorf("unexpected ClaimTop fallback: %q", triage.Commands.ClaimTop)
 	}
 }
@@ -1346,7 +1346,7 @@ func TestComputeTriageFromAnalyzer_Empty(t *testing.T) {
 
 // TestBuildTopPicks_FiltersBlockedItems verifies that blocked items are excluded from TopPicks.
 // This is critical for --robot-next which should only return actionable items.
-// Fixes: https://github.com/Dicklesworthstone/beads_viewer/issues/53
+// Fixes: https://github.com/seanmartinsmith/beadstui/issues/53
 func TestBuildTopPicks_FiltersBlockedItems(t *testing.T) {
 	recommendations := []Recommendation{
 		{

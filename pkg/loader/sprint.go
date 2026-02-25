@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // SprintsFileName is the canonical filename for sprint storage.
@@ -54,7 +54,7 @@ func ParseSprints(r io.Reader) ([]model.Sprint, error) {
 	warn := func(msg string) {
 		fmt.Fprintf(os.Stderr, "Warning: %s\n", msg)
 	}
-	if os.Getenv("BV_ROBOT") == "1" {
+	if os.Getenv("BT_ROBOT") == "1" {
 		warn = func(string) {}
 	}
 

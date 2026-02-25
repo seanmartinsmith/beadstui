@@ -14,7 +14,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/recipe"
+	"github.com/seanmartinsmith/beadstui/pkg/recipe"
 )
 
 func TestBackgroundWorker_NewWithoutPath(t *testing.T) {
@@ -38,10 +38,10 @@ func TestBackgroundWorker_NewWithoutPath(t *testing.T) {
 }
 
 func TestBackgroundWorker_NewWithoutPath_EnvDefaults(t *testing.T) {
-	t.Setenv("BV_DEBOUNCE_MS", "123")
-	t.Setenv("BV_CHANNEL_BUFFER", "3")
-	t.Setenv("BV_HEARTBEAT_INTERVAL_S", "9")
-	t.Setenv("BV_WATCHDOG_INTERVAL_S", "11")
+	t.Setenv("BT_DEBOUNCE_MS", "123")
+	t.Setenv("BT_CHANNEL_BUFFER", "3")
+	t.Setenv("BT_HEARTBEAT_INTERVAL_S", "9")
+	t.Setenv("BT_WATCHDOG_INTERVAL_S", "11")
 
 	worker, err := NewBackgroundWorker(WorkerConfig{BeadsPath: ""})
 	if err != nil {
@@ -64,12 +64,12 @@ func TestBackgroundWorker_NewWithoutPath_EnvDefaults(t *testing.T) {
 }
 
 func TestEnvMaxLineSizeBytes(t *testing.T) {
-	t.Setenv("BV_MAX_LINE_SIZE_MB", "12")
+	t.Setenv("BT_MAX_LINE_SIZE_MB", "12")
 	if got := envMaxLineSizeBytes(); got != 12*1024*1024 {
 		t.Errorf("envMaxLineSizeBytes()=%d, want %d", got, 12*1024*1024)
 	}
 
-	t.Setenv("BV_MAX_LINE_SIZE_MB", "-1")
+	t.Setenv("BT_MAX_LINE_SIZE_MB", "-1")
 	if got := envMaxLineSizeBytes(); got != 0 {
 		t.Errorf("envMaxLineSizeBytes() with invalid env=%d, want %d", got, 0)
 	}
@@ -346,7 +346,7 @@ func TestBackgroundWorker_ContentHashChanges(t *testing.T) {
 }
 
 func TestBackgroundWorker_MetricsSnapshot(t *testing.T) {
-	t.Setenv("BV_WORKER_METRICS", "1")
+	t.Setenv("BT_WORKER_METRICS", "1")
 
 	tmpDir := t.TempDir()
 	beadsPath := filepath.Join(tmpDir, "beads.jsonl")
@@ -397,7 +397,7 @@ func TestBackgroundWorker_MetricsSnapshot(t *testing.T) {
 }
 
 func TestBackgroundWorker_IncrementalListMetrics(t *testing.T) {
-	t.Setenv("BV_WORKER_METRICS", "1")
+	t.Setenv("BT_WORKER_METRICS", "1")
 
 	tmpDir := t.TempDir()
 	beadsPath := filepath.Join(tmpDir, "beads.jsonl")

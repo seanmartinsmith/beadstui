@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/agents"
+	"github.com/seanmartinsmith/beadstui/pkg/agents"
 )
 
 // TestAgentsE2E_DetectionFlow tests the complete detection flow across different scenarios.
@@ -323,7 +323,7 @@ func TestAgentsE2E_LegacyBlurbMigration(t *testing.T) {
 	}
 
 	// Verify new content
-	if !strings.Contains(string(content), "br ready") {
+	if !strings.Contains(string(content), "bd ready") {
 		t.Error("Should have current blurb content")
 	}
 }

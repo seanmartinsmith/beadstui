@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // ============================================================================
@@ -447,7 +447,7 @@ func TestSuggestLabels_SuggestionFormat(t *testing.T) {
 	if sug.ActionCommand == "" {
 		t.Error("ActionCommand is empty")
 	}
-	if !strings.Contains(sug.ActionCommand, "br update") {
+	if !strings.Contains(sug.ActionCommand, "bd update") {
 		t.Errorf("ActionCommand should contain 'br update', got: %s", sug.ActionCommand)
 	}
 	if !strings.Contains(sug.ActionCommand, "--add-label") {

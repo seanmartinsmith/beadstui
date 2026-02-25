@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/recipe"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/recipe"
 )
 
 func TestFilterByRepo_CaseInsensitiveAndFlexibleSeparators(t *testing.T) {
@@ -56,7 +56,7 @@ func TestRobotFlagsOutputJSON(t *testing.T) {
 	}
 
 	// Build a temporary bv binary using the repo module
-	bin := filepath.Join(tmpDir, "bv")
+	bin := filepath.Join(tmpDir, "bt")
 	build := exec.Command("go", "build", "-C", repoRoot(t), "-o", bin, "./cmd/bv")
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("failed to build bv: %v\n%s", err, out)

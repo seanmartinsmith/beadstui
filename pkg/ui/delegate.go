@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/analysis"
+	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"

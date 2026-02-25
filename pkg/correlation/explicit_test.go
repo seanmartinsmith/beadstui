@@ -45,7 +45,7 @@ func TestExtractIDsFromMessage(t *testing.T) {
 			wantType: "bead",
 		},
 		{
-			name:     "bv format",
+			name:     "bt format",
 			message:  "Implement bv-67 feature",
 			wantIDs:  []string{"bv-67"},
 			wantType: "bead",

@@ -318,8 +318,8 @@ func TestDeleteRepository_NoConfirm(t *testing.T) {
 }
 
 func TestOpenInBrowser_TestMode(t *testing.T) {
-	// BV_TEST_MODE is set in main_test.go TestMain, so this should be a no-op
-	t.Setenv("BV_NO_BROWSER", "1")
+	// BT_TEST_MODE is set in main_test.go TestMain, so this should be a no-op
+	t.Setenv("BT_NO_BROWSER", "1")
 	err := OpenInBrowser("https://example.com")
 	if err != nil {
 		t.Errorf("Expected no error in test mode, got: %v", err)

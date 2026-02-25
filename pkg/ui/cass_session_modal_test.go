@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/cass"
+	"github.com/seanmartinsmith/beadstui/pkg/cass"
 	tea "github.com/charmbracelet/bubbletea"
 )
 

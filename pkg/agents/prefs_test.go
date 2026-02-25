@@ -229,13 +229,13 @@ func TestGetPrefsDir(t *testing.T) {
 	if !filepath.IsAbs(dir) {
 		t.Errorf("Expected absolute path, got %s", dir)
 	}
-	if !contains(dir, "bv") || !contains(dir, "agent-prompts") {
+	if !contains(dir, "bt") || !contains(dir, "agent-prompts") {
 		t.Errorf("Unexpected prefs dir: %s", dir)
 	}
 }
 
 func contains(s, substr string) bool {
-	return filepath.Base(filepath.Dir(s)) == "bv" && filepath.Base(s) == "agent-prompts" ||
+	return filepath.Base(filepath.Dir(s)) == "bt" && filepath.Base(s) == "agent-prompts" ||
 		len(s) > 0 && (s[len(s)-len(substr):] == substr || contains(s[:len(s)-1], substr))
 }
 

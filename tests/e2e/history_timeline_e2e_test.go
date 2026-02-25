@@ -266,7 +266,7 @@ func TestTimelineTUIToggleWithTimeout(t *testing.T) {
 	cmd.Dir = repoDir
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
-		"BV_TUI_AUTOCLOSE_MS=2000", // Auto-close after 2s
+		"BT_TUI_AUTOCLOSE_MS=2000", // Auto-close after 2s
 	)
 
 	ensureCmdStdinCloses(t, ctx, cmd, 3*time.Second)

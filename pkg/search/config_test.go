@@ -461,23 +461,23 @@ func TestProviderConstants(t *testing.T) {
 
 func TestEnvironmentVariableConstants(t *testing.T) {
 	// Verify env var names follow expected pattern
-	if EnvSemanticEmbedder != "BV_SEMANTIC_EMBEDDER" {
-		t.Errorf("EnvSemanticEmbedder = %q, want %q", EnvSemanticEmbedder, "BV_SEMANTIC_EMBEDDER")
+	if EnvSemanticEmbedder != "BT_SEMANTIC_EMBEDDER" {
+		t.Errorf("EnvSemanticEmbedder = %q, want %q", EnvSemanticEmbedder, "BT_SEMANTIC_EMBEDDER")
 	}
-	if EnvSemanticModel != "BV_SEMANTIC_MODEL" {
-		t.Errorf("EnvSemanticModel = %q, want %q", EnvSemanticModel, "BV_SEMANTIC_MODEL")
+	if EnvSemanticModel != "BT_SEMANTIC_MODEL" {
+		t.Errorf("EnvSemanticModel = %q, want %q", EnvSemanticModel, "BT_SEMANTIC_MODEL")
 	}
-	if EnvSemanticDim != "BV_SEMANTIC_DIM" {
-		t.Errorf("EnvSemanticDim = %q, want %q", EnvSemanticDim, "BV_SEMANTIC_DIM")
+	if EnvSemanticDim != "BT_SEMANTIC_DIM" {
+		t.Errorf("EnvSemanticDim = %q, want %q", EnvSemanticDim, "BT_SEMANTIC_DIM")
 	}
-	if EnvSearchMode != "BV_SEARCH_MODE" {
-		t.Errorf("EnvSearchMode = %q, want %q", EnvSearchMode, "BV_SEARCH_MODE")
+	if EnvSearchMode != "BT_SEARCH_MODE" {
+		t.Errorf("EnvSearchMode = %q, want %q", EnvSearchMode, "BT_SEARCH_MODE")
 	}
-	if EnvSearchPreset != "BV_SEARCH_PRESET" {
-		t.Errorf("EnvSearchPreset = %q, want %q", EnvSearchPreset, "BV_SEARCH_PRESET")
+	if EnvSearchPreset != "BT_SEARCH_PRESET" {
+		t.Errorf("EnvSearchPreset = %q, want %q", EnvSearchPreset, "BT_SEARCH_PRESET")
 	}
-	if EnvSearchWeights != "BV_SEARCH_WEIGHTS" {
-		t.Errorf("EnvSearchWeights = %q, want %q", EnvSearchWeights, "BV_SEARCH_WEIGHTS")
+	if EnvSearchWeights != "BT_SEARCH_WEIGHTS" {
+		t.Errorf("EnvSearchWeights = %q, want %q", EnvSearchWeights, "BT_SEARCH_WEIGHTS")
 	}
 }
 

@@ -345,7 +345,7 @@ func BenchmarkGraphInsights(b *testing.B) {
 
 	bv := bvBinaryPath
 	if bv == "" {
-		b.Skip("bv binary not built")
+		b.Skip("bt binary not built")
 	}
 
 	b.ResetTimer()

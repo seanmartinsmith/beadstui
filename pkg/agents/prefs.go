@@ -36,7 +36,7 @@ func getPrefsDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(configDir, "bv", "agent-prompts"), nil
+	return filepath.Join(configDir, "bt", "agent-prompts"), nil
 }
 
 // projectHash generates a consistent hash for a project directory.

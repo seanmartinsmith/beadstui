@@ -22,18 +22,18 @@ func TestExportPages_IncludesHistoryAndRunsHooks(t *testing.T) {
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
 	// Configure hooks to prove pre/post phases run.
-	if err := os.MkdirAll(filepath.Join(repoDir, ".bv"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(repoDir, ".bt"), 0o755); err != nil {
 		t.Fatalf("mkdir .bv: %v", err)
 	}
 	hooksYAML := `hooks:
   pre-export:
     - name: pre
-      command: 'mkdir -p "$BV_EXPORT_PATH" && echo pre > "$BV_EXPORT_PATH/pre-hook.txt"'
+      command: 'mkdir -p "$BT_EXPORT_PATH" && echo pre > "$BT_EXPORT_PATH/pre-hook.txt"'
   post-export:
     - name: post
-      command: 'echo post > "$BV_EXPORT_PATH/post-hook.txt"'
+      command: 'echo post > "$BT_EXPORT_PATH/post-hook.txt"'
 `
-	if err := os.WriteFile(filepath.Join(repoDir, ".bv", "hooks.yaml"), []byte(hooksYAML), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(repoDir, ".bt", "hooks.yaml"), []byte(hooksYAML), 0o644); err != nil {
 		t.Fatalf("write hooks.yaml: %v", err)
 	}
 

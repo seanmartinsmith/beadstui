@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/analysis"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/analysis"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 func TestComputeDataHash_Empty(t *testing.T) {
@@ -420,9 +420,9 @@ func TestGlobalCache(t *testing.T) {
 }
 
 func TestRobotDiskCache_WritesAndHits(t *testing.T) {
-	t.Setenv("BV_ROBOT", "1")
+	t.Setenv("BT_ROBOT", "1")
 	cacheDir := t.TempDir()
-	t.Setenv("BV_CACHE_DIR", cacheDir)
+	t.Setenv("BT_CACHE_DIR", cacheDir)
 
 	issues := []model.Issue{
 		{ID: "A", Status: model.StatusOpen},
@@ -480,9 +480,9 @@ func TestRobotDiskCache_WritesAndHits(t *testing.T) {
 }
 
 func TestRobotDiskCache_EvictsToMaxEntries(t *testing.T) {
-	t.Setenv("BV_ROBOT", "1")
+	t.Setenv("BT_ROBOT", "1")
 	cacheDir := t.TempDir()
-	t.Setenv("BV_CACHE_DIR", cacheDir)
+	t.Setenv("BT_CACHE_DIR", cacheDir)
 
 	config := analysis.ConfigForSize(1, 0)
 	for i := 0; i < 11; i++ {

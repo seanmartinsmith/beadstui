@@ -142,7 +142,7 @@ func TestSuggestion_IsActionable(t *testing.T) {
 		want   bool
 	}{
 		{"no_action", "", false},
-		{"with_action", "br dep add BEAD-123 BEAD-456", true},
+		{"with_action", "bd dep add BEAD-123 BEAD-456", true},
 		{"whitespace_action", "   ", true}, // Non-empty string is actionable
 	}
 
@@ -180,11 +180,11 @@ func TestSuggestion_WithRelatedBead(t *testing.T) {
 func TestSuggestion_WithAction(t *testing.T) {
 	s := NewSuggestion(SuggestionCycleWarning, "BEAD-1", "Break cycle", "Cycle detected", 0.95)
 
-	s2 := s.WithAction("br unblock BEAD-1 --from BEAD-2")
+	s2 := s.WithAction("bd unblock BEAD-1 --from BEAD-2")
 	if s.ActionCommand != "" {
 		t.Error("Original suggestion should not be modified")
 	}
-	if s2.ActionCommand != "br unblock BEAD-1 --from BEAD-2" {
+	if s2.ActionCommand != "bd unblock BEAD-1 --from BEAD-2" {
 		t.Errorf("WithAction() ActionCommand mismatch")
 	}
 
@@ -231,7 +231,7 @@ func TestSuggestion_WithMetadata(t *testing.T) {
 func TestSuggestion_JSON(t *testing.T) {
 	s := NewSuggestion(SuggestionMissingDependency, "BEAD-1", "Add dep", "Content match", 0.75).
 		WithRelatedBead("BEAD-2").
-		WithAction("br dep add BEAD-1 BEAD-2").
+		WithAction("bd dep add BEAD-1 BEAD-2").
 		WithMetadata("source", "content_analysis")
 
 	// Serialize
@@ -289,7 +289,7 @@ func TestNewSuggestionSet_Empty(t *testing.T) {
 
 func TestNewSuggestionSet_SingleSuggestion(t *testing.T) {
 	s := NewSuggestion(SuggestionMissingDependency, "BEAD-1", "Add dep", "Reason", 0.8).
-		WithAction("br dep add BEAD-1 BEAD-2")
+		WithAction("bd dep add BEAD-1 BEAD-2")
 
 	set := NewSuggestionSet([]Suggestion{s}, "hash456")
 

@@ -50,7 +50,7 @@ func TestEndToEndRobotPlan(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 3. Run bv --robot-plan
+	// 3. Run bt --robot-plan
 	runCmd := exec.Command(binPath, "--robot-plan")
 	runCmd.Dir = envDir
 	out, err := runCmd.CombinedOutput()
@@ -109,7 +109,7 @@ func TestEndToEndRobotInsights(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 3. Run bv --robot-insights
+	// 3. Run bt --robot-insights
 	runCmd := exec.Command(binPath, "--robot-insights")
 	runCmd.Dir = envDir
 	out, err := runCmd.CombinedOutput()
@@ -149,7 +149,7 @@ func TestEndToEndRobotPriority(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 3. Run bv --robot-priority
+	// 3. Run bt --robot-priority
 	runCmd := exec.Command(binPath, "--robot-priority")
 	runCmd.Dir = envDir
 	out, err := runCmd.CombinedOutput()
@@ -179,7 +179,7 @@ func TestEndToEndRobotRecipes(t *testing.T) {
 	}
 	os.WriteFile(filepath.Join(envDir, ".beads", "beads.jsonl"), []byte("{}"), 0644)
 
-	// 3. Run bv --robot-recipes
+	// 3. Run bt --robot-recipes
 	runCmd := exec.Command(binPath, "--robot-recipes")
 	runCmd.Dir = envDir
 	out, err := runCmd.CombinedOutput()

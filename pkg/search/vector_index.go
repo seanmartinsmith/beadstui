@@ -14,7 +14,7 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/util/topk"
+	"github.com/seanmartinsmith/beadstui/pkg/util/topk"
 )
 
 const (
@@ -163,7 +163,7 @@ func (idx *VectorIndex) Save(path string) error {
 		return fmt.Errorf("mkdir %s: %w", dir, err)
 	}
 
-	tmp, err := os.CreateTemp(dir, "bvvi-*.tmp")
+	tmp, err := os.CreateTemp(dir, "btvi-*.tmp")
 	if err != nil {
 		return fmt.Errorf("create temp: %w", err)
 	}

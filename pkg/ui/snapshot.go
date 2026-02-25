@@ -1,4 +1,4 @@
-// Package ui provides the terminal user interface for beads_viewer.
+// Package ui provides the terminal user interface for beadstui.
 // This file implements the DataSnapshot type for thread-safe UI rendering.
 package ui
 
@@ -8,9 +8,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/analysis"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/recipe"
+	"github.com/seanmartinsmith/beadstui/pkg/analysis"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/recipe"
 )
 
 type datasetTier int

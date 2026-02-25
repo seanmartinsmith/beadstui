@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_OWNER="Dicklesworthstone"
-REPO_NAME="beads_viewer"
-BIN_NAME="bv"
+REPO_OWNER="seanmartinsmith"
+REPO_NAME="beadstui"
+BIN_NAME="bt"
 
 TMP_DIRS=()
 
@@ -274,7 +274,7 @@ select_release_asset() {
     local release_json
     release_json=$(cat) || return 1
 
-    BV_RELEASE_JSON="$release_json" "$PYTHON_CMD" - "$platform" "$BIN_NAME" <<'PY'
+    BT_RELEASE_JSON="$release_json" "$PYTHON_CMD" - "$platform" "$BIN_NAME" <<'PY'
 import json
 import os
 import sys
@@ -307,7 +307,7 @@ def main():
         return 1
     platform = sys.argv[1]
     bin_name = sys.argv[2]
-    release_json = os.environ.get("BV_RELEASE_JSON", "")
+    release_json = os.environ.get("BT_RELEASE_JSON", "")
     if not release_json:
         sys.stderr.write("Missing release metadata\n")
         return 1
@@ -585,7 +585,7 @@ main() {
         print_info "Run '$BIN_NAME' in any beads project to view issues."
         echo ""
         echo "Tip: You can also install via Homebrew:"
-        echo "  brew install dicklesworthstone/tap/bv"
+        echo "  brew install seanmartinsmith/tap/bt"
         exit 0
     fi
 
@@ -597,7 +597,7 @@ main() {
     print_info "Run '$BIN_NAME' in any beads project to view issues."
     echo ""
     echo "Tip: You can also install via Homebrew:"
-    echo "  brew install dicklesworthstone/tap/bv"
+    echo "  brew install seanmartinsmith/tap/bt"
 }
 
 if [[ ${BASH_SOURCE+x} != x ]]; then

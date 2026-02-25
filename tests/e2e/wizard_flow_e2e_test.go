@@ -32,7 +32,7 @@ func TestWizard_LocalExportFlow(t *testing.T) {
 	cmd := exec.Command(bv, "--pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
-	cmd.Env = append(os.Environ(), "BV_NO_BROWSER=1")
+	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -78,7 +78,7 @@ func TestWizard_GitHubFlowPrompts(t *testing.T) {
 	cmd := exec.Command(bv, "--pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
-	cmd.Env = append(os.Environ(), "BV_NO_BROWSER=1")
+	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
 
 	out, _ := cmd.CombinedOutput()
 	output := string(out)
@@ -114,7 +114,7 @@ func TestWizard_CloudflareFlowPrompts(t *testing.T) {
 	cmd := exec.Command(bv, "--pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
-	cmd.Env = append(os.Environ(), "BV_NO_BROWSER=1")
+	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
 
 	out, _ := cmd.CombinedOutput()
 	output := string(out)
@@ -139,7 +139,7 @@ func TestWizard_DeployTargetSelection(t *testing.T) {
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
 	// Add timeout to prevent hanging
-	cmd.Env = append(os.Environ(), "BV_TEST_MODE=1", "BV_NO_BROWSER=1")
+	cmd.Env = append(os.Environ(), "BT_TEST_MODE=1", "BT_NO_BROWSER=1")
 
 	out, _ := cmd.CombinedOutput()
 	output := string(out)
@@ -170,7 +170,7 @@ func TestWizard_ExportConfigPrompts(t *testing.T) {
 	cmd := exec.Command(bv, "--pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
-	cmd.Env = append(os.Environ(), "BV_NO_BROWSER=1", "BV_NO_SAVED_CONFIG=1")
+	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1", "BT_NO_SAVED_CONFIG=1")
 
 	out, _ := cmd.CombinedOutput()
 	output := string(out)
@@ -201,7 +201,7 @@ func TestWizard_BannerDisplay(t *testing.T) {
 	cmd := exec.Command(bv, "--pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
-	cmd.Env = append(os.Environ(), "BV_NO_BROWSER=1")
+	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
 
 	out, _ := cmd.CombinedOutput()
 	output := string(out)
@@ -233,7 +233,7 @@ func TestWizard_ConfigPersistence(t *testing.T) {
 	t.Setenv("HOME", tmpHome)
 
 	// Create config directory
-	configDir := filepath.Join(tmpHome, ".config", "bv")
+	configDir := filepath.Join(tmpHome, ".config", "bt")
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		t.Fatalf("create config dir: %v", err)
 	}
@@ -287,7 +287,7 @@ func TestWizard_InvalidDeployTargetRecovery(t *testing.T) {
 	cmd := exec.Command(bv, "--pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
-	cmd.Env = append(os.Environ(), "BV_NO_BROWSER=1")
+	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
 
 	out, _ := cmd.CombinedOutput()
 	output := string(out)
@@ -311,7 +311,7 @@ func TestWizard_DefaultValues(t *testing.T) {
 	cmd := exec.Command(bv, "--pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
-	cmd.Env = append(os.Environ(), "BV_NO_BROWSER=1")
+	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
 
 	out, _ := cmd.CombinedOutput()
 	output := string(out)
@@ -342,7 +342,7 @@ func TestWizard_StepProgression(t *testing.T) {
 	cmd := exec.Command(bv, "--pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
-	cmd.Env = append(os.Environ(), "BV_NO_BROWSER=1")
+	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
 
 	out, _ := cmd.CombinedOutput()
 	output := string(out)
@@ -374,7 +374,7 @@ func TestWizard_OutputDirectoryPrompt(t *testing.T) {
 	cmd := exec.Command(bv, "--pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
-	cmd.Env = append(os.Environ(), "BV_NO_BROWSER=1")
+	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
 
 	out, _ := cmd.CombinedOutput()
 	output := string(out)
@@ -399,7 +399,7 @@ func TestWizard_InterruptHandling(t *testing.T) {
 	cmd := exec.Command(bv, "--pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader("")
-	cmd.Env = append(os.Environ(), "BV_NO_BROWSER=1")
+	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
 
 	// Use a timeout to prevent hanging
 	done := make(chan error, 1)
@@ -442,7 +442,7 @@ func TestWizard_MultiplePlatformFlows(t *testing.T) {
 			cmd := exec.Command(bv, "--pages")
 			cmd.Dir = repoDir
 			cmd.Stdin = strings.NewReader(input)
-			cmd.Env = append(os.Environ(), "BV_NO_BROWSER=1")
+			cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
 
 			out, _ := cmd.CombinedOutput()
 			output := strings.ToLower(string(out))

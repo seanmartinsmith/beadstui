@@ -19,7 +19,7 @@ func TestDeployToGitHubPages_SkipConfirmation_UnauthenticatedReturnsError(t *tes
 
 	ghScript := `#!/bin/sh
 set -eu
-state_dir="${BV_TEST_STATE_DIR:-}"
+state_dir="${BT_TEST_STATE_DIR:-}"
 authed_file="$state_dir/gh_authed"
 case "${1-}" in
   auth)
@@ -41,7 +41,7 @@ exit 0
 
 	origPath := os.Getenv("PATH")
 	t.Setenv("PATH", fmt.Sprintf("%s%c%s", binDir, os.PathListSeparator, origPath))
-	t.Setenv("BV_TEST_STATE_DIR", stateDir)
+	t.Setenv("BT_TEST_STATE_DIR", stateDir)
 
 	_, err := DeployToGitHubPages(GitHubDeployConfig{
 		RepoName:         "repo",
@@ -69,7 +69,7 @@ func TestDeployToGitHubPages_BundleMissingAfterConfirmations(t *testing.T) {
 
 	ghScript := `#!/bin/sh
 set -eu
-state_dir="${BV_TEST_STATE_DIR:-}"
+state_dir="${BT_TEST_STATE_DIR:-}"
 authed_file="$state_dir/gh_authed"
 case "${1-}" in
   auth)
@@ -91,7 +91,7 @@ exit 0
 
 	origPath := os.Getenv("PATH")
 	t.Setenv("PATH", fmt.Sprintf("%s%c%s", binDir, os.PathListSeparator, origPath))
-	t.Setenv("BV_TEST_STATE_DIR", stateDir)
+	t.Setenv("BT_TEST_STATE_DIR", stateDir)
 
 	// Mark as authenticated.
 	if err := os.WriteFile(filepath.Join(stateDir, "gh_authed"), []byte("ok"), 0644); err != nil {
@@ -131,7 +131,7 @@ func TestDeployToGitHubPages_CreateRepository_ErrorSurfaced(t *testing.T) {
 
 	ghScript := `#!/bin/sh
 set -eu
-state_dir="${BV_TEST_STATE_DIR:-}"
+state_dir="${BT_TEST_STATE_DIR:-}"
 authed_file="$state_dir/gh_authed"
 
 case "${1-}" in
@@ -167,7 +167,7 @@ exit 0
 
 	origPath := os.Getenv("PATH")
 	t.Setenv("PATH", fmt.Sprintf("%s%c%s", binDir, os.PathListSeparator, origPath))
-	t.Setenv("BV_TEST_STATE_DIR", stateDir)
+	t.Setenv("BT_TEST_STATE_DIR", stateDir)
 
 	// Mark as authenticated so we reach repository creation.
 	if err := os.WriteFile(filepath.Join(stateDir, "gh_authed"), []byte("ok"), 0644); err != nil {
@@ -202,7 +202,7 @@ func TestDeployToGitHubPages_AuthenticateFlow_StopsAtGitIdentityCheck(t *testing
 
 	ghScript := `#!/bin/sh
 set -eu
-state_dir="${BV_TEST_STATE_DIR:-}"
+state_dir="${BT_TEST_STATE_DIR:-}"
 authed_file="$state_dir/gh_authed"
 case "${1-}" in
   auth)
@@ -229,7 +229,7 @@ exit 0
 
 	origPath := os.Getenv("PATH")
 	t.Setenv("PATH", fmt.Sprintf("%s%c%s", binDir, os.PathListSeparator, origPath))
-	t.Setenv("BV_TEST_STATE_DIR", stateDir)
+	t.Setenv("BT_TEST_STATE_DIR", stateDir)
 
 	// Force "git identity not configured" without touching the real user config.
 	gitConfigPath := filepath.Join(t.TempDir(), "gitconfig")
@@ -278,7 +278,7 @@ func TestDeployToCloudflarePages_SkipConfirmation_UnauthenticatedReturnsError(t 
 
 	wranglerScript := `#!/bin/sh
 set -eu
-state_dir="${BV_TEST_STATE_DIR:-}"
+state_dir="${BT_TEST_STATE_DIR:-}"
 authed_file="$state_dir/wrangler_authed"
 case "${1-}" in
   whoami)
@@ -297,7 +297,7 @@ exit 0
 
 	origPath := os.Getenv("PATH")
 	t.Setenv("PATH", fmt.Sprintf("%s%c%s", binDir, os.PathListSeparator, origPath))
-	t.Setenv("BV_TEST_STATE_DIR", stateDir)
+	t.Setenv("BT_TEST_STATE_DIR", stateDir)
 
 	_, err := DeployToCloudflarePages(CloudflareDeployConfig{
 		ProjectName:      "proj",
@@ -322,7 +322,7 @@ func TestDeployToCloudflarePages_AuthenticateFlow_ReachesBundleCheck(t *testing.
 
 	wranglerScript := `#!/bin/sh
 set -eu
-state_dir="${BV_TEST_STATE_DIR:-}"
+state_dir="${BT_TEST_STATE_DIR:-}"
 authed_file="$state_dir/wrangler_authed"
 case "${1-}" in
   whoami)
@@ -345,7 +345,7 @@ exit 0
 
 	origPath := os.Getenv("PATH")
 	t.Setenv("PATH", fmt.Sprintf("%s%c%s", binDir, os.PathListSeparator, origPath))
-	t.Setenv("BV_TEST_STATE_DIR", stateDir)
+	t.Setenv("BT_TEST_STATE_DIR", stateDir)
 
 	// Single prompt: authenticate now? (account confirm is skipped when AccountName is empty)
 	withStdin(t, "y\n", func() {
@@ -373,7 +373,7 @@ func TestDeployToCloudflarePages_BundleMissingAfterAccountConfirm(t *testing.T) 
 
 	wranglerScript := `#!/bin/sh
 set -eu
-state_dir="${BV_TEST_STATE_DIR:-}"
+state_dir="${BT_TEST_STATE_DIR:-}"
 authed_file="$state_dir/wrangler_authed"
 case "${1-}" in
   whoami)
@@ -392,7 +392,7 @@ exit 0
 
 	origPath := os.Getenv("PATH")
 	t.Setenv("PATH", fmt.Sprintf("%s%c%s", binDir, os.PathListSeparator, origPath))
-	t.Setenv("BV_TEST_STATE_DIR", stateDir)
+	t.Setenv("BT_TEST_STATE_DIR", stateDir)
 
 	// Mark as authenticated.
 	if err := os.WriteFile(filepath.Join(stateDir, "wrangler_authed"), []byte("ok"), 0644); err != nil {

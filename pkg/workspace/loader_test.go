@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/workspace"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/workspace"
 )
 
 // createTestBeadsFile creates a .beads/beads.jsonl file with test issues
@@ -369,7 +369,7 @@ func TestLoadAllFromConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create .bv directory and config
-	bvDir := filepath.Join(tmpDir, ".bv")
+	bvDir := filepath.Join(tmpDir, ".bt")
 	if err := os.MkdirAll(bvDir, 0755); err != nil {
 		t.Fatal(err)
 	}

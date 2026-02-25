@@ -88,10 +88,10 @@ const ConfigFilename = "drift.yaml"
 
 // ConfigPath returns the default config path for a project
 func ConfigPath(projectDir string) string {
-	return filepath.Join(projectDir, ".bv", ConfigFilename)
+	return filepath.Join(projectDir, ".bt", ConfigFilename)
 }
 
-// LoadConfig loads drift configuration from .bv/drift.yaml
+// LoadConfig loads drift configuration from .bt/drift.yaml
 // Returns default config if file doesn't exist
 func LoadConfig(projectDir string) (*Config, error) {
 	path := ConfigPath(projectDir)
@@ -118,7 +118,7 @@ func LoadConfig(projectDir string) (*Config, error) {
 	return config, nil
 }
 
-// SaveConfig saves drift configuration to .bv/drift.yaml
+// SaveConfig saves drift configuration to .bt/drift.yaml
 func SaveConfig(projectDir string, config *Config) error {
 	// Validate before saving
 	if err := config.Validate(); err != nil {
@@ -139,7 +139,7 @@ func SaveConfig(projectDir string, config *Config) error {
 	}
 
 	// Add header comment
-	header := "# Drift detection thresholds\n# See: bv --help for drift detection options\n\n"
+	header := "# Drift detection thresholds\n# See: bt --help for drift detection options\n\n"
 	content := header + string(data)
 
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {

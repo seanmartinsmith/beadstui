@@ -13,24 +13,24 @@ func TestMatchesBVPattern(t *testing.T) {
 		matches bool
 	}{
 		// Should match
-		{".bv", true},
-		{".bv/", true},
-		{".bv/*", true},
-		{".bv/**", true},
-		{".bv/**/*", true},
-		{"/.bv", true}, // Leading slash should be normalized
-		{"/.bv/", true},
+		{".bt", true},
+		{".bt/", true},
+		{".bt/*", true},
+		{".bt/**", true},
+		{".bt/**/*", true},
+		{"/.bt", true}, // Leading slash should be normalized
+		{"/.bt/", true},
 
 		// Should not match
 		{"", false},
-		{"#.bv", false}, // Comment
+		{"#.bt", false}, // Comment
 		{".bv2", false},
 		{".bvx", false},
 		{"bv/", false},
 		{".beads/", false},
 		{"node_modules/", false},
 		{".bv-backup", false},
-		{"*.bv", false},
+		{"*.bt", false},
 	}
 
 	for _, tt := range tests {
@@ -55,28 +55,28 @@ func TestIsBVInGitignore(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:     "has .bv",
+			name:     "has .bt",
 			content:  "node_modules/\n.bv\n*.log\n",
 			expected: true,
 		},
 		{
-			name:     "has .bv/",
-			content:  "node_modules/\n.bv/\n*.log\n",
+			name:     "has .bt/",
+			content:  "node_modules/\n.bt/\n*.log\n",
 			expected: true,
 		},
 		{
-			name:     "has .bv/*",
-			content:  ".bv/*\n",
+			name:     "has .bt/*",
+			content:  ".bt/*\n",
 			expected: true,
 		},
 		{
-			name:     "has /.bv/",
-			content:  "/.bv/\n",
+			name:     "has /.bt/",
+			content:  "/.bt/\n",
 			expected: true,
 		},
 		{
 			name:     "commented out",
-			content:  "# .bv/\n",
+			content:  "# .bt/\n",
 			expected: false,
 		},
 		{
@@ -91,7 +91,7 @@ func TestIsBVInGitignore(t *testing.T) {
 		},
 		{
 			name:     "with whitespace",
-			content:  "  .bv/  \n",
+			content:  "  .bt/  \n",
 			expected: true,
 		},
 	}
@@ -137,22 +137,22 @@ func TestAppendToGitignore(t *testing.T) {
 		{
 			name:            "new file",
 			existingContent: "",
-			pattern:         ".bv/",
-			wantContains:    []string{"# bv (beads viewer)", ".bv/"},
+			pattern:         ".bt/",
+			wantContains:    []string{"# bv (beads viewer)", ".bt/"},
 			wantPrefix:      "#", // should start with comment, not blank line
 		},
 		{
 			name:            "existing file with newline",
 			existingContent: "node_modules/\n",
-			pattern:         ".bv/",
-			wantContains:    []string{"node_modules/", "# bv (beads viewer)", ".bv/"},
+			pattern:         ".bt/",
+			wantContains:    []string{"node_modules/", "# bv (beads viewer)", ".bt/"},
 			wantPrefix:      "node_modules/",
 		},
 		{
 			name:            "existing file without trailing newline",
 			existingContent: "node_modules/",
-			pattern:         ".bv/",
-			wantContains:    []string{"node_modules/", "# bv (beads viewer)", ".bv/"},
+			pattern:         ".bt/",
+			wantContains:    []string{"node_modules/", "# bv (beads viewer)", ".bt/"},
 			wantPrefix:      "node_modules/",
 		},
 	}
@@ -205,8 +205,8 @@ func TestEnsureBVInGitignore(t *testing.T) {
 			t.Fatalf("failed to read .gitignore: %v", err)
 		}
 
-		if !strings.Contains(string(content), ".bv/") {
-			t.Errorf("expected .bv/ in .gitignore, got:\n%s", content)
+		if !strings.Contains(string(content), ".bt/") {
+			t.Errorf("expected .bt/ in .gitignore, got:\n%s", content)
 		}
 	})
 
@@ -231,8 +231,8 @@ func TestEnsureBVInGitignore(t *testing.T) {
 		if !strings.Contains(string(content), "node_modules/") {
 			t.Error("existing content was lost")
 		}
-		if !strings.Contains(string(content), ".bv/") {
-			t.Errorf("expected .bv/ in .gitignore, got:\n%s", content)
+		if !strings.Contains(string(content), ".bt/") {
+			t.Errorf("expected .bt/ in .gitignore, got:\n%s", content)
 		}
 	})
 
@@ -240,8 +240,8 @@ func TestEnsureBVInGitignore(t *testing.T) {
 		tmpDir := t.TempDir()
 		gitignorePath := filepath.Join(tmpDir, ".gitignore")
 
-		// Create existing .gitignore with .bv/ already present
-		if err := os.WriteFile(gitignorePath, []byte(".bv/\n"), 0644); err != nil {
+		// Create existing .gitignore with .bt/ already present
+		if err := os.WriteFile(gitignorePath, []byte(".bt/\n"), 0644); err != nil {
 			t.Fatalf("failed to write .gitignore: %v", err)
 		}
 
@@ -254,10 +254,10 @@ func TestEnsureBVInGitignore(t *testing.T) {
 			t.Fatalf("failed to read .gitignore: %v", err)
 		}
 
-		// Count occurrences of .bv/
-		count := strings.Count(string(content), ".bv/")
+		// Count occurrences of .bt/
+		count := strings.Count(string(content), ".bt/")
 		if count != 1 {
-			t.Errorf("expected exactly 1 occurrence of .bv/, got %d:\n%s", count, content)
+			t.Errorf("expected exactly 1 occurrence of .bt/, got %d:\n%s", count, content)
 		}
 	})
 
@@ -279,7 +279,7 @@ func TestEnsureBVInGitignore(t *testing.T) {
 			t.Fatalf("failed to read .gitignore: %v", err)
 		}
 
-		// Should still have just .bv, not add .bv/
+		// Should still have just .bv, not add .bt/
 		if strings.Contains(string(content), "# bv (beads viewer)") {
 			t.Errorf("should not add when .bv already present, got:\n%s", content)
 		}
@@ -309,7 +309,7 @@ func TestEnsureBVInGitignore_UsesCurrentDir(t *testing.T) {
 		t.Fatalf("failed to read .gitignore: %v", err)
 	}
 
-	if !strings.Contains(string(content), ".bv/") {
-		t.Errorf("expected .bv/ in .gitignore, got:\n%s", content)
+	if !strings.Contains(string(content), ".bt/") {
+		t.Errorf("expected .bt/ in .gitignore, got:\n%s", content)
 	}
 }

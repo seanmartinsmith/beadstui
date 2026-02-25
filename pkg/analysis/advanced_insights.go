@@ -5,7 +5,7 @@ import (
 	"context"
 	"sort"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // intHeap implements heap.Interface for a min-heap of ints.

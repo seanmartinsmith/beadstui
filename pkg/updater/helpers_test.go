@@ -86,7 +86,7 @@ func TestParseChecksums_FilenamesWithSpaces(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseChecksums failed: %v", err)
 	}
-	if got := m["bv 1.0.0 windows amd64.tar.gz"]; got != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {
+	if got := m["bt 1.0.0 windows amd64.tar.gz"]; got != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {
 		t.Fatalf("unexpected checksum for spaced filename: %q", got)
 	}
 }

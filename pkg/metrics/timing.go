@@ -6,7 +6,7 @@
 // - Memory usage snapshots
 //
 // Metrics are collected in-memory with atomic operations for thread-safety.
-// Collection is enabled by default but can be disabled via BV_METRICS=0.
+// Collection is enabled by default but can be disabled via BT_METRICS=0.
 //
 // Usage:
 //
@@ -23,8 +23,8 @@ import (
 )
 
 // enabled controls whether metrics are collected.
-// Defaults to true unless BV_METRICS=0 is set.
-var enabled = os.Getenv("BV_METRICS") != "0"
+// Defaults to true unless BT_METRICS=0 is set.
+var enabled = os.Getenv("BT_METRICS") != "0"
 
 // Enabled returns whether metrics collection is enabled.
 func Enabled() bool {

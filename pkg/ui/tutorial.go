@@ -325,7 +325,7 @@ func (m TutorialModel) renderHeader(page TutorialPage, totalPages int) string {
 			Render(strings.Repeat("░", barWidth-filledWidth))
 
 	// Title
-	title := titleStyle.Render("📚 beads_viewer Tutorial")
+	title := titleStyle.Render("📚 beadstui Tutorial")
 
 	// Calculate spacing to align progress to the right
 	headerContent := title + "  " + progressText + " " + progressBar
@@ -1030,11 +1030,11 @@ func defaultTutorialPages() []TutorialPage {
 // =============================================================================
 
 // introWelcomeContent is Page 1 of the Introduction section.
-const introWelcomeContent = `## Welcome to beads_viewer
+const introWelcomeContent = `## Welcome to beadstui
 
 ` + "```" + `
     ╭──────────────────────────────────────╮
-    │      beads_viewer (bv)               │
+    │      beadstui (bt)               │
     │  Issue tracking that lives in code   │
     ╰──────────────────────────────────────╯
 ` + "```" + `
@@ -1105,7 +1105,7 @@ This is where bv shines. AI agents like Claude, Cursor, and Codex
 need structured task management. The ` + "`--robot-*`" + ` flags output
 machine-readable formats perfect for agent consumption:
 
-` + "```bash\nbv --robot-triage    # What should I work on?\nbv --robot-plan      # How can work be parallelized?\n```" + `
+` + "```bash\nbt --robot-triage    # What should I work on?\nbt --robot-plan      # How can work be parallelized?\n```" + `
 
 ### Anyone Tired of Context-Switching
 
@@ -1256,13 +1256,13 @@ Press **r** in List view to filter to **ready** issues only:
 This is your **actionable work queue**. These issues have no dependencies
 blocking them — you can start any of them right now.
 
-> **Tip:** Start your day with ` + "`br ready`" + ` to see what you can tackle.
+> **Tip:** Start your day with ` + "`bd ready`" + ` to see what you can tackle.
 
 ### Adding Dependencies
 
 From the command line:
 
-` + "```bash\nbr dep add bv-def2 bv-abc1   # def2 depends on abc1\n```" + `
+` + "```bash\nbd dep add bv-def2 bv-abc1   # def2 depends on abc1\n```" + `
 
 This creates the blocking relationship shown above.
 
@@ -1452,7 +1452,7 @@ The graph reveals:
 - **Parallel tracks**: Independent work streams
 - **Priority inversions**: Low-priority blocking high-priority
 
-> **Tip:** Use ` + "`br blocked`" + ` to quickly see all blocked issues.
+> **Tip:** Use ` + "`bd blocked`" + ` to quickly see all blocked issues.
 
 > Press **→** to continue to Views & Navigation.`
 
@@ -1838,7 +1838,7 @@ Searching for "permissions":
 
 ### Tuning (Optional)
 
-` + "```bash\nBV_SEARCH_MODE=hybrid\nBV_SEARCH_PRESET=impact-first\nBV_SEARCH_WEIGHTS='{\"text\":0.4,\"pagerank\":0.2,\"status\":0.15,\"impact\":0.1,\"priority\":0.1,\"recency\":0.05}'\n```" + `
+` + "```bash\nBT_SEARCH_MODE=hybrid\nBT_SEARCH_PRESET=impact-first\nBT_SEARCH_WEIGHTS='{\"text\":0.4,\"pagerank\":0.2,\"status\":0.15,\"impact\":0.1,\"priority\":0.1,\"recency\":0.05}'\n```" + `
 
 > Press **→** to continue.`
 
@@ -1901,7 +1901,7 @@ When in time-travel mode, press **d** to see changes:
 
 ### Robot Mode Equivalent
 
-` + "```bash\nbv --robot-diff --diff-since HEAD~50\n```" + `
+` + "```bash\nbt --robot-diff --diff-since HEAD~50\n```" + `
 
 Returns structured JSON with added/closed/modified counts.
 
@@ -1956,7 +1956,7 @@ This reveals **architectural coupling** — which areas block others.
 
 ### Robot Mode Commands
 
-` + "```bash\nbv --robot-label-health              # Health metrics\nbv --robot-label-flow                # Cross-label deps\nbv --robot-label-attention --limit=5 # Top labels needing work\n```" + `
+` + "```bash\nbt --robot-label-health              # Health metrics\nbt --robot-label-flow                # Cross-label deps\nbt --robot-label-attention --limit=5 # Top labels needing work\n```" + `
 
 ### Strategic Use
 
@@ -1986,7 +1986,7 @@ Great for:
 
 Generate a complete web dashboard:
 
-` + "```bash\nbv --pages                              # Interactive wizard\nbv --export-pages ./dashboard           # Export to directory\nbv --preview-pages ./dashboard          # Preview locally\n```" + `
+` + "```bash\nbt --pages                              # Interactive wizard\nbv --export-pages ./dashboard           # Export to directory\nbv --preview-pages ./dashboard          # Preview locally\n```" + `
 
 The output is **self-contained HTML** that works offline:
 - Triage recommendations
@@ -1998,7 +1998,7 @@ The output is **self-contained HTML** that works offline:
 
 **GitHub Pages** (via wizard):
 
-` + "```bash\nbv --pages\n# Select: GitHub Pages\n# Follow prompts to configure\n```" + `
+` + "```bash\nbt --pages\n# Select: GitHub Pages\n# Follow prompts to configure\n```" + `
 
 **Cloudflare Pages** (manual):
 
@@ -2056,7 +2056,7 @@ In workspace mode, all views aggregate across repos:
 
 Issues can depend on issues in other repos:
 
-` + "```bash\nbr dep add fe-abc1 be-def2   # Frontend blocked by backend\n```" + `
+` + "```bash\nbd dep add fe-abc1 be-def2   # Frontend blocked by backend\n```" + `
 
 The graph view shows these cross-repo relationships.
 
@@ -2073,7 +2073,7 @@ Press **w** to open the repo picker, then:
 
 ### Robot Mode
 
-` + "```bash\nbv --robot-triage              # Workspace-wide triage\nbv --robot-plan               # Cross-repo execution plan\n```" + `
+` + "```bash\nbt --robot-triage              # Workspace-wide triage\nbt --robot-plan               # Cross-repo execution plan\n```" + `
 
 > **Note:** Workspace mode requires all repos to be accessible locally.
 
@@ -2163,13 +2163,13 @@ Regular bv is for humans. **Robot mode** is for agents:
 
 | Human | Agent |
 |-------|-------|
-| ` + "`bv`" + ` (interactive TUI) | ` + "`bv --robot-*`" + ` (JSON output) |
+| ` + "`bv`" + ` (interactive TUI) | ` + "`bt --robot-*`" + ` (JSON output) |
 | Visual navigation | Structured data parsing |
 | Keyboard shortcuts | Command flags |
 
 ### Key Robot Commands
 
-` + "```bash\n# The mega-command: start here\nbv --robot-triage\n\n# Quick picks\nbv --robot-next         # Single top priority item\nbv --robot-plan         # Parallel execution tracks\n\n# Deep analysis\nbv --robot-insights     # PageRank, cycles, bottlenecks\nbv --robot-alerts       # Stale items, priority inversions\n```" + `
+` + "```bash\n# The mega-command: start here\nbt --robot-triage\n\n# Quick picks\nbt --robot-next         # Single top priority item\nbt --robot-plan         # Parallel execution tracks\n\n# Deep analysis\nbt --robot-insights     # PageRank, cycles, bottlenecks\nbt --robot-alerts       # Stale items, priority inversions\n```" + `
 
 ### What --robot-triage Returns
 
@@ -2178,22 +2178,22 @@ Regular bv is for humans. **Robot mode** is for agents:
 ### Agent Workflow Example
 
 ` + "```" + `
-1. Agent calls: bv --robot-next
+1. Agent calls: bt --robot-next
 2. Receives: { "id": "bv-abc1", "title": "Fix auth" }
 3. Agent runs: br update bv-abc1 --status=in_progress
 4. Agent does the work...
-5. Agent runs: br close bv-abc1
-6. Agent calls: bv --robot-next (repeat)
+5. Agent runs: bd close bv-abc1
+6. Agent calls: bt --robot-next (repeat)
 ` + "```" + `
 
 ### The br CLI (for Agents)
 
 | Command | Purpose |
 |---------|---------|
-| ` + "`br ready`" + ` | List actionable issues |
+| ` + "`bd ready`" + ` | List actionable issues |
 | ` + "`br update <id> --status=in_progress`" + ` | Claim work |
-| ` + "`br close <id>`" + ` | Complete work |
-| ` + "`br sync`" + ` | Commit changes to git |
+| ` + "`bd close <id>`" + ` | Complete work |
+| ` + "`bd sync`" + ` | Commit changes to git |
 
 ### AGENTS.md Integration
 
@@ -2217,7 +2217,7 @@ Let's walk through implementing a feature from start to finish.
 
 ### Step 1: Find Available Work
 
-` + "```bash\nbr ready                        # Show actionable issues\nbv --robot-triage | jq '.recommendations[0]'\n```" + `
+` + "```bash\nbd ready                        # Show actionable issues\nbt --robot-triage | jq '.recommendations[0]'\n```" + `
 
 Or in bv: press **r** to filter to ready issues.
 
@@ -2241,19 +2241,19 @@ The issue moves to "In Progress" — other agents/devs know it's claimed.
 
 As you work, you realize there are sub-tasks:
 
-` + "```bash\nbr create --title=\"Implement auth logic\" --type=task --priority=2\nbr create --title=\"Add API endpoint\" --type=task --priority=2\nbr create --title=\"Write tests\" --type=task --priority=2\n\n# Set dependencies\nbr dep add bv-tests bv-endpoint   # Tests depend on endpoint\nbr dep add bv-endpoint bv-auth    # Endpoint depends on auth\n```" + `
+` + "```bash\nbr create --title=\"Implement auth logic\" --type=task --priority=2\nbr create --title=\"Add API endpoint\" --type=task --priority=2\nbr create --title=\"Write tests\" --type=task --priority=2\n\n# Set dependencies\nbd dep add bv-tests bv-endpoint   # Tests depend on endpoint\nbd dep add bv-endpoint bv-auth    # Endpoint depends on auth\n```" + `
 
 ### Step 5: Work Through Sub-Tasks
 
-` + "```bash\n# Start first sub-task\nbr update bv-auth --status=in_progress\n# ... do the work ...\nbr close bv-auth\n\n# Endpoint is now unblocked!\nbr update bv-endpoint --status=in_progress\n# ... continue ...\n```" + `
+` + "```bash\n# Start first sub-task\nbr update bv-auth --status=in_progress\n# ... do the work ...\nbd close bv-auth\n\n# Endpoint is now unblocked!\nbr update bv-endpoint --status=in_progress\n# ... continue ...\n```" + `
 
 ### Step 6: Complete and Sync
 
-` + "```bash\nbr close bv-xyz1              # Close parent feature\nbr sync                        # Commit all changes to git\n```" + `
+` + "```bash\nbd close bv-xyz1              # Close parent feature\nbd sync                        # Commit all changes to git\n```" + `
 
 ### Pro Tips
 
-- **Check ` + "`br ready`" + `** after each close — new work may have unblocked
+- **Check ` + "`bd ready`" + `** after each close — new work may have unblocked
 - **Use ` + "`g`" + ` (graph view)** to visualize the sub-task structure
 - **Set realistic priorities** — P2 for standard work, P1 only for blockers
 
@@ -2307,9 +2307,9 @@ Press **L** to open label picker, select:
 
 Does this bug block other work?
 
-` + "```bash\nbr dep add bv-feature1 bv-bug1  # Feature is blocked by this bug\n```" + `
+` + "```bash\nbd dep add bv-feature1 bv-bug1  # Feature is blocked by this bug\n```" + `
 
-Now bv-feature1 won't show in ` + "`br ready`" + ` until the bug is fixed.
+Now bv-feature1 won't show in ` + "`bd ready`" + ` until the bug is fixed.
 
 ### Step 6: Assign or Leave for Pickup
 
@@ -2317,7 +2317,7 @@ Option A: Assign to someone
 ` + "```bash\nbr update bv-bug1 --assignee=@alice\n```" + `
 
 Option B: Leave unassigned
-- High-priority bugs surface in ` + "`br ready`" + ` automatically
+- High-priority bugs surface in ` + "`bd ready`" + ` automatically
 - The triage system will recommend them
 
 ### Summary Checklist
@@ -2399,7 +2399,7 @@ Share in Slack, email, or sprint planning doc.
 
 After the sprint, compare progress:
 
-` + "```bash\n# Press t, enter: HEAD~50 (start of sprint)\n# Or use robot mode:\nbv --robot-diff --diff-since HEAD~50\n```" + `
+` + "```bash\n# Press t, enter: HEAD~50 (start of sprint)\n# Or use robot mode:\nbt --robot-diff --diff-since HEAD~50\n```" + `
 
 See exactly how many issues closed, what unblocked, velocity achieved.
 
@@ -2450,8 +2450,8 @@ Guide them through:
 3. **Check dependencies**: Press g for graph view
 4. **Claim it**: ` + "`br update ID --status=in_progress`" + `
 5. **Do the work**: Regular development process
-6. **Close it**: ` + "`br close ID`" + `
-7. **Sync**: ` + "`br sync`" + ` commits everything
+6. **Close it**: ` + "`bd close ID`" + `
+7. **Sync**: ` + "`bd sync`" + ` commits everything
 
 ### Step 5: Explain the Mental Model
 
@@ -2469,7 +2469,7 @@ Key concepts for new team members:
 [ ] Complete tutorial (or at least Quick Start)
 [ ] Assign first issue (good-first-issue label)
 [ ] Walk through claim → work → close cycle
-[ ] Verify br sync works
+[ ] Verify bd sync works
 ` + "```" + `
 
 > Press **→** to continue.`
@@ -2481,7 +2481,7 @@ Non-technical stakeholders can't use the terminal. The solution: static pages.
 
 ### Step 1: Generate the Dashboard
 
-` + "```bash\nbv --pages                    # Interactive wizard\n# Or direct export:\nbv --export-pages ./dashboard --pages-title \"Sprint 42 Status\"\n```" + `
+` + "```bash\nbt --pages                    # Interactive wizard\n# Or direct export:\nbv --export-pages ./dashboard --pages-title \"Sprint 42 Status\"\n```" + `
 
 This creates a **self-contained HTML bundle**:
 - Triage recommendations
@@ -2493,7 +2493,7 @@ This creates a **self-contained HTML bundle**:
 
 **Option A: GitHub Pages** (recommended)
 
-` + "```bash\nbv --pages\n# Follow wizard prompts:\n# → Select GitHub Pages\n# → Choose target repo/branch\n# → Auto-deploys!\n```" + `
+` + "```bash\nbt --pages\n# Follow wizard prompts:\n# → Select GitHub Pages\n# → Choose target repo/branch\n# → Auto-deploys!\n```" + `
 
 **Option B: Share Link**
 

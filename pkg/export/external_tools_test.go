@@ -79,15 +79,15 @@ func TestCheckGitHubPagesStatus_GHMissingReturnsDisabled(t *testing.T) {
 }
 
 func TestOpenInBrowser_NoCommandReturnsError(t *testing.T) {
-	// First verify that BV_NO_BROWSER suppresses browser opening
-	t.Setenv("BV_NO_BROWSER", "1")
+	// First verify that BT_NO_BROWSER suppresses browser opening
+	t.Setenv("BT_NO_BROWSER", "1")
 	if err := OpenInBrowser("https://example.com"); err != nil {
-		t.Fatalf("Expected OpenInBrowser to return nil with BV_NO_BROWSER set, got: %v", err)
+		t.Fatalf("Expected OpenInBrowser to return nil with BT_NO_BROWSER set, got: %v", err)
 	}
 
 	// Now test error when command is missing (with browser suppression off)
-	t.Setenv("BV_NO_BROWSER", "")
-	t.Setenv("BV_TEST_MODE", "")
+	t.Setenv("BT_NO_BROWSER", "")
+	t.Setenv("BT_TEST_MODE", "")
 	t.Setenv("PATH", "")
 
 	if err := OpenInBrowser("https://example.com"); err == nil {
@@ -96,15 +96,15 @@ func TestOpenInBrowser_NoCommandReturnsError(t *testing.T) {
 }
 
 func TestOpenCloudflareInBrowser_NoCommandReturnsError(t *testing.T) {
-	// First verify that BV_NO_BROWSER suppresses browser opening
-	t.Setenv("BV_NO_BROWSER", "1")
+	// First verify that BT_NO_BROWSER suppresses browser opening
+	t.Setenv("BT_NO_BROWSER", "1")
 	if err := OpenCloudflareInBrowser("my-project"); err != nil {
-		t.Fatalf("Expected OpenCloudflareInBrowser to return nil with BV_NO_BROWSER set, got: %v", err)
+		t.Fatalf("Expected OpenCloudflareInBrowser to return nil with BT_NO_BROWSER set, got: %v", err)
 	}
 
 	// Now test error when command is missing (with browser suppression off)
-	t.Setenv("BV_NO_BROWSER", "")
-	t.Setenv("BV_TEST_MODE", "")
+	t.Setenv("BT_NO_BROWSER", "")
+	t.Setenv("BT_TEST_MODE", "")
 	t.Setenv("PATH", "")
 
 	if err := OpenCloudflareInBrowser("my-project"); err == nil {

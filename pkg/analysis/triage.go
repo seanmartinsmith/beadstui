@@ -7,8 +7,8 @@ import (
 	"sort"
 	"time"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/correlation"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/correlation"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 func isClosedLikeStatus(status model.Status) bool {
@@ -280,9 +280,9 @@ type Alert struct {
 type CommandHelpers struct {
 	ClaimTop      string `json:"claim_top"`      // CI=1 br update <id> --status in_progress --json
 	ShowTop       string `json:"show_top"`       // CI=1 br show <id> --json
-	ListReady     string `json:"list_ready"`     // CI=1 br ready --json
-	ListBlocked   string `json:"list_blocked"`   // CI=1 br blocked --json
-	RefreshTriage string `json:"refresh_triage"` // bv --robot-triage
+	ListReady     string `json:"list_ready"`     // CI=1 bd ready --json
+	ListBlocked   string `json:"list_blocked"`   // CI=1 bd blocked --json
+	RefreshTriage string `json:"refresh_triage"` // bt --robot-triage
 }
 
 // ComputeTriage generates a unified triage result from issues
@@ -963,8 +963,8 @@ func buildGraphHealth(stats *GraphStats) GraphHealth {
 // buildCommands constructs helper commands, handling empty topID gracefully
 func buildCommands(topID string) CommandHelpers {
 	base := "CI=1 "
-	listReady := base + "br ready --json"
-	listBlocked := base + "br blocked --json"
+	listReady := base + "bd ready --json"
+	listBlocked := base + "bd blocked --json"
 
 	claimTop := listReady + "  # No top pick available"
 	showTop := listReady + "  # No top pick available"
@@ -978,7 +978,7 @@ func buildCommands(topID string) CommandHelpers {
 		ShowTop:       showTop,
 		ListReady:     listReady,
 		ListBlocked:   listBlocked,
-		RefreshTriage: "bv --robot-triage",
+		RefreshTriage: "bt --robot-triage",
 	}
 }
 
