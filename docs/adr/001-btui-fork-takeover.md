@@ -80,6 +80,18 @@ Scope:
 - [ ] Triage stale issues from Jeffrey's beads_rust era
 - [ ] Use this repo as bt's own dogfood environment
 
+### Stream 4: Spring cleaning (parallelizable with Stream 2)
+**Status**: Not started
+**Depends on**: Nothing (can start anytime)
+
+Codebase audit and cleanup as part of the fork takeover:
+- [ ] Filesystem audit: identify stale/archivable/deletable files (Jeffrey's planning docs, old perf reports, etc.)
+- [ ] Documentation refresh: README rewrite, AGENTS.md update, clean up or archive docs/
+- [ ] Remove or archive Jeffrey-era artifacts that don't apply to our fork (CLEANED_UP_PROMPTS_USED_TO_CREATE_PROJECT.md, SKILL.md, old optimization plans, etc.)
+- [ ] Evaluate root-level .md file sprawl - consolidate or move to docs/
+- [ ] Review .beads/ and .beads-local/ state - clean up stale artifacts
+- [ ] Audit test data and benchmark artifacts
+
 ## Implementation Already Done
 
 From the Dolt integration session (2026-02-25):
@@ -114,3 +126,4 @@ This ADR is the spine. Each work stream spawns its own plan (linked above). With
 |------|--------|
 | 2026-02-25 | ADR created from brainstorm session. Dolt integration code implemented. |
 | 2026-02-25 | Naming finalized: project/repo `beadstui`, binary `bt`, module `github.com/seanmartinsmith/beadstui`. Name collision research confirmed `bt` has lower risk than existing beads ecosystem names (`bd`, `bv`). GitHub org: `seanmartinsmith` (personal, for portfolio attribution). |
+| 2026-02-25 | Repo created at `seanmartinsmith/beadstui`, pushed main branch. Commit history rewritten to remove s070681 attribution. Remotes: origin=beadstui (SSH), upstream=Dicklesworthstone/beads_viewer (read-only reference). Git config set to seanmartinsmith for future commits. Added Stream 4 (spring cleaning). |
