@@ -12,7 +12,7 @@ func TestUpdateHelpQuitAndTabFocus(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "1", Title: "One", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "")
+	m := NewModel(issues, nil, "", nil)
 
 	// Make model ready and split view
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
@@ -58,7 +58,7 @@ func TestUpdateHelpQuitAndTabFocus(t *testing.T) {
 }
 
 func TestUpdateMsgSetsUpdateAvailable(t *testing.T) {
-	m := NewModel([]model.Issue{{ID: "1", Title: "One", Status: model.StatusOpen}}, nil, "")
+	m := NewModel([]model.Issue{{ID: "1", Title: "One", Status: model.StatusOpen}}, nil, "", nil)
 	updated, _ := m.Update(UpdateMsg{TagName: "v9.9.9", URL: "https://example"})
 	m = updated.(Model)
 	if !m.updateAvailable || m.updateTag != "v9.9.9" {
@@ -70,7 +70,7 @@ func TestHistoryViewToggle(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "bv-1", Title: "Test Issue", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "")
+	m := NewModel(issues, nil, "", nil)
 
 	// Make model ready
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
@@ -107,7 +107,7 @@ func TestHistoryViewKeys(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "bv-1", Title: "Test Issue", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "")
+	m := NewModel(issues, nil, "", nil)
 
 	// Make model ready
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})

@@ -645,7 +645,7 @@ func TestSnapshotSwap_PreservesBoardSelectionByID(t *testing.T) {
 		{ID: "prog-1", Title: "Prog 1", Status: model.StatusInProgress, Priority: 2, IssueType: model.TypeTask, CreatedAt: now.Add(-2 * time.Hour)},
 	}
 
-	m := NewModel(issues, nil, "")
+	m := NewModel(issues, nil, "", nil)
 	newM, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("b")})
 	m = newM.(Model)
 
@@ -683,7 +683,7 @@ func TestSnapshotSwap_UsesSnapshotInsights(t *testing.T) {
 		{ID: "test-1", Title: "Issue 1", Status: model.StatusOpen, Priority: 1},
 	}
 
-	m := NewModel(issues, nil, "")
+	m := NewModel(issues, nil, "", nil)
 
 	snapshot := NewSnapshotBuilder(issues).Build()
 	snapshot.Insights.Bottlenecks = []analysis.InsightItem{{ID: "sentinel", Value: 1}}
@@ -709,7 +709,7 @@ func TestSnapshotSwap_UsesSnapshotGraphLayoutWhenUnfiltered(t *testing.T) {
 		{ID: "B", Title: "Root", Status: model.StatusOpen},
 	}
 
-	m := NewModel(issues, nil, "")
+	m := NewModel(issues, nil, "", nil)
 	m.currentFilter = "all"
 
 	snapshot := NewSnapshotBuilder(issues).Build()
@@ -746,7 +746,7 @@ func TestPhase2ReadyMsg_DoesNotRebuildGraphViewWhenSnapshotHasLayout(t *testing.
 		{ID: "B", Title: "Root", Status: model.StatusOpen},
 	}
 
-	m := NewModel(issues, nil, "")
+	m := NewModel(issues, nil, "", nil)
 	m.currentFilter = "all"
 
 	snapshot := NewSnapshotBuilder(issues).Build()
@@ -772,7 +772,7 @@ func TestSnapshotSwap_PreservesInsightsNavigationState(t *testing.T) {
 		{ID: "b", Title: "B", Status: model.StatusOpen, Priority: 2, IssueType: model.TypeTask, CreatedAt: now.Add(-1 * time.Hour)},
 	}
 
-	m := NewModel(issues, nil, "")
+	m := NewModel(issues, nil, "", nil)
 	newM, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("i")})
 	m = newM.(Model)
 
@@ -822,7 +822,7 @@ func TestSnapshotSwap_RebuildsTreeWhenFocusedAndPreservesSelection(t *testing.T)
 		},
 	}
 
-	m := NewModel(issues, nil, "")
+	m := NewModel(issues, nil, "", nil)
 
 	// Isolate persistent tree state from the repo's .beads.
 	beadsDir := filepath.Join(t.TempDir(), ".beads")

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Dicklesworthstone/beads_viewer/internal/datasource"
 	"github.com/Dicklesworthstone/beads_viewer/pkg/agents"
 	"github.com/Dicklesworthstone/beads_viewer/pkg/analysis"
 	"github.com/Dicklesworthstone/beads_viewer/pkg/baseline"
@@ -132,6 +133,12 @@ func WaitForPhase2Cmd(stats *analysis.GraphStats) tea.Cmd {
 
 // FileChangedMsg is sent when the beads file changes on disk
 type FileChangedMsg struct{}
+
+// DataSourceReloadMsg is sent when a non-file datasource (e.g. Dolt) finishes reloading.
+type DataSourceReloadMsg struct {
+	Issues []model.Issue
+	Err    error
+}
 
 // semanticDebounceTickMsg is sent after debounce delay to trigger semantic computation
 type semanticDebounceTickMsg struct{}
@@ -329,8 +336,9 @@ type Model struct {
 	issueMap     map[string]*model.Issue
 	analyzer     *analysis.Analyzer
 	analysis     *analysis.GraphStats
-	beadsPath    string           // Path to beads.jsonl for reloading
-	watcher      *watcher.Watcher // File watcher for live reload
+	beadsPath  string                  // Path to beads.jsonl for reloading
+	dataSource *datasource.DataSource // Selected data source for refresh routing
+	watcher    *watcher.Watcher       // File watcher for live reload
 	instanceLock *instance.Lock   // Multi-instance coordination lock
 
 	// Background Worker (Phase 2 architecture - bv-m7v8)
@@ -707,9 +715,10 @@ func (m *Model) issuesForAsync() []model.Issue {
 	return m.issues
 }
 
-// NewModel creates a new Model from the given issues
-// beadsPath is the path to the beads.jsonl file for live reload support
-func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath string) Model {
+// NewModel creates a new Model from the given issues.
+// beadsPath is the path to the beads.jsonl file for live reload support.
+// ds is the selected DataSource for routing refresh through the correct backend (nil for historical/test).
+func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath string, ds *datasource.DataSource) Model {
 	// Graph Analysis - Phase 1 is instant, Phase 2 runs in background
 	analyzer := analysis.NewAnalyzer(issues)
 	graphStats := analyzer.AnalyzeAsync(context.Background())
@@ -930,9 +939,12 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		}
 	}
 
-	if beadsPath != "" && backgroundModeRequested {
+	isDolt := ds != nil && ds.Type == datasource.SourceTypeDolt
+	bgEnabled := (beadsPath != "" || isDolt) && backgroundModeRequested
+	if bgEnabled {
 		bw, err := NewBackgroundWorker(WorkerConfig{
-			BeadsPath:     beadsPath,
+			BeadsPath:  beadsPath,
+			DataSource: ds,
 			DebounceDelay: 200 * time.Millisecond,
 		})
 		if err != nil {
@@ -1014,6 +1026,7 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		analyzer:               analyzer,
 		analysis:               graphStats,
 		beadsPath:              beadsPath,
+		dataSource:             ds,
 		watcher:                fileWatcher,
 		snapshotInitPending:    backgroundWorker != nil,
 		backgroundWorker:       backgroundWorker,
@@ -1081,6 +1094,125 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		}(),
 		// Tutorial integration (bv-8y31)
 		tutorialModel: NewTutorialModel(theme),
+	}
+}
+
+// replaceIssues swaps the model's issue set, recomputing analysis, maps, counts,
+// list items, and sub-views. Used by DataSourceReloadMsg and other reload paths.
+func (m *Model) replaceIssues(newIssues []model.Issue) {
+	// Sort: open first, priority ascending, newest first
+	sort.Slice(newIssues, func(i, j int) bool {
+		iClosed := isClosedLikeStatus(newIssues[i].Status)
+		jClosed := isClosedLikeStatus(newIssues[j].Status)
+		if iClosed != jClosed {
+			return !iClosed
+		}
+		if newIssues[i].Priority != newIssues[j].Priority {
+			return newIssues[i].Priority < newIssues[j].Priority
+		}
+		return newIssues[i].CreatedAt.After(newIssues[j].CreatedAt)
+	})
+
+	// Recompute analysis
+	m.issues = newIssues
+	cachedAnalyzer := analysis.NewCachedAnalyzer(newIssues, nil)
+	m.analyzer = cachedAnalyzer.Analyzer
+	m.analysis = cachedAnalyzer.AnalyzeAsync(context.Background())
+	m.labelHealthCached = false
+	m.attentionCached = false
+
+	// Rebuild lookup map
+	m.issueMap = make(map[string]*model.Issue, len(newIssues))
+	for i := range m.issues {
+		m.issueMap[m.issues[i].ID] = &m.issues[i]
+	}
+
+	// Clear stale priority hints
+	m.priorityHints = make(map[string]*analysis.PriorityRecommendation)
+
+	// Recompute counts
+	m.countOpen, m.countReady, m.countBlocked, m.countClosed = 0, 0, 0, 0
+	for i := range m.issues {
+		issue := &m.issues[i]
+		if isClosedLikeStatus(issue.Status) {
+			m.countClosed++
+			continue
+		}
+		m.countOpen++
+		if issue.Status == model.StatusBlocked {
+			m.countBlocked++
+			continue
+		}
+		isBlocked := false
+		for _, dep := range issue.Dependencies {
+			if dep == nil || !dep.Type.IsBlocking() {
+				continue
+			}
+			if blocker, exists := m.issueMap[dep.DependsOnID]; exists && !isClosedLikeStatus(blocker.Status) {
+				isBlocked = true
+				break
+			}
+		}
+		if !isBlocked {
+			m.countReady++
+		}
+	}
+
+	// Recompute alerts
+	m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.issues, m.analysis, m.analyzer)
+	m.dismissedAlerts = make(map[string]bool)
+	m.showAlertsPanel = false
+
+	// Rebuild list items
+	items := make([]list.Item, len(m.issues))
+	for i := range m.issues {
+		item := IssueItem{
+			Issue:      m.issues[i],
+			GraphScore: m.analysis.GetPageRankScore(m.issues[i].ID),
+			Impact:     m.analysis.GetCriticalPathScore(m.issues[i].ID),
+			RepoPrefix: ExtractRepoPrefix(m.issues[i].ID),
+		}
+		item.TriageScore = m.triageScores[m.issues[i].ID]
+		if reasons, exists := m.triageReasons[m.issues[i].ID]; exists {
+			item.TriageReason = reasons.Primary
+			item.TriageReasons = reasons.All
+		}
+		item.IsQuickWin = m.quickWinSet[m.issues[i].ID]
+		item.IsBlocker = m.blockerSet[m.issues[i].ID]
+		item.UnblocksCount = len(m.unblocksMap[m.issues[i].ID])
+		items[i] = item
+	}
+	m.updateSemanticIDs(items)
+	m.clearSemanticScores()
+	if m.semanticSearch != nil {
+		m.semanticSearch.ResetCache()
+		m.semanticSearch.SetMetricsCache(nil)
+	}
+	m.semanticHybridReady = false
+	m.semanticHybridBuilding = false
+	m.list.SetItems(items)
+
+	// Invalidate label-derived caches
+	m.labelHealthCached = false
+	m.labelDrilldownCache = make(map[string][]model.Issue)
+	m.updateViewportContent()
+}
+
+// isDoltSource returns true if the model's datasource is a Dolt server.
+func (m *Model) isDoltSource() bool {
+	return m.dataSource != nil && m.dataSource.Type == datasource.SourceTypeDolt
+}
+
+// reloadFromDataSource returns a Cmd that reloads issues from the stored DataSource.
+func (m *Model) reloadFromDataSource() tea.Cmd {
+	ds := m.dataSource
+	if ds == nil {
+		return nil
+	}
+	src := *ds
+	return func() tea.Msg {
+		issues, err := datasource.LoadFromSource(src)
+		return DataSourceReloadMsg{Issues: issues, Err: err}
 	}
 }
 
@@ -1793,6 +1925,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, tea.Batch(cmds...)
 
+	case DataSourceReloadMsg:
+		// Async reload from a non-file datasource (e.g. Dolt) completed.
+		if msg.Err != nil {
+			m.statusMsg = fmt.Sprintf("Reload error: %v", msg.Err)
+			m.statusIsError = true
+			return m, tea.Batch(cmds...)
+		}
+		m.replaceIssues(msg.Issues)
+		m.statusMsg = fmt.Sprintf("Reloaded %d issues", len(msg.Issues))
+		m.statusIsError = false
+		cmds = append(cmds, WaitForPhase2Cmd(m.analysis))
+		return m, tea.Batch(cmds...)
+
 	case FileChangedMsg:
 		// File changed on disk - reload issues and recompute analysis
 		// In background mode the BackgroundWorker owns file watching and snapshot building.
@@ -2172,6 +2317,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if autoAllowed {
 				bw, err := NewBackgroundWorker(WorkerConfig{
 					BeadsPath:     m.beadsPath,
+					DataSource:    m.dataSource,
 					DebounceDelay: 200 * time.Millisecond,
 				})
 				if err == nil {
@@ -2532,10 +2678,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, tea.Batch(cmds...)
 			}
 
-			if m.beadsPath == "" && m.watcher == nil {
+			if m.beadsPath == "" && m.watcher == nil && !m.isDoltSource() {
 				m.statusMsg = "Refresh unavailable"
 				m.statusIsError = true
 				return m, nil
+			}
+
+			// Dolt sources without background worker use async reload
+			if m.isDoltSource() && m.beadsPath == "" {
+				cmds = append(cmds, m.reloadFromDataSource())
+				return m, tea.Batch(cmds...)
 			}
 
 			cmds = append(cmds, func() tea.Msg { return FileChangedMsg{} })

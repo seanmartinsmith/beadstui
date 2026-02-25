@@ -13,7 +13,7 @@ import (
 // exercise Phase2Ready and FileChanged branches of Update for coverage.
 func TestModelUpdatePhase2AndFileChanged(t *testing.T) {
 	issues := []model.Issue{{ID: "A", Title: "Alpha", Status: model.StatusOpen}}
-	m := NewModel(issues, nil, "")
+	m := NewModel(issues, nil, "", nil)
 	m.width, m.height = 120, 40
 
 	// Phase2ReadyMsg should rebuild insights/graph without error
@@ -40,7 +40,7 @@ func (badItem) Description() string { return "bad" }
 func (badItem) FilterValue() string { return "bad" }
 
 func TestCopyIssueToClipboardInvalidItem(t *testing.T) {
-	m := NewModel(nil, nil, "")
+	m := NewModel(nil, nil, "", nil)
 	m.list.SetItems([]list.Item{badItem{}})
 	m.list.Select(0)
 	m.copyIssueToClipboard()
@@ -55,7 +55,7 @@ func TestEnterTimeTravelModeGracefulFailure(t *testing.T) {
 	defer os.Chdir(orig)
 	_ = os.Chdir(tmp)
 
-	m := NewModel(nil, nil, "")
+	m := NewModel(nil, nil, "", nil)
 	m.enterTimeTravelMode("HEAD")
 	if !m.statusIsError {
 		t.Fatalf("expected error when not in git repo")
@@ -96,7 +96,7 @@ func TestUpdateFileChangedReloadsSelection(t *testing.T) {
 	if err := os.WriteFile(beads, []byte(data), 0644); err != nil {
 		t.Fatalf("write beads: %v", err)
 	}
-	m := NewModel(nil, nil, beads)
+	m := NewModel(nil, nil, beads, nil)
 	m.list.SetItems([]list.Item{IssueItem{Issue: model.Issue{ID: "ONE", Title: "One", Status: model.StatusOpen}}})
 	m.list.Select(0)
 
@@ -115,7 +115,7 @@ func TestNewModel_SetsTreeBeadsDirFromBeadsPath(t *testing.T) {
 		t.Fatalf("write beads: %v", err)
 	}
 
-	m := NewModel(nil, nil, beads)
+	m := NewModel(nil, nil, beads, nil)
 	if m.watcher != nil {
 		m.watcher.Stop()
 	}

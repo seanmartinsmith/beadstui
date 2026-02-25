@@ -69,6 +69,67 @@ func loadSmart(beadsDir, repoPath string) ([]model.Issue, error) {
 	return LoadFromSource(best)
 }
 
+// LoadResult pairs loaded issues with the source they came from.
+type LoadResult struct {
+	Issues []model.Issue
+	Source DataSource
+}
+
+// LoadIssuesWithSource performs smart multi-source detection and loading,
+// returning both the issues and the selected DataSource. This allows callers
+// to route refresh/reload through the correct backend.
+func LoadIssuesWithSource(repoPath string) (LoadResult, error) {
+	beadsDir, err := loader.GetBeadsDir(repoPath)
+	if err != nil {
+		return LoadResult{}, err
+	}
+
+	result, smartErr := loadSmartWithSource(beadsDir, repoPath)
+	if smartErr == nil {
+		return result, nil
+	}
+
+	// Fall back to legacy JSONL-only loading
+	issues, err := loader.LoadIssues(repoPath)
+	if err != nil {
+		return LoadResult{}, err
+	}
+
+	// Construct a synthetic DataSource for the JSONL fallback
+	jsonlPath, _ := loader.FindJSONLPath(beadsDir)
+	return LoadResult{
+		Issues: issues,
+		Source: DataSource{Type: SourceTypeJSONLLocal, Path: jsonlPath},
+	}, nil
+}
+
+// loadSmartWithSource is like loadSmart but also returns the selected DataSource.
+func loadSmartWithSource(beadsDir, repoPath string) (LoadResult, error) {
+	sources, err := DiscoverSources(DiscoveryOptions{
+		BeadsDir:               beadsDir,
+		RepoPath:               repoPath,
+		ValidateAfterDiscovery: true,
+		IncludeInvalid:         false,
+	})
+	if err != nil {
+		return LoadResult{}, err
+	}
+	if len(sources) == 0 {
+		return LoadResult{}, fmt.Errorf("no valid sources discovered")
+	}
+
+	best, err := SelectBestSource(sources)
+	if err != nil {
+		return LoadResult{}, err
+	}
+
+	issues, err := LoadFromSource(best)
+	if err != nil {
+		return LoadResult{}, err
+	}
+	return LoadResult{Issues: issues, Source: best}, nil
+}
+
 // LoadFromSource loads issues from a specific DataSource, dispatching to the
 // appropriate reader based on source type.
 func LoadFromSource(source DataSource) ([]model.Issue, error) {
