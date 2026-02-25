@@ -470,10 +470,10 @@ func TestRobotNextContractActionable(t *testing.T) {
 	if len(payload.Reasons) == 0 {
 		t.Fatalf("robot-next missing reasons")
 	}
-	if payload.ClaimCmd != "br update A --status=in_progress" {
+	if payload.ClaimCmd != "bd update A --status=in_progress" {
 		t.Fatalf("unexpected claim_command: %q", payload.ClaimCmd)
 	}
-	if payload.ShowCmd != "br show A" {
+	if payload.ShowCmd != "bd show A" {
 		t.Fatalf("unexpected show_command: %q", payload.ShowCmd)
 	}
 }

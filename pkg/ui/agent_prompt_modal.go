@@ -3,7 +3,7 @@ package ui
 import (
 	"strings"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/agents"
+	"github.com/seanmartinsmith/beadstui/pkg/agents"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -139,7 +139,7 @@ func (m AgentPromptModal) View() string {
 	// Body
 	b.WriteString(bodyStyle.Render("We found " + m.fileType + " in this project but it"))
 	b.WriteString("\n")
-	b.WriteString(bodyStyle.Render("doesn't include beads_viewer instructions."))
+	b.WriteString(bodyStyle.Render("doesn't include beadstui instructions."))
 	b.WriteString("\n\n")
 	b.WriteString(bodyStyle.Render("Adding these helps AI coding agents understand"))
 	b.WriteString("\n")

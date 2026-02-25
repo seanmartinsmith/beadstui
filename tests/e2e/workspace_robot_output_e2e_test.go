@@ -14,7 +14,7 @@ func TestWorkspaceRobotTriageCleanOutput(t *testing.T) {
 	bv := buildBvBinary(t)
 
 	workspaceRoot := t.TempDir()
-	configPath := filepath.Join(workspaceRoot, ".bv", "workspace.yaml")
+	configPath := filepath.Join(workspaceRoot, ".bt", "workspace.yaml")
 
 	// Create two repos with issues.
 	apiBeadsDir := filepath.Join(workspaceRoot, "services", "api", ".beads")

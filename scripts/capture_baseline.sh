@@ -124,7 +124,7 @@ capture_baseline() {
             echo "Dataset: $dataset" >> "$BASELINE_FILE"
             # Run 3 times and capture timing
             for i in 1 2 3; do
-                { time BEADS_FILE="$datafile" timeout 60 go run ./cmd/bv --robot-triage >/dev/null 2>&1; } 2>&1 | grep real >> "$BASELINE_FILE" || echo "timeout or error" >> "$BASELINE_FILE"
+                { time BEADS_FILE="$datafile" timeout 60 go run ./cmd/bt --robot-triage >/dev/null 2>&1; } 2>&1 | grep real >> "$BASELINE_FILE" || echo "timeout or error" >> "$BASELINE_FILE"
             done
             echo "" >> "$BASELINE_FILE"
         fi
@@ -134,7 +134,7 @@ capture_baseline() {
     print_section "Memory Profile"
     echo "Capturing memory profile..."
     if [ -f "$TESTDATA_DIR/medium.jsonl" ]; then
-        BEADS_FILE="$TESTDATA_DIR/medium.jsonl" GODEBUG=gctrace=1 timeout 30 go run ./cmd/bv --robot-triage 2>&1 | grep -E '^gc|total' | head -20 >> "$BASELINE_FILE" || echo "No GC data captured" >> "$BASELINE_FILE"
+        BEADS_FILE="$TESTDATA_DIR/medium.jsonl" GODEBUG=gctrace=1 timeout 30 go run ./cmd/bt --robot-triage 2>&1 | grep -E '^gc|total' | head -20 >> "$BASELINE_FILE" || echo "No GC data captured" >> "$BASELINE_FILE"
     fi
 
     # 8. Test Dataset Statistics

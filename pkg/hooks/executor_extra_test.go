@@ -67,7 +67,7 @@ func TestSummaryEmpty(t *testing.T) {
 // TestLoadDefaultMissingFile loads from temp dir with no hooks file.
 func TestLoadDefaultMissingFile(t *testing.T) {
 	tmp := t.TempDir()
-	// No .bv/hooks.yaml
+	// No .bt/hooks.yaml
 	loader := NewLoader(WithProjectDir(tmp))
 	if err := loader.Load(); err != nil {
 		t.Fatalf("expected nil error when hooks.yaml missing: %v", err)
@@ -83,10 +83,10 @@ func TestLoadDefaultMissingFile(t *testing.T) {
 // TestNormalizeDropsEmptyCommand ensures empty commands are skipped with warning.
 func TestNormalizeDropsEmptyCommand(t *testing.T) {
 	tmp := t.TempDir()
-	if err := os.MkdirAll(filepath.Join(tmp, ".bv"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(tmp, ".bt"), 0755); err != nil {
 		t.Fatalf("mkdir .bv: %v", err)
 	}
-	configPath := filepath.Join(tmp, ".bv", "hooks.yaml")
+	configPath := filepath.Join(tmp, ".bt", "hooks.yaml")
 	data := []byte(`
 hooks:
   pre-export:

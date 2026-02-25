@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/analysis"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/baseline"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/analysis"
+	"github.com/seanmartinsmith/beadstui/pkg/baseline"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // Severity represents the severity level of a drift alert

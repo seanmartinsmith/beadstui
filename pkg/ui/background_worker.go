@@ -1,4 +1,4 @@
-// Package ui provides the terminal user interface for beads_viewer.
+// Package ui provides the terminal user interface for beadstui.
 // This file implements the BackgroundWorker for off-thread data processing.
 package ui
 
@@ -20,13 +20,13 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/Dicklesworthstone/beads_viewer/internal/datasource"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/analysis"
-	dbg "github.com/Dicklesworthstone/beads_viewer/pkg/debug"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/loader"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/recipe"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/watcher"
+	"github.com/seanmartinsmith/beadstui/internal/datasource"
+	"github.com/seanmartinsmith/beadstui/pkg/analysis"
+	dbg "github.com/seanmartinsmith/beadstui/pkg/debug"
+	"github.com/seanmartinsmith/beadstui/pkg/loader"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/recipe"
+	"github.com/seanmartinsmith/beadstui/pkg/watcher"
 )
 
 // WorkerState represents the current state of the background worker.
@@ -276,16 +276,16 @@ func NewBackgroundWorker(cfg WorkerConfig) (*BackgroundWorker, error) {
 	}()
 
 	if cfg.DebounceDelay == 0 {
-		cfg.DebounceDelay = envDurationMilliseconds("BV_DEBOUNCE_MS", 200*time.Millisecond)
+		cfg.DebounceDelay = envDurationMilliseconds("BT_DEBOUNCE_MS", 200*time.Millisecond)
 	}
 	if cfg.MessageBuffer <= 0 {
-		cfg.MessageBuffer = envPositiveIntOr("BV_CHANNEL_BUFFER", 8)
+		cfg.MessageBuffer = envPositiveIntOr("BT_CHANNEL_BUFFER", 8)
 	}
 	if cfg.HeartbeatInterval == 0 {
-		cfg.HeartbeatInterval = envDurationSeconds("BV_HEARTBEAT_INTERVAL_S", 5*time.Second)
+		cfg.HeartbeatInterval = envDurationSeconds("BT_HEARTBEAT_INTERVAL_S", 5*time.Second)
 	}
 	if cfg.WatchdogInterval == 0 {
-		cfg.WatchdogInterval = envDurationSeconds("BV_WATCHDOG_INTERVAL_S", 10*time.Second)
+		cfg.WatchdogInterval = envDurationSeconds("BT_WATCHDOG_INTERVAL_S", 10*time.Second)
 	}
 	if cfg.HeartbeatTimeout == 0 {
 		cfg.HeartbeatTimeout = 30 * time.Second
@@ -297,10 +297,10 @@ func NewBackgroundWorker(cfg WorkerConfig) (*BackgroundWorker, error) {
 		cfg.MaxRecoveries = 3
 	}
 
-	logLevel := parseWorkerLogLevel(os.Getenv("BV_WORKER_LOG_LEVEL"))
-	metricsEnabled := envBool("BV_WORKER_METRICS")
-	tracePath := strings.TrimSpace(os.Getenv("BV_WORKER_TRACE"))
-	logJSON := os.Getenv("BV_ROBOT") == "1"
+	logLevel := parseWorkerLogLevel(os.Getenv("BT_WORKER_LOG_LEVEL"))
+	metricsEnabled := envBool("BT_WORKER_METRICS")
+	tracePath := strings.TrimSpace(os.Getenv("BT_WORKER_TRACE"))
+	logJSON := os.Getenv("BT_ROBOT") == "1"
 
 	idleGCConfig := IdleGCConfig{
 		Enabled:     true,
@@ -556,7 +556,7 @@ func (w *BackgroundWorker) Start() error {
 	})
 
 	// Avoid mutating global GC percent in tests (it can interfere with parallel test execution).
-	if os.Getenv("BV_TEST_MODE") != "" {
+	if os.Getenv("BT_TEST_MODE") != "" {
 		idleGCGCPercent = 0
 	}
 
@@ -1689,7 +1689,7 @@ func countJSONLLines(path string) (int, error) {
 }
 
 func envMaxLineSizeBytes() int {
-	mb, ok := envPositiveInt("BV_MAX_LINE_SIZE_MB")
+	mb, ok := envPositiveInt("BT_MAX_LINE_SIZE_MB")
 	if !ok {
 		return 0
 	}
@@ -1802,6 +1802,15 @@ type SnapshotErrorMsg struct {
 	Recoverable bool // True if we expect to recover on next file change
 }
 
+// DoltConnectionStatusMsg notifies the UI about Dolt server connectivity changes.
+// Sent on first failure and on recovery - not on every poll attempt.
+type DoltConnectionStatusMsg struct {
+	Connected        bool   // True if connection was restored
+	Error            error  // Non-nil on failure
+	ConsecutiveFails int    // How many consecutive failures so far
+	BackoffSeconds   int    // Current backoff interval
+}
+
 // Phase2UpdateMsg is sent when Phase 2 analysis completes.
 // This allows the UI to update without waiting for full rebuild.
 // The UI should check DataHash matches current snapshot before using.
@@ -1904,17 +1913,23 @@ func (w *BackgroundWorker) ResetHash() {
 
 // startDoltPollLoop polls a Dolt server for data changes and triggers refreshes.
 // It replaces the file watcher for Dolt-backed sources.
+//
+// Error handling: on consecutive failures, applies exponential backoff (base interval
+// * 2^failures, capped at 2 minutes). Notifies the UI on first failure and on recovery
+// via DoltConnectionStatusMsg. Suppresses duplicate log output after the first error.
 func (w *BackgroundWorker) startDoltPollLoop() {
-	interval := envDurationSeconds("BV_DOLT_POLL_INTERVAL_S", 5*time.Second)
+	baseInterval := envDurationSeconds("BT_DOLT_POLL_INTERVAL_S", 5*time.Second)
+	const maxBackoff = 2 * time.Minute
 
 	w.logEvent(LogLevelInfo, "dolt_poll_start", map[string]any{
-		"interval_s": interval.Seconds(),
+		"interval_s": baseInterval.Seconds(),
 	})
 
 	var lastModified time.Time
 	firstPoll := true
+	consecutiveFails := 0
 
-	ticker := time.NewTicker(interval)
+	ticker := time.NewTicker(baseInterval)
 	defer ticker.Stop()
 
 	for {
@@ -1922,35 +1937,93 @@ func (w *BackgroundWorker) startDoltPollLoop() {
 		case <-w.ctx.Done():
 			return
 		case <-ticker.C:
-			reader, err := datasource.NewDoltReader(*w.dataSource)
-			if err != nil {
-				w.logEvent(LogLevelWarn, "dolt_poll_connect_failed", map[string]any{
-					"error": err.Error(),
+			pollErr := w.doltPollOnce(&lastModified, &firstPoll)
+			if pollErr != nil {
+				consecutiveFails++
+
+				if consecutiveFails == 1 {
+					// First failure: log and notify UI
+					w.logEvent(LogLevelWarn, "dolt_poll_failed", map[string]any{
+						"error": pollErr.Error(),
+					})
+					w.send(DoltConnectionStatusMsg{
+						Connected:        false,
+						Error:            pollErr,
+						ConsecutiveFails: consecutiveFails,
+						BackoffSeconds:   int(w.doltBackoff(baseInterval, consecutiveFails, maxBackoff).Seconds()),
+					})
+				} else {
+					// Subsequent failures: trace-level only, no UI spam
+					w.logEvent(LogLevelTrace, "dolt_poll_failed", map[string]any{
+						"error":             pollErr.Error(),
+						"consecutive_fails": consecutiveFails,
+					})
+				}
+
+				// Apply exponential backoff by resetting the ticker
+				backoff := w.doltBackoff(baseInterval, consecutiveFails, maxBackoff)
+				ticker.Reset(backoff)
+				continue
+			}
+
+			// Success path
+			if consecutiveFails > 0 {
+				// Recovered from failure: notify UI, restore normal interval
+				w.logEvent(LogLevelInfo, "dolt_poll_recovered", map[string]any{
+					"after_failures": consecutiveFails,
 				})
-				continue
-			}
-
-			modTime, err := reader.GetLastModified()
-			reader.Close()
-			if err != nil {
-				w.logEvent(LogLevelWarn, "dolt_poll_query_failed", map[string]any{
-					"error": err.Error(),
+				w.send(DoltConnectionStatusMsg{
+					Connected:        true,
+					ConsecutiveFails: 0,
 				})
-				continue
-			}
-
-			if firstPoll {
-				// Record baseline without triggering refresh
-				lastModified = modTime
-				firstPoll = false
-				continue
-			}
-
-			if !modTime.Equal(lastModified) {
-				lastModified = modTime
-				w.noteFileChange(time.Now())
-				w.TriggerRefresh()
+				consecutiveFails = 0
+				ticker.Reset(baseInterval)
 			}
 		}
 	}
+}
+
+// doltPollOnce performs a single Dolt poll cycle. Returns nil on success.
+// On the first successful poll it records the baseline modification time without
+// triggering a refresh. On subsequent polls it triggers a refresh if data changed.
+func (w *BackgroundWorker) doltPollOnce(lastModified *time.Time, firstPoll *bool) error {
+	reader, err := datasource.NewDoltReader(*w.dataSource)
+	if err != nil {
+		return fmt.Errorf("connect: %w", err)
+	}
+
+	modTime, err := reader.GetLastModified()
+	reader.Close()
+	if err != nil {
+		return fmt.Errorf("query: %w", err)
+	}
+
+	if *firstPoll {
+		*lastModified = modTime
+		*firstPoll = false
+		return nil
+	}
+
+	if !modTime.Equal(*lastModified) {
+		*lastModified = modTime
+		w.noteFileChange(time.Now())
+		w.TriggerRefresh()
+	}
+	return nil
+}
+
+// doltBackoff calculates the backoff duration for Dolt poll retries.
+// Uses exponential backoff: base * 2^(failures-1), capped at max.
+func (w *BackgroundWorker) doltBackoff(base time.Duration, failures int, max time.Duration) time.Duration {
+	if failures <= 0 {
+		return base
+	}
+	backoff := base
+	for i := 1; i < failures && backoff < max; i++ {
+		backoff *= 2
+	}
+	if backoff > max {
+		backoff = max
+	}
+	return backoff
 }

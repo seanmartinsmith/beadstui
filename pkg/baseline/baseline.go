@@ -87,7 +87,7 @@ const DefaultFilename = "baseline.json"
 
 // DefaultPath returns the default baseline path for a project
 func DefaultPath(projectDir string) string {
-	return filepath.Join(projectDir, ".bv", DefaultFilename)
+	return filepath.Join(projectDir, ".bt", DefaultFilename)
 }
 
 // Save writes the baseline to a file

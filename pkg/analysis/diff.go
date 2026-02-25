@@ -5,7 +5,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // Snapshot represents the state of issues at a point in time

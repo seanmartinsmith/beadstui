@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // GraphFixture represents an abstract graph for testing graph algorithms.

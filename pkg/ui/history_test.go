@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/cass"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/correlation"
+	"github.com/seanmartinsmith/beadstui/pkg/cass"
+	"github.com/seanmartinsmith/beadstui/pkg/correlation"
 	"github.com/charmbracelet/lipgloss"
 )
 

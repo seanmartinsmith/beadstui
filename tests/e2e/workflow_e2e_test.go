@@ -234,7 +234,7 @@ func TestWorkflow_TimeTravelAnalysis(t *testing.T) {
 	}
 
 	// Verify baseline file created
-	baselinePath := filepath.Join(projectDir, ".bv", "baseline.json")
+	baselinePath := filepath.Join(projectDir, ".bt", "baseline.json")
 	if _, err := os.Stat(baselinePath); os.IsNotExist(err) {
 		t.Fatal("baseline file not created")
 	}

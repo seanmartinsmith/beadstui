@@ -130,7 +130,7 @@ func classifyMatch(raw string) string {
 		return "resolves"
 	case strings.HasPrefix(raw, "[") && strings.HasSuffix(raw, "]"):
 		return "bracket"
-	case strings.HasPrefix(lower, "bead") || strings.HasPrefix(lower, "bv"):
+	case strings.HasPrefix(lower, "bead") || strings.HasPrefix(lower, "bt"):
 		return "bead"
 	default:
 		return "generic"

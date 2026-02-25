@@ -94,7 +94,7 @@ build_baseline() {
 
     # Build
     log_verbose "Building baseline binary..."
-    go build -o "$BASELINE_BIN" "$PROJECT_ROOT/cmd/bv" 2>/dev/null
+    go build -o "$BASELINE_BIN" "$PROJECT_ROO./cmd/bt" 2>/dev/null
 
     # Return to original branch
     log_verbose "Returning to $ORIGINAL_BRANCH..."
@@ -112,7 +112,7 @@ build_baseline() {
 # Build current version
 build_current() {
     log_info "Building current version..."
-    go build -o "$CURRENT_BIN" "$PROJECT_ROOT/cmd/bv" 2>/dev/null
+    go build -o "$CURRENT_BIN" "$PROJECT_ROO./cmd/bt" 2>/dev/null
     log_success "Current built: $CURRENT_BIN"
 }
 

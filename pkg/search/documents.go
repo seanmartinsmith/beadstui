@@ -3,7 +3,7 @@ package search
 import (
 	"strings"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // IssueDocument returns the default text representation used for semantic indexing.

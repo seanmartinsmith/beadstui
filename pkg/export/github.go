@@ -269,7 +269,7 @@ func InitAndPush(bundlePath string, repoFullName string, forceOverwrite bool) er
 	}{
 		{[]string{"init"}, "Initializing git repository"},
 		{[]string{"add", "."}, "Staging files"},
-		{[]string{"commit", "-m", "Deploy static site via bv --pages"}, "Creating commit"},
+		{[]string{"commit", "-m", "Deploy static site via bt --pages"}, "Creating commit"},
 		{[]string{"branch", "-M", "main"}, "Setting main branch"},
 		{[]string{"remote", "add", "origin", remoteURL}, "Adding remote"},
 	}
@@ -592,10 +592,10 @@ func DeleteRepository(repoFullName string, confirm bool) error {
 }
 
 // OpenInBrowser opens a URL in the default browser.
-// Set BV_NO_BROWSER=1 to suppress browser opening (useful for tests).
+// Set BT_NO_BROWSER=1 to suppress browser opening (useful for tests).
 func OpenInBrowser(url string) error {
 	// Skip browser opening in test mode or when explicitly disabled
-	if os.Getenv("BV_NO_BROWSER") != "" || os.Getenv("BV_TEST_MODE") != "" {
+	if os.Getenv("BT_NO_BROWSER") != "" || os.Getenv("BT_TEST_MODE") != "" {
 		return nil
 	}
 

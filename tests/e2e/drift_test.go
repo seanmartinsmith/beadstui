@@ -14,7 +14,7 @@ import (
 func TestEndToEndDriftWorkflow(t *testing.T) {
 	// 1. Build the binary
 	tempDir := t.TempDir()
-	binPath := filepath.Join(tempDir, "bv")
+	binPath := filepath.Join(tempDir, "bt")
 
 	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/bv/")
 	cmd.Dir = "../../"
@@ -47,7 +47,7 @@ func TestEndToEndDriftWorkflow(t *testing.T) {
 	}
 
 	// Verify baseline file exists
-	baselinePath := filepath.Join(envDir, ".bv", "baseline.json")
+	baselinePath := filepath.Join(envDir, ".bt", "baseline.json")
 	if _, err := os.Stat(baselinePath); os.IsNotExist(err) {
 		t.Fatalf("Baseline file not created at %s", baselinePath)
 	}
@@ -129,7 +129,7 @@ func TestEndToEndDriftWorkflow(t *testing.T) {
 func TestDriftAlerts(t *testing.T) {
 	// 1. Build
 	tempDir := t.TempDir()
-	binPath := filepath.Join(tempDir, "bv")
+	binPath := filepath.Join(tempDir, "bt")
 	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/bv/")
 	cmd.Dir = "../../"
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -224,7 +224,7 @@ func TestDriftAlerts(t *testing.T) {
 func TestDriftConfigCustomization(t *testing.T) {
 	// 1. Build
 	tempDir := t.TempDir()
-	binPath := filepath.Join(tempDir, "bv")
+	binPath := filepath.Join(tempDir, "bt")
 	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/bv/")
 	cmd.Dir = "../../"
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -235,12 +235,12 @@ func TestDriftConfigCustomization(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(envDir, ".beads"), 0755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.MkdirAll(filepath.Join(envDir, ".bv"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(envDir, ".bt"), 0755); err != nil {
 		t.Fatal(err)
 	}
 
 	beadsPath := filepath.Join(envDir, ".beads", "beads.jsonl")
-	configPath := filepath.Join(envDir, ".bv", "drift.yaml")
+	configPath := filepath.Join(envDir, ".bt", "drift.yaml")
 	var out []byte
 	var err error
 
@@ -357,7 +357,7 @@ actionable_decrease_warning_pct: 1000`
 func TestDriftErrorHandling(t *testing.T) {
 	// 1. Build
 	tempDir := t.TempDir()
-	binPath := filepath.Join(tempDir, "bv")
+	binPath := filepath.Join(tempDir, "bt")
 	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/bv/")
 	cmd.Dir = "../../"
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -402,7 +402,7 @@ func TestDriftErrorHandling(t *testing.T) {
 	// -------------------------------------------------------------------------
 	t.Log("Scenario 2: Corrupt Baseline")
 
-	baselineDir := filepath.Join(envDir, ".bv")
+	baselineDir := filepath.Join(envDir, ".bt")
 	if err := os.MkdirAll(baselineDir, 0755); err != nil {
 		t.Fatal(err)
 	}

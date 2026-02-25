@@ -54,7 +54,7 @@ jobs:
         if: steps.update.outputs.changed == 'true'
         run: |
           # Build to verify the update doesn't break anything
-          nix build .#bv --no-link
+          nix build .#bt --no-link
 
       - name: Create Pull Request
         if: steps.update.outputs.changed == 'true'

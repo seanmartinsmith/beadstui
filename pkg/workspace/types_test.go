@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/workspace"
+	"github.com/seanmartinsmith/beadstui/pkg/workspace"
 )
 
 func TestRepoConfigGetPrefix(t *testing.T) {
@@ -322,7 +322,7 @@ func TestFindWorkspaceConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create .bv directory and workspace.yaml
-	bvDir := filepath.Join(tmpDir, ".bv")
+	bvDir := filepath.Join(tmpDir, ".bt")
 	if err := os.MkdirAll(bvDir, 0755); err != nil {
 		t.Fatal(err)
 	}

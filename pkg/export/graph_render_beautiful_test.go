@@ -18,7 +18,7 @@ func TestGenerateUltimateHTML_EscapesTitleAndProject(t *testing.T) {
 	safeProject := html.EscapeString(project)
 	safeHash := html.EscapeString(hash)
 
-	if !strings.Contains(out, fmt.Sprintf("<title>%s | bv Graph</title>", safeTitle)) {
+	if !strings.Contains(out, fmt.Sprintf("<title>%s | bt Graph</title>", safeTitle)) {
 		t.Fatalf("expected escaped title in <title> tag")
 	}
 	if !strings.Contains(out, fmt.Sprintf("<h1><span>%s</span> Graph</h1>", safeTitle)) {

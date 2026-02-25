@@ -16,10 +16,10 @@ import (
 // to real GitHub Pages. If the mock scripts fail to intercept real commands,
 // this could deploy to an actual repository.
 //
-// To run this test explicitly, set BV_TEST_GH_PAGES_E2E=1
+// To run this test explicitly, set BT_TEST_GH_PAGES_E2E=1
 func TestDeployToGitHubPages_E2E_Success(t *testing.T) {
-	if os.Getenv("BV_TEST_GH_PAGES_E2E") != "1" {
-		t.Skip("Skipping GitHub Pages E2E test (set BV_TEST_GH_PAGES_E2E=1 to run)")
+	if os.Getenv("BT_TEST_GH_PAGES_E2E") != "1" {
+		t.Skip("Skipping GitHub Pages E2E test (set BT_TEST_GH_PAGES_E2E=1 to run)")
 	}
 	if runtime.GOOS == "windows" {
 		t.Skip("shell script stubs not supported on windows in this test")
@@ -138,7 +138,7 @@ exit 0
 		"gh api repos/TestUser/my-site/contents -q length",                      // Check content
 		"git init",  // Init
 		"git add .", // Add
-		"git commit -m Deploy static site via bv --pages",               // Commit
+		"git commit -m Deploy static site via bt --pages",               // Commit
 		"git branch -M main",                                            // Branch
 		"git remote add origin https://github.com/TestUser/my-site.git", // Remote
 		"git push -u origin main",                                       // Push

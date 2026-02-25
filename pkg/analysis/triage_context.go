@@ -3,7 +3,7 @@ package analysis
 import (
 	"sync"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // TriageContext provides unified caching for triage-related computations.

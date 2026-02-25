@@ -47,8 +47,8 @@ func TestVersionFlag_IncludesBuildInfo(t *testing.T) {
 
 	output := string(out)
 
-	// Should include "bv" name
-	if !strings.Contains(strings.ToLower(output), "bv") {
+	// Should include "bt" name
+	if !strings.Contains(strings.ToLower(output), "bt") {
 		t.Errorf("expected 'bv' in version output, got: %s", output)
 	}
 }
@@ -106,7 +106,7 @@ func TestUpdateFlag_RequiresNetwork(t *testing.T) {
 	cmd := exec.Command(bv, "--update", "-y")
 	cmd.Dir = tmpDir
 	// Set a short timeout
-	cmd.Env = append(os.Environ(), "BV_UPDATE_TIMEOUT=2s")
+	cmd.Env = append(os.Environ(), "BT_UPDATE_TIMEOUT=2s")
 	out, _ := cmd.CombinedOutput()
 
 	output := string(out)

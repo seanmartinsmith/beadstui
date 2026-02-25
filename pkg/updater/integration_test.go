@@ -30,7 +30,7 @@ func TestFullUpdateFlow_WithMockServer(t *testing.T) {
 	tw := tar.NewWriter(gzw)
 
 	hdr := &tar.Header{
-		Name: "bv",
+		Name: "bt",
 		Mode: 0o755,
 		Size: int64(len(binaryContent)),
 	}
@@ -147,7 +147,7 @@ func TestExtractBinary_NoBinaryInArchive(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	archivePath := filepath.Join(tmpDir, "archive.tar.gz")
-	destPath := filepath.Join(tmpDir, "bv")
+	destPath := filepath.Join(tmpDir, "bt")
 
 	if err := os.WriteFile(archivePath, archiveBuf.Bytes(), 0o644); err != nil {
 		t.Fatalf("write archive: %v", err)
@@ -182,7 +182,7 @@ func TestExtractBinary_NestedPath(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	archivePath := filepath.Join(tmpDir, "archive.tar.gz")
-	destPath := filepath.Join(tmpDir, "bv")
+	destPath := filepath.Join(tmpDir, "bt")
 
 	if err := os.WriteFile(archivePath, archiveBuf.Bytes(), 0o644); err != nil {
 		t.Fatalf("write archive: %v", err)

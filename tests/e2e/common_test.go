@@ -26,8 +26,8 @@ var (
 
 func TestMain(m *testing.M) {
 	// Prevent any test from accidentally opening a browser
-	os.Setenv("BV_NO_BROWSER", "1")
-	os.Setenv("BV_TEST_MODE", "1")
+	os.Setenv("BT_NO_BROWSER", "1")
+	os.Setenv("BT_TEST_MODE", "1")
 
 	// Build the binary once for all tests
 	if err := buildBvOnce(); err != nil {
@@ -52,7 +52,7 @@ func detectScriptTUICapability(bvPath string) (bool, string) {
 		return false, "script TUI harness unsupported on this OS"
 	}
 	if bvPath == "" {
-		return false, "bv binary path is empty"
+		return false, "bt binary path is empty"
 	}
 
 	// Smoke check: can we start bv under `script` and auto-close quickly?
@@ -83,7 +83,7 @@ func detectScriptTUICapability(bvPath string) (bool, string) {
 	cmd.Dir = tempDir
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
-		"BV_TUI_AUTOCLOSE_MS=250",
+		"BT_TUI_AUTOCLOSE_MS=250",
 	)
 
 	outFile := filepath.Join(tempDir, "script.out")
@@ -98,7 +98,7 @@ func detectScriptTUICapability(bvPath string) (bool, string) {
 	_ = f.Close()
 
 	if ctx.Err() == context.DeadlineExceeded {
-		return false, "bv did not auto-exit under script (PTY/CI mismatch)"
+		return false, "bt did not auto-exit under script (PTY/CI mismatch)"
 	}
 	if runErr != nil {
 		return false, fmt.Sprintf("script TUI run failed: %v", runErr)
@@ -114,7 +114,7 @@ func buildBvOnce() error {
 	}
 	bvBinaryDir = tempDir
 
-	binName := "bv"
+	binName := "bt"
 	if runtime.GOOS == "windows" {
 		binName += ".exe"
 	}
@@ -140,7 +140,7 @@ func buildBvOnce() error {
 func buildBvBinary(t *testing.T) string {
 	t.Helper()
 	if bvBinaryPath == "" {
-		t.Fatal("bv binary not built")
+		t.Fatal("bt binary not built")
 	}
 	return bvBinaryPath
 }
@@ -378,8 +378,8 @@ func runBVCommand(t *testing.T, workDir string, args ...string) ([]byte, error) 
 	cmd := exec.CommandContext(ctx, binPath, args...)
 	cmd.Dir = workDir
 	cmd.Env = append(os.Environ(),
-		"BV_NO_BROWSER=1",
-		"BV_TEST_MODE=1",
+		"BT_NO_BROWSER=1",
+		"BT_TEST_MODE=1",
 		"TERM=dumb",
 	)
 

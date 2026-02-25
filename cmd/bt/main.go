@@ -27,24 +27,24 @@ import (
 	"golang.org/x/term"
 	"gopkg.in/yaml.v3"
 
-	"github.com/Dicklesworthstone/beads_viewer/internal/datasource"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/agents"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/analysis"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/baseline"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/correlation"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/drift"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/export"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/hooks"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/loader"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/metrics"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/recipe"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/search"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/ui"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/updater"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/version"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/watcher"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/workspace"
+	"github.com/seanmartinsmith/beadstui/internal/datasource"
+	"github.com/seanmartinsmith/beadstui/pkg/agents"
+	"github.com/seanmartinsmith/beadstui/pkg/analysis"
+	"github.com/seanmartinsmith/beadstui/pkg/baseline"
+	"github.com/seanmartinsmith/beadstui/pkg/correlation"
+	"github.com/seanmartinsmith/beadstui/pkg/drift"
+	"github.com/seanmartinsmith/beadstui/pkg/export"
+	"github.com/seanmartinsmith/beadstui/pkg/hooks"
+	"github.com/seanmartinsmith/beadstui/pkg/loader"
+	"github.com/seanmartinsmith/beadstui/pkg/metrics"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/recipe"
+	"github.com/seanmartinsmith/beadstui/pkg/search"
+	"github.com/seanmartinsmith/beadstui/pkg/ui"
+	"github.com/seanmartinsmith/beadstui/pkg/updater"
+	"github.com/seanmartinsmith/beadstui/pkg/version"
+	"github.com/seanmartinsmith/beadstui/pkg/watcher"
+	"github.com/seanmartinsmith/beadstui/pkg/workspace"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -54,14 +54,14 @@ func main() {
 	help := flag.Bool("help", false, "Show help")
 	versionFlag := flag.Bool("version", false, "Show version")
 	// Update flags (bv-182)
-	updateFlag := flag.Bool("update", false, "Update bv to the latest version")
+	updateFlag := flag.Bool("update", false, "Update bt to the latest version")
 	checkUpdateFlag := flag.Bool("check-update", false, "Check if a new version is available")
 	rollbackFlag := flag.Bool("rollback", false, "Rollback to the previous version (from backup)")
 	yesFlag := flag.Bool("yes", false, "Skip confirmation prompts (use with --update)")
 	exportFile := flag.String("export-md", "", "Export issues to a Markdown file (e.g., report.md)")
 	robotHelp := flag.Bool("robot-help", false, "Show AI agent help")
 	robotDocs := flag.String("robot-docs", "", "Machine-readable JSON docs for AI agents. Topics: guide, commands, examples, env, exit-codes, all")
-	outputFormat := flag.String("format", "", "Structured output format for --robot-* commands: json or toon (env: BV_OUTPUT_FORMAT, TOON_DEFAULT_FORMAT)")
+	outputFormat := flag.String("format", "", "Structured output format for --robot-* commands: json or toon (env: BT_OUTPUT_FORMAT, TOON_DEFAULT_FORMAT)")
 	toonStats := flag.Bool("stats", false, "Show JSON vs TOON token estimates on stderr (env: TOON_STATS=1)")
 	robotInsights := flag.Bool("robot-insights", false, "Output graph analysis and insights as JSON for AI agents")
 	robotPlan := flag.Bool("robot-plan", false, "Output dependency-respecting execution plan as JSON for AI agents")
@@ -109,8 +109,8 @@ func main() {
 	semanticQuery := flag.String("search", "", "Semantic search query (vector-based; builds/updates index on first run)")
 	robotSearch := flag.Bool("robot-search", false, "Output semantic search results as JSON for AI agents (use with --search)")
 	searchLimit := flag.Int("search-limit", 10, "Max results for --search/--robot-search")
-	searchMode := flag.String("search-mode", "", "Search ranking mode: text or hybrid (default: BV_SEARCH_MODE or text)")
-	searchPreset := flag.String("search-preset", "", "Hybrid preset name (default: BV_SEARCH_PRESET or default)")
+	searchMode := flag.String("search-mode", "", "Search ranking mode: text or hybrid (default: BT_SEARCH_MODE or text)")
+	searchPreset := flag.String("search-preset", "", "Hybrid preset name (default: BT_SEARCH_PRESET or default)")
 	searchWeights := flag.String("search-weights", "", "Hybrid weights JSON (overrides preset; keys: text,pagerank,status,impact,priority,recency)")
 	diffSince := flag.String("diff-since", "", "Show changes since historical point (commit SHA, branch, tag, or date)")
 	asOf := flag.String("as-of", "", "View state at point in time (commit SHA, branch, tag, or date)")
@@ -118,7 +118,7 @@ func main() {
 	profileStartup := flag.Bool("profile-startup", false, "Output detailed startup timing profile for diagnostics")
 	profileJSON := flag.Bool("profile-json", false, "Output profile in JSON format (use with --profile-startup)")
 	noHooks := flag.Bool("no-hooks", false, "Skip running hooks during export")
-	workspaceConfig := flag.String("workspace", "", "Load issues from workspace config file (.bv/workspace.yaml)")
+	workspaceConfig := flag.String("workspace", "", "Load issues from workspace config file (.bt/workspace.yaml)")
 	repoFilter := flag.String("repo", "", "Filter issues by repository prefix (e.g., 'api-' or 'api')")
 	saveBaseline := flag.String("save-baseline", "", "Save current metrics as baseline with optional description")
 	baselineInfo := flag.Bool("baseline-info", false, "Show information about the current baseline")
@@ -214,7 +214,7 @@ func main() {
 	agentsForce := flag.Bool("agents-force", false, "Skip confirmation prompts (use with --agents-*)")
 	// Override pflag's default usage so -h/--help prints our custom header.
 	flag.Usage = func() {
-		fmt.Println("Usage: bv [options]")
+		fmt.Println("Usage: bt [options]")
 		fmt.Println("\nA TUI viewer for beads issue tracker.")
 		flag.PrintDefaults()
 	}
@@ -257,7 +257,7 @@ func main() {
 	_ = labelScope
 	_ = agentBrief
 
-	envRobot := os.Getenv("BV_ROBOT") == "1"
+	envRobot := os.Getenv("BT_ROBOT") == "1"
 	stdoutIsTTY := term.IsTerminal(int(os.Stdout.Fd()))
 
 	robotMode := envRobot ||
@@ -304,7 +304,7 @@ func main() {
 
 	// Mark robot mode for downstream packages (e.g., parsers) to keep stdout JSON clean.
 	if robotMode && !envRobot {
-		_ = os.Setenv("BV_ROBOT", "1")
+		_ = os.Setenv("BT_ROBOT", "1")
 		envRobot = true
 	}
 
@@ -318,14 +318,14 @@ func main() {
 	}
 
 	if *help {
-		fmt.Println("Usage: bv [options]")
+		fmt.Println("Usage: bt [options]")
 		fmt.Println("\nA TUI viewer for beads issue tracker.")
 		flag.PrintDefaults()
 		os.Exit(0)
 	}
 
 	if *robotHelp {
-		fmt.Println("bv (Beads Viewer) AI Agent Interface")
+		fmt.Println("bt (Beads TUI) AI Agent Interface")
 		fmt.Println("====================================")
 		fmt.Println("This tool provides structural analysis of the issue tracker graph (DAG).")
 		fmt.Println("Use these commands to understand project state without parsing raw JSONL.")
@@ -333,7 +333,7 @@ func main() {
 		fmt.Println("Output format:")
 		fmt.Println("  --format json|toon")
 		fmt.Println("      Structured output encoding for --robot-* commands (default: json).")
-		fmt.Println("      Env: BV_OUTPUT_FORMAT, TOON_DEFAULT_FORMAT.")
+		fmt.Println("      Env: BT_OUTPUT_FORMAT, TOON_DEFAULT_FORMAT.")
 		fmt.Println("  --stats")
 		fmt.Println("      Print JSON vs TOON token estimates to stderr (or set TOON_STATS=1).")
 		fmt.Println("")
@@ -387,7 +387,7 @@ func main() {
 		fmt.Println("      Builds/updates a local on-disk vector index on first run.")
 		fmt.Println("      Use --robot-search to emit JSON for automation.")
 		fmt.Println("      Optional hybrid re-ranking:")
-		fmt.Println("      - --search-mode=text|hybrid (default: BV_SEARCH_MODE or text)")
+		fmt.Println("      - --search-mode=text|hybrid (default: BT_SEARCH_MODE or text)")
 		fmt.Println("      - --search-preset=default|bug-hunting|sprint-planning|impact-first|text-only")
 		fmt.Println("      - --search-weights='{\"text\":0.4,\"pagerank\":0.2,\"status\":0.15,\"impact\":0.1,\"priority\":0.1,\"recency\":0.05}'")
 		fmt.Println("")
@@ -396,8 +396,8 @@ func main() {
 		fmt.Println("      Includes hash/config header for deterministic ordering.")
 		fmt.Println("      Output: br show commands for each item, commented claim commands")
 		fmt.Println("      Options: --script-format=bash|fish|zsh, --script-limit=N")
-		fmt.Println("      Example: bv --emit-script > work.sh && bash work.sh")
-		fmt.Println("      Example: bv --emit-script --script-limit=3")
+		fmt.Println("      Example: bt --emit-script > work.sh && bash work.sh")
+		fmt.Println("      Example: bt --emit-script --script-limit=3")
 		fmt.Println("")
 		fmt.Println("  --robot-history")
 		fmt.Println("      Outputs bead-to-commit correlations as JSON.")
@@ -411,8 +411,8 @@ func main() {
 		fmt.Println("      - --history-since <ref>: Limit to recent commits")
 		fmt.Println("      - --history-limit <n>: Max commits to analyze (default: 500)")
 		fmt.Println("      - --min-confidence <0.0-1.0>: Filter by minimum confidence score")
-		fmt.Println("      Example: bv --robot-history --history-since '30 days ago'")
-		fmt.Println("      Example: bv --robot-history --min-confidence 0.7")
+		fmt.Println("      Example: bt --robot-history --history-since '30 days ago'")
+		fmt.Println("      Example: bt --robot-history --min-confidence 0.7")
 		fmt.Println("")
 		fmt.Println("  --robot-file-beads <path>")
 		fmt.Println("      Outputs beads that have touched a file path as JSON.")
@@ -425,8 +425,8 @@ func main() {
 		fmt.Println("      Each bead includes: bead_id, title, status, commit_shas, last_touch, total_changes")
 		fmt.Println("      Flags:")
 		fmt.Println("      - --file-beads-limit <n>: Max closed beads to show (default: 20)")
-		fmt.Println("      Example: bv --robot-file-beads pkg/auth/token.go")
-		fmt.Println("      Example: bv --robot-file-beads pkg/auth")
+		fmt.Println("      Example: bt --robot-file-beads pkg/auth/token.go")
+		fmt.Println("      Example: bt --robot-file-beads pkg/auth")
 		fmt.Println("")
 		fmt.Println("  --robot-file-hotspots")
 		fmt.Println("      Outputs files touched by the most beads as JSON.")
@@ -436,7 +436,7 @@ func main() {
 		fmt.Println("      - stats: Index statistics (total_files, total_bead_links)")
 		fmt.Println("      Flags:")
 		fmt.Println("      - --hotspots-limit <n>: Max hotspots to show (default: 10)")
-		fmt.Println("      Example: bv --robot-file-hotspots")
+		fmt.Println("      Example: bt --robot-file-hotspots")
 		fmt.Println("")
 		fmt.Println("  --robot-impact <files>")
 		fmt.Println("      Analyzes impact of modifying files - what beads might be affected?")
@@ -447,8 +447,8 @@ func main() {
 		fmt.Println("      - warnings: Actionable warnings about potential conflicts")
 		fmt.Println("      - summary: Human-readable impact summary")
 		fmt.Println("      Input: Comma-separated file paths")
-		fmt.Println("      Example: bv --robot-impact pkg/auth/token.go")
-		fmt.Println("      Example: bv --robot-impact pkg/auth/token.go,pkg/auth/session.go")
+		fmt.Println("      Example: bt --robot-impact pkg/auth/token.go")
+		fmt.Println("      Example: bt --robot-impact pkg/auth/token.go,pkg/auth/session.go")
 		fmt.Println("")
 		fmt.Println("  --robot-file-relations <path>")
 		fmt.Println("      Outputs files that frequently co-change with the given file.")
@@ -461,8 +461,8 @@ func main() {
 		fmt.Println("      Options:")
 		fmt.Println("      - --relations-threshold <0.0-1.0>: Min correlation (default 0.5)")
 		fmt.Println("      - --relations-limit <n>: Max related files to return (default 10)")
-		fmt.Println("      Example: bv --robot-file-relations pkg/auth/token.go")
-		fmt.Println("      Example: bv --robot-file-relations pkg/auth/token.go --relations-threshold 0.3")
+		fmt.Println("      Example: bt --robot-file-relations pkg/auth/token.go")
+		fmt.Println("      Example: bt --robot-file-relations pkg/auth/token.go --relations-threshold 0.3")
 		fmt.Println("")
 		fmt.Println("  --robot-related <bead-id>")
 		fmt.Println("      Outputs beads related to a specific bead as JSON.")
@@ -479,8 +479,8 @@ func main() {
 		fmt.Println("      - --related-min-relevance <0-100>: Min relevance score (default 20)")
 		fmt.Println("      - --related-max-results <n>: Max results per category (default 10)")
 		fmt.Println("      - --related-include-closed: Include closed beads")
-		fmt.Println("      Example: bv --robot-related bv-abc1")
-		fmt.Println("      Example: bv --robot-related bv-abc1 --related-include-closed")
+		fmt.Println("      Example: bt --robot-related bv-abc1")
+		fmt.Println("      Example: bt --robot-related bv-abc1 --related-include-closed")
 		fmt.Println("")
 		fmt.Println("  --robot-sprint-list")
 		fmt.Println("      Outputs all sprints as JSON for planning and forecasting.")
@@ -488,12 +488,12 @@ func main() {
 		fmt.Println("      - generated_at: Timestamp of the output")
 		fmt.Println("      - sprint_count: Number of sprints")
 		fmt.Println("      - sprints: Array of sprint objects (id, name, start_date, end_date, bead_ids)")
-		fmt.Println("      Example: bv --robot-sprint-list")
+		fmt.Println("      Example: bt --robot-sprint-list")
 		fmt.Println("")
 		fmt.Println("  --robot-sprint-show <id>")
 		fmt.Println("      Outputs details for a specific sprint as JSON.")
 		fmt.Println("      Returns the full sprint object with all fields.")
-		fmt.Println("      Example: bv --robot-sprint-show sprint-1")
+		fmt.Println("      Example: bt --robot-sprint-show sprint-1")
 		fmt.Println("")
 		fmt.Println("  --robot-burndown <id|current>")
 		fmt.Println("      Outputs burndown data for a sprint as JSON.")
@@ -506,8 +506,8 @@ func main() {
 		fmt.Println("      - on_track: Whether sprint will complete on time")
 		fmt.Println("      - daily_points: Actual burndown data points")
 		fmt.Println("      - ideal_line: Expected burndown line")
-		fmt.Println("      Example: bv --robot-burndown current")
-		fmt.Println("      Example: bv --robot-burndown sprint-1")
+		fmt.Println("      Example: bt --robot-burndown current")
+		fmt.Println("      Example: bt --robot-burndown sprint-1")
 		fmt.Println("")
 		fmt.Println("  --robot-forecast <id|all>")
 		fmt.Println("      Outputs ETA forecast for a specific bead or all open issues.")
@@ -516,9 +516,9 @@ func main() {
 		fmt.Println("        --forecast-label=X    Filter by label")
 		fmt.Println("        --forecast-sprint=Y   Filter by sprint")
 		fmt.Println("        --forecast-agents=N   Parallel agents (default: 1)")
-		fmt.Println("      Example: bv --robot-forecast bv-123")
-		fmt.Println("      Example: bv --robot-forecast all --forecast-label=backend")
-		fmt.Println("      Example: bv --robot-forecast all --forecast-agents=2")
+		fmt.Println("      Example: bt --robot-forecast bv-123")
+		fmt.Println("      Example: bt --robot-forecast all --forecast-label=backend")
+		fmt.Println("      Example: bt --robot-forecast all --forecast-agents=2")
 		fmt.Println("")
 		fmt.Println("  --robot-capacity [--agents=N] [--capacity-label=X]")
 		fmt.Println("      Outputs capacity simulation and completion projection as JSON.")
@@ -532,8 +532,8 @@ func main() {
 		fmt.Println("      Options:")
 		fmt.Println("        --agents=N           Number of parallel agents (default: 1)")
 		fmt.Println("        --capacity-label=X   Filter analysis to label's subgraph")
-		fmt.Println("      Example: bv --robot-capacity --agents=3")
-		fmt.Println("      Example: bv --robot-capacity --capacity-label=backend")
+		fmt.Println("      Example: bt --robot-capacity --agents=3")
+		fmt.Println("      Example: bt --robot-capacity --capacity-label=backend")
 		fmt.Println("")
 		fmt.Println("  --emit-script [--script-limit=N] [--script-format=bash|fish|zsh]")
 		fmt.Println("      Emits a shell script for top-N priority recommendations.")
@@ -545,24 +545,24 @@ func main() {
 		fmt.Println("      Options:")
 		fmt.Println("        --script-limit=N      Number of items (default: 5)")
 		fmt.Println("        --script-format=X     Script format: bash, fish, zsh")
-		fmt.Println("      Example: bv --emit-script")
-		fmt.Println("      Example: bv --emit-script --script-limit=3")
-		fmt.Println("      Example: bv --emit-script --script-format=fish > work.fish")
-		fmt.Println("      Example: bv --emit-script | bash  # Show top 5 items")
+		fmt.Println("      Example: bt --emit-script")
+		fmt.Println("      Example: bt --emit-script --script-limit=3")
+		fmt.Println("      Example: bt --emit-script --script-format=fish > work.fish")
+		fmt.Println("      Example: bt --emit-script | bash  # Show top 5 items")
 		fmt.Println("")
 		fmt.Println("  --export-md <file>")
 		fmt.Println("      Generates a readable status report with Mermaid.js visualizations.")
-		fmt.Println("      Runs pre-export and post-export hooks if configured in .bv/hooks.yaml")
+		fmt.Println("      Runs pre-export and post-export hooks if configured in .bt/hooks.yaml")
 		fmt.Println("")
 		fmt.Println("  --no-hooks")
 		fmt.Println("      Skip running hooks during export. Useful for CI or quick exports.")
 		fmt.Println("")
-		fmt.Println("  Hook Configuration (.bv/hooks.yaml)")
+		fmt.Println("  Hook Configuration (.bt/hooks.yaml)")
 		fmt.Println("      Configure hooks to automate export workflows:")
 		fmt.Println("      - pre-export: Validation, notifications (failure cancels export)")
 		fmt.Println("      - post-export: Notifications, uploads (failure logged only)")
-		fmt.Println("      Environment variables: BV_EXPORT_PATH, BV_EXPORT_FORMAT,")
-		fmt.Println("        BV_ISSUE_COUNT, BV_TIMESTAMP")
+		fmt.Println("      Environment variables: BT_EXPORT_PATH, BT_EXPORT_FORMAT,")
+		fmt.Println("        BT_ISSUE_COUNT, BT_TIMESTAMP")
 		fmt.Println("")
 		fmt.Println("  --diff-since <commit|date>")
 		fmt.Println("      Shows changes since a historical point.")
@@ -590,7 +590,7 @@ func main() {
 		fmt.Println("  --robot-recipes")
 		fmt.Println("      Lists all available recipes as JSON.")
 		fmt.Println("      Output: {recipes: [{name, description, source}]}")
-		fmt.Println("      Sources: 'builtin', 'user' (~/.config/bv/recipes.yaml), 'project' (.bv/recipes.yaml)")
+		fmt.Println("      Sources: 'builtin', 'user' (~/.config/bv/recipes.yaml), 'project' (.bt/recipes.yaml)")
 		fmt.Println("")
 		fmt.Println("  --robot-schema [--schema-command=NAME]")
 		fmt.Println("      Outputs JSON Schema definitions for all robot command outputs.")
@@ -601,8 +601,8 @@ func main() {
 		fmt.Println("        - commands: Map of command name -> JSON Schema definition")
 		fmt.Println("      Options:")
 		fmt.Println("        --schema-command=NAME: Output schema for specific command only")
-		fmt.Println("      Example: bv --robot-schema")
-		fmt.Println("      Example: bv --robot-schema --schema-command=robot-triage")
+		fmt.Println("      Example: bt --robot-schema")
+		fmt.Println("      Example: bt --robot-schema --schema-command=robot-triage")
 		fmt.Println("")
 		fmt.Println("  --robot-label-health")
 		fmt.Println("      Outputs label health metrics as JSON (velocity, freshness, flow, criticality).")
@@ -637,7 +637,7 @@ func main() {
 		fmt.Println("        --graph-root ID: Extract subgraph starting from root issue")
 		fmt.Println("        --graph-depth N: Limit subgraph depth (0 = unlimited)")
 		fmt.Println("      Fields: format, graph (string for dot/mermaid), nodes, edges, filters_applied, explanation")
-		fmt.Println("      Example: bv --robot-graph --graph-format=dot --label=api > api-deps.dot")
+		fmt.Println("      Example: bt --robot-graph --graph-format=dot --label=api > api-deps.dot")
 		fmt.Println("")
 		fmt.Println("  --export-graph <path.png|path.svg> [--graph-style=force|grid] [--graph-preset=compact|roomy]")
 		fmt.Println("      Export dependency graph as PNG or SVG image (pure Go, no external dependencies).")
@@ -660,14 +660,14 @@ func main() {
 		fmt.Println("        --graph-preset: Layout spacing - 'compact' (default) or 'roomy'")
 		fmt.Println("        --graph-title: Custom title for the graph header")
 		fmt.Println("")
-		fmt.Println("      Example: bv --export-graph deps.svg --label=api --graph-title='API Dependencies'")
-		fmt.Println("      Example: bv --export-graph full.png --graph-style=force --graph-preset=roomy")
+		fmt.Println("      Example: bt --export-graph deps.svg --label=api --graph-title='API Dependencies'")
+		fmt.Println("      Example: bt --export-graph full.png --graph-style=force --graph-preset=roomy")
 		fmt.Println("")
 		fmt.Println("  --robot-insights")
 		fmt.Println("      Graph metrics JSON for agents.")
 		fmt.Println("      Top lists: Bottlenecks (betweenness), Keystones (critical path), Influencers (eigenvector),")
 		fmt.Println("                 Cores (k-core), Articulation points (cut vertices), Slack (parallelism headroom).")
-		fmt.Println("      Full maps (capped by BV_INSIGHTS_MAP_LIMIT): pagerank, betweenness, eigenvector, hubs/authorities, core_number, slack.")
+		fmt.Println("      Full maps (capped by BT_INSIGHTS_MAP_LIMIT): pagerank, betweenness, eigenvector, hubs/authorities, core_number, slack.")
 		fmt.Println("      status captures per-metric state: computed|approx|timeout|skipped with elapsed_ms and reasons.")
 		fmt.Println("      Shared fields: data_hash, analysis_config.")
 		fmt.Println("      Quick jq: jq '.full_stats.core_number | to_entries | sort_by(-.value)[:5]'   # top k-core nodes")
@@ -705,14 +705,14 @@ func main() {
 		fmt.Println("      Affects: --robot-insights, --robot-plan, --robot-priority")
 		fmt.Println("      Filters issues to those with the label, then runs analysis on subgraph.")
 		fmt.Println("      Includes label_scope and label_context in output with health metrics.")
-		fmt.Println("      Example: bv --robot-insights --label api")
+		fmt.Println("      Example: bt --robot-insights --label api")
 		fmt.Println("")
 		fmt.Println("  --robot-triage / --robot-next")
 		fmt.Println("      Unified triage (mega command) or single top pick. QuickRef includes top picks, quick_wins, blockers_to_clear.")
 		fmt.Println("")
 		fmt.Println("  --recipe NAME, -r NAME")
 		fmt.Println("      Apply a named recipe to filter and sort issues.")
-		fmt.Println("      Example: bv --recipe actionable")
+		fmt.Println("      Example: bt --recipe actionable")
 		fmt.Println("      Built-in recipes: default, actionable, recent, blocked, high-impact, stale,")
 		fmt.Println("                        triage, closed, release-cut, quick-wins, bottlenecks")
 		fmt.Println("")
@@ -724,21 +724,21 @@ func main() {
 		fmt.Println("")
 		fmt.Println("  --workspace CONFIG")
 		fmt.Println("      Load issues from workspace configuration file.")
-		fmt.Println("      Path: typically .bv/workspace.yaml")
+		fmt.Println("      Path: typically .bt/workspace.yaml")
 		fmt.Println("      Aggregates issues from multiple repositories with namespaced IDs.")
-		fmt.Println("      Example: bv --workspace .bv/workspace.yaml")
+		fmt.Println("      Example: bt --workspace .bt/workspace.yaml")
 		fmt.Println("")
 		fmt.Println("  --repo PREFIX")
 		fmt.Println("      Filter issues by repository prefix.")
 		fmt.Println("      Use with --workspace to focus on one repo in a multi-repo view.")
 		fmt.Println("      Matches ID prefixes like 'api-', 'web-', or partial 'api'.")
-		fmt.Println("      Example: bv --workspace .bv/workspace.yaml --repo api")
+		fmt.Println("      Example: bt --workspace .bt/workspace.yaml --repo api")
 		fmt.Println("")
 		fmt.Println("  --save-baseline \"description\"")
 		fmt.Println("      Save current metrics as a baseline snapshot.")
-		fmt.Println("      Stores graph stats, top metrics, and cycle info in .bv/baseline.json.")
+		fmt.Println("      Stores graph stats, top metrics, and cycle info in .bt/baseline.json.")
 		fmt.Println("      Use for drift detection: compare current state to saved baseline.")
-		fmt.Println("      Example: bv --save-baseline \"Before major refactor\"")
+		fmt.Println("      Example: bt --save-baseline \"Before major refactor\"")
 		fmt.Println("")
 		fmt.Println("  --baseline-info")
 		fmt.Println("      Show information about the saved baseline.")
@@ -766,13 +766,13 @@ func main() {
 		fmt.Println("          Export static HTML site to directory.")
 		fmt.Println("          Creates self-contained bundle viewable in any browser.")
 		fmt.Println("          Output: index.html, beads.sqlite3, data/*.json, viewer assets")
-		fmt.Println("          Example: bv --export-pages ./bv-pages")
+		fmt.Println("          Example: bt --export-pages ./bv-pages")
 		fmt.Println("")
 		fmt.Println("      --preview-pages <dir>")
 		fmt.Println("          Start local server to preview existing export.")
 		fmt.Println("          Opens http://localhost:9000 (or next available port) in your browser.")
 		fmt.Println("          Live-reload is enabled by default: browser auto-refreshes on file changes.")
-		fmt.Println("          Example: bv --preview-pages ./bv-pages")
+		fmt.Println("          Example: bt --preview-pages ./bv-pages")
 		fmt.Println("")
 		fmt.Println("      --no-live-reload")
 		fmt.Println("          Disable live-reload for --preview-pages (default: live-reload is enabled).")
@@ -783,16 +783,16 @@ func main() {
 		fmt.Println("      --pages-include-closed=false")
 		fmt.Println("          Exclude closed issues from export (default: include all)")
 		fmt.Println("")
-		fmt.Println("  Drift Detection Configuration (.bv/drift.yaml)")
+		fmt.Println("  Drift Detection Configuration (.bt/drift.yaml)")
 		fmt.Println("      Customize drift detection thresholds:")
 		fmt.Println("      - density_warning_pct: 50    # Warn if density +50%")
 		fmt.Println("      - blocked_increase_threshold: 5   # Warn if 5+ more blocked")
-		fmt.Println("      Run 'bv --baseline-info' to see current baseline state.")
+		fmt.Println("      Run 'bt --baseline-info' to see current baseline state.")
 		os.Exit(0)
 	}
 
 	if *versionFlag {
-		fmt.Printf("bv %s\n", version.Version)
+		fmt.Printf("bt %s\n", version.Version)
 		os.Exit(0)
 	}
 
@@ -806,9 +806,9 @@ func main() {
 		if available {
 			fmt.Printf("New version available: %s (current: %s)\n", newVersion, version.Version)
 			fmt.Printf("Download: %s\n", releaseURL)
-			fmt.Println("\nRun 'bv --update' to update automatically")
+			fmt.Println("\nRun 'bt --update' to update automatically")
 		} else {
-			fmt.Printf("bv is up to date (version %s)\n", version.Version)
+			fmt.Printf("bt is up to date (version %s)\n", version.Version)
 		}
 		os.Exit(0)
 	}
@@ -824,13 +824,13 @@ func main() {
 		// Check if update is needed
 		available, newVersion, _, _ := updater.CheckUpdateAvailable()
 		if !available {
-			fmt.Printf("bv is already up to date (version %s)\n", version.Version)
+			fmt.Printf("bt is already up to date (version %s)\n", version.Version)
 			os.Exit(0)
 		}
 
 		// Confirm unless --yes is provided
 		if !*yesFlag {
-			fmt.Printf("Update bv from %s to %s? [Y/n]: ", version.Version, newVersion)
+			fmt.Printf("Update bt from %s to %s? [Y/n]: ", version.Version, newVersion)
 			var response string
 			fmt.Scanln(&response)
 			response = strings.ToLower(strings.TrimSpace(response))
@@ -852,7 +852,7 @@ func main() {
 		fmt.Println(result.Message)
 		if result.BackupPath != "" {
 			fmt.Printf("Backup saved to: %s\n", result.BackupPath)
-			fmt.Println("Run 'bv --rollback' to restore if needed")
+			fmt.Println("Run 'bt --rollback' to restore if needed")
 		}
 		os.Exit(0)
 	}
@@ -903,18 +903,18 @@ func main() {
 			// Check mode: report status
 			if !detection.Found() {
 				fmt.Printf("No agent file found (searched up to 3 parent directories from %s)\n", workDir)
-				fmt.Println("Run 'bv --agents-add' to create AGENTS.md with beads workflow instructions.")
+				fmt.Println("Run 'bt --agents-add' to create AGENTS.md with beads workflow instructions.")
 				os.Exit(0)
 			}
 			if detection.HasLegacyBlurb {
 				fmt.Printf("Found %s at %s (legacy blurb — needs upgrade)\n", detection.FileType, detection.FilePath)
-				fmt.Println("Run 'bv --agents-update' to upgrade to the current format.")
+				fmt.Println("Run 'bt --agents-update' to upgrade to the current format.")
 				os.Exit(0)
 			}
 			if detection.HasBlurb && detection.BlurbVersion < agents.BlurbVersion {
 				fmt.Printf("Found %s at %s (blurb v%d, current v%d — needs update)\n",
 					detection.FileType, detection.FilePath, detection.BlurbVersion, agents.BlurbVersion)
-				fmt.Println("Run 'bv --agents-update' to update to the latest version.")
+				fmt.Println("Run 'bt --agents-update' to update to the latest version.")
 				os.Exit(0)
 			}
 			if detection.HasBlurb {
@@ -924,7 +924,7 @@ func main() {
 			}
 			// File exists but no blurb
 			fmt.Printf("Found %s at %s (no beads workflow instructions)\n", detection.FileType, detection.FilePath)
-			fmt.Println("Run 'bv --agents-add' to add beads workflow instructions.")
+			fmt.Println("Run 'bt --agents-add' to add beads workflow instructions.")
 			os.Exit(0)
 		}
 
@@ -1256,7 +1256,7 @@ func main() {
 	if *baselineInfo {
 		if !baseline.Exists(baselinePath) {
 			fmt.Println("No baseline found.")
-			fmt.Println("Create one with: bv --save-baseline \"description\"")
+			fmt.Println("Create one with: bt --save-baseline \"description\"")
 			os.Exit(0)
 		}
 		bl, err := baseline.Load(baselinePath)
@@ -1342,8 +1342,8 @@ func main() {
 		// No live reload for workspace mode (multiple files)
 		beadsPath = ""
 
-		// Automatically ensure .bv/ is in .gitignore at workspace root
-		// Workspace config is typically at .bv/workspace.yaml, so project root is two levels up
+		// Automatically ensure .bt/ is in .gitignore at workspace root
+		// Workspace config is typically at .bt/workspace.yaml, so project root is two levels up
 		workspaceRoot := filepath.Dir(filepath.Dir(*workspaceConfig))
 		_ = loader.EnsureBVInGitignore(workspaceRoot)
 	} else {
@@ -1351,7 +1351,7 @@ func main() {
 		result, err := datasource.LoadIssuesWithSource("")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error loading beads: %v\n", err)
-			fmt.Fprintln(os.Stderr, "Make sure you are in a project initialized with 'br init'.")
+			fmt.Fprintln(os.Stderr, "Make sure you are in a project initialized with 'bd init'.")
 			os.Exit(1)
 		}
 		issues = result.Issues
@@ -1363,7 +1363,7 @@ func main() {
 			beadsPath = result.Source.Path
 		}
 
-		// Automatically ensure .bv/ is in .gitignore to prevent polluting git
+		// Automatically ensure .bt/ is in .gitignore to prevent polluting git
 		// with search indexes, baselines, and other bv-specific files.
 		// This is done silently and only in single-repo mode.
 		beadsDir, _ := loader.GetBeadsDir("")
@@ -1831,7 +1831,7 @@ func main() {
 			fmt.Println("  → Press Ctrl+C to stop")
 			fmt.Println("")
 			fmt.Println("To preview with auto-refresh, run in another terminal:")
-			fmt.Printf("  bv --preview-pages %s\n", *exportPages)
+			fmt.Printf("  bt --preview-pages %s\n", *exportPages)
 
 			// Create a merged change channel for all watchers
 			mergedChangeCh := make(chan struct{}, 1)
@@ -1909,7 +1909,7 @@ func main() {
 		fmt.Printf("✓ Static site exported to: %s\n", *exportPages)
 		fmt.Println("")
 		fmt.Println("To preview locally:")
-		fmt.Printf("  bv --preview-pages %s\n", *exportPages)
+		fmt.Printf("  bt --preview-pages %s\n", *exportPages)
 		fmt.Println("")
 		fmt.Println("Or open in browser:")
 		fmt.Printf("  open %s/index.html\n", *exportPages)
@@ -2415,7 +2415,7 @@ func main() {
 	if *checkDrift {
 		if !baseline.Exists(baselinePath) {
 			fmt.Fprintln(os.Stderr, "Error: No baseline found.")
-			fmt.Fprintln(os.Stderr, "Create one with: bv --save-baseline \"description\"")
+			fmt.Fprintln(os.Stderr, "Create one with: bt --save-baseline \"description\"")
 			os.Exit(1)
 		}
 
@@ -2599,7 +2599,7 @@ func main() {
 
 		// Default cap to keep payload small; allow override via env
 		mapLimit := 200
-		if v := os.Getenv("BV_INSIGHTS_MAP_LIMIT"); v != "" {
+		if v := os.Getenv("BT_INSIGHTS_MAP_LIMIT"); v != "" {
 			if n, err := strconv.Atoi(v); err == nil && n > 0 {
 				mapLimit = n
 			}
@@ -2670,7 +2670,7 @@ func main() {
 				"jq '.Slack[:5]' - Nodes with slack (good parallel work candidates)",
 				"jq '.Cycles | length' - Count of detected cycles",
 				"jq '.advanced_insights.cycle_break' - Cycle break suggestions (bv-181)",
-				"BV_INSIGHTS_MAP_LIMIT=50 bv --robot-insights - Reduce map sizes",
+				"BT_INSIGHTS_MAP_LIMIT=50 bt --robot-insights - Reduce map sizes",
 			},
 		}
 
@@ -2999,8 +2999,8 @@ func main() {
 				Score:         top.Score,
 				Reasons:       top.Reasons,
 				Unblocks:      top.Unblocks,
-				ClaimCmd:      fmt.Sprintf("br update %s --status=in_progress", top.ID),
-				ShowCmd:       fmt.Sprintf("br show %s", top.ID),
+				ClaimCmd:      fmt.Sprintf("bd update %s --status=in_progress", top.ID),
+				ShowCmd:       fmt.Sprintf("bd show %s", top.ID),
 			}
 
 			encoder := newRobotEncoder(os.Stdout)
@@ -3194,7 +3194,7 @@ func main() {
 			sb.WriteString("set -euo pipefail\n")
 		}
 
-		sb.WriteString(fmt.Sprintf("# Generated by bv --emit-script at %s\n", time.Now().UTC().Format(time.RFC3339)))
+		sb.WriteString(fmt.Sprintf("# Generated by bt --emit-script at %s\n", time.Now().UTC().Format(time.RFC3339)))
 		sb.WriteString(fmt.Sprintf("# Data hash: %s\n", dataHash))
 		sb.WriteString(fmt.Sprintf("# Top %d recommendations from %d actionable items\n", len(recs), len(triage.Recommendations)))
 		sb.WriteString("#\n")
@@ -3217,9 +3217,9 @@ func main() {
 				}
 
 				// Claim command
-				sb.WriteString(fmt.Sprintf("# To claim: br update %s --status=in_progress\n", rec.ID))
+				sb.WriteString(fmt.Sprintf("# To claim: bd update %s --status=in_progress\n", rec.ID))
 				// Show command
-				sb.WriteString(fmt.Sprintf("br show %s\n", rec.ID))
+				sb.WriteString(fmt.Sprintf("bd show %s\n", rec.ID))
 				sb.WriteString("\n")
 			}
 
@@ -3227,12 +3227,12 @@ func main() {
 			sb.WriteString("# === Quick Actions ===\n")
 			sb.WriteString("# To claim the top pick:\n")
 			if len(recs) > 0 {
-				sb.WriteString(fmt.Sprintf("# br update %s --status=in_progress\n", recs[0].ID))
+				sb.WriteString(fmt.Sprintf("# bd update %s --status=in_progress\n", recs[0].ID))
 			}
 			sb.WriteString("#\n")
 			sb.WriteString("# To claim all listed items (uncomment to enable):\n")
 			for _, rec := range recs {
-				sb.WriteString(fmt.Sprintf("# br update %s --status=in_progress\n", rec.ID))
+				sb.WriteString(fmt.Sprintf("# bd update %s --status=in_progress\n", rec.ID))
 			}
 		}
 
@@ -4879,7 +4879,7 @@ func main() {
 	}
 
 	if len(issues) == 0 {
-		fmt.Println("No issues found. Create some with 'br create'!")
+		fmt.Println("No issues found. Create some with 'bd create'!")
 		os.Exit(0)
 	}
 
@@ -4897,16 +4897,16 @@ func main() {
 		os.Exit(2)
 	}
 	if *backgroundMode {
-		_ = os.Setenv("BV_BACKGROUND_MODE", "1")
+		_ = os.Setenv("BT_BACKGROUND_MODE", "1")
 	} else if *noBackgroundMode {
-		_ = os.Setenv("BV_BACKGROUND_MODE", "0")
-	} else if v, ok := os.LookupEnv("BV_BACKGROUND_MODE"); ok && strings.TrimSpace(v) != "" {
+		_ = os.Setenv("BT_BACKGROUND_MODE", "0")
+	} else if v, ok := os.LookupEnv("BT_BACKGROUND_MODE"); ok && strings.TrimSpace(v) != "" {
 		// Respect explicit user env var.
 	} else if enabled, ok := loadBackgroundModeFromUserConfig(); ok {
 		if enabled {
-			_ = os.Setenv("BV_BACKGROUND_MODE", "1")
+			_ = os.Setenv("BT_BACKGROUND_MODE", "1")
 		} else {
-			_ = os.Setenv("BV_BACKGROUND_MODE", "0")
+			_ = os.Setenv("BT_BACKGROUND_MODE", "0")
 		}
 	}
 
@@ -4973,8 +4973,8 @@ func runTUIProgram(m ui.Model) error {
 		p.Kill()
 	}()
 
-	// Optional auto-quit for automated tests: set BV_TUI_AUTOCLOSE_MS.
-	if v := os.Getenv("BV_TUI_AUTOCLOSE_MS"); v != "" {
+	// Optional auto-quit for automated tests: set BT_TUI_AUTOCLOSE_MS.
+	if v := os.Getenv("BT_TUI_AUTOCLOSE_MS"); v != "" {
 		if ms, err := strconv.Atoi(v); err == nil && ms > 0 {
 			go func() {
 				timer := time.NewTimer(time.Duration(ms) * time.Millisecond)
@@ -5026,7 +5026,7 @@ func loadBackgroundModeFromUserConfig() (bool, bool) {
 	if err != nil || homeDir == "" {
 		return false, false
 	}
-	configPath := filepath.Join(homeDir, ".config", "bv", "config.yaml")
+	configPath := filepath.Join(homeDir, ".config", "bt", "config.yaml")
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -5847,13 +5847,13 @@ func copyViewerAssets(outputDir, title string) error {
 }
 
 func maybeBuildHybridWasmAssets(assetsDir string) error {
-	if os.Getenv("BV_BUILD_HYBRID_WASM") == "" {
+	if os.Getenv("BT_BUILD_HYBRID_WASM") == "" {
 		return nil
 	}
 
 	wasmPackPath, err := exec.LookPath("wasm-pack")
 	if err != nil {
-		return fmt.Errorf("BV_BUILD_HYBRID_WASM is set but wasm-pack was not found in PATH")
+		return fmt.Errorf("BT_BUILD_HYBRID_WASM is set but wasm-pack was not found in PATH")
 	}
 
 	wasmSrc := filepath.Join(assetsDir, "..", "wasm_scorer")
@@ -6207,7 +6207,7 @@ func generateREADME(bundlePath, title, pagesURL string, issues []model.Issue, tr
 
 	// Footer with timestamp and links
 	b.WriteString("---\n\n")
-	b.WriteString(fmt.Sprintf("*Generated %s by [bv](https://github.com/Dicklesworthstone/beads_viewer)*\n\n", time.Now().Format("Jan 2, 2006 at 3:04 PM MST")))
+	b.WriteString(fmt.Sprintf("*Generated %s by [bv](https://github.com/seanmartinsmith/beadstui)*\n\n", time.Now().Format("Jan 2, 2006 at 3:04 PM MST")))
 
 	if pagesURL != "" {
 		b.WriteString(fmt.Sprintf("**[Open Interactive Dashboard](%s)** for full details, dependency graph, search, and time-travel.\n", pagesURL))
@@ -6673,7 +6673,7 @@ func discoverBeadsDirs(root string, maxDepth int) []string {
 		"build":        true,
 		"target":       true,
 		".cache":       true,
-		".bv":          true,
+		".bt":          true,
 		".idea":        true,
 		".vscode":      true,
 	}
@@ -7509,10 +7509,10 @@ func (e *toonRobotEncoder) Encode(v any) error {
 
 // newJSONRobotEncoder creates a JSON encoder for robot mode output.
 // By default, output is compact (no indentation) for performance.
-// Set BV_PRETTY_JSON=1 to enable pretty-printing for human readability.
+// Set BT_PRETTY_JSON=1 to enable pretty-printing for human readability.
 func newJSONRobotEncoder(w io.Writer) *json.Encoder {
 	encoder := json.NewEncoder(w)
-	if os.Getenv("BV_PRETTY_JSON") == "1" {
+	if os.Getenv("BT_PRETTY_JSON") == "1" {
 		encoder.SetIndent("", "  ")
 	}
 	return encoder
@@ -7520,7 +7520,7 @@ func newJSONRobotEncoder(w io.Writer) *json.Encoder {
 
 // newRobotEncoder creates an encoder for robot mode output.
 //
-// Default output is JSON. Use `--format toon` (or BV_OUTPUT_FORMAT/TOON_DEFAULT_FORMAT)
+// Default output is JSON. Use `--format toon` (or BT_OUTPUT_FORMAT/TOON_DEFAULT_FORMAT)
 // to emit TOON for agent-friendly token savings.
 func newRobotEncoder(w io.Writer) robotEncoder {
 	if robotOutputFormat == "toon" {
@@ -7532,7 +7532,7 @@ func newRobotEncoder(w io.Writer) robotEncoder {
 func resolveRobotOutputFormat(cli string) string {
 	format := strings.TrimSpace(cli)
 	if format == "" {
-		format = strings.TrimSpace(os.Getenv("BV_OUTPUT_FORMAT"))
+		format = strings.TrimSpace(os.Getenv("BT_OUTPUT_FORMAT"))
 	}
 	if format == "" {
 		format = strings.TrimSpace(os.Getenv("TOON_DEFAULT_FORMAT"))
@@ -7586,14 +7586,14 @@ func generateRobotDocs(topic string) map[string]interface{} {
 	}
 
 	guide := map[string]interface{}{
-		"description": "bv (Beads Viewer) provides structural analysis of the beads issue tracker DAG. It is the primary interface for AI agents to understand project state, plan work, and discover high-impact tasks.",
+		"description": "bt (Beads TUI) provides structural analysis of the beads issue tracker DAG. It is the primary interface for AI agents to understand project state, plan work, and discover high-impact tasks.",
 		"quickstart": []string{
-			"bv --robot-triage               # Full triage with recommendations",
-			"bv --robot-next                  # Single top pick for immediate work",
-			"bv --robot-plan                  # Dependency-respecting execution plan",
-			"bv --robot-insights              # Deep graph analysis (PageRank, betweenness, etc.)",
-			"bv --robot-triage-by-track       # Parallel work streams for multi-agent coordination",
-			"bv --robot-schema                # JSON Schema definitions for all commands",
+			"bt --robot-triage               # Full triage with recommendations",
+			"bt --robot-next                  # Single top pick for immediate work",
+			"bt --robot-plan                  # Dependency-respecting execution plan",
+			"bt --robot-insights              # Deep graph analysis (PageRank, betweenness, etc.)",
+			"bt --robot-triage-by-track       # Parallel work streams for multi-agent coordination",
+			"bt --robot-schema                # JSON Schema definitions for all commands",
 		},
 		"data_source": ".beads/issues.jsonl and git history (correlations)",
 		"output_modes": map[string]string{
@@ -7773,28 +7773,28 @@ func generateRobotDocs(topic string) map[string]interface{} {
 	}
 
 	examples := []map[string]string{
-		{"description": "Get top 3 picks for immediate work", "command": "bv --robot-triage | jq '.triage.quick_ref.top_picks[:3]'"},
-		{"description": "Claim the top recommendation", "command": "bv --robot-next | jq -r '.claim_command' | sh"},
-		{"description": "Find high-impact blockers to clear", "command": "bv --robot-triage | jq '.triage.blockers_to_clear | map(.id)'"},
-		{"description": "Get bug-only recommendations", "command": "bv --robot-triage | jq '.triage.recommendations[] | select(.type == \"bug\")'"},
-		{"description": "Multi-agent: top pick per parallel track", "command": "bv --robot-triage-by-track | jq '.triage.recommendations_by_track[].top_pick'"},
-		{"description": "Find beads related to a specific file", "command": "bv --robot-file-beads src/main.rs"},
-		{"description": "Search for issues by keyword", "command": "bv --search 'authentication' --robot-search"},
-		{"description": "Get TOON output (saves tokens)", "command": "bv --robot-triage --format toon"},
-		{"description": "Use env for default format", "command": "BV_OUTPUT_FORMAT=toon bv --robot-triage"},
-		{"description": "Show token savings estimate", "command": "bv --robot-triage --format toon --stats"},
+		{"description": "Get top 3 picks for immediate work", "command": "bt --robot-triage | jq '.triage.quick_ref.top_picks[:3]'"},
+		{"description": "Claim the top recommendation", "command": "bt --robot-next | jq -r '.claim_command' | sh"},
+		{"description": "Find high-impact blockers to clear", "command": "bt --robot-triage | jq '.triage.blockers_to_clear | map(.id)'"},
+		{"description": "Get bug-only recommendations", "command": "bt --robot-triage | jq '.triage.recommendations[] | select(.type == \"bug\")'"},
+		{"description": "Multi-agent: top pick per parallel track", "command": "bt --robot-triage-by-track | jq '.triage.recommendations_by_track[].top_pick'"},
+		{"description": "Find beads related to a specific file", "command": "bt --robot-file-beads src/main.rs"},
+		{"description": "Search for issues by keyword", "command": "bt --search 'authentication' --robot-search"},
+		{"description": "Get TOON output (saves tokens)", "command": "bt --robot-triage --format toon"},
+		{"description": "Use env for default format", "command": "BT_OUTPUT_FORMAT=toon bt --robot-triage"},
+		{"description": "Show token savings estimate", "command": "bt --robot-triage --format toon --stats"},
 	}
 
 	envVars := map[string]string{
-		"BV_OUTPUT_FORMAT":    "Default output format: json or toon (overridden by --format)",
-		"TOON_DEFAULT_FORMAT": "Fallback format if BV_OUTPUT_FORMAT not set",
+		"BT_OUTPUT_FORMAT":    "Default output format: json or toon (overridden by --format)",
+		"TOON_DEFAULT_FORMAT": "Fallback format if BT_OUTPUT_FORMAT not set",
 		"TOON_STATS":          "Set to 1 to show JSON vs TOON token estimates on stderr",
 		"TOON_KEY_FOLDING":    "TOON key folding mode",
 		"TOON_INDENT":         "TOON indentation level (0-16)",
-		"BV_PRETTY_JSON":      "Set to 1 for indented JSON output",
-		"BV_ROBOT":            "Set to 1 to force robot mode (clean stdout)",
-		"BV_SEARCH_MODE":      "Search mode: text or hybrid",
-		"BV_SEARCH_PRESET":    "Hybrid search preset name",
+		"BT_PRETTY_JSON":      "Set to 1 for indented JSON output",
+		"BT_ROBOT":            "Set to 1 to force robot mode (clean stdout)",
+		"BT_SEARCH_MODE":      "Search mode: text or hybrid",
+		"BT_SEARCH_PRESET":    "Hybrid search preset name",
 	}
 
 	exitCodes := map[string]string{
@@ -7860,7 +7860,7 @@ func generateRobotSchemas() RobotSchemas {
 			},
 			"version": map[string]interface{}{
 				"type":        "string",
-				"description": "bv version that generated this output",
+				"description": "bt version that generated this output",
 			},
 		},
 		"required": []string{"generated_at", "data_hash"},

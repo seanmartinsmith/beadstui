@@ -56,7 +56,7 @@ func TestIsExcludedPath(t *testing.T) {
 		// Excluded paths
 		{".beads/beads.jsonl", true},
 		{".beads/issues.jsonl", true},
-		{".bv/hooks.yaml", true},
+		{".bt/hooks.yaml", true},
 		{".git/objects/abc", true},
 		{"node_modules/lodash/index.js", true},
 		{"vendor/github.com/pkg/errors/errors.go", true},

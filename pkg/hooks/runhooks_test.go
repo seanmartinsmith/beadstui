@@ -8,7 +8,7 @@ import (
 )
 
 func writeHooksFile(t *testing.T, dir, content string) {
-	bv := filepath.Join(dir, ".bv")
+	bv := filepath.Join(dir, ".bt")
 	if err := os.MkdirAll(bv, 0o755); err != nil {
 		t.Fatalf("mkdir .bv: %v", err)
 	}

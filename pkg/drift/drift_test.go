@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/baseline"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/baseline"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"gopkg.in/yaml.v3"
 )
 
@@ -440,7 +440,7 @@ func TestConfigLoadDefault(t *testing.T) {
 
 func TestConfigLoadCustom(t *testing.T) {
 	tmpDir := t.TempDir()
-	bvDir := filepath.Join(tmpDir, ".bv")
+	bvDir := filepath.Join(tmpDir, ".bt")
 	if err := os.MkdirAll(bvDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -468,7 +468,7 @@ blocked_increase_threshold: 10
 
 func TestConfigLoadInvalid(t *testing.T) {
 	tmpDir := t.TempDir()
-	bvDir := filepath.Join(tmpDir, ".bv")
+	bvDir := filepath.Join(tmpDir, ".bt")
 	if err := os.MkdirAll(bvDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -490,7 +490,7 @@ func TestConfigLoadInvalidYAML(t *testing.T) {
 	t.Log("Testing LoadConfig with invalid YAML syntax")
 
 	tmpDir := t.TempDir()
-	bvDir := filepath.Join(tmpDir, ".bv")
+	bvDir := filepath.Join(tmpDir, ".bt")
 	if err := os.MkdirAll(bvDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -526,7 +526,7 @@ func TestConfigLoadPermissionError(t *testing.T) {
 	t.Log("Testing LoadConfig with permission denied")
 
 	tmpDir := t.TempDir()
-	bvDir := filepath.Join(tmpDir, ".bv")
+	bvDir := filepath.Join(tmpDir, ".bt")
 	if err := os.MkdirAll(bvDir, 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -574,7 +574,7 @@ func TestConfigSaveInvalidConfig(t *testing.T) {
 	}
 
 	// Verify no file was created
-	configPath := filepath.Join(tmpDir, ".bv", "drift.yaml")
+	configPath := filepath.Join(tmpDir, ".bt", "drift.yaml")
 	if _, err := os.Stat(configPath); err == nil {
 		t.Error("config file should not have been created for invalid config")
 	}
@@ -585,7 +585,7 @@ func TestConfigSaveMkdirError(t *testing.T) {
 	t.Log("Testing SaveConfig when .bv is a file instead of directory")
 
 	tmpDir := t.TempDir()
-	bvPath := filepath.Join(tmpDir, ".bv")
+	bvPath := filepath.Join(tmpDir, ".bt")
 
 	// Create a FILE named .bv where a directory is expected
 	if err := os.WriteFile(bvPath, []byte("blocking file"), 0644); err != nil {
@@ -615,7 +615,7 @@ func TestConfigSavePermissionError(t *testing.T) {
 	t.Log("Testing SaveConfig with permission denied")
 
 	tmpDir := t.TempDir()
-	bvDir := filepath.Join(tmpDir, ".bv")
+	bvDir := filepath.Join(tmpDir, ".bt")
 	if err := os.MkdirAll(bvDir, 0555); err != nil { // Read-only directory
 		t.Fatal(err)
 	}
@@ -646,7 +646,7 @@ func TestConfigSave(t *testing.T) {
 	}
 
 	// Verify file exists
-	path := filepath.Join(tmpDir, ".bv", "drift.yaml")
+	path := filepath.Join(tmpDir, ".bt", "drift.yaml")
 	if _, err := os.Stat(path); err != nil {
 		t.Errorf("config file should exist: %v", err)
 	}

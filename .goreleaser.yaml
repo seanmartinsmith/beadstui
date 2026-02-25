@@ -1,10 +1,10 @@
-project_name: bv
+project_name: bt
 builds:
-  - main: ./cmd/bv
-    binary: bv
+  - main: ./cmd/bt
+    binary: bt
     ldflags:
       - -s -w
-      - -X github.com/Dicklesworthstone/beads_viewer/pkg/version.version=v{{.Version}}
+      - -X github.com/seanmartinsmith/beadstui/pkg/version.version=v{{.Version}}
     goos:
       - linux
       - darwin
@@ -39,37 +39,37 @@ changelog:
 
 # Homebrew tap publishing
 brews:
-  - name: bv
+  - name: bt
     repository:
-      owner: Dicklesworthstone
+      owner: seanmartinsmith
       name: homebrew-tap
       branch: main
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     directory: Formula
-    homepage: https://github.com/Dicklesworthstone/beads_viewer
+    homepage: https://github.com/seanmartinsmith/beadstui
     description: "Graph-aware task management TUI for beads projects"
     license: "MIT"
     install: |
-      bin.install "bv"
+      bin.install "bt"
     test: |
-      system "#{bin}/bv", "--version"
+      system "#{bin}/bt", "--version"
     caveats: |
-      To get started with bv:
-        1. Initialize beads in your project: br init
-        2. Launch the TUI: bv
+      To get started with bt:
+        1. Initialize beads in your project: bd init
+        2. Launch the TUI: bt
 
       For AI agent integration, use --robot-* flags:
-        bv --robot-triage     # Get prioritized recommendations
-        bv --robot-next       # Get single next action
+        bt --robot-triage     # Get prioritized recommendations
+        bt --robot-next       # Get single next action
 
 # Scoop bucket publishing
 scoops:
-  - name: bv
+  - name: bt
     repository:
-      owner: Dicklesworthstone
+      owner: seanmartinsmith
       name: scoop-bucket
       branch: main
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    homepage: https://github.com/Dicklesworthstone/beads_viewer
+    homepage: https://github.com/seanmartinsmith/beadstui
     description: "Graph-aware task management TUI for beads projects"
     license: MIT

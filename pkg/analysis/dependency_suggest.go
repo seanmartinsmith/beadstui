@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // DependencySuggestionConfig configures dependency suggestion generation
@@ -241,7 +241,7 @@ func DetectMissingDependencies(issues []model.Issue, config DependencySuggestion
 			match.Reason,
 			match.Confidence,
 		).WithRelatedBead(match.To).
-			WithAction(fmt.Sprintf("br dep add %s %s", match.From, match.To)).
+			WithAction(fmt.Sprintf("bd dep add %s %s", match.From, match.To)).
 			WithMetadata("shared_keywords", match.SharedKeywords)
 
 		if len(match.SharedLabels) > 0 {

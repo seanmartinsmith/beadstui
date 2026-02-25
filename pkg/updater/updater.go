@@ -18,12 +18,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/version"
+	"github.com/seanmartinsmith/beadstui/pkg/version"
 )
 
 const (
-	repoOwner = "Dicklesworthstone"
-	repoName  = "beads_viewer"
+	repoOwner = "seanmartinsmith"
+	repoName  = "beadstui"
 	baseURL   = "https://api.github.com/repos/" + repoOwner + "/" + repoName
 )
 
@@ -88,7 +88,7 @@ func CheckForUpdates() (string, string, error) {
 	client := &http.Client{
 		Timeout: 2 * time.Second,
 	}
-	return checkForUpdates(client, "https://api.github.com/repos/Dicklesworthstone/beads_viewer/releases/latest")
+	return checkForUpdates(client, "https://api.github.com/repos/seanmartinsmith/beadstui/releases/latest")
 }
 
 func checkForUpdates(client *http.Client, url string) (string, string, error) {
@@ -374,7 +374,7 @@ func getAssetName(version string) string {
 	ver := strings.TrimPrefix(version, "v")
 	goos := runtime.GOOS
 	goarch := runtime.GOARCH
-	return fmt.Sprintf("bv_%s_%s_%s.tar.gz", ver, goos, goarch)
+	return fmt.Sprintf("bt_%s_%s_%s.tar.gz", ver, goos, goarch)
 }
 
 // FindPlatformAsset finds the appropriate asset for the current OS/arch
@@ -536,9 +536,9 @@ func extractBinary(archivePath, destPath string) error {
 			return fmt.Errorf("tar read error: %w", err)
 		}
 
-		// Look for the bv binary (might be ./bv, bv, or just bv)
+		// Look for the bt binary
 		name := filepath.Base(header.Name)
-		if name == "bv" || name == "bv.exe" {
+		if name == "bt" || name == "bt.exe" {
 			out, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
 			if err != nil {
 				return fmt.Errorf("failed to create binary: %w", err)

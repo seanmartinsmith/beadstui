@@ -26,8 +26,8 @@ log "Query: $QUERY"
 log "Limit: $LIMIT"
 
 export BEADS_DIR
-export BV_SEMANTIC_EMBEDDER=hash
-export BV_SEMANTIC_DIM=384
+export BT_SEMANTIC_EMBEDDER=hash
+export BT_SEMANTIC_DIM=384
 
 log "Running text-only search..."
 TEXT_JSON=$(bv --search "$QUERY" --search-limit "$LIMIT" --search-mode text --robot-search)

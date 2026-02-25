@@ -203,9 +203,9 @@ func (w *Wizard) Run() (*WizardResult, error) {
 		}
 	}
 
-	// Check for saved configuration first (unless BV_NO_SAVED_CONFIG is set)
+	// Check for saved configuration first (unless BT_NO_SAVED_CONFIG is set)
 	savedConfig, err := LoadWizardConfig()
-	skipSaved := os.Getenv("BV_NO_SAVED_CONFIG") != ""
+	skipSaved := os.Getenv("BT_NO_SAVED_CONFIG") != ""
 	if !skipSaved && err == nil && savedConfig != nil && savedConfig.DeployTarget != "" {
 		// Found saved config - ask if user wants to use it
 		useSaved, err := w.offerSavedConfig(savedConfig)
@@ -900,7 +900,7 @@ func WizardConfigPath() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".config", "bv", "pages-wizard.json")
+	return filepath.Join(home, ".config", "bt", "pages-wizard.json")
 }
 
 // LoadWizardConfig loads previously saved wizard configuration.

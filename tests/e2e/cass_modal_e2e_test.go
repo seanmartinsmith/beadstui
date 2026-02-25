@@ -39,8 +39,8 @@ func TestCassModalGracefulDegradation(t *testing.T) {
 	cmd.Dir = tempDir
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
-		"BV_TUI_AUTOCLOSE_MS=1000", // Auto-close after 1s
-		"BV_NO_CASS=1",             // Explicitly disable Cass lookup
+		"BT_TUI_AUTOCLOSE_MS=1000", // Auto-close after 1s
+		"BT_NO_CASS=1",             // Explicitly disable Cass lookup
 	)
 
 	ensureCmdStdinCloses(t, ctx, cmd, 3*time.Second)
@@ -87,8 +87,8 @@ func TestCassModalNoCrashOnVKeyWithoutCass(t *testing.T) {
 	cmd.Dir = tempDir
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
-		"BV_TUI_AUTOCLOSE_MS=1500",
-		"BV_NO_CASS=1",
+		"BT_TUI_AUTOCLOSE_MS=1500",
+		"BT_NO_CASS=1",
 	)
 
 	ensureCmdStdinCloses(t, ctx, cmd, 3*time.Second)
@@ -101,7 +101,7 @@ func TestCassModalNoCrashOnVKeyWithoutCass(t *testing.T) {
 	}
 }
 
-// TestCassDetectionEnvironmentVariable verifies that the BV_NO_CASS environment
+// TestCassDetectionEnvironmentVariable verifies that the BT_NO_CASS environment
 // variable properly disables Cass integration.
 func TestCassDetectionEnvironmentVariable(t *testing.T) {
 	skipIfNoScript(t)
@@ -121,13 +121,13 @@ func TestCassDetectionEnvironmentVariable(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// With BV_NO_CASS=1, Cass should be disabled
+	// With BT_NO_CASS=1, Cass should be disabled
 	cmd := scriptTUICommand(ctx, bv)
 	cmd.Dir = tempDir
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
-		"BV_TUI_AUTOCLOSE_MS=1000",
-		"BV_NO_CASS=1",
+		"BT_TUI_AUTOCLOSE_MS=1000",
+		"BT_NO_CASS=1",
 	)
 
 	ensureCmdStdinCloses(t, ctx, cmd, 3*time.Second)
@@ -136,7 +136,7 @@ func TestCassDetectionEnvironmentVariable(t *testing.T) {
 		t.Skipf("skipping env var test: timed out; output:\n%s", out)
 	}
 	if err != nil {
-		t.Fatalf("TUI failed with BV_NO_CASS=1: %v\n%s", err, out)
+		t.Fatalf("TUI failed with BT_NO_CASS=1: %v\n%s", err, out)
 	}
 }
 
@@ -161,7 +161,7 @@ func TestCassModalRobotTriageNoCrash(t *testing.T) {
 
 	cmd := exec.CommandContext(ctx, bv, "--robot-triage")
 	cmd.Dir = tempDir
-	cmd.Env = append(os.Environ(), "BV_NO_CASS=1")
+	cmd.Env = append(os.Environ(), "BT_NO_CASS=1")
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -199,8 +199,8 @@ func TestCassStatusBarIndicator(t *testing.T) {
 	cmd.Dir = tempDir
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
-		"BV_TUI_AUTOCLOSE_MS=1000",
-		"BV_NO_CASS=1",
+		"BT_TUI_AUTOCLOSE_MS=1000",
+		"BT_NO_CASS=1",
 	)
 
 	ensureCmdStdinCloses(t, ctx, cmd, 3*time.Second)
@@ -254,8 +254,8 @@ func TestMultipleViewsWithoutCass(t *testing.T) {
 		cmd.Dir = tempDir
 		cmd.Env = append(os.Environ(),
 			"TERM=xterm-256color",
-			"BV_TUI_AUTOCLOSE_MS=1000",
-			"BV_NO_CASS=1",
+			"BT_TUI_AUTOCLOSE_MS=1000",
+			"BT_NO_CASS=1",
 		)
 
 		ensureCmdStdinCloses(t, ctx, cmd, 3*time.Second)
@@ -275,7 +275,7 @@ func TestMultipleViewsWithoutCass(t *testing.T) {
 
 		cmd := exec.CommandContext(ctx, bv, "--robot-priority")
 		cmd.Dir = tempDir
-		cmd.Env = append(os.Environ(), "BV_NO_CASS=1")
+		cmd.Env = append(os.Environ(), "BT_NO_CASS=1")
 
 		out, err := cmd.CombinedOutput()
 		if err != nil {

@@ -11,22 +11,22 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Dicklesworthstone/beads_viewer/internal/datasource"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/agents"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/analysis"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/baseline"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/cass"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/correlation"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/debug"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/drift"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/export"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/instance"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/loader"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/recipe"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/search"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/updater"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/watcher"
+	"github.com/seanmartinsmith/beadstui/internal/datasource"
+	"github.com/seanmartinsmith/beadstui/pkg/agents"
+	"github.com/seanmartinsmith/beadstui/pkg/analysis"
+	"github.com/seanmartinsmith/beadstui/pkg/baseline"
+	"github.com/seanmartinsmith/beadstui/pkg/cass"
+	"github.com/seanmartinsmith/beadstui/pkg/correlation"
+	"github.com/seanmartinsmith/beadstui/pkg/debug"
+	"github.com/seanmartinsmith/beadstui/pkg/drift"
+	"github.com/seanmartinsmith/beadstui/pkg/export"
+	"github.com/seanmartinsmith/beadstui/pkg/instance"
+	"github.com/seanmartinsmith/beadstui/pkg/loader"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/recipe"
+	"github.com/seanmartinsmith/beadstui/pkg/search"
+	"github.com/seanmartinsmith/beadstui/pkg/updater"
+	"github.com/seanmartinsmith/beadstui/pkg/watcher"
 
 	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/list"
@@ -153,11 +153,11 @@ const (
 )
 
 func freshnessWarnThreshold() time.Duration {
-	return envDurationSeconds("BV_FRESHNESS_WARN_S", 30*time.Second)
+	return envDurationSeconds("BT_FRESHNESS_WARN_S", 30*time.Second)
 }
 
 func freshnessStaleThreshold() time.Duration {
-	return envDurationSeconds("BV_FRESHNESS_STALE_S", 2*time.Minute)
+	return envDurationSeconds("BT_FRESHNESS_STALE_S", 2*time.Minute)
 }
 
 func workerPollTickCmd() tea.Cmd {
@@ -930,7 +930,7 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 	var backgroundWorker *BackgroundWorker
 	var backgroundModeErr error
 	backgroundModeRequested := false
-	if v := strings.TrimSpace(os.Getenv("BV_BACKGROUND_MODE")); v != "" {
+	if v := strings.TrimSpace(os.Getenv("BT_BACKGROUND_MODE")); v != "" {
 		switch strings.ToLower(v) {
 		case "1", "true", "yes", "on":
 			backgroundModeRequested = true
@@ -941,7 +941,7 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 
 	isDolt := ds != nil && ds.Type == datasource.SourceTypeDolt
 	// Dolt sources always use the background worker for polling since there are
-	// no files to watch. JSONL sources require explicit opt-in via BV_BACKGROUND_MODE.
+	// no files to watch. JSONL sources require explicit opt-in via BT_BACKGROUND_MODE.
 	bgEnabled := (beadsPath != "" || isDolt) && (backgroundModeRequested || isDolt)
 	if bgEnabled {
 		bw, err := NewBackgroundWorker(WorkerConfig{
@@ -1940,6 +1940,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, WaitForPhase2Cmd(m.analysis))
 		return m, tea.Batch(cmds...)
 
+	case DoltConnectionStatusMsg:
+		// Dolt poll loop reporting connectivity change (bv-1p3a).
+		if msg.Connected {
+			m.statusMsg = "Dolt server reconnected"
+			m.statusIsError = false
+		} else {
+			m.statusMsg = fmt.Sprintf("Dolt server unreachable (retrying in %ds)", msg.BackoffSeconds)
+			m.statusIsError = true
+		}
+		if m.backgroundWorker != nil {
+			cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.backgroundWorker))
+		}
+		return m, tea.Batch(cmds...)
+
 	case FileChangedMsg:
 		// File changed on disk - reload issues and recompute analysis
 		// In background mode the BackgroundWorker owns file watching and snapshot building.
@@ -2305,12 +2319,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			addTiming("total", "total")
 			m.statusMsg += "]"
 		}
-		// Auto-enable background mode after slow sync reloads (opt-out via BV_BACKGROUND_MODE=0).
+		// Auto-enable background mode after slow sync reloads (opt-out via BT_BACKGROUND_MODE=0).
 		autoEnabled := false
 		slowReload := reloadDuration >= time.Second
 		if slowReload && m.backgroundWorker == nil && m.beadsPath != "" {
 			autoAllowed := true
-			if v := strings.TrimSpace(os.Getenv("BV_BACKGROUND_MODE")); v != "" {
+			if v := strings.TrimSpace(os.Getenv("BT_BACKGROUND_MODE")); v != "" {
 				switch strings.ToLower(v) {
 				case "0", "false", "no", "off":
 					autoAllowed = false
@@ -2341,7 +2355,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if autoEnabled {
 				m.statusMsg += "; background mode auto-enabled"
 			} else {
-				m.statusMsg += "; consider BV_BACKGROUND_MODE=1"
+				m.statusMsg += "; consider BT_BACKGROUND_MODE=1"
 			}
 		}
 		m.statusIsError = false
@@ -4128,10 +4142,10 @@ func gitRemoteToWebURL(remote string) string {
 }
 
 // openBrowserURL opens a URL in the default browser (bv-xf4p)
-// Set BV_NO_BROWSER=1 to suppress browser opening (useful for tests).
+// Set BT_NO_BROWSER=1 to suppress browser opening (useful for tests).
 func openBrowserURL(url string) error {
 	// Skip browser opening in test mode or when explicitly disabled
-	if os.Getenv("BV_NO_BROWSER") != "" || os.Getenv("BV_TEST_MODE") != "" {
+	if os.Getenv("BT_NO_BROWSER") != "" || os.Getenv("BT_TEST_MODE") != "" {
 		return nil
 	}
 

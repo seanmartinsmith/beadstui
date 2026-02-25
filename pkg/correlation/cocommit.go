@@ -59,7 +59,7 @@ var codeFileExtensions = map[string]bool{
 // excludedPaths lists path prefixes that should be excluded
 var excludedPaths = []string{
 	".beads/",
-	".bv/",
+	".bt/",
 	".git/",
 	"node_modules/",
 	"vendor/",

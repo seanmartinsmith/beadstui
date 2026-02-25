@@ -190,7 +190,7 @@ func TestError_MissingBeadsDirectory(t *testing.T) {
 
 	// Should fail gracefully with helpful message
 	if err == nil {
-		t.Log("bv succeeded without .beads directory (empty project handling)")
+		t.Log("bt succeeded without .beads directory (empty project handling)")
 	} else {
 		stderrStr := stderr.String()
 		// Should mention beads or initialization

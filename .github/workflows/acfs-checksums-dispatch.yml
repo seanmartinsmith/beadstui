@@ -24,7 +24,7 @@ jobs:
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ env.ACFS_TOKEN }}
-          repository: Dicklesworthstone/agentic_coding_flywheel_setup
+          repository: seanmartinsmith/agentic_coding_flywheel_setup
           event-type: upstream-changed
           client-payload: |
             {"repo":"${{ github.repository }}","ref":"${{ github.ref }}","sha":"${{ github.sha }}","event":"${{ github.event_name }}"}

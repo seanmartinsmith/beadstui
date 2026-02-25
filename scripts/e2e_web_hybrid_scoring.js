@@ -70,9 +70,9 @@ async function main() {
   const env = {
     ...process.env,
     BEADS_DIR: beadsDir,
-    BV_SEMANTIC_EMBEDDER: 'hash',
-    BV_SEMANTIC_DIM: '384',
-    BV_INSIGHTS_MAP_LIMIT: '0',
+    BT_SEMANTIC_EMBEDDER: 'hash',
+    BT_SEMANTIC_DIM: '384',
+    BT_INSIGHTS_MAP_LIMIT: '0',
   };
 
   const issues = parseJsonl(fixture);

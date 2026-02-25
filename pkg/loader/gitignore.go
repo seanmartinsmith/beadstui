@@ -9,14 +9,14 @@ import (
 	"strings"
 )
 
-// EnsureBVInGitignore ensures that .bv/ is listed in the project's .gitignore file.
+// EnsureBVInGitignore ensures that .bt/ is listed in the project's .gitignore file.
 // This prevents bv-specific files (semantic search index, baselines, drift config, etc.)
 // from polluting the git repository.
 //
 // The function is idempotent and safe to call multiple times.
 // It will:
 //   - Create .gitignore if it doesn't exist
-//   - Add ".bv/" if it's not already present (checks for .bv, .bv/, .bv/*, etc.)
+//   - Add ".bt/" if it's not already present (checks for .bv, .bt/, .bt/*, etc.)
 //   - Preserve existing file content and formatting
 //
 // Returns nil on success, or an error if the file cannot be read/written.
@@ -40,16 +40,16 @@ func EnsureBVInGitignore(projectDir string) error {
 		return nil
 	}
 
-	// Append .bv/ to .gitignore
-	return appendToGitignore(gitignorePath, ".bv/")
+	// Append .bt/ to .gitignore
+	return appendToGitignore(gitignorePath, ".bt/")
 }
 
 // isBVInGitignore checks if .bv is already covered by the .gitignore file.
 // It returns true if any of these patterns are found:
 //   - .bv
-//   - .bv/
-//   - .bv/*
-//   - .bv/**
+//   - .bt/
+//   - .bt/*
+//   - .bt/**
 func isBVInGitignore(path string) (bool, error) {
 	file, err := os.Open(path)
 	if err != nil {
@@ -64,7 +64,7 @@ func isBVInGitignore(path string) (bool, error) {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		// Check for patterns that would cover .bv/
+		// Check for patterns that would cover .bt/
 		if matchesBVPattern(line) {
 			return true, nil
 		}
@@ -80,11 +80,11 @@ func matchesBVPattern(line string) bool {
 
 	// Exact matches for .bv directory
 	patterns := []string{
-		".bv",
-		".bv/",
-		".bv/*",
-		".bv/**",
-		".bv/**/*",
+		".bt",
+		".bt/",
+		".bt/*",
+		".bt/**",
+		".bt/**/*",
 	}
 
 	for _, pattern := range patterns {

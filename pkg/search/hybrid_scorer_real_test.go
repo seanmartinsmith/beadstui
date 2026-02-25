@@ -4,8 +4,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/loader"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/loader"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 func loadHybridFixtureIssues(t *testing.T) []model.Issue {

@@ -18,10 +18,10 @@ jobs:
         go-version: '1.25.5'
         
     - name: Build
-      run: go build -v ./cmd/bv
+      run: go build -v ./cmd/bt
       
     - name: Test with Coverage
-      run: go test -v -covermode=atomic -coverprofile=coverage.out ./pkg/... ./cmd/bv
+      run: go test -v -covermode=atomic -coverprofile=coverage.out ./pkg/... ./cmd/bt
 
     - name: E2E Tests
       run: go test -v ./tests/e2e -count=1
@@ -74,14 +74,14 @@ jobs:
         while read -r pkg pct; do
           req=
           case "$pkg" in
-            github.com/Dicklesworthstone/beads_viewer/pkg/analysis) req=75 ;;
-            github.com/Dicklesworthstone/beads_viewer/pkg/export) req=69 ;;
-            github.com/Dicklesworthstone/beads_viewer/pkg/recipe) req=90 ;;
-            github.com/Dicklesworthstone/beads_viewer/pkg/ui) req=55 ;;
-            github.com/Dicklesworthstone/beads_viewer/pkg/loader) req=80 ;;
-            github.com/Dicklesworthstone/beads_viewer/pkg/updater) req=55 ;;
-            github.com/Dicklesworthstone/beads_viewer/pkg/watcher) req=60 ;;
-            github.com/Dicklesworthstone/beads_viewer/pkg/workspace) req=85 ;;
+            github.com/seanmartinsmith/beadstui/pkg/analysis) req=75 ;;
+            github.com/seanmartinsmith/beadstui/pkg/export) req=69 ;;
+            github.com/seanmartinsmith/beadstui/pkg/recipe) req=90 ;;
+            github.com/seanmartinsmith/beadstui/pkg/ui) req=55 ;;
+            github.com/seanmartinsmith/beadstui/pkg/loader) req=80 ;;
+            github.com/seanmartinsmith/beadstui/pkg/updater) req=55 ;;
+            github.com/seanmartinsmith/beadstui/pkg/watcher) req=60 ;;
+            github.com/seanmartinsmith/beadstui/pkg/workspace) req=85 ;;
           esac
           if [ -z "$req" ]; then
             continue

@@ -3,7 +3,7 @@ package analysis
 import (
 	"testing"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/testutil"
+	"github.com/seanmartinsmith/beadstui/pkg/testutil"
 	graph "gonum.org/v1/gonum/graph"
 	"gonum.org/v1/gonum/graph/simple"
 )

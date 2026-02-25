@@ -10,9 +10,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/analysis"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
-	"github.com/Dicklesworthstone/beads_viewer/pkg/recipe"
+	"github.com/seanmartinsmith/beadstui/pkg/analysis"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/recipe"
 )
 
 func TestDataSnapshot_Empty(t *testing.T) {
@@ -33,8 +33,8 @@ func TestDataSnapshot_Empty(t *testing.T) {
 }
 
 func TestFreshnessThresholds_FromEnv(t *testing.T) {
-	t.Setenv("BV_FRESHNESS_WARN_S", "15")
-	t.Setenv("BV_FRESHNESS_STALE_S", "90")
+	t.Setenv("BT_FRESHNESS_WARN_S", "15")
+	t.Setenv("BT_FRESHNESS_STALE_S", "90")
 
 	if got := freshnessWarnThreshold(); got != 15*time.Second {
 		t.Errorf("freshnessWarnThreshold()=%v, want %v", got, 15*time.Second)
@@ -43,8 +43,8 @@ func TestFreshnessThresholds_FromEnv(t *testing.T) {
 		t.Errorf("freshnessStaleThreshold()=%v, want %v", got, 90*time.Second)
 	}
 
-	t.Setenv("BV_FRESHNESS_WARN_S", "-1")
-	t.Setenv("BV_FRESHNESS_STALE_S", "nope")
+	t.Setenv("BT_FRESHNESS_WARN_S", "-1")
+	t.Setenv("BT_FRESHNESS_STALE_S", "nope")
 
 	if got := freshnessWarnThreshold(); got != 30*time.Second {
 		t.Errorf("freshnessWarnThreshold() invalid env=%v, want %v", got, 30*time.Second)

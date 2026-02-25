@@ -7,7 +7,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // TestGraphFile represents a test graph file format.

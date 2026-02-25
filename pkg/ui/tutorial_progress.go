@@ -50,7 +50,7 @@ func TutorialProgressPath() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".config", "bv", "tutorial-progress.json")
+	return filepath.Join(home, ".config", "bt", "tutorial-progress.json")
 }
 
 // Load reads tutorial progress from disk.

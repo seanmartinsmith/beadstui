@@ -201,7 +201,7 @@ func TestWatcher_ChangedChannel(t *testing.T) {
 }
 
 func TestWatcher_EnvForcePolling(t *testing.T) {
-	t.Setenv("BV_FORCE_POLLING", "1")
+	t.Setenv("BT_FORCE_POLLING", "1")
 
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test.jsonl")
@@ -222,7 +222,7 @@ func TestWatcher_EnvForcePolling(t *testing.T) {
 	defer w.Stop()
 
 	if !w.IsPolling() {
-		t.Fatal("expected watcher to be in polling mode when BV_FORCE_POLLING is set")
+		t.Fatal("expected watcher to be in polling mode when BT_FORCE_POLLING is set")
 	}
 }
 
@@ -462,8 +462,8 @@ func TestDetectFilesystemType_NonExistentPath(t *testing.T) {
 }
 
 func TestWatcher_EnvForcePoll(t *testing.T) {
-	// Test BV_FORCE_POLL (alternative env var)
-	t.Setenv("BV_FORCE_POLL", "true")
+	// Test BT_FORCE_POLL (alternative env var)
+	t.Setenv("BT_FORCE_POLL", "true")
 
 	tmpDir := t.TempDir()
 	tmpFile := filepath.Join(tmpDir, "test.jsonl")
@@ -484,6 +484,6 @@ func TestWatcher_EnvForcePoll(t *testing.T) {
 	defer w.Stop()
 
 	if !w.IsPolling() {
-		t.Fatal("expected watcher to be in polling mode when BV_FORCE_POLL is set")
+		t.Fatal("expected watcher to be in polling mode when BT_FORCE_POLL is set")
 	}
 }

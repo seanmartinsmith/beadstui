@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/search"
+	"github.com/seanmartinsmith/beadstui/pkg/search"
 )
 
 type robotSearchResult struct {

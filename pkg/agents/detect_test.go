@@ -264,7 +264,7 @@ func TestDetectAgentFileWithLegacyBlurb(t *testing.T) {
 	// Legacy blurb content (pre-v1 format without HTML markers)
 	legacyContent := `# Project AGENTS.md
 
-### Using bv as an AI sidecar
+### Using bt as an AI sidecar
 
 bv can help AI agents with task management.
 
@@ -272,7 +272,7 @@ bv can help AI agents with task management.
 - ` + "`--robot-insights`" + ` - Deep analysis
 - ` + "`--robot-plan`" + ` - Generate plans
 
-bv already computes the hard parts for you.
+bt already computes the hard parts for you.
 `
 
 	agentsPath := filepath.Join(tmpDir, "AGENTS.md")
@@ -298,11 +298,11 @@ bv already computes the hard parts for you.
 
 func TestDetectAgentFileNotFalsePositive(t *testing.T) {
 	// Regression test: content that references robot flags but is NOT the legacy blurb
-	// should NOT be detected as legacy (missing "bv already computes the hard parts")
+	// should NOT be detected as legacy (missing "bt already computes the hard parts")
 	tmpDir := t.TempDir()
 
 	// This mimics current AGENTS.md which has header + robot flags but NOT the legacy end phrase
-	notLegacyContent := `### Using bv as an AI sidecar
+	notLegacyContent := `### Using bt as an AI sidecar
 
 bv is a graph-aware triage engine for Beads projects.
 

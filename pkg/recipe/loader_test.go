@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Dicklesworthstone/beads_viewer/pkg/recipe"
+	"github.com/seanmartinsmith/beadstui/pkg/recipe"
 )
 
 func TestLoaderBuiltinRecipes(t *testing.T) {
@@ -138,7 +138,7 @@ func TestLoaderProjectOverride(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Create project config
-	projectDir := filepath.Join(tmpDir, ".bv")
+	projectDir := filepath.Join(tmpDir, ".bt")
 	if err := os.MkdirAll(projectDir, 0755); err != nil {
 		t.Fatal(err)
 	}
