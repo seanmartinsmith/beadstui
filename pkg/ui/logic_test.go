@@ -17,7 +17,7 @@ func TestApplyRecipe_StatusFilter(t *testing.T) {
 		{ID: "tombstone", Status: model.StatusTombstone},
 		{ID: "blocked", Status: model.StatusBlocked},
 	}
-	m := NewModel(issues, nil, "")
+	m := NewModel(issues, nil, "", nil)
 
 	r := &recipe.Recipe{
 		Name: "closed-only",
@@ -46,7 +46,7 @@ func TestApplyRecipe_PriorityFilter(t *testing.T) {
 		{ID: "p1", Status: model.StatusOpen, Priority: 1},
 		{ID: "p2", Status: model.StatusOpen, Priority: 2},
 	}
-	m := NewModel(issues, nil, "")
+	m := NewModel(issues, nil, "", nil)
 
 	r := &recipe.Recipe{
 		Filters: recipe.FilterConfig{
@@ -73,7 +73,7 @@ func TestApplyRecipe_ActionableFilter(t *testing.T) {
 			{DependsOnID: "A", Type: model.DepBlocks},
 		}},
 	}
-	m := NewModel(issues, nil, "")
+	m := NewModel(issues, nil, "", nil)
 
 	yes := true
 	r := &recipe.Recipe{
@@ -99,7 +99,7 @@ func TestApplyRecipe_Sorting(t *testing.T) {
 		{ID: "B", Priority: 1},
 		{ID: "C", Priority: 3},
 	}
-	m := NewModel(issues, nil, "")
+	m := NewModel(issues, nil, "", nil)
 
 	r := &recipe.Recipe{
 		Sort: recipe.SortConfig{
@@ -131,7 +131,7 @@ func TestTimeTravel_DiffBadgePropagation(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "A", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "")
+	m := NewModel(issues, nil, "", nil)
 
 	// Manually inject diff state (simulating enterTimeTravelMode)
 	m.timeTravelMode = true

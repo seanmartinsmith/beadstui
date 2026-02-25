@@ -23,7 +23,7 @@ func BenchmarkSnapshotSwap(b *testing.B) {
 		b.Run(fmt.Sprintf("issues=%d", size), func(b *testing.B) {
 			issues := testutil.QuickRandom(size, 0.01)
 
-			m := NewModel(copyIssues(issues), nil, "")
+			m := NewModel(copyIssues(issues), nil, "", nil)
 			snapshot := NewSnapshotBuilder(copyIssues(issues)).Build()
 
 			tm, _ := m.Update(SnapshotReadyMsg{Snapshot: snapshot})

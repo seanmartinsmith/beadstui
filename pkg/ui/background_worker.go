@@ -20,6 +20,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/Dicklesworthstone/beads_viewer/internal/datasource"
 	"github.com/Dicklesworthstone/beads_viewer/pkg/analysis"
 	dbg "github.com/Dicklesworthstone/beads_viewer/pkg/debug"
 	"github.com/Dicklesworthstone/beads_viewer/pkg/loader"
@@ -166,7 +167,8 @@ type workerMetrics struct {
 // off the UI thread.
 type BackgroundWorker struct {
 	// Configuration
-	beadsPath         string
+	beadsPath  string
+	dataSource *datasource.DataSource
 	debounceDelay     time.Duration
 	heartbeatInterval time.Duration
 	watchdogInterval  time.Duration
@@ -248,7 +250,8 @@ type IdleGCConfig struct {
 
 // WorkerConfig configures the BackgroundWorker.
 type WorkerConfig struct {
-	BeadsPath     string
+	BeadsPath  string
+	DataSource *datasource.DataSource // Optional: enables Dolt polling when set
 	DebounceDelay time.Duration
 	MessageBuffer int // Buffer size for worker -> UI messages (default: 8)
 
@@ -323,7 +326,8 @@ func NewBackgroundWorker(cfg WorkerConfig) (*BackgroundWorker, error) {
 	}
 
 	w := &BackgroundWorker{
-		beadsPath:         cfg.BeadsPath,
+		beadsPath:  cfg.BeadsPath,
+		dataSource: cfg.DataSource,
 		debounceDelay:     cfg.DebounceDelay,
 		heartbeatInterval: cfg.HeartbeatInterval,
 		watchdogInterval:  cfg.WatchdogInterval,
@@ -580,8 +584,25 @@ func (w *BackgroundWorker) Start() error {
 
 		w.startLoop()
 		w.startWatchdog()
+	} else if w.dataSource != nil && w.dataSource.Type == datasource.SourceTypeDolt {
+		// Dolt source without file watcher - use poll loop for change detection
+		if idleGCEnabled && idleGCGCPercent > 0 {
+			w.mu.Lock()
+			if w.state != WorkerStopped && w.started && !w.idleGCAppliedGCPercent {
+				w.idleGCPrevGCPercent = debug.SetGCPercent(idleGCGCPercent)
+				w.idleGCAppliedGCPercent = true
+			}
+			w.mu.Unlock()
+		}
+		if idleGCEnabled && idleGCCheckEvery > 0 {
+			go w.idleGCLoop(idleGCCheckEvery)
+		}
+
+		w.startLoop()
+		w.startWatchdog()
+		go w.startDoltPollLoop()
 	} else {
-		// No watcher - close done channel immediately so Stop() doesn't block
+		// No watcher and no Dolt - close done channel immediately so Stop() doesn't block
 		if idleGCEnabled && idleGCGCPercent > 0 {
 			w.mu.Lock()
 			if w.state != WorkerStopped && w.started && !w.idleGCAppliedGCPercent {
@@ -951,6 +972,8 @@ func (w *BackgroundWorker) ProcessingDuration() time.Duration {
 }
 
 // processLoop watches for file changes and triggers processing.
+// For Dolt sources without a watcher, the loop stays alive for heartbeating;
+// change detection is handled by startDoltPollLoop calling TriggerRefresh.
 func (w *BackgroundWorker) processLoop(loopCtx context.Context, done chan struct{}) {
 	defer close(done)
 	defer func() {
@@ -965,14 +988,21 @@ func (w *BackgroundWorker) processLoop(loopCtx context.Context, done chan struct
 	w.mu.RLock()
 	heartbeatInterval := w.heartbeatInterval
 	wch := w.watcher
+	isDolt := w.dataSource != nil && w.dataSource.Type == datasource.SourceTypeDolt
 	w.mu.RUnlock()
 
-	if wch == nil {
+	if wch == nil && !isDolt {
 		return
 	}
 
 	heartbeatTicker := time.NewTicker(heartbeatInterval)
 	defer heartbeatTicker.Stop()
+
+	// Build the watcher channel (nil-safe: nil channel blocks forever in select)
+	var watchCh <-chan struct{}
+	if wch != nil {
+		watchCh = wch.Changed()
+	}
 
 	for {
 		select {
@@ -982,7 +1012,7 @@ func (w *BackgroundWorker) processLoop(loopCtx context.Context, done chan struct
 		case <-heartbeatTicker.C:
 			w.recordHeartbeat(time.Now())
 
-		case <-wch.Changed():
+		case <-watchCh:
 			w.noteFileChange(time.Now())
 			w.TriggerRefresh()
 		}
@@ -1276,9 +1306,10 @@ func (w *BackgroundWorker) maybeIdleGC(now time.Time) {
 
 // buildSnapshot loads data and constructs a new DataSnapshot.
 // This is called from the worker goroutine (NOT the UI thread).
-// Returns nil if beadsPath is empty, loading fails, or content is unchanged.
+// Returns nil if no source is available, loading fails, or content is unchanged.
 func (w *BackgroundWorker) buildSnapshot() *DataSnapshot {
-	if w.beadsPath == "" {
+	isDolt := w.dataSource != nil && w.dataSource.Type == datasource.SourceTypeDolt
+	if w.beadsPath == "" && !isDolt {
 		return nil
 	}
 
@@ -1296,7 +1327,11 @@ func (w *BackgroundWorker) buildSnapshot() *DataSnapshot {
 		dbg.LogTiming("worker."+name, d)
 	}
 	if profileSnapshot {
-		dbg.Log("worker.snapshot_start path=%s", w.beadsPath)
+		src := w.beadsPath
+		if isDolt {
+			src = "dolt"
+		}
+		dbg.Log("worker.snapshot_start path=%s", src)
 	}
 	metricsEnabled := w.metricsEnabled
 	var memBefore runtime.MemStats
@@ -1311,82 +1346,114 @@ func (w *BackgroundWorker) buildSnapshot() *DataSnapshot {
 	recipeHash := w.currentRecipeHash
 	w.mu.RUnlock()
 
-	// Determine dataset tier using a fast line count (bv-9thm).
-	sourceLineCount := 0
-	tier := datasetTierUnknown
-	var countStart time.Time
-	if profileSnapshot {
-		countStart = time.Now()
-	}
-	countErr := w.safeCompute("count_lines", func() error {
-		n, err := countJSONLLines(w.beadsPath)
-		if err != nil {
-			return err
-		}
-		sourceLineCount = n
-		tier = datasetTierForIssueCount(n)
-		return nil
-	})
-	if profileSnapshot {
-		recordTiming("line_count", time.Since(countStart))
-	}
-	if countErr != nil {
-		w.logEvent(LogLevelDebug, "snapshot_line_count_failed", map[string]any{
-			"path":  w.beadsPath,
-			"error": countErr.Error(),
-		})
-	}
-
-	// Huge tier: default to open-only unless the recipe explicitly includes closed/tombstone.
-	loadOpenOnly := tier == datasetTierHuge && !recipeIncludesClosedStatuses(currentRecipe)
-
-	// Load issues from file with panic recovery
 	var issues []model.Issue
 	var pooledRefs []*model.Issue
 	var loadWarnings []string
-	var loadStart time.Time
-	if profileSnapshot {
-		loadStart = time.Now()
-	}
-	loadErr := w.safeCompute("load", func() error {
-		var err error
-		var loaded loader.PooledIssues
-		opts := loader.ParseOptions{
-			WarningHandler: func(msg string) {
-				loadWarnings = append(loadWarnings, msg)
-			},
-			BufferSize: envMaxLineSizeBytes(),
+	var loadOpenOnly bool
+	sourceLineCount := 0
+	tier := datasetTierUnknown
+
+	if isDolt {
+		// Dolt path: load via datasource, skip JSONL line counting
+		var loadStart time.Time
+		if profileSnapshot {
+			loadStart = time.Now()
 		}
-		if loadOpenOnly {
-			opts.IssueFilter = func(i *model.Issue) bool {
-				return i.Status != model.StatusClosed && i.Status != model.StatusTombstone
+		loadErr := w.safeCompute("load", func() error {
+			loaded, err := datasource.LoadFromSource(*w.dataSource)
+			if err == nil {
+				issues = loaded
+				sourceLineCount = len(loaded)
+				tier = datasetTierForIssueCount(sourceLineCount)
 			}
-		}
-		loaded, err = loader.LoadIssuesFromFileWithOptionsPooled(w.beadsPath, opts)
-		if err == nil {
-			issues = loaded.Issues
-			pooledRefs = loaded.PoolRefs
-		}
-		return err
-	})
-	if profileSnapshot {
-		recordTiming("load_issues", time.Since(loadStart))
-	}
-
-	if loadErr != nil {
-		w.logEvent(LogLevelError, "snapshot_load_failed", map[string]any{
-			"path":  w.beadsPath,
-			"error": loadErr.Error(),
+			return err
 		})
-		w.recordError(loadErr)
-
-		// Send error to UI
-		w.send(SnapshotErrorMsg{
-			Err:         loadErr,
-			Recoverable: true, // File errors are usually recoverable
+		if profileSnapshot {
+			recordTiming("load_issues", time.Since(loadStart))
+		}
+		if loadErr != nil {
+			w.logEvent(LogLevelError, "snapshot_load_failed", map[string]any{
+				"source": "dolt",
+				"error":  loadErr.Error(),
+			})
+			w.recordError(loadErr)
+			w.send(SnapshotErrorMsg{Err: loadErr, Recoverable: true})
+			return nil
+		}
+	} else {
+		// JSONL/SQLite path: existing behavior
+		// Determine dataset tier using a fast line count (bv-9thm).
+		var countStart time.Time
+		if profileSnapshot {
+			countStart = time.Now()
+		}
+		countErr := w.safeCompute("count_lines", func() error {
+			n, err := countJSONLLines(w.beadsPath)
+			if err != nil {
+				return err
+			}
+			sourceLineCount = n
+			tier = datasetTierForIssueCount(n)
+			return nil
 		})
-		return nil
-	}
+		if profileSnapshot {
+			recordTiming("line_count", time.Since(countStart))
+		}
+		if countErr != nil {
+			w.logEvent(LogLevelDebug, "snapshot_line_count_failed", map[string]any{
+				"path":  w.beadsPath,
+				"error": countErr.Error(),
+			})
+		}
+
+		// Huge tier: default to open-only unless the recipe explicitly includes closed/tombstone.
+		loadOpenOnly = tier == datasetTierHuge && !recipeIncludesClosedStatuses(currentRecipe)
+
+		// Load issues from file with panic recovery
+		var loadStart time.Time
+		if profileSnapshot {
+			loadStart = time.Now()
+		}
+		loadErr := w.safeCompute("load", func() error {
+			var err error
+			var loaded loader.PooledIssues
+			opts := loader.ParseOptions{
+				WarningHandler: func(msg string) {
+					loadWarnings = append(loadWarnings, msg)
+				},
+				BufferSize: envMaxLineSizeBytes(),
+			}
+			if loadOpenOnly {
+				opts.IssueFilter = func(i *model.Issue) bool {
+					return i.Status != model.StatusClosed && i.Status != model.StatusTombstone
+				}
+			}
+			loaded, err = loader.LoadIssuesFromFileWithOptionsPooled(w.beadsPath, opts)
+			if err == nil {
+				issues = loaded.Issues
+				pooledRefs = loaded.PoolRefs
+			}
+			return err
+		})
+		if profileSnapshot {
+			recordTiming("load_issues", time.Since(loadStart))
+		}
+
+		if loadErr != nil {
+			w.logEvent(LogLevelError, "snapshot_load_failed", map[string]any{
+				"path":  w.beadsPath,
+				"error": loadErr.Error(),
+			})
+			w.recordError(loadErr)
+
+			// Send error to UI
+			w.send(SnapshotErrorMsg{
+				Err:         loadErr,
+				Recoverable: true, // File errors are usually recoverable
+			})
+			return nil
+		}
+	} // end JSONL/SQLite branch
 
 	loadDuration := time.Since(start)
 
@@ -1833,4 +1900,57 @@ func (w *BackgroundWorker) ResetHash() {
 	w.mu.Lock()
 	w.lastHash = ""
 	w.mu.Unlock()
+}
+
+// startDoltPollLoop polls a Dolt server for data changes and triggers refreshes.
+// It replaces the file watcher for Dolt-backed sources.
+func (w *BackgroundWorker) startDoltPollLoop() {
+	interval := envDurationSeconds("BV_DOLT_POLL_INTERVAL_S", 5*time.Second)
+
+	w.logEvent(LogLevelInfo, "dolt_poll_start", map[string]any{
+		"interval_s": interval.Seconds(),
+	})
+
+	var lastModified time.Time
+	firstPoll := true
+
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-w.ctx.Done():
+			return
+		case <-ticker.C:
+			reader, err := datasource.NewDoltReader(*w.dataSource)
+			if err != nil {
+				w.logEvent(LogLevelWarn, "dolt_poll_connect_failed", map[string]any{
+					"error": err.Error(),
+				})
+				continue
+			}
+
+			modTime, err := reader.GetLastModified()
+			reader.Close()
+			if err != nil {
+				w.logEvent(LogLevelWarn, "dolt_poll_query_failed", map[string]any{
+					"error": err.Error(),
+				})
+				continue
+			}
+
+			if firstPoll {
+				// Record baseline without triggering refresh
+				lastModified = modTime
+				firstPoll = false
+				continue
+			}
+
+			if !modTime.Equal(lastModified) {
+				lastModified = modTime
+				w.noteFileChange(time.Now())
+				w.TriggerRefresh()
+			}
+		}
+	}
 }

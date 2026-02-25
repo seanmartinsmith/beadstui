@@ -5,6 +5,8 @@ beads_reference/
 cmd/bv/bv
 .DS_Store
 
+*.exe
+
 # Build artifacts
 dist/
 a.out

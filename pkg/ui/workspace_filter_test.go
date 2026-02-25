@@ -14,7 +14,7 @@ func TestApplyFilterRespectsWorkspaceRepoFilter(t *testing.T) {
 		{ID: "web-UI-1", Title: "Web", Status: model.StatusOpen},
 	}
 
-	m := NewModel(issues, nil, "")
+	m := NewModel(issues, nil, "", nil)
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
 	m = updated.(Model)
 

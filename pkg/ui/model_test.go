@@ -40,7 +40,7 @@ func TestModelFiltering(t *testing.T) {
 		},
 	}
 
-	m := ui.NewModel(issues, nil, "")
+	m := ui.NewModel(issues, nil, "", nil)
 
 	// Test "All"
 	if len(m.FilteredIssues()) != 8 {
@@ -120,7 +120,7 @@ func TestTimeTravelMode(t *testing.T) {
 		{ID: "1", Title: "Test Issue", Status: model.StatusOpen, Priority: 1},
 	}
 
-	m := ui.NewModel(issues, nil, "")
+	m := ui.NewModel(issues, nil, "", nil)
 
 	// Initially not in time-travel mode
 	if m.IsTimeTravelMode() {
@@ -156,7 +156,7 @@ func TestGetTypeIconMD(t *testing.T) {
 }
 
 func TestModelCreationWithEmptyIssues(t *testing.T) {
-	m := ui.NewModel([]model.Issue{}, nil, "")
+	m := ui.NewModel([]model.Issue{}, nil, "", nil)
 
 	if len(m.FilteredIssues()) != 0 {
 		t.Errorf("Expected 0 issues for empty input, got %d", len(m.FilteredIssues()))
@@ -173,7 +173,7 @@ func TestIssueItemDiffStatus(t *testing.T) {
 		{ID: "1", Title: "Test", Status: model.StatusOpen},
 	}
 
-	m := ui.NewModel(issues, nil, "")
+	m := ui.NewModel(issues, nil, "", nil)
 
 	// In normal mode, DiffStatus should be None
 	filtered := m.FilteredIssues()
@@ -191,7 +191,7 @@ func TestFocusStateInitial(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "1", Title: "Test Issue", Status: model.StatusOpen, Priority: 1},
 	}
-	m := ui.NewModel(issues, nil, "")
+	m := ui.NewModel(issues, nil, "", nil)
 
 	if m.FocusState() != "list" {
 		t.Errorf("Initial focus state = %q, want %q", m.FocusState(), "list")
@@ -203,7 +203,7 @@ func TestFocusTransitionBoard(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "1", Title: "Test Issue", Status: model.StatusOpen, Priority: 1},
 	}
-	m := ui.NewModel(issues, nil, "")
+	m := ui.NewModel(issues, nil, "", nil)
 
 	// Initial state
 	if m.FocusState() != "list" {
@@ -241,7 +241,7 @@ func TestFocusTransitionGraph(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "1", Title: "Test Issue", Status: model.StatusOpen, Priority: 1},
 	}
-	m := ui.NewModel(issues, nil, "")
+	m := ui.NewModel(issues, nil, "", nil)
 
 	// Press 'g' to enter graph view
 	newM, _ := m.Update(keyMsg("g"))
@@ -271,7 +271,7 @@ func TestFocusTransitionActionable(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "1", Title: "Test Issue", Status: model.StatusOpen, Priority: 1},
 	}
-	m := ui.NewModel(issues, nil, "")
+	m := ui.NewModel(issues, nil, "", nil)
 
 	// Press 'a' to enter actionable view
 	newM, _ := m.Update(keyMsg("a"))
@@ -301,7 +301,7 @@ func TestFocusTransitionInsights(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "1", Title: "Test Issue", Status: model.StatusOpen, Priority: 1},
 	}
-	m := ui.NewModel(issues, nil, "")
+	m := ui.NewModel(issues, nil, "", nil)
 
 	// Press 'i' to enter insights view
 	newM, _ := m.Update(keyMsg("i"))
@@ -325,7 +325,7 @@ func TestFocusTransitionTree(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "1", Title: "Test Issue", Status: model.StatusOpen, Priority: 1, IssueType: model.TypeEpic},
 	}
-	m := ui.NewModel(issues, nil, "")
+	m := ui.NewModel(issues, nil, "", nil)
 
 	// Press 'E' to enter tree view
 	newM, _ := m.Update(keyMsg("E"))
@@ -349,7 +349,7 @@ func TestFocusTransitionHelp(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "1", Title: "Test Issue", Status: model.StatusOpen, Priority: 1},
 	}
-	m := ui.NewModel(issues, nil, "")
+	m := ui.NewModel(issues, nil, "", nil)
 
 	// Press '?' to enter help view
 	newM, _ := m.Update(keyMsg("?"))
@@ -365,7 +365,7 @@ func TestFocusTransitionHistory(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "1", Title: "Test Issue", Status: model.StatusOpen, Priority: 1},
 	}
-	m := ui.NewModel(issues, nil, "")
+	m := ui.NewModel(issues, nil, "", nil)
 
 	// Press 'h' to enter history view
 	newM, _ := m.Update(keyMsg("h"))
@@ -395,7 +395,7 @@ func TestViewSwitchClearsOthers(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "1", Title: "Test Issue", Status: model.StatusOpen, Priority: 1},
 	}
-	m := ui.NewModel(issues, nil, "")
+	m := ui.NewModel(issues, nil, "", nil)
 
 	// Enter board view
 	newM, _ := m.Update(keyMsg("b"))
@@ -447,7 +447,7 @@ func TestEscClosesViews(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := ui.NewModel(issues, nil, "")
+			m := ui.NewModel(issues, nil, "", nil)
 
 			// Enter the view
 			newM, _ := m.Update(keyMsg(tt.enterKey))
@@ -486,7 +486,7 @@ func TestQuitClosesViews(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := ui.NewModel(issues, nil, "")
+			m := ui.NewModel(issues, nil, "", nil)
 
 			// Enter the view
 			newM, _ := m.Update(keyMsg(tt.enterKey))
@@ -509,7 +509,7 @@ func TestQuitClosesViews(t *testing.T) {
 
 // TestEmptyIssuesDoesNotPanic verifies state machine handles empty issues
 func TestEmptyIssuesDoesNotPanic(t *testing.T) {
-	m := ui.NewModel([]model.Issue{}, nil, "")
+	m := ui.NewModel([]model.Issue{}, nil, "", nil)
 
 	// Should not panic on various key presses
 	keys := []string{"b", "g", "a", "i", "E", "H", "?", "j", "k", "enter", "esc"}
@@ -533,7 +533,7 @@ func TestFocusStateString(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "1", Title: "Test", Status: model.StatusOpen, Priority: 1},
 	}
-	m := ui.NewModel(issues, nil, "")
+	m := ui.NewModel(issues, nil, "", nil)
 
 	// Test that initial state has a valid string
 	state := m.FocusState()

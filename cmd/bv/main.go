@@ -1287,6 +1287,7 @@ func main() {
 	loadStart := time.Now()
 	var issues []model.Issue
 	var beadsPath string
+	var selectedSource *datasource.DataSource
 	var workspaceInfo *workspace.LoadSummary
 	var asOfResolved string // Resolved commit SHA when using --as-of (for robot output metadata)
 
@@ -1347,20 +1348,25 @@ func main() {
 		_ = loader.EnsureBVInGitignore(workspaceRoot)
 	} else {
 		// Load from single repo (original behavior)
-		var err error
-		issues, err = datasource.LoadIssues("")
+		result, err := datasource.LoadIssuesWithSource("")
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error loading beads: %v\n", err)
 			fmt.Fprintln(os.Stderr, "Make sure you are in a project initialized with 'br init'.")
 			os.Exit(1)
 		}
-		// Get beads file path for live reload (respects BEADS_DIR env var)
-		beadsDir, _ := loader.GetBeadsDir("")
-		beadsPath, _ = loader.FindJSONLPath(beadsDir)
+		issues = result.Issues
+		selectedSource = &result.Source
+
+		// beadsPath only for file-based sources (JSONL/SQLite) - Dolt uses poll-based refresh
+		switch result.Source.Type {
+		case datasource.SourceTypeJSONLLocal, datasource.SourceTypeJSONLWorktree, datasource.SourceTypeSQLite:
+			beadsPath = result.Source.Path
+		}
 
 		// Automatically ensure .bv/ is in .gitignore to prevent polluting git
 		// with search indexes, baselines, and other bv-specific files.
 		// This is done silently and only in single-repo mode.
+		beadsDir, _ := loader.GetBeadsDir("")
 		projectDir := filepath.Dir(beadsDir)
 		_ = loader.EnsureBVInGitignore(projectDir)
 	}
@@ -4813,7 +4819,7 @@ func main() {
 		}
 
 		// Launch TUI with historical issues (already loaded, no live reload)
-		m := ui.NewModel(issues, activeRecipe, "")
+		m := ui.NewModel(issues, activeRecipe, "", nil)
 		defer m.Stop()
 		if err := runTUIProgram(m); err != nil {
 			fmt.Printf("Error running beads viewer: %v\n", err)
@@ -4905,7 +4911,7 @@ func main() {
 	}
 
 	// Initial Model with live reload support
-	m := ui.NewModel(issues, activeRecipe, beadsPath)
+	m := ui.NewModel(issues, activeRecipe, beadsPath, selectedSource)
 	defer m.Stop() // Clean up file watcher
 
 	// Enable workspace mode if loading from workspace config
