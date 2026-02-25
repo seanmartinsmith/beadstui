@@ -940,7 +940,9 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 	}
 
 	isDolt := ds != nil && ds.Type == datasource.SourceTypeDolt
-	bgEnabled := (beadsPath != "" || isDolt) && backgroundModeRequested
+	// Dolt sources always use the background worker for polling since there are
+	// no files to watch. JSONL sources require explicit opt-in via BV_BACKGROUND_MODE.
+	bgEnabled := (beadsPath != "" || isDolt) && (backgroundModeRequested || isDolt)
 	if bgEnabled {
 		bw, err := NewBackgroundWorker(WorkerConfig{
 			BeadsPath:  beadsPath,
