@@ -83,7 +83,7 @@ pkg_total_coverage() {
 		{
 			file = $1
 			sub(/:.*/, "", file)          # strip :line.col,line.col
-			if (file !~ /^github.com\/Dicklesworthstone\/beadstui\/pkg\//) {
+			if (file !~ /^github.com\/seanmartinsmith\/beadstui\/pkg\//) {
 				next
 			}
 			stmts = $2

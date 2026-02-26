@@ -33,8 +33,8 @@ beads.left.meta.json
 beads.right.jsonl
 beads.right.meta.json
 
-# bv (beads viewer) lock file
-.bv.lock
+# bt (beadstui) lock file
+.bt.lock
 
 # NOTE: Do NOT add negation patterns (e.g., !issues.jsonl) here.
 # They would override fork protection in .git/info/exclude, allowing
@@ -43,4 +43,4 @@ beads.right.meta.json
 # are tracked by git by default since no pattern above ignores them.
 
 # Local history backups
-.br_history/
+.bd_history/
