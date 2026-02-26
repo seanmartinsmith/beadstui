@@ -35,8 +35,14 @@ We forked beads_viewer to restore upstream beads compatibility. This fork is now
 
 | Decision | Options | Blocking |
 |----------|---------|----------|
-| Stale SQLite cleanup | Beads-side migration cleanup vs bt explicit source selection | Stream 1 (Dolt verification) |
-| Dolt table schema compatibility | Fix bt's DoltReader vs fix beads DoltWriter | Stream 1 (Dolt verification) |
+| Version numbering | Reset to v0.1.0 for fork identity vs continue from Jeffrey's v0.14.4 | Release readiness |
+
+### Decided (Session 4, 2026-02-26)
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Stale SQLite cleanup (bv-nkil) | Fail hard when metadata says Dolt; keep legacy SQLite/JSONL for non-Dolt projects | Upstream beads v0.56+ removed SQLite/JSONL entirely - Dolt is the only backend. The `beads.db` file is a dead migration artifact beads will never write to again. Silent fallback to it is actively harmful. |
+| Dolt table schema compatibility | No action needed | Schema verified compatible in session 1 (541 issues loaded). DoltReader already handles both full and simple column sets with fallback. |
 
 ### Decided (Session 2, 2026-02-25)
 
@@ -47,15 +53,15 @@ We forked beads_viewer to restore upstream beads compatibility. This fork is now
 ## Work Streams
 
 ### Stream 1: Verify Dolt end-to-end
-**Status**: Mostly done
+**Status**: Done (final item has plan, implementation pending)
 **Blocks**: Stream 3
 
 - [x] Test Ctrl+R with actual beads Dolt server - works
 - [x] Identify schema mismatches - none found, 541 issues load correctly
 - [x] Test auto-refresh - works (Dolt poll loop auto-enables, no env var needed)
-- [ ] Resolve SQLite ghost state at code level (stale SQLite fallback when metadata says Dolt)
+- [ ] Resolve SQLite ghost state at code level (bv-nkil) - **plan ready, see Related Plans**
 
-**Key risk**: SQLite (priority 100) beats Dolt (priority 110) when Dolt connection is flaky. If metadata says `backend: dolt`, bt should not silently fall back to stale SQLite.
+**Key context (discovered session 4)**: Upstream beads v0.56+ removed SQLite and JSONL backends entirely. Dolt server mode is the only storage path. The Dolt server is transient (30-min idle timeout with idle monitor sidecar). bt needs to touch `.beads/dolt-server.activity` to prevent the idle monitor from killing Dolt while bt is actively displaying data.
 
 ### Stream 2: Rename bv -> beadstui/bt (mechanical, parallelizable)
 **Status**: DONE (session 3, 2026-02-25)
@@ -83,7 +89,7 @@ Scope (all completed):
 - [x] Project CLAUDE.md updated (removed "In Transition" section)
 
 ### Stream 3: Data migration + dogfooding
-**Status**: In progress
+**Status**: Done
 **Depends on**: Stream 1 (Dolt must work for bt to read it)
 
 - [x] Migrate existing JSONL/SQLite beads to Dolt (541 issues migrated 2026-02-25)
@@ -92,7 +98,7 @@ Scope (all completed):
 - [x] Triage stale issues from Jeffrey's beads_rust era (closed all 21 open issues, created 9 fresh beads for our work)
 - [x] Restart daemon post-migration (Dolt server restarted, verified)
 - [x] Use this repo as bt's own dogfood environment (actively using beads to track fork takeover work)
-- [ ] Verify bt (once renamed) reads from Dolt correctly (Stream 1 overlap)
+- [x] Verify bt (post-rename) reads from Dolt correctly (session 4 smoke test: 551 issues loaded, TUI renders, background mode enabled)
 
 ### Stream 4: Spring cleaning (parallelizable with Stream 2)
 **Status**: In progress
@@ -117,7 +123,7 @@ From the Dolt integration session (2026-02-25):
 | File | Changes |
 |------|---------|
 | `internal/datasource/load.go` | `LoadResult`, `LoadIssuesWithSource()` |
-| `cmd/bv/main.go` | Uses `LoadIssuesWithSource`, passes DataSource to NewModel |
+| `cmd/bt/main.go` | Uses `LoadIssuesWithSource`, passes DataSource to NewModel |
 | `pkg/ui/model.go` | `dataSource` field, `isDoltSource()`, `reloadFromDataSource()`, `replaceIssues()`, `DataSourceReloadMsg` handler, Ctrl+R |
 | `pkg/ui/background_worker.go` | `dataSource` in config/struct, Dolt poll loop, `processLoop` stays alive for Dolt |
 | All test files | 88 `NewModel` call sites updated for new signature |
@@ -126,9 +132,7 @@ Build passes, tests pass (pre-existing failures only).
 
 ## Related Plans
 
-<!-- Link spawned plans here as they're created -->
-<!-- - [[plan-dolt-verification]] - Stream 1 detail -->
-<!-- - [[plan-bt-rename]] - Stream 2 detail -->
+- `~/.claude/plans/woolly-tinkering-snowflake.md` - bv-nkil fix: SQLite ghost state + Dolt activity keepalive (session 4)
 
 ## Process
 
@@ -148,3 +152,4 @@ This ADR is the spine. Each work stream spawns its own plan (linked above). With
 | 2026-02-25 | Stream 1 mostly verified: Ctrl+R, live auto-refresh, and schema compatibility all confirmed working. Fixed Dolt auto-polling to not require BV_BACKGROUND_MODE. Migrated 541 issues to Dolt, set up remote sync, cleaned stale SQLite. Handoff plan written. |
 | 2026-02-25 (session 2) | Closed all 21 Jeffrey-era beads issues (clean slate). Created fresh beads for fork work streams. Env var strategy decided: hard rename BT_* no fallback (42 vars, 400+ refs). Spring cleaning Phase 1: archived 8 files to docs/archive/, removed build artifacts (50MB), fixed .gitignore. Discovered bv-1p3a: Dolt poll loop floods TUI when server down - affects all Dolt projects. SKILL.md confirmed as legitimate agent CLI guide (keep + rewrite). AGENTS.md has code dependency in pkg/agents/ (15 Go files). Beads data separation researched: refs/dolt/data is hidden from git clone by default (more isolated than old branch sync) - deferred until contributors are a concern. Handoff doc (beads-dolt-migration.md) has issues: Dolt remote didn't persist, Mac bootstrap flow incomplete. Set BD_ACTOR=sms in PowerShell profile. Commits: 715d412, 2cae49d. |
 | 2026-02-25 (session 3) | **Fixed bv-1p3a**: Dolt poll loop now has exponential backoff (5s base, 2min cap), duplicate error suppression (first at warn, subsequent at trace), and status bar integration via new DoltConnectionStatusMsg. **Stream 2 DONE**: Full atomic rename - module path (179 files), cmd/bv->cmd/bt, BV_*->BT_ (46 files), .bv->.bt, br->bd (CLI refs), goreleaser, install scripts, flake.nix, CI workflows, AGENTS.md/SKILL.md content rewrites, README.md mechanical rename, LICENSE copyright, .gitignore, project CLAUDE.md. Build passes, no new test failures. **Spring cleaning Phase 2 partial**: moved UPGRADE_LOG.md and GOLANG_BEST_PRACTICES.md to docs/ (bv-a3g8), updated AGENTS.md:368 reference. |
+| 2026-02-26 (session 4) | Built and installed `bt` binary (v0.14.4). **Stream 3 DONE**: smoke test confirmed bt reads 551 issues from Dolt post-rename. Added version numbering as open decision. **Critical discovery**: upstream beads v0.56+ removed SQLite and JSONL entirely - Dolt server mode is the only backend. Dolt server is transient (30-min idle timeout via idle monitor sidecar, activity tracked in `.beads/dolt-server.activity`). This means the SQLite ghost state (bv-nkil) is worse than thought - bt falls back to a dead artifact, not stale data. **Decided**: fail hard when metadata says `backend: dolt` and Dolt unreachable; keep legacy SQLite/JSONL for non-Dolt projects. Also: bt must touch activity file to prevent idle monitor from killing Dolt during active sessions. Plan written for bv-nkil implementation. Cleaned up orphan Dolt processes (4 killed). Researched beads repo architecture for alignment. |
