@@ -39,7 +39,7 @@ No open decisions.
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Version numbering | Reset to v0.1.0 | Different project, different module path, different target. Clean break from Jeffrey's v0.14.x lineage. Go already treats it as a separate module. Goreleaser injects from git tag; fallback in `pkg/version/version.go` updated. |
+| Version numbering | Reset to v0.0.1 | Different project, different module path, different target. Clean break from Jeffrey's v0.14.x lineage. v0.0.x signals pre-alpha. Release is manual: push a git tag, goreleaser builds + publishes. Bump criteria: patch (0.0.x) for bug fixes, minor (0.x.0) for features, major for breaking changes. |
 
 ### Decided (Session 4, 2026-02-26)
 
