@@ -1,6 +1,6 @@
 ---
 title: "ADR-001: beads_viewer -> beadstui fork takeover"
-status: active
+status: completed (pending review)
 date: 2026-02-25
 decision-makers: [seanmartinsmith]
 ---
@@ -9,7 +9,7 @@ decision-makers: [seanmartinsmith]
 
 ## Status
 
-**Active** - living document. Updated as decisions are made and work progresses.
+**Completed (pending review)** - all 4 work streams done. Next session should run an ADR review to grade execution quality before moving to new feature work.
 
 ## Context
 
@@ -157,4 +157,38 @@ This ADR is the spine. Each work stream spawns its own plan (linked above). With
 | 2026-02-25 (session 2) | Closed all 21 Jeffrey-era beads issues (clean slate). Created fresh beads for fork work streams. Env var strategy decided: hard rename BT_* no fallback (42 vars, 400+ refs). Spring cleaning Phase 1: archived 8 files to docs/archive/, removed build artifacts (50MB), fixed .gitignore. Discovered bv-1p3a: Dolt poll loop floods TUI when server down - affects all Dolt projects. SKILL.md confirmed as legitimate agent CLI guide (keep + rewrite). AGENTS.md has code dependency in pkg/agents/ (15 Go files). Beads data separation researched: refs/dolt/data is hidden from git clone by default (more isolated than old branch sync) - deferred until contributors are a concern. Handoff doc (beads-dolt-migration.md) has issues: Dolt remote didn't persist, Mac bootstrap flow incomplete. Set BD_ACTOR=sms in PowerShell profile. Commits: 715d412, 2cae49d. |
 | 2026-02-25 (session 3) | **Fixed bv-1p3a**: Dolt poll loop now has exponential backoff (5s base, 2min cap), duplicate error suppression (first at warn, subsequent at trace), and status bar integration via new DoltConnectionStatusMsg. **Stream 2 DONE**: Full atomic rename - module path (179 files), cmd/bv->cmd/bt, BV_*->BT_ (46 files), .bv->.bt, br->bd (CLI refs), goreleaser, install scripts, flake.nix, CI workflows, AGENTS.md/SKILL.md content rewrites, README.md mechanical rename, LICENSE copyright, .gitignore, project CLAUDE.md. Build passes, no new test failures. **Spring cleaning Phase 2 partial**: moved UPGRADE_LOG.md and GOLANG_BEST_PRACTICES.md to docs/ (bv-a3g8), updated AGENTS.md:368 reference. |
 | 2026-02-26 (session 4) | Built and installed `bt` binary (v0.14.4). **Stream 3 DONE**: smoke test confirmed bt reads 551 issues from Dolt post-rename. Added version numbering as open decision. **Critical discovery**: upstream beads v0.56+ removed SQLite and JSONL entirely - Dolt server mode is the only backend. Dolt server is transient (30-min idle timeout via idle monitor sidecar, activity tracked in `.beads/dolt-server.activity`). This means the SQLite ghost state (bv-nkil) is worse than thought - bt falls back to a dead artifact, not stale data. **Decided**: fail hard when metadata says `backend: dolt` and Dolt unreachable; keep legacy SQLite/JSONL for non-Dolt projects. Also: bt must touch activity file to prevent idle monitor from killing Dolt during active sessions. Plan written for bv-nkil implementation. Cleaned up orphan Dolt processes (4 killed). Researched beads repo architecture for alignment. |
-| 2026-02-26 (session 5) | **bv-nkil implemented (Stream 1 DONE)**: Added `ErrDoltRequired` sentinel + `RequireDolt` gate in `DiscoverSources()`. When `metadata.json` says `backend: dolt`, discovery skips SQLite/JSONL entirely - if Dolt unreachable, returns clear error ("Dolt server not running. Start it with: bd dolt start") instead of silently falling back to stale data. JSONL fallback in `LoadIssues`/`LoadIssuesWithSource` also guarded. Legacy SQLite/JSONL discovery preserved for non-Dolt projects. Added Dolt activity keepalive: `touchDoltActivity()` writes epoch to `.beads/dolt-server.activity` on each successful poll, preventing the idle monitor from killing Dolt while bt is running. 2 new tests, all 34 datasource tests pass, build clean. ~75 lines changed across 6 files. **Version numbering decided**: v0.1.0 reset (clean break from Jeffrey's v0.14.x). Updated `pkg/version/version.go` fallback. **Stream 4 cleanup**: removed 6 Jeffrey-era benchmark results, cleaned dead `.beads/` artifacts (4.3MB backup db, merge leftovers, sync_base.jsonl), fixed `.beads/.gitignore` renames (.bv.lock -> .bt.lock, .br_history -> .bd_history), fixed missed rename in scripts/coverage.sh. Created bv-9x36 for Dolt disconnect UX improvement. Closed bv-nkil. |
+| 2026-02-26 (session 5) | **bv-nkil implemented (Stream 1 DONE)**: Added `ErrDoltRequired` sentinel + `RequireDolt` gate in `DiscoverSources()`. When `metadata.json` says `backend: dolt`, discovery skips SQLite/JSONL entirely - if Dolt unreachable, returns clear error ("Dolt server not running. Start it with: bd dolt start") instead of silently falling back to stale data. JSONL fallback in `LoadIssues`/`LoadIssuesWithSource` also guarded. Legacy SQLite/JSONL discovery preserved for non-Dolt projects. Added Dolt activity keepalive: `touchDoltActivity()` writes epoch to `.beads/dolt-server.activity` on each successful poll, preventing the idle monitor from killing Dolt while bt is running. 2 new tests, all 34 datasource tests pass, build clean. ~75 lines changed across 6 files. **Version numbering decided**: v0.1.0 reset (clean break from Jeffrey's v0.14.x). Updated `pkg/version/version.go` fallback. **Stream 4 cleanup**: removed 6 Jeffrey-era benchmark results, cleaned dead `.beads/` artifacts (4.3MB backup db, merge leftovers, sync_base.jsonl), fixed `.beads/.gitignore` renames (.bv.lock -> .bt.lock, .br_history -> .bd_history), fixed missed rename in scripts/coverage.sh. Created bv-9x36 for Dolt disconnect UX improvement. Closed bv-nkil. Installed bt v0.1.0. **ADR marked completed (pending review)**. |
+
+## Review Criteria (Next Session)
+
+Before moving to new feature work, a fresh session should review this ADR's execution. Grade each area:
+
+### Completeness
+- [ ] Every stream item checked off - are any actually incomplete or punted?
+- [ ] All decisions documented with rationale - any gaps?
+- [ ] Changelog entries cover all material changes across sessions?
+
+### Code Quality
+- [ ] `go build ./cmd/bt/` clean
+- [ ] `go test ./...` - catalog pre-existing failures vs anything introduced by fork work
+- [ ] No stale Jeffrey-era references in tracked files (grep for `Dicklesworthstone`, `beads_viewer`, `beads_rust`, `bv` in places it should be `bt`)
+- [ ] No dead code left behind from the migration
+
+### Release Readiness
+- [ ] `bt --version` shows v0.1.0
+- [ ] goreleaser config correct (owner, module, binary, taps)
+- [ ] README accurately describes what bt is and how to use it (prose rewrite still TODO)
+- [ ] LICENSE correct (Jeffrey's copyright + our line + rider)
+- [ ] .gitignore covers all runtime/build artifacts
+
+### Architecture
+- [ ] Dolt-only enforcement works (stop Dolt, run bt, get clear error)
+- [ ] Dolt keepalive works (activity file updated during bt session)
+- [ ] Legacy SQLite/JSONL path still works for non-Dolt projects
+- [ ] Background worker reconnects after Dolt comes back
+
+### Remaining Work (not part of this ADR, but surface for prioritization)
+- bv-9x36: Dolt disconnect UX polish
+- README prose rewrite
+- bv-xft1: beads data separation (deferred)
+- 11 pre-existing test failures (Windows path separators, golden files, tutorial tests)
