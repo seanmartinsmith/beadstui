@@ -661,6 +661,65 @@ func TestFallbackChain_AllFail(t *testing.T) {
 	}
 }
 
+// TestDiscoverSources_RequireDolt_Unreachable tests that RequireDolt returns
+// ErrDoltRequired when no Dolt server is available (no metadata or server down).
+func TestDiscoverSources_RequireDolt_Unreachable(t *testing.T) {
+	tmpDir := t.TempDir()
+	beadsDir := filepath.Join(tmpDir, ".beads")
+	if err := os.MkdirAll(beadsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a SQLite db that would normally be discovered
+	dbPath := filepath.Join(beadsDir, "beads.db")
+	createTestSQLiteDB(t, dbPath)
+
+	sources, err := DiscoverSources(DiscoveryOptions{
+		BeadsDir:    beadsDir,
+		RequireDolt: true,
+	})
+
+	if err != ErrDoltRequired {
+		t.Errorf("Expected ErrDoltRequired, got err=%v sources=%v", err, sources)
+	}
+	if sources != nil {
+		t.Errorf("Expected nil sources, got %d", len(sources))
+	}
+}
+
+// TestDiscoverSources_RequireDolt_False_LegacyPreserved tests that legacy
+// SQLite discovery still works when RequireDolt is false (no Dolt metadata).
+func TestDiscoverSources_RequireDolt_False_LegacyPreserved(t *testing.T) {
+	tmpDir := t.TempDir()
+	beadsDir := filepath.Join(tmpDir, ".beads")
+	if err := os.MkdirAll(beadsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create SQLite database
+	dbPath := filepath.Join(beadsDir, "beads.db")
+	createTestSQLiteDB(t, dbPath)
+
+	sources, err := DiscoverSources(DiscoveryOptions{
+		BeadsDir:               beadsDir,
+		RequireDolt:            false,
+		ValidateAfterDiscovery: false,
+	})
+	if err != nil {
+		t.Fatalf("DiscoverSources failed: %v", err)
+	}
+
+	found := false
+	for _, s := range sources {
+		if s.Type == SourceTypeSQLite {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("Expected SQLite source to be discovered with RequireDolt=false")
+	}
+}
+
 // Helper to create a test SQLite database with sample data
 func createTestSQLiteDB(t *testing.T, path string) {
 	db, err := sql.Open("sqlite", path)
