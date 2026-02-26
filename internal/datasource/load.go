@@ -1,6 +1,7 @@
 package datasource
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/seanmartinsmith/beadstui/pkg/loader"
@@ -26,6 +27,11 @@ func LoadIssues(repoPath string) ([]model.Issue, error) {
 		return issues, nil
 	}
 
+	// Don't fall through to JSONL when metadata says Dolt
+	if errors.Is(smartErr, ErrDoltRequired) {
+		return nil, smartErr
+	}
+
 	// Fall back to legacy JSONL-only loading
 	return loader.LoadIssues(repoPath)
 }
@@ -46,6 +52,12 @@ func LoadIssuesFromDir(beadsDir string) ([]model.Issue, error) {
 	return loader.LoadIssuesFromFile(jsonlPath)
 }
 
+// isDoltRequired checks whether metadata.json declares backend=dolt.
+func isDoltRequired(beadsDir string) bool {
+	_, ok := ReadDoltConfig(beadsDir)
+	return ok
+}
+
 // loadSmart discovers sources, validates, selects the best, and loads from it.
 func loadSmart(beadsDir, repoPath string) ([]model.Issue, error) {
 	sources, err := DiscoverSources(DiscoveryOptions{
@@ -53,6 +65,7 @@ func loadSmart(beadsDir, repoPath string) ([]model.Issue, error) {
 		RepoPath:               repoPath,
 		ValidateAfterDiscovery: true,
 		IncludeInvalid:         false,
+		RequireDolt:            isDoltRequired(beadsDir),
 	})
 	if err != nil {
 		return nil, err
@@ -89,6 +102,11 @@ func LoadIssuesWithSource(repoPath string) (LoadResult, error) {
 		return result, nil
 	}
 
+	// Don't fall through to JSONL when metadata says Dolt
+	if errors.Is(smartErr, ErrDoltRequired) {
+		return LoadResult{}, smartErr
+	}
+
 	// Fall back to legacy JSONL-only loading
 	issues, err := loader.LoadIssues(repoPath)
 	if err != nil {
@@ -110,6 +128,7 @@ func loadSmartWithSource(beadsDir, repoPath string) (LoadResult, error) {
 		RepoPath:               repoPath,
 		ValidateAfterDiscovery: true,
 		IncludeInvalid:         false,
+		RequireDolt:            isDoltRequired(beadsDir),
 	})
 	if err != nil {
 		return LoadResult{}, err

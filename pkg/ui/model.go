@@ -940,12 +940,17 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 	}
 
 	isDolt := ds != nil && ds.Type == datasource.SourceTypeDolt
+
+	// Compute beadsDir for Dolt activity keepalive
+	workerBeadsDir, _ := loader.GetBeadsDir("")
+
 	// Dolt sources always use the background worker for polling since there are
 	// no files to watch. JSONL sources require explicit opt-in via BT_BACKGROUND_MODE.
 	bgEnabled := (beadsPath != "" || isDolt) && (backgroundModeRequested || isDolt)
 	if bgEnabled {
 		bw, err := NewBackgroundWorker(WorkerConfig{
 			BeadsPath:  beadsPath,
+			BeadsDir:   workerBeadsDir,
 			DataSource: ds,
 			DebounceDelay: 200 * time.Millisecond,
 		})
@@ -2331,8 +2336,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			if autoAllowed {
+				autoBeadsDir := ""
+				if m.beadsPath != "" {
+					autoBeadsDir = filepath.Dir(m.beadsPath)
+				}
 				bw, err := NewBackgroundWorker(WorkerConfig{
 					BeadsPath:     m.beadsPath,
+					BeadsDir:      autoBeadsDir,
 					DataSource:    m.dataSource,
 					DebounceDelay: 200 * time.Millisecond,
 				})

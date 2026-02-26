@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"strconv"
@@ -168,6 +169,7 @@ type workerMetrics struct {
 type BackgroundWorker struct {
 	// Configuration
 	beadsPath  string
+	beadsDir   string // .beads directory; used for Dolt activity keepalive
 	dataSource *datasource.DataSource
 	debounceDelay     time.Duration
 	heartbeatInterval time.Duration
@@ -251,6 +253,7 @@ type IdleGCConfig struct {
 // WorkerConfig configures the BackgroundWorker.
 type WorkerConfig struct {
 	BeadsPath  string
+	BeadsDir   string                 // .beads directory path; used for Dolt activity keepalive
 	DataSource *datasource.DataSource // Optional: enables Dolt polling when set
 	DebounceDelay time.Duration
 	MessageBuffer int // Buffer size for worker -> UI messages (default: 8)
@@ -327,6 +330,7 @@ func NewBackgroundWorker(cfg WorkerConfig) (*BackgroundWorker, error) {
 
 	w := &BackgroundWorker{
 		beadsPath:  cfg.BeadsPath,
+		beadsDir:   cfg.BeadsDir,
 		dataSource: cfg.DataSource,
 		debounceDelay:     cfg.DebounceDelay,
 		heartbeatInterval: cfg.HeartbeatInterval,
@@ -1986,6 +1990,17 @@ func (w *BackgroundWorker) startDoltPollLoop() {
 // doltPollOnce performs a single Dolt poll cycle. Returns nil on success.
 // On the first successful poll it records the baseline modification time without
 // triggering a refresh. On subsequent polls it triggers a refresh if data changed.
+// touchDoltActivity writes the current Unix epoch to .beads/dolt-server.activity
+// to prevent the Dolt idle monitor from killing the server while bt is running.
+// Best-effort: errors are silently ignored since this is a keepalive, not a critical path.
+func (w *BackgroundWorker) touchDoltActivity() {
+	if w.beadsDir == "" {
+		return
+	}
+	path := filepath.Join(w.beadsDir, "dolt-server.activity")
+	_ = os.WriteFile(path, []byte(strconv.FormatInt(time.Now().Unix(), 10)), 0644)
+}
+
 func (w *BackgroundWorker) doltPollOnce(lastModified *time.Time, firstPoll *bool) error {
 	reader, err := datasource.NewDoltReader(*w.dataSource)
 	if err != nil {
@@ -1997,6 +2012,9 @@ func (w *BackgroundWorker) doltPollOnce(lastModified *time.Time, firstPoll *bool
 	if err != nil {
 		return fmt.Errorf("query: %w", err)
 	}
+
+	// Successful query - keep the Dolt idle monitor from killing the server
+	w.touchDoltActivity()
 
 	if *firstPoll {
 		*lastModified = modTime

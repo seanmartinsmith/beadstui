@@ -5,6 +5,7 @@ package datasource
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,6 +16,11 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 )
+
+// ErrDoltRequired is returned when metadata declares backend=dolt but the
+// Dolt server is not reachable. This prevents silent fallback to stale
+// SQLite/JSONL data.
+var ErrDoltRequired = errors.New("Dolt server required but not reachable")
 
 // SourceType identifies the type of data source
 type SourceType string
@@ -82,6 +88,9 @@ type DiscoveryOptions struct {
 	Verbose bool
 	// Logger receives log messages when Verbose is true
 	Logger func(msg string)
+	// RequireDolt skips SQLite/JSONL/worktree discovery entirely.
+	// When true, only Dolt is attempted; if unreachable, ErrDoltRequired is returned.
+	RequireDolt bool
 }
 
 // DiscoverSources finds all potential data sources in the beads directory
@@ -123,26 +132,34 @@ func DiscoverSources(opts DiscoveryOptions) ([]DataSource, error) {
 	}
 	sources = append(sources, doltSources...)
 
-	// Discover SQLite database
-	sqliteSources, err := discoverSQLiteSources(beadsDir, opts)
-	if err != nil && opts.Verbose {
-		opts.Logger(fmt.Sprintf("SQLite discovery warning: %v", err))
-	}
-	sources = append(sources, sqliteSources...)
+	// When metadata declares backend=dolt, don't fall through to stale backends
+	if opts.RequireDolt {
+		if len(doltSources) == 0 {
+			return nil, ErrDoltRequired
+		}
+		// Skip SQLite/JSONL/worktree entirely
+	} else {
+		// Discover SQLite database
+		sqliteSources, err := discoverSQLiteSources(beadsDir, opts)
+		if err != nil && opts.Verbose {
+			opts.Logger(fmt.Sprintf("SQLite discovery warning: %v", err))
+		}
+		sources = append(sources, sqliteSources...)
 
-	// Discover local JSONL files
-	localSources, err := discoverLocalJSONLSources(beadsDir, opts)
-	if err != nil && opts.Verbose {
-		opts.Logger(fmt.Sprintf("Local JSONL discovery warning: %v", err))
-	}
-	sources = append(sources, localSources...)
+		// Discover local JSONL files
+		localSources, err := discoverLocalJSONLSources(beadsDir, opts)
+		if err != nil && opts.Verbose {
+			opts.Logger(fmt.Sprintf("Local JSONL discovery warning: %v", err))
+		}
+		sources = append(sources, localSources...)
 
-	// Discover worktree JSONL files
-	worktreeSources, err := discoverWorktreeSources(opts.RepoPath, opts)
-	if err != nil && opts.Verbose {
-		opts.Logger(fmt.Sprintf("Worktree discovery warning: %v", err))
+		// Discover worktree JSONL files
+		worktreeSources, err := discoverWorktreeSources(opts.RepoPath, opts)
+		if err != nil && opts.Verbose {
+			opts.Logger(fmt.Sprintf("Worktree discovery warning: %v", err))
+		}
+		sources = append(sources, worktreeSources...)
 	}
-	sources = append(sources, worktreeSources...)
 
 	// Validate sources if requested
 	if opts.ValidateAfterDiscovery {

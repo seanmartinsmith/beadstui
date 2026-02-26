@@ -1350,8 +1350,12 @@ func main() {
 		// Load from single repo (original behavior)
 		result, err := datasource.LoadIssuesWithSource("")
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error loading beads: %v\n", err)
-			fmt.Fprintln(os.Stderr, "Make sure you are in a project initialized with 'bd init'.")
+			if errors.Is(err, datasource.ErrDoltRequired) {
+				fmt.Fprintln(os.Stderr, "Dolt server not running. Start it with: bd dolt start")
+			} else {
+				fmt.Fprintf(os.Stderr, "Error loading beads: %v\n", err)
+				fmt.Fprintln(os.Stderr, "Make sure you are in a project initialized with 'bd init'.")
+			}
 			os.Exit(1)
 		}
 		issues = result.Issues
