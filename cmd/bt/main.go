@@ -10,6 +10,7 @@ import (
 	"html"
 	"io"
 	"io/fs"
+	"log"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -4944,6 +4945,11 @@ func main() {
 }
 
 func runTUIProgram(m ui.Model) error {
+	// Suppress log.Printf output while TUI is running (bv-9x36).
+	// The background worker's logEvent() writes JSON to stderr via log.Printf,
+	// which corrupts the TUI display. Debug logging uses BT_WORKER_TRACE_FILE instead.
+	log.SetOutput(io.Discard)
+
 	p := tea.NewProgram(
 		m,
 		tea.WithAltScreen(),
