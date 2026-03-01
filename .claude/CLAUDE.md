@@ -1,5 +1,7 @@
 # beadstui
 
+@AGENTS.md
+
 ## Session Start - READ THIS FIRST
 
 Before doing ANY work in this project, read the active ADR:

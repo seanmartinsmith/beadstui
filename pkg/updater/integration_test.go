@@ -252,8 +252,8 @@ ghi789  file3.tar.gz`
 // TestGetAssetName_HandlesVersionWithoutV verifies version without v prefix
 func TestGetAssetName_HandlesVersionWithoutV(t *testing.T) {
 	name := getAssetName("2.0.0")
-	if !strings.HasPrefix(name, "bv_2.0.0_") {
-		t.Errorf("expected asset name to start with bv_2.0.0_, got %s", name)
+	if !strings.HasPrefix(name, "bt_2.0.0_") {
+		t.Errorf("expected asset name to start with bt_2.0.0_, got %s", name)
 	}
 }
 
