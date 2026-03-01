@@ -1921,9 +1921,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if msg.Err != nil {
 			if msg.Recoverable {
-				m.statusMsg = fmt.Sprintf("Background reload error (will retry): %v", msg.Err)
+				m.statusMsg = fmt.Sprintf("Reload error (retrying): %s", shortError(msg.Err))
 			} else {
-				m.statusMsg = fmt.Sprintf("Background reload error: %v", msg.Err)
+				m.statusMsg = fmt.Sprintf("Reload error: %s", shortError(msg.Err))
 			}
 			m.statusIsError = true
 		}
@@ -1935,7 +1935,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case DataSourceReloadMsg:
 		// Async reload from a non-file datasource (e.g. Dolt) completed.
 		if msg.Err != nil {
-			m.statusMsg = fmt.Sprintf("Reload error: %v", msg.Err)
+			m.statusMsg = fmt.Sprintf("Reload failed: %s", shortError(msg.Err))
 			m.statusIsError = true
 			return m, tea.Batch(cmds...)
 		}
@@ -5622,7 +5622,11 @@ func (m *Model) renderFooter() string {
 		if m.statusIsError {
 			prefix = "✗ "
 		}
-		msgSection := msgStyle.Render(prefix + m.statusMsg)
+		displayMsg := prefix + m.statusMsg
+		if maxMsgWidth := m.width - 4; lipgloss.Width(displayMsg) > maxMsgWidth {
+			displayMsg = truncateString(displayMsg, maxMsgWidth)
+		}
+		msgSection := msgStyle.Render(displayMsg)
 		remaining := m.width - lipgloss.Width(msgSection)
 		if remaining < 0 {
 			remaining = 0
@@ -7089,6 +7093,20 @@ func getEventIcon(eventType correlation.EventType) string {
 	default:
 		return "•"
 	}
+}
+
+// shortError extracts the tail of a nested error chain for display in the
+// status bar (bv-9x36). Go errors like "connect: cannot reach Dolt server:
+// dial tcp ...: connectex: ..." are too verbose for a single-line footer.
+func shortError(err error) string {
+	s := err.Error()
+	if i := strings.LastIndex(s, ": "); i != -1 {
+		s = s[i+2:]
+	}
+	if len(s) > 60 {
+		s = s[:57] + "..."
+	}
+	return s
 }
 
 // truncateString truncates a string to maxLen runes with ellipsis.
