@@ -33,7 +33,7 @@ jobs:
           {
             file = $1
             sub(/:.*/, "", file)
-            if (file !~ /^github.com\/Dicklesworthstone\/beads_viewer\/pkg\//) next
+            if (file !~ /^github.com\/seanmartinsmith\/beadstui\/pkg\//) next
             stmts = $2
             count = $3
             all += stmts

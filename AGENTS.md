@@ -468,55 +468,61 @@ A mail-like layer that lets coding agents coordinate asynchronously via MCP tool
 
 ---
 
-## Beads (br) — Dependency-Aware Issue Tracking
+## Issue Tracking
 
-Beads provides a lightweight, dependency-aware issue database and CLI (`br` - beads_rust) for selecting "ready work," setting priorities, and tracking status. It complements MCP Agent Mail's messaging and file reservations.
+> This project uses [beads](https://github.com/steveyegge/beads) (`bd`) for task tracking.
 
-**Important:** `br` is non-invasive—it NEVER runs git commands automatically. You must manually commit changes after `bd sync --flush-only`.
+**Policy:** Create a bead for changelog-worthy changes and anything that needs context across sessions. Skip trivial fixes that are self-evident from the commit.
 
-### Conventions
+### Commit Format
 
-- **Single source of truth:** Beads for task status/priority/dependencies; Agent Mail for conversation and audit
-- **Shared identifiers:** Use Beads issue ID (e.g., `br-123`) as Mail `thread_id` and prefix subjects with `[br-123]`
-- **Reservations:** When starting a task, call `file_reservation_paths()` with the issue ID in `reason`
+`type(scope): description (bv-xxx)` - bead ref in parens when the commit directly addresses a bead, omitted for trivial changes.
 
-### Typical Agent Flow
+### Quick Reference
 
-1. **Pick ready work (Beads):**
-   ```bash
-   bd ready --json  # Choose highest priority, no blockers
-   ```
+| Action | Command |
+|---|---|
+| Find work | `bd ready` |
+| Read before work | `bd show <id>` |
+| Claim | `bd update <id> --claim` |
+| Complete | `bd close <id> --reason="..."` |
+| Session notes | `bd comments add <id> "..."` |
+| Search | `bd search "query"` |
+| Sync | `bd dolt push` |
 
-2. **Reserve edit surface (Mail):**
-   ```
-   file_reservation_paths(project_key, agent_name, ["pkg/**"], ttl_seconds=3600, exclusive=true, reason="br-123")
-   ```
+### Creating Issues
 
-3. **Announce start (Mail):**
-   ```
-   send_message(..., thread_id="br-123", subject="[br-123] Start: <title>", ack_required=true)
-   ```
+Always include: `--type`, `--priority`, `--labels`, `--description`.
+Valid labels: `.beads/conventions/labels.md`
 
-4. **Work and update:** Reply in-thread with progress
+### Close Outcome Format
 
-5. **Complete and release:**
-   ```bash
-   bd close 123 --reason "Completed"
-   bd sync --flush-only  # Export to JSONL (no git operations)
-   ```
-   ```
-   release_file_reservations(project_key, agent_name, paths=["pkg/**"])
-   ```
-   Final Mail reply: `[br-123] Completed` with summary
+```
+Summary: <one sentence>
+Change: <what changed>
+Files: <paths>
+Verify: <how verified>
+Risk: <if any>
+Notes: <optional gotchas>
+```
 
-### Mapping Cheat Sheet
+### Session Rules
 
-| Concept | Value |
-|---------|-------|
-| Mail `thread_id` | `br-###` |
-| Mail subject | `[br-###] ...` |
-| File reservation `reason` | `br-###` |
-| Commit messages | Include `br-###` for traceability |
+- Read close_reason before working a bead to avoid re-solving
+- Check for abandoned work: `bd list --status=in_progress`
+- Use comments for session notes (survives compaction)
+- Close beads before committing
+- Only add blocking deps when work truly cannot start
+- Don't invent labels - use `.beads/conventions/labels.md`
+
+### Beads + Tasks
+
+Beads for cross-session persistence. Tasks (Claude Code TaskCreate/TaskUpdate) for within-session execution (> 3 steps).
+
+### Details
+
+- Label taxonomy: `.beads/conventions/labels.md`
+- Full reference: `.beads/conventions/reference.md`
 
 ---
 
@@ -750,70 +756,7 @@ Returns structured results with file paths, line ranges, and extracted code snip
 - **Don't** use `ripgrep` to understand "how does X work" → wastes time with manual reads
 - **Don't** use `ripgrep` for codemods → risks collateral edits
 
-<!-- bv-agent-instructions-v1 -->
-
----
-
-## Beads Workflow Integration
-
-This project uses [beads](https://github.com/yegge/beads) (`bd`) for issue tracking. Issues are stored in `.beads/` and tracked in git (with Dolt as the primary backend).
-
-**Important:** `bd` is non-invasive - it NEVER executes git commands. After `bd sync --flush-only`, you must manually run `git add .beads/ && git commit`.
-
-### Essential Commands
-
-```bash
-# View issues (launches TUI - avoid in automated sessions)
-bv
-
-# CLI commands for agents (use these instead)
-bd ready              # Show issues ready to work (no blockers)
-bd list --status=open # All open issues
-bd show <id>          # Full issue details with dependencies
-bd create --title="..." --type=task --priority=2
-bd update <id> --status=in_progress
-bd close <id> --reason "Completed"
-bd close <id1> <id2>  # Close multiple issues at once
-bd sync --flush-only  # Export to JSONL (NO git operations)
-```
-
-### Workflow Pattern
-
-1. **Start**: Run `bd ready` to find actionable work
-2. **Claim**: Use `bd update <id> --status=in_progress`
-3. **Work**: Implement the task
-4. **Complete**: Use `bd close <id>`
-5. **Sync**: Run `bd sync --flush-only` then manually commit
-
-### Key Concepts
-
-- **Dependencies**: Issues can block other issues. `bd ready` shows only unblocked work.
-- **Priority**: P0=critical, P1=high, P2=medium, P3=low, P4=backlog (use numbers, not words)
-- **Types**: task, bug, feature, epic, question, docs
-- **Blocking**: `bd dep add <issue> <depends-on>` to add dependencies
-
-### Session Protocol
-
-**Before ending any session, run this checklist:**
-
-```bash
-git status              # Check what changed
-git add <files>         # Stage code changes
-bd sync --flush-only    # Export beads to JSONL
-git add .beads/         # Stage beads changes
-git commit -m "..."     # Commit everything together
-git push                # Push to remote
-```
-
-### Best Practices
-
-- Check `bd ready` at session start to find available work
-- Update status as you work (in_progress → closed)
-- Create new issues with `bd create` when you discover tasks
-- Use descriptive titles and set appropriate priority/type
-- Always `bd sync --flush-only && git add .beads/` before ending session
-
-<!-- end-bv-agent-instructions -->
+<!-- Beads conventions managed by .beads/conventions/ -->
 
 ## cass — Cross-Agent Session Search
 

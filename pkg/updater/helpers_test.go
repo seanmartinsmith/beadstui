@@ -29,7 +29,7 @@ func TestRelease_FindPlatformAsset(t *testing.T) {
 func TestRelease_FindChecksumAsset(t *testing.T) {
 	rel := &Release{
 		Assets: []Asset{
-			{Name: "bv_v1.0.0_darwin_arm64.tar.gz"},
+			{Name: "bt_v1.0.0_darwin_arm64.tar.gz"},
 			{Name: "checksums.txt", BrowserDownloadURL: "http://example.com/checksums"},
 		},
 	}
@@ -41,7 +41,7 @@ func TestRelease_FindChecksumAsset(t *testing.T) {
 
 func TestGetAssetName_UsesRuntimeAndTrimsV(t *testing.T) {
 	name := getAssetName("v9.8.7")
-	want := "bv_9.8.7_" + runtime.GOOS + "_" + runtime.GOARCH + ".tar.gz"
+	want := "bt_9.8.7_" + runtime.GOOS + "_" + runtime.GOARCH + ".tar.gz"
 	if name != want {
 		t.Fatalf("getAssetName mismatch: got %q want %q", name, want)
 	}
@@ -52,7 +52,7 @@ func TestParseChecksums(t *testing.T) {
 	path := filepath.Join(tmpDir, "checksums.txt")
 
 	content := "" +
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  bv_1.0.0_darwin_arm64.tar.gz\n" +
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  bt_1.0.0_darwin_arm64.tar.gz\n" +
 		"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  checksums.txt\n" +
 		"\n"
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
@@ -63,7 +63,7 @@ func TestParseChecksums(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseChecksums failed: %v", err)
 	}
-	if got := m["bv_1.0.0_darwin_arm64.tar.gz"]; got != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {
+	if got := m["bt_1.0.0_darwin_arm64.tar.gz"]; got != "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" {
 		t.Fatalf("unexpected checksum for archive: %q", got)
 	}
 	if got := m["checksums.txt"]; got != "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" {
@@ -76,7 +76,7 @@ func TestParseChecksums_FilenamesWithSpaces(t *testing.T) {
 	path := filepath.Join(tmpDir, "checksums.txt")
 
 	content := "" +
-		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  bv 1.0.0 windows amd64.tar.gz\n" +
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa  bt 1.0.0 windows amd64.tar.gz\n" +
 		"\n"
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write checksums: %v", err)

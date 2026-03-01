@@ -126,7 +126,7 @@ func buildBvOnce() error {
 	// Actually `go test` sets CWD to the package directory.
 	// So `../../` is correct for `tests/e2e`.
 
-	cmd := exec.Command("go", "build", "-o", binPath, "../../cmd/bv")
+	cmd := exec.Command("go", "build", "-o", binPath, "../../cmd/bt")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("go build failed: %v\n%s", err, out)
 	}

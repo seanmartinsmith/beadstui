@@ -16,7 +16,7 @@ func TestEndToEndDriftWorkflow(t *testing.T) {
 	tempDir := t.TempDir()
 	binPath := filepath.Join(tempDir, "bt")
 
-	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/bv/")
+	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/bt/")
 	cmd.Dir = "../../"
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("Build failed: %v\n%s", err, out)
@@ -130,7 +130,7 @@ func TestDriftAlerts(t *testing.T) {
 	// 1. Build
 	tempDir := t.TempDir()
 	binPath := filepath.Join(tempDir, "bt")
-	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/bv/")
+	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/bt/")
 	cmd.Dir = "../../"
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("Build failed: %v\n%s", err, out)
@@ -225,7 +225,7 @@ func TestDriftConfigCustomization(t *testing.T) {
 	// 1. Build
 	tempDir := t.TempDir()
 	binPath := filepath.Join(tempDir, "bt")
-	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/bv/")
+	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/bt/")
 	cmd.Dir = "../../"
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("Build failed: %v\n%s", err, out)
@@ -358,7 +358,7 @@ func TestDriftErrorHandling(t *testing.T) {
 	// 1. Build
 	tempDir := t.TempDir()
 	binPath := filepath.Join(tempDir, "bt")
-	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/bv/")
+	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/bt/")
 	cmd.Dir = "../../"
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("Build failed: %v\n%s", err, out)
