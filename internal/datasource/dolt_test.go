@@ -64,6 +64,37 @@ func TestReadDoltConfig_CustomPort(t *testing.T) {
 	}
 }
 
+func TestReadDoltConfig_PortFileOverridesConfigYaml(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	metadata := `{"backend":"dolt","dolt_database":"bv"}`
+	if err := os.WriteFile(filepath.Join(tmpDir, "metadata.json"), []byte(metadata), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// config.yaml says 13729 (stale hash-derived port)
+	doltDir := filepath.Join(tmpDir, "dolt")
+	if err := os.MkdirAll(doltDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(doltDir, "config.yaml"), []byte("listener:\n  port: 13729\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// dolt-server.port says 3307 (actual running server)
+	if err := os.WriteFile(filepath.Join(tmpDir, "dolt-server.port"), []byte("3307\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, ok := ReadDoltConfig(tmpDir)
+	if !ok {
+		t.Fatal("Expected ReadDoltConfig to return true")
+	}
+	if cfg.Port != 3307 {
+		t.Errorf("Port file should override config.yaml: want 3307, got %d", cfg.Port)
+	}
+}
+
 func TestReadDoltConfig_DefaultDatabase(t *testing.T) {
 	tmpDir := t.TempDir()
 
