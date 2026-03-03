@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	json "github.com/goccy/go-json"
 	"gopkg.in/yaml.v3"
@@ -70,6 +72,17 @@ func ReadDoltConfig(beadsDir string) (DoltConfig, bool) {
 		var sc doltServerConfig
 		if err := yaml.Unmarshal(cfgData, &sc); err == nil && sc.Listener.Port > 0 {
 			cfg.Port = sc.Listener.Port
+		}
+	}
+
+	// The port file is written by `bd dolt start` and reflects the actual
+	// running server port. It takes priority over config.yaml, which may
+	// be stale (beads v0.57.0 switched to port 3307 but doesn't always
+	// update the config.yaml).
+	portPath := filepath.Join(beadsDir, "dolt-server.port")
+	if portData, err := os.ReadFile(portPath); err == nil {
+		if p, err := strconv.Atoi(strings.TrimSpace(string(portData))); err == nil && p > 0 {
+			cfg.Port = p
 		}
 	}
 
