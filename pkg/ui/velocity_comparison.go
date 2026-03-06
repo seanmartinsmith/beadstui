@@ -266,13 +266,13 @@ func (m *VelocityComparisonModel) View() string {
 			trendStyle := t.Renderer.NewStyle()
 			switch row.Trend {
 			case "accelerating":
-				trendStyle = trendStyle.Foreground(ThemeFg("#00ff00"))
+				trendStyle = trendStyle.Foreground(ThemeFg("#b5bd68"))
 			case "decelerating":
-				trendStyle = trendStyle.Foreground(ThemeFg("#ff6666"))
+				trendStyle = trendStyle.Foreground(ThemeFg("#cc6666"))
 			case "stable":
 				trendStyle = trendStyle.Foreground(t.Secondary)
 			case "erratic":
-				trendStyle = trendStyle.Foreground(ThemeFg("#ffaa00"))
+				trendStyle = trendStyle.Foreground(ThemeFg("#de935f"))
 			default:
 				trendStyle = trendStyle.Foreground(t.Secondary)
 			}
@@ -282,8 +282,8 @@ func (m *VelocityComparisonModel) View() string {
 				trendText = trendText[:trendWidth]
 			}
 
-			// Format sparkline with color gradient
-			sparkStyle := t.Renderer.NewStyle().Foreground(ThemeFg("#88aaff"))
+			// Format sparkline
+			sparkStyle := t.Renderer.NewStyle().Foreground(ThemeFg("#81a2be"))
 
 			// Build row string
 			rowText := fmt.Sprintf("%-*s %*d %*d %*d %*d %*.1f ",

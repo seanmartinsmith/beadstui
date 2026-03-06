@@ -76,7 +76,7 @@ func RenderContextHelp(ctx Context, theme Theme, width, height int) string {
 
 	// Wrap in modal style
 	modalStyle := r.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(theme.Secondary).
 		Padding(1, 2).
 		Width(modalWidth)

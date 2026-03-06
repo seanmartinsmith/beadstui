@@ -97,7 +97,7 @@ func (kt KeyTable) Render(theme Theme, width int) string {
 
 			// Subtle alternating row colors for better visual scanning
 			if row%2 == 0 {
-				return baseStyle.Background(lipgloss.AdaptiveColor{Light: "#F8F8F8", Dark: "#2D2D2D"})
+				return baseStyle.Background(ColorBgSubtle)
 			}
 			return baseStyle
 		})
@@ -114,7 +114,7 @@ func (t Tip) Render(theme Theme, width int) string {
 	r := theme.Renderer
 
 	boxStyle := r.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(theme.Feature).
 		Padding(0, 1).
 		Width(width - 2).
@@ -156,7 +156,7 @@ func (sf StatusFlow) Render(theme Theme, width int) string {
 	var boxes []string
 	for i, step := range sf.Steps {
 		boxStyle := r.NewStyle().
-			Border(lipgloss.RoundedBorder()).
+			Border(lipgloss.NormalBorder()).
 			BorderForeground(step.Color).
 			Foreground(step.Color).
 			Padding(0, 1).
@@ -188,7 +188,7 @@ func (c Code) Render(theme Theme, width int) string {
 
 	style := r.NewStyle().
 		Foreground(theme.Open).
-		Background(lipgloss.AdaptiveColor{Light: "#F5F5F5", Dark: "#282A36"}).
+		Background(ColorBg).
 		Border(accentBorder).
 		BorderForeground(theme.Primary).
 		PaddingLeft(1).
@@ -325,7 +325,7 @@ func (ib InfoBox) Render(theme Theme, width int) string {
 		Foreground(theme.Base.GetForeground())
 
 	boxStyle := r.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(ib.Color).
 		Padding(0, 1).
 		Width(width - 2)
@@ -366,7 +366,7 @@ func (w Warning) Render(theme Theme, width int) string {
 	r := theme.Renderer
 
 	boxStyle := r.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(theme.Blocked).
 		Padding(0, 1).
 		Width(width - 2).
@@ -390,7 +390,7 @@ func (n Note) Render(theme Theme, width int) string {
 	r := theme.Renderer
 
 	boxStyle := r.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(theme.InProgress).
 		Padding(0, 1).
 		Width(width - 2).
@@ -419,7 +419,7 @@ func (st StyledTable) Render(theme Theme, width int) string {
 	t := table.New().
 		Headers(st.Headers...).
 		Rows(st.Rows...).
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderStyle(theme.Renderer.NewStyle().Foreground(theme.Border)).
 		Width(width - 2).
 		StyleFunc(func(row, col int) lipgloss.Style {
@@ -438,7 +438,7 @@ func (st StyledTable) Render(theme Theme, width int) string {
 				Padding(0, 1)
 
 			if row%2 == 0 {
-				return baseStyle.Background(lipgloss.AdaptiveColor{Light: "#F8F8F8", Dark: "#2D2D2D"})
+				return baseStyle.Background(ColorBgSubtle)
 			}
 			return baseStyle
 		})
@@ -485,7 +485,7 @@ func (pi ProgressIndicator) Render(theme Theme, width int) string {
 
 	emptyStyle := r.NewStyle().
 		Foreground(theme.Muted).
-		Background(lipgloss.AdaptiveColor{Light: "#E0E0E0", Dark: "#3D3D3D"})
+		Background(ColorBgHighlight)
 
 	filled := filledStyle.Render(strings.Repeat("█", filledWidth))
 	empty := emptyStyle.Render(strings.Repeat("░", emptyWidth))

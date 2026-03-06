@@ -137,7 +137,7 @@ func (m *RecipePickerModel) View() string {
 
 	// Box style
 	boxStyle := t.Renderer.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(t.Primary).
 		Padding(1, 2).
 		Width(boxWidth)

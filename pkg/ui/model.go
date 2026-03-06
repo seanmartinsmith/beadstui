@@ -811,8 +811,11 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		}
 	}
 
-	// Theme
+	// Theme: load YAML overrides, apply to globals and theme struct
+	themeConfig := LoadTheme()
+	ApplyThemeToGlobals(themeConfig)
 	theme := DefaultTheme(lipgloss.NewRenderer(os.Stdout))
+	ApplyThemeToThemeStruct(&theme, themeConfig)
 
 	// Default dimensions for immediate ready state (updated when WindowSizeMsg arrives)
 	// This eliminates the "Initializing..." phase entirely, fixing slow startup issues
@@ -4715,7 +4718,7 @@ func (m Model) renderQuitConfirm() string {
 	t := m.theme
 
 	boxStyle := t.Renderer.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(t.Blocked).
 		Padding(1, 3).
 		Align(lipgloss.Center)
@@ -4758,7 +4761,7 @@ func (m Model) renderListWithHeader() string {
 	// Render column header
 	headerStyle := t.Renderer.NewStyle().
 		Background(t.Primary).
-		Foreground(lipgloss.AdaptiveColor{Light: "#FFFFFF", Dark: "#282A36"}).
+		Foreground(ColorBgContrast).
 		Bold(true).
 		Width(m.width - 2)
 
@@ -4830,16 +4833,6 @@ func (m Model) renderListWithHeader() string {
 func (m Model) renderSplitView() string {
 	t := m.theme
 
-	var listStyle, detailStyle lipgloss.Style
-
-	if m.focused == focusList {
-		listStyle = FocusedPanelStyle
-		detailStyle = PanelStyle
-	} else {
-		listStyle = PanelStyle
-		detailStyle = FocusedPanelStyle
-	}
-
 	// m.list.Width() is the inner width (set in Update)
 	listInnerWidth := m.list.Width()
 	panelHeight := m.height - 1
@@ -4847,7 +4840,7 @@ func (m Model) renderSplitView() string {
 	// Create header row for list
 	headerStyle := t.Renderer.NewStyle().
 		Background(t.Primary).
-		Foreground(lipgloss.AdaptiveColor{Light: "#FFFFFF", Dark: "#282A36"}).
+		Foreground(ColorBgContrast).
 		Bold(true).
 		Width(listInnerWidth)
 
@@ -4889,20 +4882,23 @@ func (m Model) renderSplitView() string {
 	// Combine header + list + page indicator
 	listContent := lipgloss.JoinVertical(lipgloss.Left, header, m.list.View(), pageLine)
 
-	// List Panel Width: Inner + 2 (Padding). Border adds another 2.
-	// Use MaxHeight to ensure content doesn't overflow
-	listView := listStyle.
-		Width(listInnerWidth + 2).
-		Height(panelHeight).
-		MaxHeight(panelHeight).
-		Render(listContent)
+	// Titled panel dimensions: outer width includes the 2 border chars
+	listOuterWidth := listInnerWidth + 4 // content + padding + borders
+	detailOuterWidth := m.viewport.Width + 4
 
-	// Detail Panel Width: Inner + 2 (Padding). Border adds another 2.
-	detailView := detailStyle.
-		Width(m.viewport.Width + 2).
-		Height(panelHeight).
-		MaxHeight(panelHeight).
-		Render(m.viewport.View())
+	listView := RenderTitledPanel(t.Renderer, listContent, PanelOpts{
+		Title:   "Issues",
+		Width:   listOuterWidth,
+		Height:  panelHeight + 2,
+		Focused: m.focused == focusList,
+	})
+
+	detailView := RenderTitledPanel(t.Renderer, m.viewport.View(), PanelOpts{
+		Title:   "Details",
+		Width:   detailOuterWidth,
+		Height:  panelHeight + 2,
+		Focused: m.focused == focusDetail,
+	})
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, listView, detailView)
 }
@@ -4929,14 +4925,14 @@ func (m *Model) renderHelpOverlay() string {
 		colWidth = 28
 	}
 
-	// Define color palette (Dracula-inspired gradient)
+	// Tomorrow Night gradient for help overlay sections
 	colors := []lipgloss.AdaptiveColor{
-		{Light: "#7D56F4", Dark: "#BD93F9"}, // Purple
-		{Light: "#FF79C6", Dark: "#FF79C6"}, // Pink
-		{Light: "#8BE9FD", Dark: "#8BE9FD"}, // Cyan
-		{Light: "#50FA7B", Dark: "#50FA7B"}, // Green
-		{Light: "#FFB86C", Dark: "#FFB86C"}, // Orange
-		{Light: "#F1FA8C", Dark: "#F1FA8C"}, // Yellow
+		{Light: "#3e999f", Dark: "#8abeb7"}, // Teal (primary)
+		{Light: "#4271ae", Dark: "#81a2be"}, // Blue
+		{Light: "#718c00", Dark: "#b5bd68"}, // Green
+		{Light: "#f5871f", Dark: "#de935f"}, // Orange
+		{Light: "#8959a8", Dark: "#b294bb"}, // Purple
+		{Light: "#eab700", Dark: "#f0c674"}, // Yellow
 	}
 
 	// Helper to render a section panel
@@ -4972,7 +4968,7 @@ func (m *Model) renderHelpOverlay() string {
 		}
 
 		panelStyle := t.Renderer.NewStyle().
-			Border(lipgloss.RoundedBorder()).
+			Border(lipgloss.NormalBorder()).
 			BorderForeground(color).
 			Padding(0, 1).
 			Width(colWidth)
@@ -5149,7 +5145,7 @@ func (m Model) renderLabelHealthDetail(lh analysis.LabelHealth) string {
 
 	// 1. Define styles first so closures can capture them
 	boxStyle := t.Renderer.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(t.Primary).
 		Padding(1, 2)
 
@@ -5279,7 +5275,7 @@ func (m Model) renderLabelDrilldown() string {
 	t := m.theme
 
 	boxStyle := t.Renderer.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(t.Primary).
 		Padding(1, 2).
 		Align(lipgloss.Left)
@@ -5447,7 +5443,7 @@ func (m Model) renderLabelGraphAnalysis() string {
 	r := m.labelGraphAnalysisResult
 
 	boxStyle := t.Renderer.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(t.Primary).
 		Padding(1, 2).
 		Align(lipgloss.Left)
@@ -6049,7 +6045,7 @@ func (m *Model) renderFooter() string {
 	workspaceSection := ""
 	if m.workspaceMode && m.workspaceSummary != "" {
 		workspaceStyle := lipgloss.NewStyle().
-			Background(ThemeBg("#45B7D1")).
+			Background(ThemeBg("#8abeb7")).
 			Foreground(ColorBg).
 			Bold(true).
 			Padding(0, 1)
@@ -7445,7 +7441,7 @@ func (m Model) renderTimeTravelPrompt() string {
 	t := m.theme
 
 	boxStyle := t.Renderer.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(t.Primary).
 		Padding(1, 3).
 		Align(lipgloss.Center)
@@ -8134,7 +8130,7 @@ func (m Model) renderAlertsPanel() string {
 	t := m.theme
 
 	boxStyle := t.Renderer.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(t.Primary).
 		Padding(1, 2).
 		Width(min(80, m.width-4)).

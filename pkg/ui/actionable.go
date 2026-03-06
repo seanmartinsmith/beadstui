@@ -283,7 +283,7 @@ func (m *ActionableModel) Render() string {
 			if isSelected {
 				titleStyle = titleStyle.Foreground(t.Primary).Bold(true)
 			} else {
-				titleStyle = titleStyle.Foreground(lipgloss.AdaptiveColor{Light: "#333333", Dark: "#E8E8E8"})
+				titleStyle = titleStyle.Foreground(ColorTextSecondary)
 			}
 			itemLine.WriteString(titleStyle.Render(title))
 

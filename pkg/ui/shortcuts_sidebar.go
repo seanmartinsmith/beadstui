@@ -208,7 +208,7 @@ func (s *ShortcutsSidebar) View() string {
 		MarginTop(1)
 
 	keyStyle := t.Renderer.NewStyle().
-		Foreground(lipgloss.AdaptiveColor{Light: "#7D56F4", Dark: "#BD93F9"}).
+		Foreground(ColorPrimary).
 		Bold(true).
 		Width(8)
 
@@ -297,7 +297,7 @@ func (s *ShortcutsSidebar) View() string {
 
 	// Create the sidebar box
 	boxStyle := t.Renderer.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(t.Secondary).
 		Padding(0, 1).
 		Width(s.width).

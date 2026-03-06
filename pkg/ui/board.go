@@ -979,20 +979,18 @@ func (b BoardModel) View(width, height int) string {
 	var columnColors []lipgloss.AdaptiveColor
 	switch b.swimLaneMode {
 	case SwimByPriority:
-		// P0 red, P1 orange, P2 blue, P3+ gray
 		columnColors = []lipgloss.AdaptiveColor{
-			{Light: "#c62828", Dark: "#ef5350"}, // Critical - red
-			{Light: "#f57c00", Dark: "#ffb74d"}, // High - orange
-			{Light: "#1565c0", Dark: "#64b5f6"}, // Medium - blue
-			{Light: "#616161", Dark: "#9e9e9e"}, // Other - gray
+			ColorPrioCritical, // P0
+			ColorPrioHigh,     // P1
+			ColorPrioMedium,   // P2
+			ColorSecondary,    // P3+
 		}
 	case SwimByType:
-		// Bug red, Feature green, Task blue, Epic purple
 		columnColors = []lipgloss.AdaptiveColor{
-			{Light: "#c62828", Dark: "#ef5350"}, // Bug - red
-			{Light: "#2e7d32", Dark: "#81c784"}, // Feature - green
-			{Light: "#1565c0", Dark: "#64b5f6"}, // Task - blue
-			{Light: "#7b1fa2", Dark: "#ce93d8"}, // Epic - purple
+			ColorTypeBug,     // Bug
+			ColorTypeFeature, // Feature
+			ColorTypeTask,    // Task
+			ColorTypeEpic,    // Epic
 		}
 	default: // SwimByStatus
 		columnColors = []lipgloss.AdaptiveColor{t.Open, t.InProgress, t.Blocked, t.Closed}
@@ -1066,10 +1064,10 @@ func (b BoardModel) View(width, height int) string {
 		if isFocused {
 			headerStyle = headerStyle.
 				Background(columnColors[colIdx]).
-				Foreground(lipgloss.AdaptiveColor{Light: "#FFFFFF", Dark: "#1a1a1a"})
+				Foreground(ColorBgContrast)
 		} else {
 			headerStyle = headerStyle.
-				Background(lipgloss.AdaptiveColor{Light: "#E0E0E0", Dark: "#2a2a2a"}).
+				Background(ColorBgSubtle).
 				Foreground(columnColors[colIdx])
 		}
 
@@ -1155,7 +1153,7 @@ func (b BoardModel) View(width, height int) string {
 			Width(baseWidth).
 			Height(colHeight).
 			Padding(0, 1).
-			Border(lipgloss.RoundedBorder())
+			Border(lipgloss.NormalBorder())
 
 		if isFocused {
 			colStyle = colStyle.BorderForeground(columnColors[colIdx])
@@ -1195,9 +1193,9 @@ func (b BoardModel) View(width, height int) string {
 
 // renderTitleBar creates the board title bar with swimlane mode and hidden column count (bv-tf6j)
 func (b BoardModel) renderTitleBar(width int, t Theme) string {
-	// Build title: "BOARD [by: Status]" or "BOARD [by: Priority] [+2 hidden]"
+	// Build title: "Board [by: Status]" or "Board [by: Priority] [+2 hidden]"
 	modeName := b.GetSwimLaneModeName()
-	title := fmt.Sprintf("BOARD [by: %s]", modeName)
+	title := fmt.Sprintf("Board [by: %s]", modeName)
 
 	// Add hidden column indicator if columns are hidden
 	hiddenCount := b.HiddenColumnCount()
@@ -1225,11 +1223,11 @@ func getAgeColor(t time.Time) lipgloss.TerminalColor {
 	days := int(time.Since(t).Hours() / 24)
 	switch {
 	case days < 7:
-		return lipgloss.AdaptiveColor{Light: "#2e7d32", Dark: "#81c784"} // green
+		return ColorSuccess // green
 	case days < 30:
-		return lipgloss.AdaptiveColor{Light: "#f57c00", Dark: "#ffb74d"} // yellow/orange
+		return ColorWarning // orange
 	default:
-		return lipgloss.AdaptiveColor{Light: "#c62828", Dark: "#e57373"} // red
+		return ColorDanger // red
 	}
 }
 
@@ -1284,15 +1282,15 @@ func (b BoardModel) renderCard(issue model.Issue, width int, selected bool, colI
 	if selected {
 		borderColor = t.Primary // Selected always uses primary
 	} else if isCurrentMatch {
-		borderColor = lipgloss.AdaptiveColor{Light: "#7b1fa2", Dark: "#ce93d8"} // Purple - current search match
+		borderColor = ColorTypeEpic // Purple - current search match
 	} else if isAnyMatch {
-		borderColor = lipgloss.AdaptiveColor{Light: "#1565c0", Dark: "#64b5f6"} // Blue - search match
+		borderColor = ColorInfo // Blue - search match
 	} else if hasBlockingDeps {
-		borderColor = lipgloss.AdaptiveColor{Light: "#c62828", Dark: "#ef5350"} // Red - blocked
+		borderColor = ColorDanger // Red - blocked
 	} else if blocksOthers {
-		borderColor = lipgloss.AdaptiveColor{Light: "#f57c00", Dark: "#ffb74d"} // Yellow/orange - high impact
+		borderColor = ColorWarning // Orange - high impact
 	} else if issue.Status == model.StatusOpen {
-		borderColor = lipgloss.AdaptiveColor{Light: "#2e7d32", Dark: "#81c784"} // Green - ready
+		borderColor = ColorSuccess // Green - ready
 	} else {
 		borderColor = t.Border // Default border
 	}
@@ -1300,17 +1298,16 @@ func (b BoardModel) renderCard(issue model.Issue, width int, selected bool, colI
 	if selected {
 		cardStyle = cardStyle.
 			Background(t.Highlight).
-			Border(lipgloss.RoundedBorder()).
+			Border(lipgloss.NormalBorder()).
 			BorderForeground(borderColor)
 	} else if isCurrentMatch {
-		// Highlight current match with subtle background (bv-yg39)
 		cardStyle = cardStyle.
-			Background(lipgloss.AdaptiveColor{Light: "#e1bee7", Dark: "#4a148c"}).
-			Border(lipgloss.RoundedBorder()).
+			Background(lipgloss.AdaptiveColor{Light: "#e4dce8", Dark: "#2a1e30"}).
+			Border(lipgloss.NormalBorder()).
 			BorderForeground(borderColor)
 	} else {
 		cardStyle = cardStyle.
-			Border(lipgloss.RoundedBorder()).
+			Border(lipgloss.NormalBorder()).
 			BorderForeground(borderColor)
 	}
 
@@ -1323,7 +1320,7 @@ func (b BoardModel) renderCard(issue model.Issue, width int, selected bool, colI
 	prioText := formatPriority(issue.Priority)
 	prioStyle := t.Renderer.NewStyle().Bold(true)
 	if issue.Priority <= 1 {
-		prioStyle = prioStyle.Foreground(lipgloss.AdaptiveColor{Light: "#c62828", Dark: "#ef5350"})
+		prioStyle = prioStyle.Foreground(ColorDanger)
 	} else {
 		prioStyle = prioStyle.Foreground(t.Secondary)
 	}
@@ -1449,11 +1446,11 @@ func (b BoardModel) renderExpandedCard(issue model.Issue, width int, _, _ int) s
 	// Border color based on blocking status
 	var borderColor lipgloss.TerminalColor
 	if hasBlockingDeps {
-		borderColor = lipgloss.AdaptiveColor{Light: "#c62828", Dark: "#ef5350"} // Red - blocked
+		borderColor = ColorDanger // Red - blocked
 	} else if blocksOthers {
-		borderColor = lipgloss.AdaptiveColor{Light: "#f57c00", Dark: "#ffb74d"} // Yellow - high impact
+		borderColor = ColorWarning // Orange - high impact
 	} else if issue.Status == model.StatusOpen {
-		borderColor = lipgloss.AdaptiveColor{Light: "#2e7d32", Dark: "#81c784"} // Green - ready
+		borderColor = ColorSuccess // Green - ready
 	} else {
 		borderColor = t.Primary // Selected uses primary
 	}
@@ -1470,7 +1467,7 @@ func (b BoardModel) renderExpandedCard(issue model.Issue, width int, _, _ int) s
 	prioText := formatPriority(issue.Priority)
 	prioStyle := t.Renderer.NewStyle().Bold(true)
 	if issue.Priority <= 1 {
-		prioStyle = prioStyle.Foreground(lipgloss.AdaptiveColor{Light: "#c62828", Dark: "#ef5350"})
+		prioStyle = prioStyle.Foreground(ColorDanger)
 	} else {
 		prioStyle = prioStyle.Foreground(t.Secondary)
 	}
@@ -1731,7 +1728,7 @@ func (b *BoardModel) renderDetailPanel(width, height int) string {
 
 	// Panel border style
 	panelStyle := t.Renderer.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(t.Primary).
 		Width(width).
 		Height(height).
@@ -1743,7 +1740,7 @@ func (b *BoardModel) renderDetailPanel(width, height int) string {
 		Foreground(t.Primary).
 		Width(width - 4).
 		Align(lipgloss.Center).
-		Render("DETAILS")
+		Render("Details")
 
 	return panelStyle.Render(lipgloss.JoinVertical(lipgloss.Left, titleBar, sb.String()))
 }

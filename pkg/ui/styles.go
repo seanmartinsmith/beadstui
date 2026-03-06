@@ -26,63 +26,71 @@ const (
 // ══════════════════════════════════════════════════════════════════════════════
 
 var (
-	// Base colors - Light mode uses darker colors for contrast on white backgrounds
-	ColorBg          = lipgloss.AdaptiveColor{Light: "#FFFFFF", Dark: "#282A36"}
-	ColorBgDark      = lipgloss.AdaptiveColor{Light: "#F5F5F5", Dark: "#1E1F29"}
-	ColorBgSubtle    = lipgloss.AdaptiveColor{Light: "#E8E8E8", Dark: "#363949"}
-	ColorBgHighlight = lipgloss.AdaptiveColor{Light: "#D0D0D0", Dark: "#44475A"}
-	ColorText        = lipgloss.AdaptiveColor{Light: "#1A1A1A", Dark: "#F8F8F2"}
-	ColorSubtext     = lipgloss.AdaptiveColor{Light: "#555555", Dark: "#BFBFBF"}
-	ColorMuted       = lipgloss.AdaptiveColor{Light: "#666666", Dark: "#6272A4"}
+	// Base colors - Tomorrow Night palette
+	ColorBg          = lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#1d1f21"}
+	ColorBgDark      = lipgloss.AdaptiveColor{Light: "#f0f0f0", Dark: "#191b1d"}
+	ColorBgSubtle    = lipgloss.AdaptiveColor{Light: "#efefef", Dark: "#282a2e"}
+	ColorBgHighlight = lipgloss.AdaptiveColor{Light: "#d6d6d6", Dark: "#373b41"}
+	ColorText        = lipgloss.AdaptiveColor{Light: "#4d4d4c", Dark: "#c5c8c6"}
+	ColorSubtext     = lipgloss.AdaptiveColor{Light: "#8e908c", Dark: "#b4b7b4"}
+	ColorMuted       = lipgloss.AdaptiveColor{Light: "#8e908c", Dark: "#969896"}
 
-	// Primary accent colors
-	ColorPrimary   = lipgloss.AdaptiveColor{Light: "#6B47D9", Dark: "#BD93F9"}
-	ColorSecondary = lipgloss.AdaptiveColor{Light: "#555555", Dark: "#6272A4"}
-	ColorInfo      = lipgloss.AdaptiveColor{Light: "#006080", Dark: "#8BE9FD"}
-	ColorSuccess   = lipgloss.AdaptiveColor{Light: "#007700", Dark: "#50FA7B"}
-	ColorWarning   = lipgloss.AdaptiveColor{Light: "#B06800", Dark: "#FFB86C"}
-	ColorDanger    = lipgloss.AdaptiveColor{Light: "#CC0000", Dark: "#FF5555"}
+	// Primary accent - teal (matcha-dark-sea)
+	ColorPrimary   = lipgloss.AdaptiveColor{Light: "#3e999f", Dark: "#8abeb7"}
+	ColorSecondary = lipgloss.AdaptiveColor{Light: "#8e908c", Dark: "#969896"}
+	ColorInfo      = lipgloss.AdaptiveColor{Light: "#4271ae", Dark: "#81a2be"}
+	ColorSuccess   = lipgloss.AdaptiveColor{Light: "#718c00", Dark: "#b5bd68"}
+	ColorWarning   = lipgloss.AdaptiveColor{Light: "#f5871f", Dark: "#de935f"}
+	ColorDanger    = lipgloss.AdaptiveColor{Light: "#c82829", Dark: "#cc6666"}
+
+	// Semantic tokens for inline hex replacement
+	ColorTextSecondary = lipgloss.AdaptiveColor{Light: "#333333", Dark: "#e8e8e8"}
+	ColorBgContrast    = lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#1d1f21"}
 
 	// Status colors
-	ColorStatusOpen       = lipgloss.AdaptiveColor{Light: "#007700", Dark: "#50FA7B"}
-	ColorStatusInProgress = lipgloss.AdaptiveColor{Light: "#006080", Dark: "#8BE9FD"}
-	ColorStatusBlocked    = lipgloss.AdaptiveColor{Light: "#CC0000", Dark: "#FF5555"}
-	ColorStatusDeferred   = lipgloss.AdaptiveColor{Light: "#B06800", Dark: "#FFB86C"} // Orange - on ice
-	ColorStatusPinned     = lipgloss.AdaptiveColor{Light: "#0066CC", Dark: "#6699FF"} // Blue - persistent
-	ColorStatusHooked     = lipgloss.AdaptiveColor{Light: "#008080", Dark: "#00CED1"} // Teal - agent-attached
-	ColorStatusReview     = lipgloss.AdaptiveColor{Light: "#6B47D9", Dark: "#BD93F9"} // Purple - awaiting review
-	ColorStatusClosed     = lipgloss.AdaptiveColor{Light: "#555555", Dark: "#6272A4"}
-	ColorStatusTombstone  = lipgloss.AdaptiveColor{Light: "#888888", Dark: "#44475A"} // Muted gray - deleted
+	ColorStatusOpen       = lipgloss.AdaptiveColor{Light: "#718c00", Dark: "#b5bd68"}
+	ColorStatusInProgress = lipgloss.AdaptiveColor{Light: "#4271ae", Dark: "#81a2be"}
+	ColorStatusBlocked    = lipgloss.AdaptiveColor{Light: "#c82829", Dark: "#cc6666"}
+	ColorStatusDeferred   = lipgloss.AdaptiveColor{Light: "#f5871f", Dark: "#de935f"} // Orange - on ice
+	ColorStatusPinned     = lipgloss.AdaptiveColor{Light: "#4271ae", Dark: "#7aa6da"} // Blue - persistent
+	ColorStatusHooked     = lipgloss.AdaptiveColor{Light: "#3e999f", Dark: "#8abeb7"} // Teal - agent-attached
+	ColorStatusReview     = lipgloss.AdaptiveColor{Light: "#8959a8", Dark: "#b294bb"} // Purple - awaiting review
+	ColorStatusClosed     = lipgloss.AdaptiveColor{Light: "#8e908c", Dark: "#969896"}
+	ColorStatusTombstone  = lipgloss.AdaptiveColor{Light: "#c5c8c6", Dark: "#373b41"} // Muted gray - deleted
 
-	// Status background colors (for badges) - subtle backgrounds
-	ColorStatusOpenBg       = lipgloss.AdaptiveColor{Light: "#D4EDDA", Dark: "#1A3D2A"}
-	ColorStatusInProgressBg = lipgloss.AdaptiveColor{Light: "#D1ECF1", Dark: "#1A3344"}
-	ColorStatusBlockedBg    = lipgloss.AdaptiveColor{Light: "#F8D7DA", Dark: "#3D1A1A"}
-	ColorStatusDeferredBg   = lipgloss.AdaptiveColor{Light: "#FFE8CC", Dark: "#3D2A1A"} // Orange bg
-	ColorStatusPinnedBg     = lipgloss.AdaptiveColor{Light: "#CCE5FF", Dark: "#1A2A44"} // Blue bg
-	ColorStatusHookedBg     = lipgloss.AdaptiveColor{Light: "#CCFFFF", Dark: "#1A3D3D"} // Teal bg
-	ColorStatusReviewBg     = lipgloss.AdaptiveColor{Light: "#E8DDFF", Dark: "#2A1A44"} // Purple bg
-	ColorStatusClosedBg     = lipgloss.AdaptiveColor{Light: "#E2E3E5", Dark: "#2A2A3D"}
-	ColorStatusTombstoneBg  = lipgloss.AdaptiveColor{Light: "#D0D0D0", Dark: "#1E1F29"} // Dark bg
+	// Status background colors (for badges) - subtle tinted backgrounds
+	ColorStatusOpenBg       = lipgloss.AdaptiveColor{Light: "#e8f0e0", Dark: "#252e1e"}
+	ColorStatusInProgressBg = lipgloss.AdaptiveColor{Light: "#dce8f0", Dark: "#1e2530"}
+	ColorStatusBlockedBg    = lipgloss.AdaptiveColor{Light: "#f0dce0", Dark: "#2e1e1e"}
+	ColorStatusDeferredBg   = lipgloss.AdaptiveColor{Light: "#f0e4d8", Dark: "#2e251e"} // Orange bg
+	ColorStatusPinnedBg     = lipgloss.AdaptiveColor{Light: "#dce4f0", Dark: "#1e2230"} // Blue bg
+	ColorStatusHookedBg     = lipgloss.AdaptiveColor{Light: "#dce8e8", Dark: "#1e2a2a"} // Teal bg
+	ColorStatusReviewBg     = lipgloss.AdaptiveColor{Light: "#e4dce8", Dark: "#261e2e"} // Purple bg
+	ColorStatusClosedBg     = lipgloss.AdaptiveColor{Light: "#e0e0e0", Dark: "#252527"}
+	ColorStatusTombstoneBg  = lipgloss.AdaptiveColor{Light: "#d6d6d6", Dark: "#1d1f21"} // Dark bg
 
 	// Priority colors
-	ColorPrioCritical = lipgloss.AdaptiveColor{Light: "#CC0000", Dark: "#FF5555"}
-	ColorPrioHigh     = lipgloss.AdaptiveColor{Light: "#B06800", Dark: "#FFB86C"}
-	ColorPrioMedium   = lipgloss.AdaptiveColor{Light: "#808000", Dark: "#F1FA8C"}
-	ColorPrioLow      = lipgloss.AdaptiveColor{Light: "#007700", Dark: "#50FA7B"}
+	ColorPrioCritical = lipgloss.AdaptiveColor{Light: "#c82829", Dark: "#cc6666"}
+	ColorPrioHigh     = lipgloss.AdaptiveColor{Light: "#f5871f", Dark: "#de935f"}
+	ColorPrioMedium   = lipgloss.AdaptiveColor{Light: "#eab700", Dark: "#f0c674"}
+	ColorPrioLow      = lipgloss.AdaptiveColor{Light: "#718c00", Dark: "#b5bd68"}
 
 	// Priority background colors
-	ColorPrioCriticalBg = lipgloss.AdaptiveColor{Light: "#F8D7DA", Dark: "#3D1A1A"}
-	ColorPrioHighBg     = lipgloss.AdaptiveColor{Light: "#FFE8CC", Dark: "#3D2A1A"}
-	ColorPrioMediumBg   = lipgloss.AdaptiveColor{Light: "#FFF3CD", Dark: "#3D3D1A"}
-	ColorPrioLowBg      = lipgloss.AdaptiveColor{Light: "#D4EDDA", Dark: "#1A3D2A"}
+	ColorPrioCriticalBg = lipgloss.AdaptiveColor{Light: "#f0dce0", Dark: "#2e1e1e"}
+	ColorPrioHighBg     = lipgloss.AdaptiveColor{Light: "#f0e4d8", Dark: "#2e251e"}
+	ColorPrioMediumBg   = lipgloss.AdaptiveColor{Light: "#f0ecd8", Dark: "#2e2e1e"}
+	ColorPrioLowBg      = lipgloss.AdaptiveColor{Light: "#e8f0e0", Dark: "#252e1e"}
 
 	// Type colors
-	ColorTypeBug     = lipgloss.AdaptiveColor{Light: "#CC0000", Dark: "#FF5555"}
-	ColorTypeFeature = lipgloss.AdaptiveColor{Light: "#B06800", Dark: "#FFB86C"}
-	ColorTypeTask    = lipgloss.AdaptiveColor{Light: "#808000", Dark: "#F1FA8C"}
-	ColorTypeEpic    = lipgloss.AdaptiveColor{Light: "#6B47D9", Dark: "#BD93F9"}
-	ColorTypeChore   = lipgloss.AdaptiveColor{Light: "#006080", Dark: "#8BE9FD"}
+	ColorTypeBug     = lipgloss.AdaptiveColor{Light: "#c82829", Dark: "#cc6666"}
+	ColorTypeFeature = lipgloss.AdaptiveColor{Light: "#f5871f", Dark: "#de935f"}
+	ColorTypeTask    = lipgloss.AdaptiveColor{Light: "#eab700", Dark: "#f0c674"}
+	ColorTypeEpic    = lipgloss.AdaptiveColor{Light: "#8959a8", Dark: "#b294bb"}
+	ColorTypeChore   = lipgloss.AdaptiveColor{Light: "#4271ae", Dark: "#81a2be"}
+
+	// UI chrome
+	ColorBorder    = lipgloss.AdaptiveColor{Light: "#d6d6d6", Dark: "#373b41"}
+	ColorHighlight = lipgloss.AdaptiveColor{Light: "#d6d6d6", Dark: "#373b41"}
 )
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -92,12 +100,12 @@ var (
 var (
 	// PanelStyle is the default style for unfocused panels
 	PanelStyle = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
+			Border(lipgloss.NormalBorder()).
 			BorderForeground(ColorBgHighlight)
 
 	// FocusedPanelStyle is the style for focused panels
 	FocusedPanelStyle = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
+				Border(lipgloss.NormalBorder()).
 				BorderForeground(ColorPrimary)
 )
 

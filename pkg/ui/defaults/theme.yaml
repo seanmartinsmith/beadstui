@@ -1,0 +1,75 @@
+# beadstui default theme: Tomorrow Night + matcha-dark-sea
+# Copy to ~/.config/bt/theme.yaml or .bt/theme.yaml to customize.
+# Only include the colors you want to override - everything else inherits.
+
+colors:
+  # Base palette
+  bg:           { dark: "#1d1f21", light: "#ffffff" }
+  bg_dark:      { dark: "#191b1d", light: "#f0f0f0" }
+  bg_subtle:    { dark: "#282a2e", light: "#efefef" }
+  bg_highlight: { dark: "#373b41", light: "#d6d6d6" }
+  text:         { dark: "#c5c8c6", light: "#4d4d4c" }
+  subtext:      { dark: "#b4b7b4", light: "#8e908c" }
+  muted:        { dark: "#969896", light: "#8e908c" }
+
+  # Accents
+  primary:   { dark: "#8abeb7", light: "#3e999f" }   # teal (matcha-dark-sea)
+  secondary: { dark: "#969896", light: "#8e908c" }
+  info:      { dark: "#81a2be", light: "#4271ae" }   # blue
+  success:   { dark: "#b5bd68", light: "#718c00" }   # green
+  warning:   { dark: "#de935f", light: "#f5871f" }   # orange
+  danger:    { dark: "#cc6666", light: "#c82829" }   # red
+
+  # New tokens (replace scattered inline hex)
+  text_secondary: { dark: "#e8e8e8", light: "#333333" }
+  bg_contrast:    { dark: "#1d1f21", light: "#ffffff" }
+
+  # Status foreground
+  status:
+    open:        { dark: "#b5bd68", light: "#718c00" }
+    in_progress: { dark: "#81a2be", light: "#4271ae" }
+    blocked:     { dark: "#cc6666", light: "#c82829" }
+    deferred:    { dark: "#de935f", light: "#f5871f" }
+    pinned:      { dark: "#7aa6da", light: "#4271ae" }
+    hooked:      { dark: "#8abeb7", light: "#3e999f" }
+    review:      { dark: "#b294bb", light: "#8959a8" }
+    closed:      { dark: "#969896", light: "#8e908c" }
+    tombstone:   { dark: "#373b41", light: "#c5c8c6" }
+
+  # Status background (subtle tinted)
+  status_bg:
+    open:        { dark: "#252e1e", light: "#e8f0e0" }
+    in_progress: { dark: "#1e2530", light: "#dce8f0" }
+    blocked:     { dark: "#2e1e1e", light: "#f0dce0" }
+    deferred:    { dark: "#2e251e", light: "#f0e4d8" }
+    pinned:      { dark: "#1e2230", light: "#dce4f0" }
+    hooked:      { dark: "#1e2a2a", light: "#dce8e8" }
+    review:      { dark: "#261e2e", light: "#e4dce8" }
+    closed:      { dark: "#252527", light: "#e0e0e0" }
+    tombstone:   { dark: "#1d1f21", light: "#d6d6d6" }
+
+  # Priority foreground
+  priority:
+    critical: { dark: "#cc6666", light: "#c82829" }
+    high:     { dark: "#de935f", light: "#f5871f" }
+    medium:   { dark: "#f0c674", light: "#eab700" }
+    low:      { dark: "#b5bd68", light: "#718c00" }
+
+  # Priority background (subtle tinted)
+  priority_bg:
+    critical: { dark: "#2e1e1e", light: "#f0dce0" }
+    high:     { dark: "#2e251e", light: "#f0e4d8" }
+    medium:   { dark: "#2e2e1e", light: "#f0ecd8" }
+    low:      { dark: "#252e1e", light: "#e8f0e0" }
+
+  # Type foreground
+  type:
+    bug:     { dark: "#cc6666", light: "#c82829" }
+    feature: { dark: "#de935f", light: "#f5871f" }
+    task:    { dark: "#f0c674", light: "#eab700" }
+    epic:    { dark: "#b294bb", light: "#8959a8" }
+    chore:   { dark: "#81a2be", light: "#4271ae" }
+
+  # UI chrome
+  border:    { dark: "#373b41", light: "#d6d6d6" }
+  highlight: { dark: "#373b41", light: "#d6d6d6" }

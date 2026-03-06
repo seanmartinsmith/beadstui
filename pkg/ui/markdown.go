@@ -184,9 +184,9 @@ func buildStyleFromTheme(theme Theme, isDark bool) ansi.StyleConfig {
 	var docBgPtr *string // nil = terminal default background
 	var docFg string
 	if isDark {
-		docFg = "#f8f8f2"
+		docFg = "#c5c8c6"
 	} else {
-		docFg = "#000000"
+		docFg = "#4d4d4c"
 	}
 
 	return ansi.StyleConfig{

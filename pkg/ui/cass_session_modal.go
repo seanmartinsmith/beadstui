@@ -90,7 +90,7 @@ func (m CassSessionModal) View() string {
 
 	// Modal container style
 	modalStyle := r.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(m.theme.Primary).
 		Padding(1, 2).
 		Width(m.width)
@@ -106,7 +106,7 @@ func (m CassSessionModal) View() string {
 	// Session card styles
 	sessionHeaderStyle := r.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.AdaptiveColor{Light: "#333333", Dark: "#F8F8F2"})
+		Foreground(ColorText)
 
 	selectedSessionStyle := r.NewStyle().
 		Bold(true).

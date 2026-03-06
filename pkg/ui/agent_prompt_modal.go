@@ -85,7 +85,7 @@ func (m AgentPromptModal) View() string {
 
 	// Modal container style
 	modalStyle := r.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(m.theme.Primary).
 		Padding(1, 2).
 		Width(m.width)
@@ -98,7 +98,7 @@ func (m AgentPromptModal) View() string {
 
 	// Body text
 	bodyStyle := r.NewStyle().
-		Foreground(lipgloss.AdaptiveColor{Light: "#333333", Dark: "#F8F8F2"})
+		Foreground(ColorText)
 
 	// Preview box
 	previewBoxStyle := r.NewStyle().
@@ -119,7 +119,7 @@ func (m AgentPromptModal) View() string {
 
 	selectedButton := buttonBase.
 		Background(m.theme.Primary).
-		Foreground(lipgloss.AdaptiveColor{Light: "#FFFFFF", Dark: "#282A36"}).
+		Foreground(ColorBgContrast).
 		Bold(true)
 
 	unselectedButton := buttonBase.

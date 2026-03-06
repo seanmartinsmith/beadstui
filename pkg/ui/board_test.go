@@ -1641,10 +1641,10 @@ func TestEmptyColumnTitleBarRendering(t *testing.T) {
 	}
 	b := ui.NewBoardModel(issues, theme)
 
-	// Status mode - should show "BOARD [by: Status]"
+	// Status mode - should show "Board [by: Status]"
 	output := b.View(160, 30)
-	if !strings.Contains(output, "BOARD") {
-		t.Error("Title bar should contain 'BOARD'")
+	if !strings.Contains(output, "Board") {
+		t.Error("Title bar should contain 'Board'")
 	}
 	if !strings.Contains(output, "[by: Status]") {
 		t.Error("Title bar should show swimlane mode")
