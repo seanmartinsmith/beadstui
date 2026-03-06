@@ -4939,41 +4939,39 @@ func (m *Model) renderHelpOverlay() string {
 	renderPanel := func(title string, icon string, colorIdx int, shortcuts []struct{ key, desc string }) string {
 		color := colors[colorIdx%len(colors)]
 
-		headerStyle := t.Renderer.NewStyle().
-			Foreground(color).
-			Bold(true).
-			BorderStyle(lipgloss.Border{Bottom: "─"}).
-			BorderBottom(true).
-			BorderForeground(color).
-			Width(colWidth-4).
-			Padding(0, 1)
-
 		keyStyle := t.Renderer.NewStyle().
 			Foreground(color).
-			Bold(true).
-			Width(10)
+			Bold(true)
 
 		descStyle := t.Renderer.NewStyle().
-			Foreground(t.Base.GetForeground()).
-			Width(colWidth - 16)
+			Foreground(t.Base.GetForeground())
 
-		var content strings.Builder
-		content.WriteString(headerStyle.Render(icon + " " + title))
-		content.WriteString("\n")
-
+		// Find the widest key for alignment
+		keyCol := 8
 		for _, s := range shortcuts {
-			content.WriteString(keyStyle.Render(s.key))
-			content.WriteString(descStyle.Render(s.desc))
-			content.WriteString("\n")
+			if w := lipgloss.Width(s.key); w > keyCol {
+				keyCol = w
+			}
+		}
+		keyCol += 2 // gap after key
+
+		var lines []string
+		for _, s := range shortcuts {
+			key := keyStyle.Render(s.key)
+			pad := keyCol - lipgloss.Width(s.key)
+			if pad < 1 {
+				pad = 1
+			}
+			lines = append(lines, key+strings.Repeat(" ", pad)+descStyle.Render(s.desc))
 		}
 
-		panelStyle := t.Renderer.NewStyle().
-			Border(lipgloss.NormalBorder()).
-			BorderForeground(color).
-			Padding(0, 1).
-			Width(colWidth)
-
-		return panelStyle.Render(content.String())
+		content := lipgloss.JoinVertical(lipgloss.Left, lines...)
+		return RenderTitledPanel(t.Renderer, content, PanelOpts{
+			Title:       icon + " " + title,
+			Width:       colWidth + 2,
+			BorderColor: &color,
+			TitleColor:  &color,
+		})
 	}
 
 	// Define all sections
@@ -5101,30 +5099,28 @@ func (m *Model) renderHelpOverlay() string {
 	// Join columns horizontally
 	body := lipgloss.JoinHorizontal(lipgloss.Top, columns...)
 
-	// Title bar
-	titleStyle := t.Renderer.NewStyle().
-		Foreground(t.Primary).
-		Bold(true).
-		Padding(0, 2)
-
+	// Subtitle line inside panel
 	subtitleStyle := t.Renderer.NewStyle().
 		Foreground(t.Secondary).
 		Italic(true)
-
-	title := titleStyle.Render("⌨️  Keyboard Shortcuts")
 	subtitle := subtitleStyle.Render("Space: Tutorial │ ? or Esc to close")
-	titleBar := lipgloss.JoinHorizontal(lipgloss.Center, title, "  ", subtitle)
 
-	// Combine title and body
-	content := lipgloss.JoinVertical(lipgloss.Center, titleBar, "", body)
+	// Combine subtitle and body
+	content := lipgloss.JoinVertical(lipgloss.Center, subtitle, "", body)
 
-	// Outer container
-	containerStyle := t.Renderer.NewStyle().
-		Border(lipgloss.DoubleBorder()).
-		BorderForeground(t.Primary).
-		Padding(1, 2)
-
-	helpBox := containerStyle.Render(content)
+	// Outer container as titled panel
+	outerWidth := lipgloss.Width(body) + 6 // body + border + padding
+	if outerWidth > m.width-4 {
+		outerWidth = m.width - 4
+	}
+	bc := t.Primary
+	helpBox := RenderTitledPanel(t.Renderer, content, PanelOpts{
+		Title:       "Keyboard Shortcuts",
+		Width:       outerWidth,
+		Focused:     true,
+		BorderColor: &bc,
+		TitleColor:  &bc,
+	})
 
 	// Center in viewport
 	return lipgloss.Place(

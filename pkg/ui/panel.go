@@ -23,6 +23,13 @@ type PanelOpts struct {
 	Height  int
 	Focused bool
 	Variant BorderVariant
+
+	// Optional color overrides. When non-nil these take precedence
+	// over the default focus-based colors, letting callers supply
+	// custom border/title colors (e.g. per-column board colors,
+	// dimmed "skipped" panels).
+	BorderColor *lipgloss.AdaptiveColor
+	TitleColor  *lipgloss.AdaptiveColor
 }
 
 // borderChars returns the box-drawing characters for a variant.
@@ -50,13 +57,21 @@ func RenderTitledPanel(r *lipgloss.Renderer, content string, opts PanelOpts) str
 
 	tl, tr, bl, br, h, vert := borderChars(opts.Variant)
 
-	// Colors
+	// Colors: use overrides when provided, otherwise derive from focus state
 	var borderColor, titleColor lipgloss.AdaptiveColor
-	if opts.Focused {
+	if opts.BorderColor != nil {
+		borderColor = *opts.BorderColor
+	} else if opts.Focused {
 		borderColor = ColorPrimary
-		titleColor = ColorPrimary
 	} else {
 		borderColor = ColorBgHighlight
+	}
+
+	if opts.TitleColor != nil {
+		titleColor = *opts.TitleColor
+	} else if opts.Focused {
+		titleColor = ColorPrimary
+	} else {
 		titleColor = ColorMuted
 	}
 
