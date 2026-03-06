@@ -78,14 +78,14 @@ var HeatmapGradientColors []lipgloss.TerminalColor
 
 func init() {
 	HeatmapGradientColors = []lipgloss.TerminalColor{
-		ThemeFg("#1a1a2e"), // 0: dark blue/gray - empty
-		ThemeFg("#16213e"), // 1: navy - very few
-		ThemeFg("#0f4c75"), // 2: blue - few
-		ThemeFg("#3282b8"), // 3: light blue - some
-		ThemeFg("#bbe1fa"), // 4: pale blue - moderate (transition)
-		ThemeFg("#f7dc6f"), // 5: gold - above average
-		ThemeFg("#e94560"), // 6: coral - many
-		ThemeFg("#ff2e63"), // 7: hot pink/red - hot
+		ThemeFg("#1d1f21"), // 0: bg - empty
+		ThemeFg("#282a2e"), // 1: subtle - very few
+		ThemeFg("#373b41"), // 2: highlight - few
+		ThemeFg("#81a2be"), // 3: blue - some
+		ThemeFg("#8abeb7"), // 4: teal - moderate
+		ThemeFg("#f0c674"), // 5: yellow - above average
+		ThemeFg("#de935f"), // 6: orange - many
+		ThemeFg("#cc6666"), // 7: red - hot
 	}
 }
 
@@ -112,35 +112,34 @@ func GetHeatGradientColor(intensity float64, t Theme) lipgloss.TerminalColor {
 // On 16-color terminals, backgrounds are transparent and foreground uses ANSI-safe colors.
 func GetHeatGradientColorBg(intensity float64) (bg lipgloss.TerminalColor, fg lipgloss.TerminalColor) {
 	if intensity <= 0 {
-		return ThemeBg("#1a1a2e"), ThemeFg("#6272a4") // Dark bg, muted fg
+		return ThemeBg("#1d1f21"), ThemeFg("#969896") // Bg, muted fg
 	}
 
-	// Select background color based on intensity
 	switch {
 	case intensity >= 0.8:
-		return ThemeBg("#ff2e63"), ThemeFg("#ffffff") // Hot pink, white text
+		return ThemeBg("#cc6666"), ThemeFg("#1d1f21") // Red, dark text
 	case intensity >= 0.6:
-		return ThemeBg("#e94560"), ThemeFg("#ffffff") // Coral, white text
+		return ThemeBg("#de935f"), ThemeFg("#1d1f21") // Orange, dark text
 	case intensity >= 0.4:
-		return ThemeBg("#f7dc6f"), ThemeFg("#1a1a2e") // Gold, dark text
+		return ThemeBg("#f0c674"), ThemeFg("#1d1f21") // Yellow, dark text
 	case intensity >= 0.2:
-		return ThemeBg("#3282b8"), ThemeFg("#ffffff") // Blue, white text
+		return ThemeBg("#81a2be"), ThemeFg("#1d1f21") // Blue, dark text
 	default:
-		return ThemeBg("#16213e"), ThemeFg("#bbe1fa") // Navy, light text
+		return ThemeBg("#282a2e"), ThemeFg("#81a2be") // Subtle, blue text
 	}
 }
 
 // RepoColors maps repo prefixes to distinctive colors for visual differentiation
 // These colors are designed to be visible on both light and dark backgrounds
 var RepoColors = []lipgloss.AdaptiveColor{
-	{Light: "#CC5555", Dark: "#FF6B6B"}, // Coral red
-	{Light: "#3BA89E", Dark: "#4ECDC4"}, // Teal
-	{Light: "#3891A6", Dark: "#45B7D1"}, // Sky blue
-	{Light: "#6B9E87", Dark: "#96CEB4"}, // Sage green
-	{Light: "#AA7AAA", Dark: "#DDA0DD"}, // Plum
-	{Light: "#C4A93D", Dark: "#F7DC6F"}, // Gold
-	{Light: "#9370A8", Dark: "#BB8FCE"}, // Lavender
-	{Light: "#5A9BC2", Dark: "#85C1E9"}, // Light blue
+	{Light: "#c82829", Dark: "#cc6666"}, // Red
+	{Light: "#3e999f", Dark: "#8abeb7"}, // Teal
+	{Light: "#4271ae", Dark: "#81a2be"}, // Blue
+	{Light: "#718c00", Dark: "#b5bd68"}, // Green
+	{Light: "#8959a8", Dark: "#b294bb"}, // Purple
+	{Light: "#eab700", Dark: "#f0c674"}, // Yellow
+	{Light: "#f5871f", Dark: "#de935f"}, // Orange
+	{Light: "#4271ae", Dark: "#7aa6da"}, // Light blue
 }
 
 // GetRepoColor returns a consistent color for a repo prefix based on hash

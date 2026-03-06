@@ -18,12 +18,12 @@ func RenderStructuredPage(page StructuredTutorialPage, theme Theme, width int) s
 
 // Theme colors for status flow diagrams
 var (
-	colorOpen       = lipgloss.AdaptiveColor{Light: "#007700", Dark: "#50FA7B"}
-	colorInProgress = lipgloss.AdaptiveColor{Light: "#006080", Dark: "#8BE9FD"}
-	colorBlocked    = lipgloss.AdaptiveColor{Light: "#CC0000", Dark: "#FF5555"}
-	colorClosed     = lipgloss.AdaptiveColor{Light: "#555555", Dark: "#6272A4"}
-	colorPrimary    = lipgloss.AdaptiveColor{Light: "#6B47D9", Dark: "#BD93F9"}
-	colorFeature    = lipgloss.AdaptiveColor{Light: "#B06800", Dark: "#FFB86C"}
+	colorOpen       = lipgloss.AdaptiveColor{Light: "#718c00", Dark: "#b5bd68"}
+	colorInProgress = lipgloss.AdaptiveColor{Light: "#4271ae", Dark: "#81a2be"}
+	colorBlocked    = lipgloss.AdaptiveColor{Light: "#c82829", Dark: "#cc6666"}
+	colorClosed     = lipgloss.AdaptiveColor{Light: "#8e908c", Dark: "#969896"}
+	colorPrimary    = lipgloss.AdaptiveColor{Light: "#3e999f", Dark: "#8abeb7"}
+	colorFeature    = lipgloss.AdaptiveColor{Light: "#f5871f", Dark: "#de935f"}
 )
 
 // structuredTutorialPages returns tutorial content using the component system

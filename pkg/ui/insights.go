@@ -188,7 +188,7 @@ func NewInsightsModel(ins analysis.Insights, issueMap map[string]*model.Issue, t
 	// Initialize viewport for detail panel scrolling
 	vp := viewport.New(50, 20)
 	vp.Style = theme.Renderer.NewStyle().
-		BorderStyle(lipgloss.RoundedBorder()).
+		BorderStyle(lipgloss.NormalBorder()).
 		BorderForeground(theme.Primary).
 		Padding(0, 1)
 
@@ -745,7 +745,7 @@ func (m *InsightsModel) renderMetricPanel(panel MetricPanel, width, height int, 
 	}
 
 	panelStyle := t.Renderer.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
 		Width(width).
 		Height(height).
@@ -877,7 +877,7 @@ func (m *InsightsModel) renderInsightRow(id string, value float64, width int, is
 
 	// Value badge
 	valueStyle := t.Renderer.NewStyle().
-		Background(lipgloss.AdaptiveColor{Light: "#E8E8E8", Dark: "#3D3D3D"}).
+		Background(ColorBgHighlight).
 		Foreground(t.Primary).
 		Bold(true).
 		Padding(0, 1)
@@ -960,7 +960,7 @@ func (m *InsightsModel) renderCyclesPanel(width, height int, t Theme) string {
 	}
 
 	panelStyle := t.Renderer.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
 		Width(width).
 		Height(height).
@@ -1090,7 +1090,7 @@ func (m *InsightsModel) renderPriorityPanel(width, height int, t Theme) string {
 	}
 
 	panelStyle := t.Renderer.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
 		Width(width).
 		Height(height).
@@ -1213,16 +1213,16 @@ func (m *InsightsModel) renderMiniBar(label string, value float64, width int, t 
 	var barColor lipgloss.AdaptiveColor
 	switch {
 	case value >= 0.7:
-		barColor = lipgloss.AdaptiveColor{Light: "#50FA7B", Dark: "#50FA7B"} // Green - high
+		barColor = ColorSuccess // Green - high
 	case value >= 0.4:
-		barColor = lipgloss.AdaptiveColor{Light: "#FFB86C", Dark: "#FFB86C"} // Orange - medium
+		barColor = ColorWarning // Orange - medium
 	default:
-		barColor = lipgloss.AdaptiveColor{Light: "#6272A4", Dark: "#6272A4"} // Gray - low
+		barColor = ColorMuted // Gray - low
 	}
 
 	labelStyle := t.Renderer.NewStyle().Foreground(t.Subtext)
 	filledStyle := t.Renderer.NewStyle().Foreground(barColor)
-	emptyStyle := t.Renderer.NewStyle().Foreground(lipgloss.AdaptiveColor{Light: "#3D3D3D", Dark: "#3D3D3D"})
+	emptyStyle := t.Renderer.NewStyle().Foreground(ColorBgHighlight)
 
 	filledBar := strings.Repeat("█", filled)
 	emptyBar := strings.Repeat("░", barWidth-filled)
@@ -1233,7 +1233,7 @@ func (m *InsightsModel) renderMiniBar(label string, value float64, width int, t 
 // renderPriorityItem renders a single priority recommendation item
 func (m *InsightsModel) renderPriorityItem(pick analysis.TopPick, width, height int, isSelected bool, t Theme) string {
 	itemStyle := t.Renderer.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		Width(width-2).
 		Height(height).
 		Padding(0, 1)
@@ -1256,7 +1256,7 @@ func (m *InsightsModel) renderPriorityItem(pick analysis.TopPick, width, height 
 	// Score badge
 	scoreStr := fmt.Sprintf("%.2f", pick.Score)
 	scoreStyle := t.Renderer.NewStyle().
-		Background(lipgloss.AdaptiveColor{Light: "#E8E8E8", Dark: "#3D3D3D"}).
+		Background(ColorBgHighlight).
 		Foreground(t.Primary).
 		Bold(true).
 		Padding(0, 1)
@@ -1348,7 +1348,7 @@ func (m *InsightsModel) renderHeatmapPanel(width, height int, t Theme) string {
 	}
 
 	panelStyle := t.Renderer.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
 		Width(width).
 		Height(height).
@@ -1984,7 +1984,7 @@ Navigate to a metric panel and select an item to view its details here.
 	// width padding. The border + content naturally determines the panel width.
 	// Height is safe to set for vertical space utilization.
 	panelStyle := t.Renderer.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(t.Primary).
 		Height(height).
 		Padding(0, 1)

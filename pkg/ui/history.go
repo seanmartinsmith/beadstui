@@ -1480,7 +1480,7 @@ func (h *HistoryModel) renderTimelinePanel(width, height int) string {
 	// Panel border style
 	borderColor := t.Border
 	panelStyle := r.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
 		Width(width - 2).
 		Height(height - 2)
@@ -1823,21 +1823,21 @@ func (h *HistoryModel) renderHeader() string {
 		// Flash effect: bright background with contrasting text
 		modeStyle = modeStyle.
 			Background(t.Primary).
-			Foreground(lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#1a1a2e"})
+			Foreground(ColorBgContrast)
 	} else {
 		// Normal mode: just colored text
 		modeStyle = modeStyle.Foreground(t.InProgress)
 	}
 
 	modeIndicator := fmt.Sprintf("%s %s", modeIcon, modeLabel)
-	title := titleStyle.Render("HISTORY") + modeStyle.Render(modeIndicator)
+	title := titleStyle.Render("History") + modeStyle.Render(modeIndicator)
 
 	// Search input or close hint (bv-nkrj)
 	var rightContent string
 	if h.searchActive {
 		// Show search input
 		searchStyle := t.Renderer.NewStyle().
-			Border(lipgloss.RoundedBorder()).
+			Border(lipgloss.NormalBorder()).
 			BorderForeground(t.Primary).
 			Padding(0, 1)
 
@@ -2024,7 +2024,7 @@ func (h *HistoryModel) renderListPanel(width, height int) string {
 	}
 
 	panelStyle := t.Renderer.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
 		Width(width - 2). // Account for border
 		Height(height - 2)
@@ -2149,7 +2149,7 @@ func (h *HistoryModel) renderFileTreePanel(width, height int) string {
 	}
 
 	panelStyle := t.Renderer.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
 		Width(width - 2).
 		Height(height - 2)
@@ -2287,7 +2287,7 @@ func (h *HistoryModel) renderDetailPanel(width, height int) string {
 	}
 
 	panelStyle := t.Renderer.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
 		Width(width - 2).
 		Height(height - 2)
@@ -3020,7 +3020,7 @@ func (h *HistoryModel) renderGitCommitListPanel(width, height int) string {
 	}
 
 	panelStyle := t.Renderer.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
 		Width(width - 2).
 		Height(height - 2)
@@ -3119,7 +3119,7 @@ func (h *HistoryModel) renderGitDetailPanel(width, height int) string {
 	}
 
 	panelStyle := t.Renderer.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
 		Width(width - 2).
 		Height(height - 2)
@@ -3258,7 +3258,7 @@ func (h *HistoryModel) renderCommitMiddlePanel(width, height int) string {
 	}
 
 	panelStyle := t.Renderer.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
 		Width(width - 2).
 		Height(height - 2)
@@ -3350,7 +3350,7 @@ func (h *HistoryModel) renderGitBeadListPanel(width, height int) string {
 	}
 
 	panelStyle := t.Renderer.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
 		Width(width - 2).
 		Height(height - 2)

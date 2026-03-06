@@ -281,7 +281,7 @@ func (m TutorialModel) View() string {
 
 	// Wrap in modal style
 	modalStyle := r.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(m.theme.Primary).
 		Padding(1, 2).
 		Width(m.width).
@@ -600,7 +600,7 @@ func (m TutorialModel) renderEmptyState() string {
 	r := m.theme.Renderer
 
 	style := r.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(m.theme.Primary).
 		Padding(2, 4).
 		Width(m.width)

@@ -186,7 +186,7 @@ func (m UpdateModal) View() string {
 
 	// Modal container style
 	modalStyle := r.NewStyle().
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(m.theme.Primary).
 		Padding(1, 2).
 		Width(m.width)
@@ -207,12 +207,12 @@ func (m UpdateModal) View() string {
 	// Button styles
 	buttonStyle := r.NewStyle().
 		Padding(0, 2).
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(m.theme.Border)
 
 	selectedButtonStyle := r.NewStyle().
 		Padding(0, 2).
-		Border(lipgloss.RoundedBorder()).
+		Border(lipgloss.NormalBorder()).
 		BorderForeground(m.theme.Primary).
 		Background(m.theme.Primary).
 		Foreground(ColorBg).
