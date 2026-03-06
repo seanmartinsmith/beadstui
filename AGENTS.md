@@ -259,7 +259,7 @@ Analyzes Beads issue graphs to produce actionable triage recommendations, parall
 ```
 beadstui/
 ├── go.mod                          # Module root (Go 1.25+)
-├── cmd/bv/                         # CLI entry point (cobra)
+├── cmd/bt/                         # CLI entry point (cobra)
 ├── pkg/
 │   ├── analysis/                   # Graph metrics, triage, planning, priority, forecasting
 │   ├── search/                     # Hybrid semantic search (text + graph, FTS5)
@@ -311,21 +311,21 @@ beadstui/
 
 ### Hybrid Semantic Search (CLI)
 
-`bv --search` supports hybrid ranking (text + graph metrics).
+`bt --search` supports hybrid ranking (text + graph metrics).
 
 ```bash
 # Default (text-only)
-bv --search "login oauth"
+bt --search "login oauth"
 
 # Hybrid mode with preset
-bv --search "login oauth" --search-mode hybrid --search-preset impact-first
+bt --search "login oauth" --search-mode hybrid --search-preset impact-first
 
 # Hybrid with custom weights
-bv --search "login oauth" --search-mode hybrid \
+bt --search "login oauth" --search-mode hybrid \
   --search-weights '{"text":0.4,"pagerank":0.2,"status":0.15,"impact":0.1,"priority":0.1,"recency":0.05}'
 
 # Robot JSON output (adds mode/preset/weights + component_scores for hybrid)
-bv --search "login oauth" --search-mode hybrid --robot-search
+bt --search "login oauth" --search-mode hybrid --robot-search
 ```
 
 Env defaults:
@@ -355,12 +355,12 @@ The output is a self-contained HTML/JS bundle that:
 **Deployment options:**
 - `bt --pages` → Interactive wizard for GitHub Pages deployment
 - `bt --export-pages ./dir` → Local export for custom hosting
-- `bv --preview-pages ./dir` → Preview bundle locally
+- `bt --preview-pages ./dir` → Preview bundle locally
 
 **For CI/CD integration:**
 ```bash
-bt --export-pages ./bv-pages --pages-title "Nightly Build"
-# Then deploy ./bv-pages to your hosting of choice
+bt --export-pages ./bt-pages --pages-title "Nightly Build"
+# Then deploy ./bt-pages to your hosting of choice
 ```
 
 ### Go Best Practices
@@ -526,11 +526,11 @@ Beads for cross-session persistence. Tasks (Claude Code TaskCreate/TaskUpdate) f
 
 ---
 
-## bv — Graph-Aware Triage Engine
+## bt — Graph-Aware Triage Engine
 
-bv is a graph-aware triage engine for Beads projects (`.beads/beads.jsonl`). It computes PageRank, betweenness, critical path, cycles, HITS, eigenvector, and k-core metrics deterministically.
+bt is a graph-aware triage engine for Beads projects (`.beads/beads.jsonl`). It computes PageRank, betweenness, critical path, cycles, HITS, eigenvector, and k-core metrics deterministically.
 
-**Scope boundary:** bv handles *what to work on* (triage, priority, planning). For agent-to-agent coordination (messaging, work claiming, file reservations), use MCP Agent Mail.
+**Scope boundary:** bt handles *what to work on* (triage, priority, planning). For agent-to-agent coordination (messaging, work claiming, file reservations), use MCP Agent Mail.
 
 **CRITICAL: Use ONLY `--robot-*` flags. Bare `bt` launches an interactive TUI that blocks your session.**
 
@@ -586,8 +586,8 @@ bt --robot-next          # Minimal: just the single top pick + claim command
 ```bash
 bt --robot-plan --label backend              # Scope to label's subgraph
 bt --robot-insights --as-of HEAD~30          # Historical point-in-time
-bv --recipe actionable --robot-plan          # Pre-filter: ready to work
-bv --recipe high-impact --robot-triage       # Pre-filter: top PageRank
+bt --recipe actionable --robot-plan          # Pre-filter: ready to work
+bt --recipe high-impact --robot-triage       # Pre-filter: top PageRank
 bt --robot-triage --robot-triage-by-track    # Group by parallel work streams
 bt --robot-triage --robot-triage-by-label    # Group by domain
 ```
