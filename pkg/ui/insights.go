@@ -1928,7 +1928,7 @@ func (m *InsightsModel) renderDetailPanel(width, height int, t Theme) string {
 	// Update viewport dimensions
 	// RenderTitledPanel innerWidth = width - 2; leave 2 chars visual margin
 	vpWidth := width - 4
-	vpHeight := height - 2 // Account for scroll hint (border handled by panel)
+	vpHeight := height - 1 // Reserve 1 line for scroll hint
 	if vpWidth < 20 {
 		vpWidth = 20
 	}
