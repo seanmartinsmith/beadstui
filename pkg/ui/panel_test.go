@@ -136,3 +136,67 @@ func TestRenderTitledPanel_Variants(t *testing.T) {
 		t.Error("double variant should use ╔")
 	}
 }
+
+func TestRenderTitledPanel_ColorOverrides(t *testing.T) {
+	r := lipgloss.NewRenderer(nil)
+
+	customBorder := lipgloss.AdaptiveColor{Light: "#ff0000", Dark: "#ff0000"}
+	customTitle := lipgloss.AdaptiveColor{Light: "#00ff00", Dark: "#00ff00"}
+
+	// With overrides, the panel should still render correctly regardless of Focused
+	result := RenderTitledPanel(r, "content", PanelOpts{
+		Title:       "Custom",
+		Width:       20,
+		Focused:     false,
+		BorderColor: &customBorder,
+		TitleColor:  &customTitle,
+	})
+
+	if !strings.Contains(result, "Custom") {
+		t.Error("panel with color overrides should contain title")
+	}
+	if !strings.Contains(result, "content") {
+		t.Error("panel with color overrides should contain content")
+	}
+	if !strings.Contains(result, "╭") {
+		t.Error("panel with color overrides should have border")
+	}
+
+	// Overrides should work with focused too
+	focusedResult := RenderTitledPanel(r, "x", PanelOpts{
+		Title:       "F",
+		Width:       20,
+		Focused:     true,
+		BorderColor: &customBorder,
+		TitleColor:  &customTitle,
+	})
+	if !strings.Contains(focusedResult, "F") {
+		t.Error("focused panel with overrides should contain title")
+	}
+}
+
+func TestRenderTitledPanel_PartialOverrides(t *testing.T) {
+	r := lipgloss.NewRenderer(nil)
+
+	// Only override border color, let title use default
+	customBorder := lipgloss.AdaptiveColor{Light: "#ff0000", Dark: "#ff0000"}
+	result := RenderTitledPanel(r, "x", PanelOpts{
+		Title:       "Partial",
+		Width:       20,
+		BorderColor: &customBorder,
+	})
+	if !strings.Contains(result, "Partial") {
+		t.Error("partial override should still render title")
+	}
+
+	// Only override title color, let border use default
+	customTitle := lipgloss.AdaptiveColor{Light: "#00ff00", Dark: "#00ff00"}
+	result2 := RenderTitledPanel(r, "x", PanelOpts{
+		Title:      "Partial2",
+		Width:      20,
+		TitleColor: &customTitle,
+	})
+	if !strings.Contains(result2, "Partial2") {
+		t.Error("partial title override should still render title")
+	}
+}

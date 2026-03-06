@@ -187,10 +187,7 @@ func NewInsightsModel(ins analysis.Insights, issueMap map[string]*model.Issue, t
 
 	// Initialize viewport for detail panel scrolling
 	vp := viewport.New(50, 20)
-	vp.Style = theme.Renderer.NewStyle().
-		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(theme.Primary).
-		Padding(0, 1)
+	vp.Style = theme.Renderer.NewStyle()
 
 	return InsightsModel{
 		insights:         ins,
@@ -711,8 +708,10 @@ func (m *InsightsModel) View() string {
 	mainContent := lipgloss.JoinVertical(lipgloss.Left, row1, row2, row3, row4)
 
 	// Add detail panel if enabled
+	// Match detail height to the actual grid: 4 rows, each (rowHeight + 2) outer
 	if detailWidth > 0 {
-		detailPanel := m.renderDetailPanel(detailWidth, m.height-2, t)
+		gridHeight := 4 * (rowHeight + 2)
+		detailPanel := m.renderDetailPanel(detailWidth, gridHeight-2, t)
 		view := lipgloss.JoinHorizontal(lipgloss.Top, mainContent, detailPanel)
 		if velocityLine != "" {
 			view = lipgloss.JoinVertical(lipgloss.Left, velocityLine, view)
@@ -735,43 +734,28 @@ func (m *InsightsModel) renderMetricPanel(panel MetricPanel, width, height int, 
 	// Check if this metric was skipped
 	skipped, skipReason := m.isPanelSkipped(panel)
 
-	// Panel border style
+	// Border/title colors (passed as overrides to RenderTitledPanel)
 	borderColor := t.Secondary
+	titleColor := t.Secondary
 	if isFocused {
 		borderColor = t.Primary
+		titleColor = t.Primary
 	}
 	if skipped {
-		borderColor = t.Subtext // Dimmed for skipped panels
+		borderColor = t.Subtext
+		titleColor = t.Subtext
 	}
 
-	panelStyle := t.Renderer.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(borderColor).
-		Width(width).
-		Height(height).
-		Padding(0, 1)
-
-	// Title with count and value range
-	titleStyle := t.Renderer.NewStyle().Bold(true)
+	// Border title: "icon Title (count)" or "icon Title [Skipped]"
+	var panelTitle string
 	if skipped {
-		titleStyle = titleStyle.Foreground(t.Subtext)
-	} else if isFocused {
-		titleStyle = titleStyle.Foreground(t.Primary)
+		panelTitle = fmt.Sprintf("%s %s [Skipped]", info.Icon, info.Title)
 	} else {
-		titleStyle = titleStyle.Foreground(t.Secondary)
+		panelTitle = fmt.Sprintf("%s %s (%d)", info.Icon, info.Title, len(items))
 	}
 
 	// Use slice + JoinVertical pattern (like Board) instead of strings.Builder + manual newlines
 	var lines []string
-
-	// Header line: Icon Title (count) or [Skipped]
-	var headerLine string
-	if skipped {
-		headerLine = fmt.Sprintf("%s %s [Skipped]", info.Icon, info.Title)
-	} else {
-		headerLine = fmt.Sprintf("%s %s (%d)", info.Icon, info.Title, len(items))
-	}
-	lines = append(lines, titleStyle.Render(headerLine))
 
 	// Subtitle: metric name
 	subtitleStyle := t.Renderer.NewStyle().Foreground(t.Subtext).Italic(true)
@@ -801,13 +785,20 @@ func (m *InsightsModel) renderMetricPanel(panel MetricPanel, width, height int, 
 		lines = append(lines, skipStyle.Render(reason))
 		lines = append(lines, skipStyle.Render("Use --force-full-analysis to compute"))
 
-		return panelStyle.Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
+		return RenderTitledPanel(t.Renderer, lipgloss.JoinVertical(lipgloss.Left, lines...), PanelOpts{
+			Title:       panelTitle,
+			Width:       width + 2,
+			Height:      height + 2,
+			Focused:     isFocused,
+			BorderColor: &borderColor,
+			TitleColor:  &titleColor,
+		})
 	}
 
 	// Items list
 	// Calculate visible rows more conservatively
-	// Header(1) + Subtitle(1) + Explain(2-3 lines typically) + Spacer(1) + Scroll(1) = ~7 lines overhead
-	visibleRows := height - 7
+	// Subtitle(1) + Explain(2-3 lines typically) + Spacer(1) + Scroll(1) = ~6 lines overhead
+	visibleRows := height - 6
 	if m.showExplanations {
 		// Explanations can wrap, so give more buffer
 		visibleRows -= 1
@@ -849,7 +840,14 @@ func (m *InsightsModel) renderMetricPanel(panel MetricPanel, width, height int, 
 		lines = append(lines, scrollStyle.Render(scrollInfo))
 	}
 
-	return panelStyle.Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
+	return RenderTitledPanel(t.Renderer, lipgloss.JoinVertical(lipgloss.Left, lines...), PanelOpts{
+		Title:       panelTitle,
+		Width:       width + 2,
+		Height:      height + 2,
+		Focused:     isFocused,
+		BorderColor: &borderColor,
+		TitleColor:  &titleColor,
+	})
 }
 
 func (m *InsightsModel) renderInsightRow(id string, value float64, width int, isSelected bool, t Theme) string {
@@ -951,41 +949,28 @@ func (m *InsightsModel) renderCyclesPanel(width, height int, t Theme) string {
 	// Check if cycles detection was skipped
 	skipped, skipReason := m.isPanelSkipped(PanelCycles)
 
+	// Border/title colors
 	borderColor := t.Secondary
+	titleColor := t.Secondary
 	if isFocused {
 		borderColor = t.Primary
+		titleColor = t.Primary
 	}
 	if skipped {
-		borderColor = t.Subtext // Dimmed for skipped panels
+		borderColor = t.Subtext
+		titleColor = t.Subtext
 	}
 
-	panelStyle := t.Renderer.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(borderColor).
-		Width(width).
-		Height(height).
-		Padding(0, 1)
-
-	titleStyle := t.Renderer.NewStyle().Bold(true)
+	// Border title
+	var panelTitle string
 	if skipped {
-		titleStyle = titleStyle.Foreground(t.Subtext)
-	} else if isFocused {
-		titleStyle = titleStyle.Foreground(t.Primary)
+		panelTitle = fmt.Sprintf("%s %s [Skipped]", info.Icon, info.Title)
 	} else {
-		titleStyle = titleStyle.Foreground(t.Secondary)
+		panelTitle = fmt.Sprintf("%s %s (%d)", info.Icon, info.Title, len(cycles))
 	}
 
 	// Use slice + JoinVertical pattern (like Board) instead of strings.Builder + manual newlines
 	var lines []string
-
-	// Header
-	var headerLine string
-	if skipped {
-		headerLine = fmt.Sprintf("%s %s [Skipped]", info.Icon, info.Title)
-	} else {
-		headerLine = fmt.Sprintf("%s %s (%d)", info.Icon, info.Title, len(cycles))
-	}
-	lines = append(lines, titleStyle.Render(headerLine))
 
 	subtitleStyle := t.Renderer.NewStyle().Foreground(t.Subtext).Italic(true)
 	lines = append(lines, subtitleStyle.Render(info.ShortDesc))
@@ -1011,7 +996,14 @@ func (m *InsightsModel) renderCyclesPanel(width, height int, t Theme) string {
 		lines = append(lines, skipStyle.Render(reason))
 		lines = append(lines, skipStyle.Render("Use --force-full-analysis to compute"))
 
-		return panelStyle.Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
+		return RenderTitledPanel(t.Renderer, lipgloss.JoinVertical(lipgloss.Left, lines...), PanelOpts{
+			Title:       panelTitle,
+			Width:       width + 2,
+			Height:      height + 2,
+			Focused:     isFocused,
+			BorderColor: &borderColor,
+			TitleColor:  &titleColor,
+		})
 	}
 
 	if len(cycles) == 0 {
@@ -1075,7 +1067,14 @@ func (m *InsightsModel) renderCyclesPanel(width, height int, t Theme) string {
 		}
 	}
 
-	return panelStyle.Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
+	return RenderTitledPanel(t.Renderer, lipgloss.JoinVertical(lipgloss.Left, lines...), PanelOpts{
+		Title:       panelTitle,
+		Width:       width + 2,
+		Height:      height + 2,
+		Focused:     isFocused,
+		BorderColor: &borderColor,
+		TitleColor:  &titleColor,
+	})
 }
 
 // renderPriorityPanel renders the priority recommendations panel (bv-91)
@@ -1084,40 +1083,37 @@ func (m *InsightsModel) renderPriorityPanel(width, height int, t Theme) string {
 	isFocused := m.focusedPanel == PanelPriority
 	picks := m.topPicks
 
+	// Border/title colors
 	borderColor := t.Secondary
+	titleColor := t.Secondary
 	if isFocused {
 		borderColor = t.Primary
+		titleColor = t.Primary
 	}
 
-	panelStyle := t.Renderer.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(borderColor).
-		Width(width).
-		Height(height).
-		Padding(0, 1)
-
-	titleStyle := t.Renderer.NewStyle().Bold(true)
-	if isFocused {
-		titleStyle = titleStyle.Foreground(t.Primary)
-	} else {
-		titleStyle = titleStyle.Foreground(t.Secondary)
-	}
+	// Border title with subtitle inline
+	panelTitle := fmt.Sprintf("%s %s (%d)", info.Icon, info.Title, len(picks))
 
 	// Use slice + JoinVertical pattern (like Board) instead of strings.Builder + manual newlines
 	var lines []string
 
-	// Header with inline subtitle
-	headerLine := fmt.Sprintf("%s %s (%d)", info.Icon, info.Title, len(picks))
+	// Subtitle as first content line
 	subtitleStyle := t.Renderer.NewStyle().Foreground(t.Subtext).Italic(true)
-	headerWithSubtitle := titleStyle.Render(headerLine) + "  " + subtitleStyle.Render(info.ShortDesc)
-	lines = append(lines, headerWithSubtitle)
+	lines = append(lines, subtitleStyle.Render(info.ShortDesc))
 
 	if len(picks) == 0 {
 		emptyStyle := t.Renderer.NewStyle().
 			Foreground(t.Subtext).
 			Italic(true)
 		lines = append(lines, emptyStyle.Render("No priority recommendations available. Run 'bt --robot-triage' to generate."))
-		return panelStyle.Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
+		return RenderTitledPanel(t.Renderer, lipgloss.JoinVertical(lipgloss.Left, lines...), PanelOpts{
+			Title:       panelTitle,
+			Width:       width + 2,
+			Height:      height + 2,
+			Focused:     isFocused,
+			BorderColor: &borderColor,
+			TitleColor:  &titleColor,
+		})
 	}
 
 	selectedIdx := m.selectedIndex[PanelPriority]
@@ -1175,7 +1171,14 @@ func (m *InsightsModel) renderPriorityPanel(width, height int, t Theme) string {
 		lines = append(lines, hashStyle.Render("📊 "+m.triageDataHash))
 	}
 
-	return panelStyle.Render(lipgloss.JoinVertical(lipgloss.Left, lines...))
+	return RenderTitledPanel(t.Renderer, lipgloss.JoinVertical(lipgloss.Left, lines...), PanelOpts{
+		Title:       panelTitle,
+		Width:       width + 2,
+		Height:      height + 2,
+		Focused:     isFocused,
+		BorderColor: &borderColor,
+		TitleColor:  &titleColor,
+	})
 }
 
 // renderMiniBar renders a compact progress bar for metric visualization (bv-93)
@@ -1232,36 +1235,24 @@ func (m *InsightsModel) renderMiniBar(label string, value float64, width int, t 
 
 // renderPriorityItem renders a single priority recommendation item
 func (m *InsightsModel) renderPriorityItem(pick analysis.TopPick, width, height int, isSelected bool, t Theme) string {
-	itemStyle := t.Renderer.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		Width(width-2).
-		Height(height).
-		Padding(0, 1)
-
+	// Border/title colors
+	borderColor := t.Secondary
+	titleColor := t.Primary
 	if isSelected {
-		itemStyle = itemStyle.BorderForeground(t.Primary)
-	} else {
-		itemStyle = itemStyle.BorderForeground(t.Secondary)
+		borderColor = t.Primary
 	}
+
+	// Border title: score badge
+	panelTitle := fmt.Sprintf("%.2f", pick.Score)
 
 	var sb strings.Builder
 
-	// Selection indicator + Score badge
+	// Selection indicator
 	if isSelected {
 		sb.WriteString(t.Renderer.NewStyle().Foreground(t.Primary).Bold(true).Render("▸ "))
 	} else {
 		sb.WriteString("  ")
 	}
-
-	// Score badge
-	scoreStr := fmt.Sprintf("%.2f", pick.Score)
-	scoreStyle := t.Renderer.NewStyle().
-		Background(ColorBgHighlight).
-		Foreground(t.Primary).
-		Bold(true).
-		Padding(0, 1)
-	sb.WriteString(strings.TrimRight(scoreStyle.Render(scoreStr), "\n\r"))
-	sb.WriteString("\n")
 
 	// Issue details
 	issue := m.issueMap[pick.ID]
@@ -1333,7 +1324,14 @@ func (m *InsightsModel) renderPriorityItem(pick analysis.TopPick, width, height 
 		sb.WriteString("\n")
 	}
 
-	return itemStyle.Render(sb.String())
+	return RenderTitledPanel(t.Renderer, sb.String(), PanelOpts{
+		Title:       panelTitle,
+		Width:       width,
+		Height:      height + 2,
+		Focused:     isSelected,
+		BorderColor: &borderColor,
+		TitleColor:  &titleColor,
+	})
 }
 
 // renderHeatmapPanel renders a priority/depth heatmap visualization (bv-95)
@@ -1342,34 +1340,36 @@ func (m *InsightsModel) renderPriorityItem(pick analysis.TopPick, width, height 
 func (m *InsightsModel) renderHeatmapPanel(width, height int, t Theme) string {
 	isFocused := m.focusedPanel == PanelPriority
 
+	// Border/title colors
 	borderColor := t.Secondary
+	titleColor := t.Secondary
 	if isFocused {
 		borderColor = t.Primary
+		titleColor = t.Primary
 	}
 
-	panelStyle := t.Renderer.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(borderColor).
-		Width(width).
-		Height(height).
-		Padding(0, 1)
+	panelTitle := "📊 Priority Heatmap"
+
+	// Helper to wrap content in the titled panel
+	wrapPanel := func(content string) string {
+		return RenderTitledPanel(t.Renderer, content, PanelOpts{
+			Title:       panelTitle,
+			Width:       width + 2,
+			Height:      height + 2,
+			Focused:     isFocused,
+			BorderColor: &borderColor,
+			TitleColor:  &titleColor,
+		})
+	}
 
 	// If in drill-down mode, delegate to drill-down renderer
 	if m.heatmapDrill {
-		return panelStyle.Render(m.renderHeatmapDrillDown(width-4, t))
+		return wrapPanel(m.renderHeatmapDrillDown(width-4, t))
 	}
 
 	var sb strings.Builder
 
-	// Header with navigation hint
-	titleStyle := t.Renderer.NewStyle().Bold(true)
-	if isFocused {
-		titleStyle = titleStyle.Foreground(t.Primary)
-	} else {
-		titleStyle = titleStyle.Foreground(t.Secondary)
-	}
-	sb.WriteString(strings.TrimRight(titleStyle.Render("📊 Priority Heatmap"), "\n\r"))
-	sb.WriteString("  ")
+	// Navigation hint as subtitle
 	subtitleStyle := t.Renderer.NewStyle().Foreground(t.Subtext).Italic(true)
 	sb.WriteString(strings.TrimRight(subtitleStyle.Render("j/k/h/l=navigate Enter=drill H=toggle"), "\n\r"))
 	sb.WriteString("\n")
@@ -1379,7 +1379,7 @@ func (m *InsightsModel) renderHeatmapPanel(width, height int, t Theme) string {
 			Foreground(t.Subtext).
 			Italic(true)
 		sb.WriteString(strings.TrimRight(emptyStyle.Render("No data available. Run 'bt --robot-triage' to generate."), "\n\r"))
-		return panelStyle.Render(sb.String())
+		return wrapPanel(sb.String())
 	}
 
 	// Use cached grid data (populated by rebuildHeatmapGrid)
@@ -1491,7 +1491,7 @@ func (m *InsightsModel) renderHeatmapPanel(width, height int, t Theme) string {
 	sb.WriteString("\n")
 	sb.WriteString(m.renderHeatmapLegend(t))
 
-	return panelStyle.Render(sb.String())
+	return wrapPanel(sb.String())
 }
 
 // renderHeatmapCell renders a single cell with background gradient color (bv-t4yg)
@@ -1926,8 +1926,9 @@ func (m *InsightsModel) renderCalculationProofMD(selectedID string) string {
 
 func (m *InsightsModel) renderDetailPanel(width, height int, t Theme) string {
 	// Update viewport dimensions
-	vpWidth := width - 4   // Account for border
-	vpHeight := height - 4 // Account for border and scroll hint
+	// RenderTitledPanel innerWidth = width - 2; leave 2 chars visual margin
+	vpWidth := width - 4
+	vpHeight := height - 2 // Account for scroll hint (border handled by panel)
 	if vpWidth < 20 {
 		vpWidth = 20
 	}
@@ -1978,18 +1979,14 @@ Navigate to a metric panel and select an item to view its details here.
 		sb.WriteString(strings.TrimRight(scrollHint, "\n\r"))
 	}
 
-	// Panel border style
-	// Note: Width is omitted intentionally - lipgloss Width() on bordered content
-	// with embedded newlines causes extra blank lines to appear due to per-line
-	// width padding. The border + content naturally determines the panel width.
-	// Height is safe to set for vertical space utilization.
-	panelStyle := t.Renderer.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(t.Primary).
-		Height(height).
-		Padding(0, 1)
-
-	return panelStyle.Render(sb.String())
+	bc := t.Primary
+	return RenderTitledPanel(t.Renderer, sb.String(), PanelOpts{
+		Title:       "Details",
+		Width:       width,
+		Height:      height + 2,
+		BorderColor: &bc,
+		TitleColor:  &bc,
+	})
 }
 
 // formatMetricValue formats a metric value nicely

@@ -967,7 +967,7 @@ func (b BoardModel) View(width, height int) string {
 		baseWidth--
 	}
 
-	colHeight := height - 6 // Account for column header + title bar (bv-tf6j)
+	colHeight := height - 4 // Account for title bar + column borders (header now in border title)
 	if colHeight < 8 {
 		colHeight = 8
 	}
@@ -1055,23 +1055,12 @@ func (b BoardModel) View(width, height int) string {
 			}
 		}
 
-		headerStyle := t.Renderer.NewStyle().
-			Width(baseWidth + borderOverhead). // Match total column width (content + border)
-			Align(lipgloss.Center).
-			Bold(true).
-			Padding(0, 1)
-
+		// Border/title colors for column
+		colBorderColor := t.Secondary
+		colTitleColor := columnColors[colIdx]
 		if isFocused {
-			headerStyle = headerStyle.
-				Background(columnColors[colIdx]).
-				Foreground(ColorBgContrast)
-		} else {
-			headerStyle = headerStyle.
-				Background(ColorBgSubtle).
-				Foreground(columnColors[colIdx])
+			colBorderColor = columnColors[colIdx]
 		}
-
-		header := headerStyle.Render(headerText)
 
 		// Calculate visible rows (bv-1daf: 3 content lines)
 		// Card height breakdown:
@@ -1102,8 +1091,8 @@ func (b BoardModel) View(width, height int) string {
 		}
 
 		// Render cards
-		// Card width = baseWidth - 4 to fit inside column padding (2) and
-		// leave room for the card's own border (2). Clamp to minimum of 6.
+		// Card width = baseWidth - 4 to fit inside column (border 2 + visual margin 2).
+		// Clamp to minimum of 6.
 		cardWidth := baseWidth - 4
 		if cardWidth < 6 {
 			cardWidth = 6
@@ -1148,20 +1137,15 @@ func (b BoardModel) View(width, height int) string {
 		// Column content
 		content := lipgloss.JoinVertical(lipgloss.Left, cards...)
 
-		// Column container
-		colStyle := t.Renderer.NewStyle().
-			Width(baseWidth).
-			Height(colHeight).
-			Padding(0, 1).
-			Border(lipgloss.NormalBorder())
-
-		if isFocused {
-			colStyle = colStyle.BorderForeground(columnColors[colIdx])
-		} else {
-			colStyle = colStyle.BorderForeground(t.Secondary)
-		}
-
-		column := lipgloss.JoinVertical(lipgloss.Center, header, colStyle.Render(content))
+		// Titled panel with header in border
+		column := RenderTitledPanel(t.Renderer, content, PanelOpts{
+			Title:       headerText,
+			Width:       baseWidth + borderOverhead,
+			Height:      colHeight + 2,
+			Focused:     isFocused,
+			BorderColor: &colBorderColor,
+			TitleColor:  &colTitleColor,
+		})
 		renderedCols = append(renderedCols, column)
 	}
 
@@ -1297,17 +1281,16 @@ func (b BoardModel) renderCard(issue model.Issue, width int, selected bool, colI
 
 	if selected {
 		cardStyle = cardStyle.
-			Background(t.Highlight).
-			Border(lipgloss.NormalBorder()).
+			Border(lipgloss.RoundedBorder()).
 			BorderForeground(borderColor)
 	} else if isCurrentMatch {
 		cardStyle = cardStyle.
 			Background(lipgloss.AdaptiveColor{Light: "#e4dce8", Dark: "#2a1e30"}).
-			Border(lipgloss.NormalBorder()).
+			Border(lipgloss.RoundedBorder()).
 			BorderForeground(borderColor)
 	} else {
 		cardStyle = cardStyle.
-			Border(lipgloss.NormalBorder()).
+			Border(lipgloss.RoundedBorder()).
 			BorderForeground(borderColor)
 	}
 
@@ -1590,8 +1573,8 @@ func (b *BoardModel) renderDetailPanel(width, height int) string {
 	issue := b.SelectedIssue()
 
 	// Update viewport dimensions
-	vpWidth := width - 4 // Account for border
-	vpHeight := height - 6
+	vpWidth := width - 4                // Account for panel border + visual margin
+	vpHeight := height - 2 // Account for scroll hint (border + title handled by panel)
 	if vpWidth < 20 {
 		vpWidth = 20
 	}
@@ -1726,21 +1709,12 @@ func (b *BoardModel) renderDetailPanel(width, height int) string {
 		sb.WriteString(scrollHint)
 	}
 
-	// Panel border style
-	panelStyle := t.Renderer.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(t.Primary).
-		Width(width).
-		Height(height).
-		Padding(0, 1)
-
-	// Title bar
-	titleBar := t.Renderer.NewStyle().
-		Bold(true).
-		Foreground(t.Primary).
-		Width(width - 4).
-		Align(lipgloss.Center).
-		Render("Details")
-
-	return panelStyle.Render(lipgloss.JoinVertical(lipgloss.Left, titleBar, sb.String()))
+	bc := t.Primary
+	return RenderTitledPanel(t.Renderer, sb.String(), PanelOpts{
+		Title:       "Details",
+		Width:       width + 2,
+		Height:      height + 2,
+		BorderColor: &bc,
+		TitleColor:  &bc,
+	})
 }
