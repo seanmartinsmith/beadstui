@@ -4835,7 +4835,7 @@ func (m Model) renderSplitView() string {
 
 	// m.list.Width() is the inner width (set in Update)
 	listInnerWidth := m.list.Width()
-	panelHeight := m.height - 1
+	panelHeight := m.height - 2 // leave room for footer
 
 	// Create header row for list
 	headerStyle := t.Renderer.NewStyle().
@@ -4889,14 +4889,14 @@ func (m Model) renderSplitView() string {
 	listView := RenderTitledPanel(t.Renderer, listContent, PanelOpts{
 		Title:   "Issues",
 		Width:   listOuterWidth,
-		Height:  panelHeight + 2,
+		Height:  panelHeight,
 		Focused: m.focused == focusList,
 	})
 
 	detailView := RenderTitledPanel(t.Renderer, m.viewport.View(), PanelOpts{
 		Title:   "Details",
 		Width:   detailOuterWidth,
-		Height:  panelHeight + 2,
+		Height:  panelHeight,
 		Focused: m.focused == focusDetail,
 	})
 

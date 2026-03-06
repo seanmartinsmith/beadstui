@@ -11,7 +11,7 @@ import (
 type BorderVariant int
 
 const (
-	BorderNormal BorderVariant = iota // ┌─┐│└┘
+	BorderNormal BorderVariant = iota // ╭─╮│╰╯
 	BorderThick                       // ┏━┓┃┗┛
 	BorderDouble                      // ╔═╗║╚╝
 )
@@ -33,16 +33,16 @@ func borderChars(v BorderVariant) (tl, tr, bl, br, h, vert string) {
 	case BorderDouble:
 		return "╔", "╗", "╚", "╝", "═", "║"
 	default:
-		return "┌", "┐", "└", "┘", "─", "│"
+		return "╭", "╮", "╰", "╯", "─", "│"
 	}
 }
 
 // RenderTitledPanel draws a box with the title inlined in the top border.
 // The content is placed inside with no extra padding beyond the border itself.
 //
-//	┌─ Title ──────────────────┐
+//	╭─ Title ──────────────────╮
 //	│ content                  │
-//	└──────────────────────────┘
+//	╰──────────────────────────╯
 func RenderTitledPanel(r *lipgloss.Renderer, content string, opts PanelOpts) string {
 	if opts.Width < 4 {
 		opts.Width = 4

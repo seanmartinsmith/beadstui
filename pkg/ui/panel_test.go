@@ -19,10 +19,10 @@ func TestRenderTitledPanel_Basic(t *testing.T) {
 	if !strings.Contains(result, "Test") {
 		t.Error("panel should contain title")
 	}
-	if !strings.Contains(result, "┌") {
+	if !strings.Contains(result, "╭") {
 		t.Error("panel should have top-left corner")
 	}
-	if !strings.Contains(result, "┘") {
+	if !strings.Contains(result, "╯") {
 		t.Error("panel should have bottom-right corner")
 	}
 	if !strings.Contains(result, "hello") {
@@ -37,7 +37,7 @@ func TestRenderTitledPanel_NoTitle(t *testing.T) {
 	})
 
 	// Should have full horizontal line on top (no title text)
-	if !strings.Contains(result, "┌") {
+	if !strings.Contains(result, "╭") {
 		t.Error("no-title panel should still have border")
 	}
 	if !strings.Contains(result, "content") {
@@ -126,8 +126,8 @@ func TestRenderTitledPanel_Variants(t *testing.T) {
 		Variant: BorderDouble,
 	})
 
-	if !strings.Contains(normal, "┌") {
-		t.Error("normal variant should use ┌")
+	if !strings.Contains(normal, "╭") {
+		t.Error("normal variant should use ╭")
 	}
 	if !strings.Contains(thick, "┏") {
 		t.Error("thick variant should use ┏")
