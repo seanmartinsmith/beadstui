@@ -162,6 +162,7 @@ This ADR is the spine. Each work stream spawns its own plan (linked above). With
 | 2026-03-05 (session 8) | **Titled panels pass**: Converted insights (6 render functions), board (column headers, cards, detail), and help overlay to RenderTitledPanel. Added BorderColor/TitleColor overrides to PanelOpts. Board cards use RoundedBorder + border-only selection (no background fill). Help overlay uses per-section colors from Tomorrow Night gradient. Added 2 panel tests. |
 | 2026-03-05 (session 9) | **ADR review findings cleanup**: Fixed 14 stale `bv` CLI refs in AGENTS.md (cmd/bv->cmd/bt, bv --search->bt --search, bv --recipe->bt --recipe, section title bv->bt). Verified items 1-3 and 5 from session 6 findings were already fixed. Fixed insights detail panel viewport off-by-one (vpHeight was height-2, should be height-1 - eliminated blank line at bottom). Remaining `bv` refs in AGENTS.md are intentional: bv-graph-wasm (WASM module), bv-123/bv-xxx (beads issue ID format). Line 855 beads_rust ref is inside historical quote block. |
 | 2026-03-05 (session 7) | **Visual overhaul: Tomorrow Night theme + lazygit borders**. Replaced Dracula purple palette with Tomorrow Night + matcha-dark-sea teal. Implemented theme config system: embedded defaults YAML, layered loading (~/.config/bt/theme.yaml, .bt/theme.yaml), globals bridge. Swapped all ~44 Color* vars in styles.go. Updated inline hex in 15+ files (board.go, model.go, delegate.go, actionable.go, insights.go, history.go, shortcuts_sidebar.go, velocity_comparison.go, visuals.go, tutorial_*.go, markdown.go, agent_prompt_modal.go, cass_session_modal.go). Created TitledPanel helper (panel.go) with box-drawing borders and inlined titles. Converted split view to titled "Issues"/"Details" panels. Switched all borders from RoundedBorder to NormalBorder (except graph nodes). Title case convention (BOARD->Board, HISTORY->History, DETAILS->Details). Added ColorTextSecondary and ColorBgContrast tokens. New files: theme_loader.go, panel.go, defaults/theme.yaml, theme_loader_test.go, panel_test.go. Regenerated graph golden files. 18 new/fixed tests pass, no new test failures introduced. |
+| 2026-03-07 (session 10) | **Beads migration**: Renamed issue prefix bv->bt (553 issues via `bd rename-prefix`). Set beads.role=maintainer. Local folder renamed beads_viewer->bt. Claude memory copied to new project path. Updated ADR remaining work refs bv->bt, MEMORY.md beads refs bv->bt, fixed stale .gitignore comment. |
 
 ## Review Criteria (Next Session)
 
@@ -192,7 +193,7 @@ Before moving to new feature work, a fresh session should review this ADR's exec
 - [ ] Background worker reconnects after Dolt comes back
 
 ### Remaining Work (not part of this ADR, but surface for prioritization)
-- bv-9x36: Dolt disconnect UX polish
+- bt-9x36: Dolt disconnect UX polish
 - README prose rewrite
-- bv-xft1: beads data separation (deferred)
+- bt-xft1: beads data separation (deferred)
 - 11 pre-existing test failures (Windows path separators, golden files, tutorial tests)
