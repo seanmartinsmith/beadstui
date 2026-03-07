@@ -44,3 +44,13 @@ beads.right.meta.json
 
 # Local history backups
 .bd_history/
+
+# Dolt server runtime files
+dolt/
+dolt-server.pid
+dolt-server.port
+dolt-server.log
+dolt-server.lock
+dolt-server.activity
+dolt-monitor.pid
+dolt-monitor.pid.lock

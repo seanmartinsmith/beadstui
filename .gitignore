@@ -62,3 +62,6 @@ target-*/
 
 # Crush tool logs (ephemeral)
 .crush/
+
+# bv (beads viewer) local config and caches
+.bv/
