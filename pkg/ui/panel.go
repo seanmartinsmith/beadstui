@@ -24,6 +24,10 @@ type PanelOpts struct {
 	Focused bool
 	Variant BorderVariant
 
+	// CenterTitle places the title in the center of the top border
+	// instead of left-aligned.
+	CenterTitle bool
+
 	// Optional color overrides. When non-nil these take precedence
 	// over the default focus-based colors, letting callers supply
 	// custom border/title colors (e.g. per-column board colors,
@@ -100,15 +104,35 @@ func RenderTitledPanel(r *lipgloss.Renderer, content string, opts PanelOpts) str
 			titleDisplayWidth = runewidth.StringWidth(titleText)
 		}
 
-		top.WriteString(borderStyle.Render(h + " "))
-		top.WriteString(titleStyle.Render(titleText))
-		top.WriteString(borderStyle.Render(" "))
-
-		// Fill remaining with horizontal line
-		used := 2 + titleDisplayWidth + 1 // "─ " + title + " "
-		remaining := innerWidth - used
-		if remaining > 0 {
-			top.WriteString(borderStyle.Render(strings.Repeat(h, remaining)))
+		if opts.CenterTitle {
+			// Centered: ╭──── Title ─────╮
+			// Between corners: leftFill + " " + title + " " + rightFill = innerWidth
+			titleOverhead := titleDisplayWidth + 2 // " " + title + " "
+			fillTotal := innerWidth - titleOverhead
+			if fillTotal < 0 {
+				fillTotal = 0
+			}
+			leftFill := fillTotal / 2
+			rightFill := fillTotal - leftFill
+			if leftFill > 0 {
+				top.WriteString(borderStyle.Render(strings.Repeat(h, leftFill)))
+			}
+			top.WriteString(borderStyle.Render(" "))
+			top.WriteString(titleStyle.Render(titleText))
+			top.WriteString(borderStyle.Render(" "))
+			if rightFill > 0 {
+				top.WriteString(borderStyle.Render(strings.Repeat(h, rightFill)))
+			}
+		} else {
+			// Left-aligned: ╭─ Title ──────╮
+			titleChunk := 2 + titleDisplayWidth + 1 // "─ " + title + " "
+			fillTotal := innerWidth - titleChunk
+			top.WriteString(borderStyle.Render(h + " "))
+			top.WriteString(titleStyle.Render(titleText))
+			top.WriteString(borderStyle.Render(" "))
+			if fillTotal > 0 {
+				top.WriteString(borderStyle.Render(strings.Repeat(h, fillTotal)))
+			}
 		}
 	} else {
 		top.WriteString(borderStyle.Render(strings.Repeat(h, innerWidth)))

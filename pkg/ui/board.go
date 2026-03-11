@@ -173,7 +173,8 @@ func sortIssuesByPriorityAndDate(issues []model.Issue) {
 // - Priority/Type modes: hides empty columns to save space
 func (b *BoardModel) updateActiveColumns() {
 	// Determine whether to show empty columns
-	showEmpty := b.shouldShowEmptyColumns()
+	// Auto-hide empty columns when a card is expanded to give it more width
+	showEmpty := b.shouldShowEmptyColumns() && !b.HasExpandedCard()
 
 	b.activeColIdx = nil
 	for i := 0; i < 4; i++ {
@@ -882,11 +883,14 @@ func (b *BoardModel) ToggleExpand() {
 		// Expand selected card (auto-collapses previous)
 		b.expandedCardID = selected.ID
 	}
+	// Recompute visible columns (empty cols auto-hide when expanded)
+	b.updateActiveColumns()
 }
 
 // CollapseExpanded collapses any currently expanded card
 func (b *BoardModel) CollapseExpanded() {
 	b.expandedCardID = ""
+	b.updateActiveColumns()
 }
 
 // IsCardExpanded returns true if the specified card is currently expanded
@@ -1543,8 +1547,9 @@ func (b BoardModel) renderExpandedCard(issue model.Issue, width int, _, _ int) s
 	// TIMESTAMPS
 	// ══════════════════════════════════════════════════════════════════════════
 	timeStyle := t.Renderer.NewStyle().Foreground(t.Secondary).Italic(true)
-	timestamps := timeStyle.Render(fmt.Sprintf("Created: %s | Updated: %s",
-		FormatTimeRel(issue.CreatedAt), FormatTimeRel(issue.UpdatedAt)))
+	timestamps := timeStyle.Render(fmt.Sprintf("Created: %s (%s) | Updated: %s (%s)",
+		FormatTimeAbs(issue.CreatedAt), FormatTimeRel(issue.CreatedAt),
+		FormatTimeAbs(issue.UpdatedAt), FormatTimeRel(issue.UpdatedAt)))
 
 	// ══════════════════════════════════════════════════════════════════════════
 	// ASSEMBLE CARD
@@ -1680,8 +1685,8 @@ func (b *BoardModel) renderDetailPanel(width, height int) string {
 
 			// Timestamps
 			content.WriteString("\n---\n\n")
-			content.WriteString(fmt.Sprintf("*Created: %s*\n", FormatTimeRel(issue.CreatedAt)))
-			content.WriteString(fmt.Sprintf("*Updated: %s*\n", FormatTimeRel(issue.UpdatedAt)))
+			content.WriteString(fmt.Sprintf("*Created: %s (%s)*\n", FormatTimeAbs(issue.CreatedAt), FormatTimeRel(issue.CreatedAt)))
+			content.WriteString(fmt.Sprintf("*Updated: %s (%s)*\n", FormatTimeAbs(issue.UpdatedAt), FormatTimeRel(issue.UpdatedAt)))
 
 			// Render with markdown
 			rendered := content.String()
