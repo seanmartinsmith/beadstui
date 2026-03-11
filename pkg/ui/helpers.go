@@ -37,6 +37,14 @@ func FormatTimeRel(t time.Time) string {
 	}
 }
 
+// FormatTimeAbs returns an absolute timestamp string (e.g., "2026-03-11 14:30").
+func FormatTimeAbs(t time.Time) string {
+	if t.IsZero() {
+		return "unknown"
+	}
+	return t.Local().Format("2006-01-02 15:04")
+}
+
 // truncateRunesHelper truncates a string to max visual width (cells), adding suffix if needed.
 // Uses go-runewidth to handle wide characters correctly.
 func truncateRunesHelper(s string, maxWidth int, suffix string) string {

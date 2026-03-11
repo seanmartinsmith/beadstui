@@ -143,6 +143,9 @@ type DataSourceReloadMsg struct {
 // semanticDebounceTickMsg is sent after debounce delay to trigger semantic computation
 type semanticDebounceTickMsg struct{}
 
+// statusClearMsg is sent after a delay to auto-clear transient status messages.
+type statusClearMsg struct{ seq uint64 }
+
 // workerPollTickMsg drives a small background-mode status refresh (spinner + freshness) (bv-9nfy).
 type workerPollTickMsg struct{}
 
@@ -471,6 +474,7 @@ type Model struct {
 	// Status message (for temporary feedback)
 	statusMsg     string
 	statusIsError bool
+	statusSeq     uint64 // incremented on each status set; used for auto-clear
 
 	// Workspace mode state
 	workspaceMode    bool            // True when viewing multiple repos
@@ -1297,6 +1301,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.labelDashboard.SetSize(m.width, m.height-1)
 		}
 
+	case statusClearMsg:
+		// Only clear if no newer status has been set since this timer was scheduled
+		if msg.seq == m.statusSeq {
+			m.statusMsg = ""
+			m.statusIsError = false
+		}
+
 	case SemanticIndexReadyMsg:
 		m.semanticIndexBuilding = false
 		if msg.Error != nil {
@@ -1894,16 +1905,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if firstSnapshot {
 			// For the initial background snapshot, avoid flashing "Reloaded" at startup.
 			if msg.Snapshot.LoadWarningCount > 0 {
-				m.statusMsg = fmt.Sprintf("Loaded %d issues (%d warnings)", len(m.issues), msg.Snapshot.LoadWarningCount)
+				cmds = append(cmds, m.setTransientStatus(
+					fmt.Sprintf("Loaded %d issues (%d warnings)", len(m.issues), msg.Snapshot.LoadWarningCount), 3*time.Second))
 			} else {
 				m.statusMsg = ""
 			}
 		} else if msg.Snapshot.LoadWarningCount > 0 {
-			m.statusMsg = fmt.Sprintf("Reloaded %d issues (%d warnings)", len(m.issues), msg.Snapshot.LoadWarningCount)
+			cmds = append(cmds, m.setTransientStatus(
+				fmt.Sprintf("Reloaded %d issues (%d warnings)", len(m.issues), msg.Snapshot.LoadWarningCount), 3*time.Second))
 		} else {
-			m.statusMsg = fmt.Sprintf("Reloaded %d issues", len(m.issues))
+			cmds = append(cmds, m.setTransientStatus(
+				fmt.Sprintf("Reloaded %d issues", len(m.issues)), 3*time.Second))
 		}
-		m.statusIsError = false
 
 		// Wait for Phase 2 if not ready
 		if msg.Snapshot.Analysis != nil {
@@ -1943,8 +1956,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(cmds...)
 		}
 		m.replaceIssues(msg.Issues)
-		m.statusMsg = fmt.Sprintf("Reloaded %d issues", len(msg.Issues))
-		m.statusIsError = false
+		cmds = append(cmds, m.setTransientStatus(
+			fmt.Sprintf("Reloaded %d issues", len(msg.Issues)), 3*time.Second))
 		cmds = append(cmds, WaitForPhase2Cmd(m.analysis))
 		return m, tea.Batch(cmds...)
 
@@ -2372,6 +2385,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		m.statusIsError = false
+		// Schedule auto-clear of the reload status message
+		m.statusSeq++
+		seq := m.statusSeq
+		cmds = append(cmds, tea.Tick(3*time.Second, func(time.Time) tea.Msg {
+			return statusClearMsg{seq: seq}
+		}))
 		// Invalidate label-derived caches
 		m.labelHealthCached = false
 		m.labelDrilldownCache = make(map[string][]model.Issue)
@@ -4935,7 +4954,7 @@ func (m *Model) renderHelpOverlay() string {
 		{Light: "#eab700", Dark: "#f0c674"}, // Yellow
 	}
 
-	// Helper to render a section panel
+	// Helper to render a section panel (auto-sized to content)
 	renderPanel := func(title string, icon string, colorIdx int, shortcuts []struct{ key, desc string }) string {
 		color := colors[colorIdx%len(colors)]
 
@@ -4956,19 +4975,32 @@ func (m *Model) renderHelpOverlay() string {
 		keyCol += 2 // gap after key
 
 		var lines []string
+		maxLineWidth := 0
 		for _, s := range shortcuts {
 			key := keyStyle.Render(s.key)
 			pad := keyCol - lipgloss.Width(s.key)
 			if pad < 1 {
 				pad = 1
 			}
-			lines = append(lines, key+strings.Repeat(" ", pad)+descStyle.Render(s.desc))
+			line := " " + key + strings.Repeat(" ", pad) + descStyle.Render(s.desc)
+			lines = append(lines, line)
+			if w := lipgloss.Width(line); w > maxLineWidth {
+				maxLineWidth = w
+			}
+		}
+
+		// Size panel to content: content width + border (2) + right padding (1)
+		panelWidth := maxLineWidth + 3
+		titleWidth := lipgloss.Width(icon+" "+title) + 6 // title + border decorations
+		if titleWidth > panelWidth {
+			panelWidth = titleWidth
 		}
 
 		content := lipgloss.JoinVertical(lipgloss.Left, lines...)
 		return RenderTitledPanel(t.Renderer, content, PanelOpts{
 			Title:       icon + " " + title,
-			Width:       colWidth + 2,
+			Width:       panelWidth,
+			CenterTitle: true,
 			BorderColor: &color,
 			TitleColor:  &color,
 		})
@@ -5078,7 +5110,7 @@ func (m *Model) renderHelpOverlay() string {
 		renderPanel("Actions", "⚡", 1, actionsSection),
 	}
 
-	// Arrange panels into columns
+	// Arrange panels into columns (centered within each column)
 	var columns []string
 	panelsPerCol := (len(panels) + numCols - 1) / numCols
 
@@ -5093,11 +5125,15 @@ func (m *Model) renderHelpOverlay() string {
 		}
 
 		colPanels := panels[start:end]
-		columns = append(columns, lipgloss.JoinVertical(lipgloss.Left, colPanels...))
+		columns = append(columns, lipgloss.JoinVertical(lipgloss.Center, colPanels...))
 	}
 
-	// Join columns horizontally
-	body := lipgloss.JoinHorizontal(lipgloss.Top, columns...)
+	// Join columns horizontally with gap
+	gap := strings.Repeat(" ", gapWidth)
+	body := lipgloss.JoinHorizontal(lipgloss.Top, columns[0])
+	for _, col := range columns[1:] {
+		body = lipgloss.JoinHorizontal(lipgloss.Top, body, gap, col)
+	}
 
 	// Subtitle line inside panel
 	subtitleStyle := t.Renderer.NewStyle().
@@ -5118,6 +5154,7 @@ func (m *Model) renderHelpOverlay() string {
 		Title:       "Keyboard Shortcuts",
 		Width:       outerWidth,
 		Focused:     true,
+		CenterTitle: true,
 		BorderColor: &bc,
 		TitleColor:  &bc,
 	})
@@ -5587,6 +5624,17 @@ func (m Model) renderLabelGraphAnalysis() string {
 		lipgloss.Center,
 		content,
 	)
+}
+
+// setTransientStatus sets a status message that auto-clears after the given duration.
+func (m *Model) setTransientStatus(msg string, d time.Duration) tea.Cmd {
+	m.statusMsg = msg
+	m.statusIsError = false
+	m.statusSeq++
+	seq := m.statusSeq
+	return tea.Tick(d, func(time.Time) tea.Msg {
+		return statusClearMsg{seq: seq}
+	})
 }
 
 func (m *Model) renderFooter() string {
@@ -6863,9 +6911,9 @@ func (m *Model) updateViewportContent() {
 	sb.WriteString(fmt.Sprintf("| **%s** | **%s** | %s | @%s | %s |\n\n",
 		item.ID,
 		strings.ToUpper(string(item.Status)),
-		GetPriorityIcon(item.Priority),
+		fmt.Sprintf("%s P%d", GetPriorityIcon(item.Priority), item.Priority),
 		item.Assignee,
-		item.CreatedAt.Format("2006-01-02"),
+		FormatTimeAbs(item.CreatedAt),
 	))
 
 	// Labels (bv-f103 fix: display labels in detail view)
