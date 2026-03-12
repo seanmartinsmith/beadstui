@@ -4925,24 +4925,7 @@ func (m Model) renderSplitView() string {
 func (m *Model) renderHelpOverlay() string {
 	t := m.theme
 
-	// Determine layout based on terminal width
-	// 3 columns for wide (≥120), 2 columns for medium (≥80), 1 column for narrow
-	numCols := 3
-	if m.width < 120 {
-		numCols = 2
-	}
-	if m.width < 80 {
-		numCols = 1
-	}
-
-	// Calculate column width (accounting for gaps and outer padding)
-	totalPadding := 8 // outer padding
-	gapWidth := 2     // gap between columns
-	availableWidth := m.width - totalPadding - (gapWidth * (numCols - 1))
-	colWidth := availableWidth / numCols
-	if colWidth < 28 {
-		colWidth = 28
-	}
+	gapWidth := 2 // gap between columns
 
 	// Tomorrow Night gradient for help overlay sections
 	colors := []lipgloss.AdaptiveColor{
@@ -5097,43 +5080,32 @@ func (m *Model) renderHelpOverlay() string {
 		{"polling", "Live reload uses polling"},
 	}
 
-	// Build panels
-	panels := []string{
+	// Build shortcut panels (4 columns x 2 rows)
+	row1 := []string{
 		renderPanel("Navigation", "🧭", 0, navSection),
-		renderPanel("Views", "👁", 1, viewsSection),
-		renderPanel("Global", "🌐", 2, globalSection),
 		renderPanel("Filters & Sort", "🔍", 3, filterSection),
 		renderPanel("Graph View", "📊", 4, graphSection),
-		renderPanel("Insights", "💡", 5, insightsSection),
-		renderPanel("Status", "🩺", 2, statusSection),
 		renderPanel("History", "📜", 0, historySection),
+	}
+	row2 := []string{
+		renderPanel("Views", "👁", 1, viewsSection),
+		renderPanel("Global", "🌐", 2, globalSection),
+		renderPanel("Insights", "💡", 5, insightsSection),
 		renderPanel("Actions", "⚡", 1, actionsSection),
 	}
 
-	// Arrange panels into columns (centered within each column)
-	var columns []string
-	panelsPerCol := (len(panels) + numCols - 1) / numCols
-
-	for col := 0; col < numCols; col++ {
-		start := col * panelsPerCol
-		end := start + panelsPerCol
-		if end > len(panels) {
-			end = len(panels)
-		}
-		if start >= len(panels) {
-			break
-		}
-
-		colPanels := panels[start:end]
-		columns = append(columns, lipgloss.JoinVertical(lipgloss.Center, colPanels...))
-	}
-
-	// Join columns horizontally with gap
+	// Build each row with gaps
 	gap := strings.Repeat(" ", gapWidth)
-	body := lipgloss.JoinHorizontal(lipgloss.Top, columns[0])
-	for _, col := range columns[1:] {
-		body = lipgloss.JoinHorizontal(lipgloss.Top, body, gap, col)
+	joinRow := func(panels []string) string {
+		result := panels[0]
+		for _, p := range panels[1:] {
+			result = lipgloss.JoinHorizontal(lipgloss.Top, result, gap, p)
+		}
+		return result
 	}
+	topRow := joinRow(row1)
+	botRow := joinRow(row2)
+	body := lipgloss.JoinVertical(lipgloss.Center, topRow, botRow)
 
 	// Subtitle line inside panel
 	subtitleStyle := t.Renderer.NewStyle().
@@ -5159,14 +5131,24 @@ func (m *Model) renderHelpOverlay() string {
 		TitleColor:  &bc,
 	})
 
-	// Center in viewport
-	return lipgloss.Place(
+	// Status indicators legend - pinned right above the status bar
+	statusPanel := renderPanel("Status Indicators", "🩺", 2, statusSection)
+	statusHeight := lipgloss.Height(statusPanel)
+
+	// Center shortcuts in the space above the status legend
+	upperHeight := m.height - 1 - statusHeight // -1 for footer
+	shortcutsCentered := lipgloss.Place(
 		m.width,
-		m.height-1,
+		upperHeight,
 		lipgloss.Center,
 		lipgloss.Center,
 		helpBox,
 	)
+
+	// Status panel centered, flush against footer
+	statusCentered := lipgloss.PlaceHorizontal(m.width, lipgloss.Center, statusPanel)
+
+	return shortcutsCentered + "\n" + statusCentered
 }
 
 func (m Model) renderLabelHealthDetail(lh analysis.LabelHealth) string {
