@@ -476,6 +476,10 @@ type Model struct {
 	statusIsError bool
 	statusSeq     uint64 // incremented on each status set; used for auto-clear
 
+	// Dolt connection state (bt-3ynd)
+	lastDoltVerified time.Time // Last successful Dolt poll (even if no data changed)
+	doltConnected    bool      // True when Dolt poll loop is healthy
+
 	// Workspace mode state
 	workspaceMode    bool            // True when viewing multiple repos
 	availableRepos   []string        // List of repo prefixes available
@@ -1961,12 +1965,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, WaitForPhase2Cmd(m.analysis))
 		return m, tea.Batch(cmds...)
 
+	case DoltVerifiedMsg:
+		// Dolt poll succeeded - data is verified current (bt-3ynd).
+		m.lastDoltVerified = msg.At
+		m.doltConnected = true
+		if m.backgroundWorker != nil {
+			cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.backgroundWorker))
+		}
+		return m, tea.Batch(cmds...)
+
 	case DoltConnectionStatusMsg:
 		// Dolt poll loop reporting connectivity change (bv-1p3a).
 		if msg.Connected {
+			m.doltConnected = true
 			m.statusMsg = "Dolt server reconnected"
 			m.statusIsError = false
 		} else {
+			m.doltConnected = false
 			m.statusMsg = fmt.Sprintf("Dolt server unreachable (retrying in %ds)", msg.BackoffSeconds)
 			m.statusIsError = true
 		}
@@ -5080,32 +5095,47 @@ func (m *Model) renderHelpOverlay() string {
 		{"polling", "Live reload uses polling"},
 	}
 
-	// Build shortcut panels (4 columns x 2 rows)
-	row1 := []string{
+	// Build shortcut panels - order matters for responsive layout pairing
+	panels := []string{
 		renderPanel("Navigation", "🧭", 0, navSection),
-		renderPanel("Filters & Sort", "🔍", 3, filterSection),
-		renderPanel("Graph View", "📊", 4, graphSection),
-		renderPanel("History", "📜", 0, historySection),
-	}
-	row2 := []string{
 		renderPanel("Views", "👁", 1, viewsSection),
+		renderPanel("Filters & Sort", "🔍", 3, filterSection),
 		renderPanel("Global", "🌐", 2, globalSection),
+		renderPanel("Graph View", "📊", 4, graphSection),
 		renderPanel("Insights", "💡", 5, insightsSection),
+		renderPanel("History", "📜", 0, historySection),
 		renderPanel("Actions", "⚡", 1, actionsSection),
 	}
 
 	// Build each row with gaps
 	gap := strings.Repeat(" ", gapWidth)
-	joinRow := func(panels []string) string {
-		result := panels[0]
-		for _, p := range panels[1:] {
+	joinRow := func(row []string) string {
+		result := row[0]
+		for _, p := range row[1:] {
 			result = lipgloss.JoinHorizontal(lipgloss.Top, result, gap, p)
 		}
 		return result
 	}
-	topRow := joinRow(row1)
-	botRow := joinRow(row2)
-	body := lipgloss.JoinVertical(lipgloss.Center, topRow, botRow)
+
+	// Responsive layout based on terminal width (bt-aog1)
+	var body string
+	switch {
+	case m.width >= 140:
+		// Wide: 4x2 grid
+		row1 := joinRow([]string{panels[0], panels[2], panels[4], panels[6]})
+		row2 := joinRow([]string{panels[1], panels[3], panels[5], panels[7]})
+		body = lipgloss.JoinVertical(lipgloss.Center, row1, row2)
+	case m.width >= 80:
+		// Medium: 2x4 grid
+		r1 := joinRow([]string{panels[0], panels[1]})
+		r2 := joinRow([]string{panels[2], panels[3]})
+		r3 := joinRow([]string{panels[4], panels[5]})
+		r4 := joinRow([]string{panels[6], panels[7]})
+		body = lipgloss.JoinVertical(lipgloss.Center, r1, r2, r3, r4)
+	default:
+		// Narrow: single column
+		body = lipgloss.JoinVertical(lipgloss.Center, panels...)
+	}
 
 	// Subtitle line inside panel
 	subtitleStyle := t.Renderer.NewStyle().
@@ -5132,23 +5162,33 @@ func (m *Model) renderHelpOverlay() string {
 	})
 
 	// Status indicators legend - pinned right above the status bar
+	// On narrow terminals, skip it to save vertical space (bt-aog1)
+	helpBoxHeight := lipgloss.Height(helpBox)
 	statusPanel := renderPanel("Status Indicators", "🩺", 2, statusSection)
 	statusHeight := lipgloss.Height(statusPanel)
+	showStatus := m.height > helpBoxHeight+statusHeight+4 // enough room for both
 
-	// Center shortcuts in the space above the status legend
-	upperHeight := m.height - 1 - statusHeight // -1 for footer
-	shortcutsCentered := lipgloss.Place(
+	if showStatus {
+		upperHeight := m.height - 1 - statusHeight // -1 for footer
+		shortcutsCentered := lipgloss.Place(
+			m.width,
+			upperHeight,
+			lipgloss.Center,
+			lipgloss.Center,
+			helpBox,
+		)
+		statusCentered := lipgloss.PlaceHorizontal(m.width, lipgloss.Center, statusPanel)
+		return shortcutsCentered + "\n" + statusCentered
+	}
+
+	// No room for status panel - just center the shortcuts
+	return lipgloss.Place(
 		m.width,
-		upperHeight,
+		m.height-1,
 		lipgloss.Center,
 		lipgloss.Center,
 		helpBox,
 	)
-
-	// Status panel centered, flush against footer
-	statusCentered := lipgloss.PlaceHorizontal(m.width, lipgloss.Center, statusPanel)
-
-	return shortcutsCentered + "\n" + statusCentered
 }
 
 func (m Model) renderLabelHealthDetail(lh analysis.LabelHealth) string {
@@ -5829,11 +5869,18 @@ func (m *Model) renderFooter() string {
 			}
 		}
 
-		var snapshotAge time.Duration
-		hasSnapshotAge := false
-		if m.snapshot != nil && !m.snapshot.CreatedAt.IsZero() {
-			snapshotAge = time.Since(m.snapshot.CreatedAt)
-			hasSnapshotAge = true
+		// Freshness age: prefer lastDoltVerified (bt-3ynd) over snapshot.CreatedAt.
+		// When Dolt polling is active, "verified" means "poll confirmed data is current"
+		// even if no new snapshot was built (no data changed). This prevents false STALE
+		// indicators when data simply hasn't changed.
+		var freshnessAge time.Duration
+		hasFreshnessAge := false
+		if !m.lastDoltVerified.IsZero() {
+			freshnessAge = time.Since(m.lastDoltVerified)
+			hasFreshnessAge = true
+		} else if m.snapshot != nil && !m.snapshot.CreatedAt.IsZero() {
+			freshnessAge = time.Since(m.snapshot.CreatedAt)
+			hasFreshnessAge = true
 		}
 
 		state := m.backgroundWorker.State()
@@ -5877,20 +5924,20 @@ func (m *Model) renderFooter() string {
 				Padding(0, 1)
 			text = fmt.Sprintf("⚠ bg %s (%s)", lastErr.Phase, formatAge(time.Since(lastErr.Time)))
 
-		case hasSnapshotAge && snapshotAge >= freshnessStaleThreshold():
+		case hasFreshnessAge && freshnessAge >= freshnessStaleThreshold():
 			style = lipgloss.NewStyle().
 				Background(ColorBgHighlight).
 				Foreground(ColorDanger).
 				Bold(true).
 				Padding(0, 1)
-			text = fmt.Sprintf("⚠ STALE: %s ago", formatAge(snapshotAge))
+			text = fmt.Sprintf("⚠ STALE: %s ago", formatAge(freshnessAge))
 
-		case hasSnapshotAge && snapshotAge >= freshnessWarnThreshold():
+		case hasFreshnessAge && freshnessAge >= freshnessWarnThreshold():
 			style = lipgloss.NewStyle().
 				Background(ColorBgHighlight).
 				Foreground(ColorWarning).
 				Padding(0, 1)
-			text = fmt.Sprintf("⚠ %s ago", formatAge(snapshotAge))
+			text = fmt.Sprintf("⚠ %s ago", formatAge(freshnessAge))
 
 		default:
 			if health.RecoveryCount > 0 {

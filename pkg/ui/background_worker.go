@@ -193,6 +193,7 @@ type BackgroundWorker struct {
 	generation        uint64
 	lastHash          string // Content hash of last processed snapshot (for dedup)
 	forceNext         bool   // Force the next snapshot build even if content hash matches
+	lastDoltPollOK    time.Time // Last successful Dolt poll (even if no changes detected)
 	currentRecipe     *recipe.Recipe
 	currentRecipeID   string // Recipe identifier for snapshot rebuild keys
 	currentRecipeHash string // Recipe fingerprint for rebuild keys (bv-4ilb)
@@ -1187,6 +1188,17 @@ func (w *BackgroundWorker) LastError() *WorkerError {
 	return w.lastError
 }
 
+// LastDoltPollOK returns the time of the last successful Dolt poll.
+// Returns zero time if no poll has succeeded yet.
+func (w *BackgroundWorker) LastDoltPollOK() time.Time {
+	if w == nil {
+		return time.Time{}
+	}
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.lastDoltPollOK
+}
+
 func (w *BackgroundWorker) WatcherInfo() (polling bool, fsType watcher.FilesystemType, pollInterval time.Duration) {
 	if w == nil || w.watcher == nil {
 		return false, watcher.FSTypeUnknown, 0
@@ -1806,6 +1818,13 @@ type SnapshotErrorMsg struct {
 	Recoverable bool // True if we expect to recover on next file change
 }
 
+// DoltVerifiedMsg is sent on every successful Dolt poll to update the freshness
+// indicator. This separates "data verified current" from "snapshot was built",
+// fixing the false STALE indicator when data is unchanged (bt-3ynd).
+type DoltVerifiedMsg struct {
+	At time.Time
+}
+
 // DoltConnectionStatusMsg notifies the UI about Dolt server connectivity changes.
 // Sent on first failure and on recovery - not on every poll attempt.
 type DoltConnectionStatusMsg struct {
@@ -1983,6 +2002,13 @@ func (w *BackgroundWorker) startDoltPollLoop() {
 				consecutiveFails = 0
 				ticker.Reset(baseInterval)
 			}
+
+			// Record successful verification and notify UI (bt-3ynd)
+			now := time.Now()
+			w.mu.Lock()
+			w.lastDoltPollOK = now
+			w.mu.Unlock()
+			w.send(DoltVerifiedMsg{At: now})
 		}
 	}
 }
