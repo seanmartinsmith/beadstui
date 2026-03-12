@@ -560,6 +560,36 @@ func TestRenderFooter_FreshnessIndicatorLevels(t *testing.T) {
 	}
 }
 
+func TestRenderFooter_DoltVerifiedPreventsStale(t *testing.T) {
+	m := NewModel(nil, nil, "", nil)
+	m.width = 140
+	m.currentFilter = "all"
+
+	m.backgroundWorker = &BackgroundWorker{}
+	// Snapshot was built 5 minutes ago (would normally show STALE)
+	m.snapshot = &DataSnapshot{CreatedAt: time.Now().Add(-5 * time.Minute)}
+
+	// Without Dolt verification, this should show STALE
+	out := m.renderFooter()
+	if !strings.Contains(out, "STALE") {
+		t.Fatalf("expected STALE without Dolt verification, got: %q", out)
+	}
+
+	// With recent Dolt verification (bt-3ynd), STALE should be suppressed
+	m.lastDoltVerified = time.Now().Add(-3 * time.Second)
+	out = m.renderFooter()
+	if strings.Contains(out, "STALE") || strings.Contains(out, "⚠") {
+		t.Fatalf("expected no staleness indicator with recent Dolt verification, got: %q", out)
+	}
+
+	// If Dolt verification itself is old, show STALE based on verification age
+	m.lastDoltVerified = time.Now().Add(-3 * time.Minute)
+	out = m.renderFooter()
+	if !strings.Contains(out, "STALE") {
+		t.Fatalf("expected STALE when Dolt verification is old, got: %q", out)
+	}
+}
+
 func TestView_LoadingScreen_TransitionsOnFirstSnapshotOrError(t *testing.T) {
 	issues := []model.Issue{{
 		ID:        "L-1",
@@ -1303,5 +1333,32 @@ func TestHelpOverlayScroll(t *testing.T) {
 	}
 	if m.helpScroll != 0 {
 		t.Fatalf("expected helpScroll=0 after Space, got %d", m.helpScroll)
+	}
+}
+
+func TestRenderHelpOverlay_ResponsiveLayout(t *testing.T) {
+	// Test that help overlay renders without panic at various widths (bt-aog1)
+	widths := []struct {
+		name  string
+		width int
+	}{
+		{"wide", 200},
+		{"medium", 100},
+		{"narrow", 60},
+		{"tiny", 40},
+	}
+
+	for _, tc := range widths {
+		t.Run(tc.name, func(t *testing.T) {
+			m := NewModel(nil, nil, "", nil)
+			m.width = tc.width
+			m.height = 40
+			m.showHelp = true
+			m.focused = focusHelp
+			out := m.renderHelpOverlay()
+			if !strings.Contains(out, "Keyboard Shortcuts") {
+				t.Fatalf("help overlay should contain title at width=%d", tc.width)
+			}
+		})
 	}
 }
