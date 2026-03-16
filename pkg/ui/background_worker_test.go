@@ -1320,6 +1320,10 @@ not json
 }
 
 func TestBackgroundWorker_PreservesSnapshotOnPermissionErrorAndRecovers(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires Unix file permissions")
+	}
+
 	tmpDir := t.TempDir()
 	beadsPath := filepath.Join(tmpDir, "beads.jsonl")
 
