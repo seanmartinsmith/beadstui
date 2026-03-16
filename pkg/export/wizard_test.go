@@ -125,7 +125,8 @@ func TestWizardConfigPath(t *testing.T) {
 
 func TestSaveAndLoadWizardConfig(t *testing.T) {
 	tmpDir := t.TempDir()
-	t.Setenv("HOME", tmpDir)
+	wizardConfigHome = tmpDir
+	defer func() { wizardConfigHome = "" }()
 
 	loaded, err := LoadWizardConfig()
 	if err != nil {

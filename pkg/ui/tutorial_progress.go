@@ -20,9 +20,10 @@ type TutorialProgress struct {
 // tutorialProgressManager handles saving/loading of tutorial progress.
 // Uses a mutex for thread-safe operations.
 type tutorialProgressManager struct {
-	mu       sync.Mutex
-	progress *TutorialProgress
-	dirty    bool // Has unsaved changes
+	mu         sync.Mutex
+	progress   *TutorialProgress
+	dirty      bool   // Has unsaved changes
+	configHome string // override for testing; empty = use os.UserHomeDir()
 }
 
 var (
@@ -53,12 +54,20 @@ func TutorialProgressPath() string {
 	return filepath.Join(home, ".config", "bt", "tutorial-progress.json")
 }
 
+// progressPath returns the config file path, using configHome if set.
+func (m *tutorialProgressManager) progressPath() string {
+	if m.configHome != "" {
+		return filepath.Join(m.configHome, ".config", "bt", "tutorial-progress.json")
+	}
+	return TutorialProgressPath()
+}
+
 // Load reads tutorial progress from disk.
 func (m *tutorialProgressManager) Load() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	path := TutorialProgressPath()
+	path := m.progressPath()
 	if path == "" {
 		return nil // Can't determine path, start fresh
 	}
@@ -103,7 +112,7 @@ func (m *tutorialProgressManager) Save() error {
 		return nil // Nothing to save
 	}
 
-	path := TutorialProgressPath()
+	path := m.progressPath()
 	if path == "" {
 		return nil // Can't determine path
 	}
