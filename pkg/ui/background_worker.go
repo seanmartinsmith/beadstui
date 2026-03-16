@@ -10,7 +10,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"strconv"
@@ -169,7 +168,7 @@ type workerMetrics struct {
 type BackgroundWorker struct {
 	// Configuration
 	beadsPath  string
-	beadsDir   string // .beads directory; used for Dolt activity keepalive
+	beadsDir   string // .beads directory; used for port resolution and reconnect
 	dataSource *datasource.DataSource
 	debounceDelay     time.Duration
 	heartbeatInterval time.Duration
@@ -194,6 +193,7 @@ type BackgroundWorker struct {
 	lastHash          string // Content hash of last processed snapshot (for dedup)
 	forceNext         bool   // Force the next snapshot build even if content hash matches
 	lastDoltPollOK    time.Time // Last successful Dolt poll (even if no changes detected)
+	doltReconnectFn   func(beadsDir string) error // Called to restart Dolt on consecutive poll failures (bt-07jp)
 	currentRecipe     *recipe.Recipe
 	currentRecipeID   string // Recipe identifier for snapshot rebuild keys
 	currentRecipeHash string // Recipe fingerprint for rebuild keys (bv-4ilb)
@@ -254,7 +254,7 @@ type IdleGCConfig struct {
 // WorkerConfig configures the BackgroundWorker.
 type WorkerConfig struct {
 	BeadsPath  string
-	BeadsDir   string                 // .beads directory path; used for Dolt activity keepalive
+	BeadsDir   string                 // .beads directory path; used for port resolution and reconnect
 	DataSource *datasource.DataSource // Optional: enables Dolt polling when set
 	DebounceDelay time.Duration
 	MessageBuffer int // Buffer size for worker -> UI messages (default: 8)
@@ -267,6 +267,10 @@ type WorkerConfig struct {
 	HeartbeatTimeout  time.Duration // default: 30s
 	ProcessingTimeout time.Duration // default: 30s
 	MaxRecoveries     int           // default: 3
+
+	// DoltReconnectFn is called after 3 consecutive poll failures to restart Dolt (bt-07jp).
+	// If nil, no auto-reconnect is attempted.
+	DoltReconnectFn func(beadsDir string) error
 }
 
 // NewBackgroundWorker creates a new background worker.
@@ -355,6 +359,7 @@ func NewBackgroundWorker(cfg WorkerConfig) (*BackgroundWorker, error) {
 		idleGCCheckEvery:  idleGCConfig.CheckEvery,
 		idleGCGCPercent:   idleGCConfig.GCPercent,
 		idleGCFunc:        runtime.GC,
+		doltReconnectFn:   cfg.DoltReconnectFn,
 	}
 	w.lastActivityUnixNano.Store(time.Now().UnixNano())
 
@@ -627,6 +632,14 @@ func (w *BackgroundWorker) Start() error {
 }
 
 // Stop halts the background worker and cleans up resources.
+// SetDoltReconnectFn sets the reconnect function after construction (bt-07jp).
+// Safe to call before Start().
+func (w *BackgroundWorker) SetDoltReconnectFn(fn func(beadsDir string) error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.doltReconnectFn = fn
+}
+
 // Stop is idempotent - calling it multiple times has no effect.
 func (w *BackgroundWorker) Stop() {
 	w.mu.Lock()
@@ -1983,6 +1996,26 @@ func (w *BackgroundWorker) startDoltPollLoop() {
 					})
 				}
 
+				// Auto-reconnect: after 3 consecutive failures, try to restart Dolt (bt-07jp)
+				if consecutiveFails == 3 && w.doltReconnectFn != nil && w.beadsDir != "" {
+					w.logEvent(LogLevelInfo, "dolt_reconnect_attempt", nil)
+					w.send(DoltConnectionStatusMsg{
+						Connected:        false,
+						Error:            pollErr,
+						ConsecutiveFails: consecutiveFails,
+					})
+					if reconErr := w.doltReconnectFn(w.beadsDir); reconErr != nil {
+						w.logEvent(LogLevelWarn, "dolt_reconnect_failed", map[string]any{
+							"error": reconErr.Error(),
+						})
+					} else {
+						w.logEvent(LogLevelInfo, "dolt_reconnect_success", nil)
+						consecutiveFails = 0
+						ticker.Reset(baseInterval)
+						continue
+					}
+				}
+
 				// Apply exponential backoff by resetting the ticker
 				backoff := w.doltBackoff(baseInterval, consecutiveFails, maxBackoff)
 				ticker.Reset(backoff)
@@ -2016,17 +2049,6 @@ func (w *BackgroundWorker) startDoltPollLoop() {
 // doltPollOnce performs a single Dolt poll cycle. Returns nil on success.
 // On the first successful poll it records the baseline modification time without
 // triggering a refresh. On subsequent polls it triggers a refresh if data changed.
-// touchDoltActivity writes the current Unix epoch to .beads/dolt-server.activity
-// to prevent the Dolt idle monitor from killing the server while bt is running.
-// Best-effort: errors are silently ignored since this is a keepalive, not a critical path.
-func (w *BackgroundWorker) touchDoltActivity() {
-	if w.beadsDir == "" {
-		return
-	}
-	path := filepath.Join(w.beadsDir, "dolt-server.activity")
-	_ = os.WriteFile(path, []byte(strconv.FormatInt(time.Now().Unix(), 10)), 0644)
-}
-
 func (w *BackgroundWorker) doltPollOnce(lastModified *time.Time, firstPoll *bool) error {
 	reader, err := datasource.NewDoltReader(*w.dataSource)
 	if err != nil {
@@ -2038,9 +2060,6 @@ func (w *BackgroundWorker) doltPollOnce(lastModified *time.Time, firstPoll *bool
 	if err != nil {
 		return fmt.Errorf("query: %w", err)
 	}
-
-	// Successful query - keep the Dolt idle monitor from killing the server
-	w.touchDoltActivity()
 
 	if *firstPoll {
 		*lastModified = modTime

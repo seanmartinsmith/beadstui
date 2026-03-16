@@ -29,6 +29,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/seanmartinsmith/beadstui/internal/datasource"
+	"github.com/seanmartinsmith/beadstui/internal/doltctl"
 	"github.com/seanmartinsmith/beadstui/pkg/agents"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/baseline"
@@ -1289,6 +1290,7 @@ func main() {
 	var issues []model.Issue
 	var beadsPath string
 	var selectedSource *datasource.DataSource
+	var serverState *doltctl.ServerState
 	var workspaceInfo *workspace.LoadSummary
 	var asOfResolved string // Resolved commit SHA when using --as-of (for robot output metadata)
 
@@ -1350,13 +1352,29 @@ func main() {
 	} else {
 		// Load from single repo (original behavior)
 		result, err := datasource.LoadIssuesWithSource("")
-		if err != nil {
-			if errors.Is(err, datasource.ErrDoltRequired) {
-				fmt.Fprintln(os.Stderr, "Dolt server not running. Start it with: bd dolt start")
-			} else {
-				fmt.Fprintf(os.Stderr, "Error loading beads: %v\n", err)
-				fmt.Fprintln(os.Stderr, "Make sure you are in a project initialized with 'bd init'.")
+		if errors.Is(err, datasource.ErrDoltRequired) {
+			// Dolt server not running - try to start it (bt-07jp)
+			beadsDir, bdErr := loader.GetBeadsDir("")
+			if bdErr != nil {
+				fmt.Fprintf(os.Stderr, "Error getting beads directory: %v\n", bdErr)
+				os.Exit(1)
 			}
+			ss, startErr := doltctl.EnsureServer(beadsDir, exec.LookPath)
+			if startErr != nil {
+				fmt.Fprintf(os.Stderr, "Failed to start Dolt server: %v\n", startErr)
+				os.Exit(1)
+			}
+			serverState = ss
+			// Retry data load now that server is running
+			result, err = datasource.LoadIssuesWithSource("")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Dolt connected but failed to load issues: %v\n", err)
+				serverState.StopIfOwned()
+				os.Exit(1)
+			}
+		} else if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading beads: %v\n", err)
+			fmt.Fprintln(os.Stderr, "Make sure you are in a project initialized with 'bd init'.")
 			os.Exit(1)
 		}
 		issues = result.Issues
@@ -4917,7 +4935,17 @@ func main() {
 
 	// Initial Model with live reload support
 	m := ui.NewModel(issues, activeRecipe, beadsPath, selectedSource)
-	defer m.Stop() // Clean up file watcher
+	if serverState != nil {
+		m.SetDoltServer(serverState, func(beadsDir string) error {
+			newState, err := doltctl.EnsureServer(beadsDir, exec.LookPath)
+			if err != nil {
+				return err
+			}
+			serverState.UpdateAfterReconnect(newState)
+			return nil
+		})
+	}
+	defer m.Stop() // Clean up file watcher + Dolt server
 
 	// Enable workspace mode if loading from workspace config
 	if workspaceInfo != nil {

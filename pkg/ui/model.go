@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -35,6 +36,12 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
+
+// DoltServerStopper is implemented by doltctl.ServerState. Keeps ui decoupled
+// from the doltctl package. Only the StopIfOwned method is called at shutdown.
+type DoltServerStopper interface {
+	StopIfOwned() error
+}
 
 // View width thresholds for adaptive layout
 const (
@@ -479,6 +486,7 @@ type Model struct {
 	// Dolt connection state (bt-3ynd)
 	lastDoltVerified time.Time // Last successful Dolt poll (even if no data changed)
 	doltConnected    bool      // True when Dolt poll loop is healthy
+	doltServer       DoltServerStopper // Dolt server lifecycle handle (bt-07jp); nil if not managed
 
 	// Workspace mode state
 	workspaceMode    bool            // True when viewing multiple repos
@@ -952,7 +960,7 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 
 	isDolt := ds != nil && ds.Type == datasource.SourceTypeDolt
 
-	// Compute beadsDir for Dolt activity keepalive
+	// Compute beadsDir for reconnect and port resolution
 	workerBeadsDir, _ := loader.GetBeadsDir("")
 
 	// Dolt sources always use the background worker for polling since there are
@@ -8120,6 +8128,21 @@ func (m *Model) Stop() {
 	if len(m.pooledIssues) > 0 {
 		loader.ReturnIssuePtrsToPool(m.pooledIssues)
 		m.pooledIssues = nil
+	}
+	// Stop Dolt server if bt started it (bt-07jp)
+	if m.doltServer != nil {
+		if err := m.doltServer.StopIfOwned(); err != nil {
+			log.Printf("WARN: failed to stop Dolt server: %v", err)
+		}
+	}
+}
+
+// SetDoltServer sets the Dolt server lifecycle handle for shutdown cleanup (bt-07jp).
+// Also wires auto-reconnect into the background worker's poll loop if one exists.
+func (m *Model) SetDoltServer(s DoltServerStopper, reconnectFn func(beadsDir string) error) {
+	m.doltServer = s
+	if m.backgroundWorker != nil && reconnectFn != nil {
+		m.backgroundWorker.SetDoltReconnectFn(reconnectFn)
 	}
 }
 
