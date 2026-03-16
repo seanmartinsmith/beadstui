@@ -205,6 +205,20 @@ Before moving to new feature work, a fresh session should review this ADR's exec
 
 ## Changelog
 
+### 2026-03-16 - Session 16: Codebase audit scan (Session A)
+- **Executed**: 9-team parallel codebase audit per `docs/plans/2026-03-16-codebase-audit-plan-v2.md`
+- **Reports**: 10 files in `docs/audit/` (teams 1a, 1b, 2, 3, 4, 5, 6, 7, 8a, 8b)
+- **Architecture map**: `docs/audit/architecture-map.md` - cross-domain dependency graph + findings synthesis
+- **Scale scanned**: ~88k production Go + ~102k test Go + ~7.5k Rust (WASM) + build/CI configs
+- **Key findings**:
+  - ~9.3k LOC identified as dead code candidates (watch.go, diff.go, SQLite reader, bv-graph-wasm/, deprecated analysis functions, broken Makefile)
+  - Stale `bv` naming persists in ~15 locations across tutorial content, correlation regexes, lock files, HTML markers, export output
+  - model.go (8.3k) and main.go (8.1k) are monoliths needing extraction
+  - No Dolt integration tests exist - production data path has zero E2E coverage
+  - pkg/correlation (~4.5k LOC) may lose its data source if upstream beads stops committing JSONL to git
+  - Deploy pipelines (GitHub Pages, Cloudflare) may be dead weight for personal TUI
+- **Next**: Session B = synthesis with user (review feature inventories, assign KEEP/CUT/IMPROVE verdicts, build ADR-002)
+
 ### 2026-03-16 - Session 15: Cross-platform test suite fixes (bt-s3xg et al)
 - **Result**: 39 failing Windows tests -> 0 failures across all 26 packages
 - **Phase 1**: Renamed bv->bt stragglers in 8 files (test binaries, blurb CLI refs, correlation regex/normalizeBeadID, gitignore, updater archive)
