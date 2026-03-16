@@ -27,7 +27,7 @@ Output artifacts:
 - **Production Go**: ~88k lines across ~200 non-test files
 - **Tests**: ~102k lines across ~230 test files
 - **Build**: `go build ./cmd/bt/` passes clean
-- **Tests**: `go test ./...` passes with **0 failures** across all 26 packages (fixed in session 15)
+- **Test suite**: `go test ./...` passes with **0 failures** across all 26 packages (fixed in session 15)
 - **Key directories**: cmd/bt/, pkg/ui/, pkg/analysis/, pkg/export/, pkg/agents/, internal/datasource/, internal/doltctl/, pkg/drift/, tests/
 - **Binary**: `bt` (installed via `go install ./cmd/bt/`)
 - **Module**: `github.com/seanmartinsmith/beadstui`
@@ -218,7 +218,7 @@ Launch 9 domain teams as parallel subagents. Each team gets:
 **Files**: All *_test.go files + tests/ directory
 
 **Key questions**:
-- Run `go test ./... 2>&1` and capture full output (use a 10-minute timeout). Expect 0 failures.
+- Run `go test ./... 2>&1` first (takes ~8 minutes - kick it off before reading code). Expect 0 failures. Capture full output.
 - Count tests per package - which packages have heavy coverage, which have sparse?
 - Are there E2E tests? What do they test? How long do they take?
 - Are there tests for dead/removed features that should be cleaned up?
