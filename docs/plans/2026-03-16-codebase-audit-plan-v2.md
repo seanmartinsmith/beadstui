@@ -8,7 +8,7 @@
 > **Why v2?** Sessions 14-15 rewrote the Dolt lifecycle and fixed all 39 Windows
 > test failures. The codebase state has changed materially since v1. This version
 > updates factual context and orientation so a fresh audit session starts from
-> accurate assumptions. The 8-team structure and report template are unchanged.
+> accurate assumptions. The team structure (now 9 teams, split from the original 8) and report template are largely unchanged.
 
 ## Goal
 
@@ -68,7 +68,7 @@ Before launching teams, the orchestrator should:
 
 ### Team Assignments
 
-Launch 8 domain teams as parallel subagents. Each team gets:
+Launch 9 domain teams as parallel subagents. Each team gets:
 1. Their domain-specific instructions (below)
 2. The **Report Template** (at the end of this section) - each team MUST produce output in this format
 3. Instruction to save their report to `docs/audit/team-{id}-{domain}.md`
@@ -232,9 +232,9 @@ Launch 8 domain teams as parallel subagents. Each team gets:
 
 ---
 
-#### Team 8: Supporting Packages & Config
-**Scope**: Everything not in Teams 1-7. This is a broad team - be thorough.
-**Files**: pkg/correlation/, pkg/hooks/, pkg/loader/, pkg/cass/, pkg/model/, pkg/recipe/, pkg/search/, pkg/metrics/, pkg/baseline/, pkg/drift/, pkg/instance/, pkg/watcher/, pkg/workspace/, pkg/updater/, pkg/debug/, pkg/util/, bv-graph-wasm/, go.mod, .goreleaser.yml, Makefile, ci.yml, and any other files not covered by Teams 1-7
+#### Team 8a: Supporting Packages (`pkg/` packages not covered by Teams 1-7)
+**Scope**: All pkg/ directories not assigned to other teams.
+**Files**: pkg/correlation/, pkg/hooks/, pkg/loader/, pkg/cass/, pkg/model/, pkg/recipe/, pkg/search/, pkg/metrics/, pkg/baseline/, pkg/drift/, pkg/instance/, pkg/watcher/, pkg/workspace/, pkg/updater/, pkg/debug/, pkg/util/
 
 **Key questions**:
 - For each package: what does it do? How big is it? Is it used? What depends on it?
@@ -247,13 +247,26 @@ Launch 8 domain teams as parallel subagents. Each team gets:
 - `pkg/updater/` - self-update mechanism. Does it work?
 - `pkg/instance/` - instance locking. How does it prevent multiple bt instances?
 - `pkg/watcher/` - file watching. What does it watch?
-- `bv-graph-wasm/` - still has old `bv` prefix. Is it wired into anything? Does it build?
-- What Go dependencies are in go.mod? Flag any that look unused or concerning.
-- What's the build/release pipeline? (goreleaser config, CI, Makefile targets)
 
 **Special attention to**:
 - `pkg/correlation/` is substantial (~several thousand lines with explicit matching, caching, incremental correlation, file indexing, orphan detection, causality analysis, cocommit analysis, reverse correlation). Is this complexity justified?
-- `bv-graph-wasm/` still has the old `bv` prefix - is it wired into anything?
+- Cross-cutting dependencies - which of these packages are used by many others vs only one consumer?
+
+---
+
+#### Team 8b: Build, Config & WASM
+**Scope**: Build pipeline, configuration, and anything not covered by other teams.
+**Files**: bv-graph-wasm/, go.mod, go.sum, .goreleaser.yml, Makefile, .github/workflows/ci.yml, and any other root-level files or directories not covered by Teams 1-8a
+
+**Key questions**:
+- `bv-graph-wasm/` - still has old `bv` prefix. Is it wired into anything? Does it build? Is it a separate Go module?
+- What Go dependencies are in go.mod? Flag any that look unused or concerning.
+- What's the build/release pipeline? (goreleaser config, CI, Makefile targets)
+- Are there any stale GitHub Actions or CI config?
+- Are there config files, scripts, or docs not covered elsewhere?
+
+**Special attention to**:
+- `bv-graph-wasm/` - is it wired into anything or is it dead weight?
 - Dependency audit - are there heavy deps pulled in for features we might cut?
 
 ---
@@ -300,7 +313,7 @@ Each team produces a report in this format, saved to `docs/audit/team-N-domain.m
 ### Session A Wrap-Up
 
 After all teams report, the orchestrator should:
-1. Verify all 8 reports saved to `docs/audit/`
+1. Verify all 9 reports saved to `docs/audit/`
 2. Read each report and synthesize `docs/audit/architecture-map.md` - a high-level diagram of how domains connect, data flows, and cross-domain dependencies
 3. Update ADR-001 changelog with session A entry
 4. Commit all audit artifacts to git
