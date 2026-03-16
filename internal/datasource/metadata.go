@@ -86,5 +86,19 @@ func ReadDoltConfig(beadsDir string) (DoltConfig, bool) {
 		}
 	}
 
+	// Env vars override everything (bt-specific, then beads-native).
+	// BT_DOLT_PORT is a bt-specific override for testing or non-standard setups.
+	if v := os.Getenv("BT_DOLT_PORT"); v != "" {
+		if p, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && p > 0 {
+			cfg.Port = p
+		}
+	}
+	// BEADS_DOLT_SERVER_PORT is the beads-native env var. Highest priority.
+	if v := os.Getenv("BEADS_DOLT_SERVER_PORT"); v != "" {
+		if p, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && p > 0 {
+			cfg.Port = p
+		}
+	}
+
 	return cfg, true
 }

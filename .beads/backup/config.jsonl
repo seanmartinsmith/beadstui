@@ -9,6 +9,8 @@
 {"key":"compact_tier2_dep_levels","value":"5"}
 {"key":"compaction_enabled","value":"false"}
 {"key":"issue_prefix","value":"bt"}
-{"key":"schema_version","value":"6"}
+{"key":"kv.memory.gastownhall-org-is-the-ecosystem-hub-gastownhall-beads","value":"gastownhall org is the ecosystem hub. gastownhall/beads is a fork of steveyegge/beads (steve's is still upstream). gastownhall/gascity replaces gastown as the orchestration SDK. Gas City likely uses port 3307. bt must not conflict with Gas City's Dolt server."}
+{"key":"kv.memory.wasteland-visibility-in-bt-is-a-planned-feature","value":"Wasteland visibility in bt is a planned feature - surface wanted items and reputation from wl CLI inside the TUI. Deferred but tracked. Shell out to wl binary, same pattern as using bd for writes. gastownhall/wasteland is the canonical repo."}
+{"key":"schema_version","value":"7"}
 {"key":"sync.mode","value":"dolt-native"}
 {"key":"types.custom","value":"molecule,gate,convoy,merge-request,slot,agent,role,rig,message"}

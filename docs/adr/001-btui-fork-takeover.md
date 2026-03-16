@@ -191,13 +191,27 @@ Before moving to new feature work, a fresh session should review this ADR's exec
 - [ ] .gitignore covers all runtime/build artifacts
 
 ### Architecture
-- [ ] Dolt-only enforcement works (stop Dolt, run bt, get clear error)
-- [ ] Dolt keepalive works (activity file updated during bt session)
+- [x] Dolt lifecycle: bt auto-starts Dolt via `bd dolt start`, PID-based ownership shutdown (bt-07jp)
+- [x] Dead keepalive code removed (touchDoltActivity - no consumer since beads v0.59)
+- [x] Auto-reconnect on server death (3 consecutive failures -> EnsureServer retry)
+- [x] Database identity check (SHOW TABLES LIKE 'issues')
 - [ ] Legacy SQLite/JSONL path still works for non-Dolt projects
-- [ ] Background worker reconnects after Dolt comes back
 
 ### Remaining Work (not part of this ADR, but surface for prioritization)
 - bt-9x36: Dolt disconnect UX polish
 - README prose rewrite
 - bt-xft1: beads data separation (deferred)
 - 11 pre-existing test failures (Windows path separators, golden files, tutorial tests)
+
+## Changelog
+
+### 2026-03-16 - Session 14: Dolt lifecycle adaptation (bt-07jp, bt-tebr)
+- **New module**: `internal/doltctl/` - server detection, startup via `bd dolt start`, PID-based ownership shutdown
+- **Port discovery**: added env var overrides (BEADS_DOLT_SERVER_PORT > BT_DOLT_PORT) to ReadDoltConfig
+- **Startup**: replaced hard-exit on ErrDoltRequired with EnsureServer + retry flow
+- **Shutdown**: Model.Stop() calls StopIfOwned() - only stops server if bt started it (PID verification)
+- **Auto-reconnect**: poll loop attempts EnsureServer after 3 consecutive failures
+- **Dead code removed**: touchDoltActivity (keepalive for removed idle monitor)
+- **Database identity check**: verifies `issues` table exists after connecting
+- **Tests**: 11 doltctl tests + 6 metadata tests (42 total in modified packages)
+- **Closed**: bt-07jp (P1), bt-tebr (P2 - subsumed)

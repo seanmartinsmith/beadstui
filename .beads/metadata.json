@@ -1,5 +1,6 @@
 {
   "database": "dolt",
   "backend": "dolt",
-  "dolt_database": "bv"
+  "dolt_database": "bv",
+  "project_id": "6fd231df-2e0b-4fb9-ac7a-d67b482b2a13"
 }

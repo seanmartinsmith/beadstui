@@ -65,3 +65,7 @@ target-*/
 
 # Legacy bv config (pre-rename) - .bt/ is the active pattern above
 .bv/
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db

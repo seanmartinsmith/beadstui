@@ -36,6 +36,14 @@ func NewDoltReader(source DataSource) (*DoltReader, error) {
 		return nil, fmt.Errorf("cannot reach Dolt server: %w", err)
 	}
 
+	// Verify this is actually a beads database, not a random MySQL service (bt-07jp)
+	var tableName string
+	err = db.QueryRow("SHOW TABLES LIKE 'issues'").Scan(&tableName)
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("connected but no 'issues' table found - wrong database?")
+	}
+
 	return &DoltReader{db: db, dsn: source.Path}, nil
 }
 
