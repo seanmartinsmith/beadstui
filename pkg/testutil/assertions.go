@@ -243,10 +243,14 @@ func (g *GoldenFile) Assert(actual string) {
 		g.t.Fatalf("failed to read golden file: %v", err)
 	}
 
-	if string(expected) != actual {
+	// Normalize line endings so golden files work cross-platform (Windows \r\n vs Unix \n)
+	expectedNorm := strings.ReplaceAll(string(expected), "\r\n", "\n")
+	actualNorm := strings.ReplaceAll(actual, "\r\n", "\n")
+
+	if expectedNorm != actualNorm {
 		// Find first difference for helpful error message
-		expectedLines := strings.Split(string(expected), "\n")
-		actualLines := strings.Split(actual, "\n")
+		expectedLines := strings.Split(expectedNorm, "\n")
+		actualLines := strings.Split(actualNorm, "\n")
 
 		for i := 0; i < len(expectedLines) || i < len(actualLines); i++ {
 			var expLine, actLine string
@@ -258,7 +262,7 @@ func (g *GoldenFile) Assert(actual string) {
 			}
 			if expLine != actLine {
 				g.t.Errorf("golden file mismatch at line %d:\nexpected: %s\nactual:   %s\n\nFull diff (expected vs actual):\n%s\nvs\n%s",
-					i+1, expLine, actLine, string(expected), actual)
+					i+1, expLine, actLine, expectedNorm, actualNorm)
 				return
 			}
 		}
