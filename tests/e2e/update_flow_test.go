@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -160,7 +161,7 @@ func TestRobotHelp_DocumentsUpdateFeatures(t *testing.T) {
 	// Verify robot-help documents update-related features
 	bv := buildBvBinary(t)
 
-	cmd := exec.Command(bv, "-robot-help")
+	cmd := exec.Command(bv, "--robot-help")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("-robot-help failed: %v\n%s", err, out)
@@ -194,7 +195,7 @@ func TestStartup_UpdateCheckDoesNotBlock(t *testing.T) {
 	}
 
 	// Run robot-insights which should complete quickly
-	cmd := exec.Command(bv, "-robot-insights")
+	cmd := exec.Command(bv, "--robot-insights")
 	cmd.Dir = tmpDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -212,6 +213,10 @@ func TestStartup_UpdateCheckDoesNotBlock(t *testing.T) {
 // ============================================================================
 
 func TestBinary_HasProperPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires Unix file permissions")
+	}
+
 	bv := buildBvBinary(t)
 
 	info, err := os.Stat(bv)

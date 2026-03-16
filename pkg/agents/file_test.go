@@ -3,6 +3,7 @@ package agents
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -191,6 +192,10 @@ func TestVerifyBlurbPresent(t *testing.T) {
 }
 
 func TestAtomicWritePreservesPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires Unix file permissions")
+	}
+
 	tmpDir := t.TempDir()
 	filePath := filepath.Join(tmpDir, "test.md")
 
@@ -327,6 +332,10 @@ func TestAppendBlurbNonExistentFile(t *testing.T) {
 }
 
 func TestAtomicWriteNoPermission(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires Unix file permissions")
+	}
+
 	// Skip on platforms where we can't test permissions properly
 	if os.Getuid() == 0 {
 		t.Skip("Skipping permission test as root")

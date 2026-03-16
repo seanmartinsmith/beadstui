@@ -3,6 +3,7 @@ package drift
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -518,6 +519,10 @@ func TestConfigLoadInvalidYAML(t *testing.T) {
 
 // TestConfigLoadPermissionError tests LoadConfig with an unreadable file
 func TestConfigLoadPermissionError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires Unix file permissions")
+	}
+
 	// Skip on systems where we can't reliably test permissions
 	if os.Getuid() == 0 {
 		t.Skip("Skipping permission test when running as root")
@@ -607,6 +612,10 @@ func TestConfigSaveMkdirError(t *testing.T) {
 
 // TestConfigSavePermissionError tests SaveConfig when directory is not writable
 func TestConfigSavePermissionError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires Unix file permissions")
+	}
+
 	// Skip on systems where we can't reliably test permissions
 	if os.Getuid() == 0 {
 		t.Skip("Skipping permission test when running as root")
