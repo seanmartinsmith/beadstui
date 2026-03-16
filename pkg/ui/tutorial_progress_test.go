@@ -79,13 +79,13 @@ func TestTutorialProgressManager_Basic(t *testing.T) {
 func TestTutorialProgressManager_SaveLoad(t *testing.T) {
 	// Create temp directory for testing
 	tmpDir := t.TempDir()
-	t.Setenv("HOME", tmpDir)
 
-	// Create a manager
+	// Create a manager with configHome override
 	pm := &tutorialProgressManager{
 		progress: &TutorialProgress{
 			ViewedPages: make(map[string]bool),
 		},
+		configHome: tmpDir,
 	}
 
 	// Mark some pages viewed
@@ -109,6 +109,7 @@ func TestTutorialProgressManager_SaveLoad(t *testing.T) {
 		progress: &TutorialProgress{
 			ViewedPages: make(map[string]bool),
 		},
+		configHome: tmpDir,
 	}
 	if err := pm2.Load(); err != nil {
 		t.Fatalf("Load failed: %v", err)
@@ -131,12 +132,12 @@ func TestTutorialProgressManager_SaveLoad(t *testing.T) {
 
 func TestTutorialProgressManager_LoadNonexistent(t *testing.T) {
 	tmpDir := t.TempDir()
-	t.Setenv("HOME", tmpDir)
 
 	pm := &tutorialProgressManager{
 		progress: &TutorialProgress{
 			ViewedPages: make(map[string]bool),
 		},
+		configHome: tmpDir,
 	}
 
 	// Load should succeed with empty progress when file doesn't exist
@@ -151,7 +152,6 @@ func TestTutorialProgressManager_LoadNonexistent(t *testing.T) {
 
 func TestTutorialProgressManager_LoadInvalidJSON(t *testing.T) {
 	tmpDir := t.TempDir()
-	t.Setenv("HOME", tmpDir)
 
 	// Create invalid JSON file
 	configPath := filepath.Join(tmpDir, ".config", "bt", "tutorial-progress.json")
@@ -166,6 +166,7 @@ func TestTutorialProgressManager_LoadInvalidJSON(t *testing.T) {
 		progress: &TutorialProgress{
 			ViewedPages: make(map[string]bool),
 		},
+		configHome: tmpDir,
 	}
 
 	// Load should return error but initialize with empty progress
@@ -320,18 +321,27 @@ func TestTutorialProgress_JSONSerialization(t *testing.T) {
 	}
 }
 
+// resetProgressSingleton pre-initializes the progress singleton with configHome
+// so that Load() reads from the test directory, not the real home.
+func resetProgressSingleton(configHome string) {
+	progressManager = &tutorialProgressManager{
+		progress: &TutorialProgress{
+			ViewedPages: make(map[string]bool),
+		},
+		configHome: configHome,
+	}
+	progressManager.Load()
+	// Mark Once as done so GetTutorialProgressManager() returns our pre-initialized manager
+	progressManagerOnce = sync.Once{}
+	progressManagerOnce.Do(func() {})
+}
+
 // Tests for TutorialModel integration methods (bv-j4og)
 
 func TestTutorialModel_SaveProgress(t *testing.T) {
-	// Create temp directory for testing
 	tmpDir := t.TempDir()
-	t.Setenv("HOME", tmpDir)
+	resetProgressSingleton(tmpDir)
 
-	// Reset singleton for test isolation
-	progressManager = nil
-	progressManagerOnce = sync.Once{}
-
-	// Create tutorial model
 	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
 	m := NewTutorialModel(theme)
 
@@ -357,13 +367,8 @@ func TestTutorialModel_SaveProgress(t *testing.T) {
 }
 
 func TestTutorialModel_LoadProgress(t *testing.T) {
-	// Create temp directory for testing
 	tmpDir := t.TempDir()
-	t.Setenv("HOME", tmpDir)
-
-	// Reset singleton
-	progressManager = nil
-	progressManagerOnce = sync.Once{}
+	resetProgressSingleton(tmpDir)
 
 	// Pre-populate progress file
 	pm := GetTutorialProgressManager()
@@ -374,8 +379,7 @@ func TestTutorialModel_LoadProgress(t *testing.T) {
 	}
 
 	// Reset singleton to simulate fresh start
-	progressManager = nil
-	progressManagerOnce = sync.Once{}
+	resetProgressSingleton(tmpDir)
 
 	// Create new tutorial model and load progress
 	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
@@ -392,13 +396,8 @@ func TestTutorialModel_LoadProgress(t *testing.T) {
 }
 
 func TestTutorialModel_HasViewedPage(t *testing.T) {
-	// Create temp directory for testing
 	tmpDir := t.TempDir()
-	t.Setenv("HOME", tmpDir)
-
-	// Reset singleton
-	progressManager = nil
-	progressManagerOnce = sync.Once{}
+	resetProgressSingleton(tmpDir)
 
 	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
 	m := NewTutorialModel(theme)
@@ -437,13 +436,8 @@ func TestGetTutorialProgressManager_Singleton(t *testing.T) {
 }
 
 func TestTutorialModel_SaveProgress_AllViewed(t *testing.T) {
-	// Create temp directory for testing
 	tmpDir := t.TempDir()
-	t.Setenv("HOME", tmpDir)
-
-	// Reset singleton
-	progressManager = nil
-	progressManagerOnce = sync.Once{}
+	resetProgressSingleton(tmpDir)
 
 	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
 	m := NewTutorialModel(theme)

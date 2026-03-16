@@ -894,11 +894,20 @@ func (w *Wizard) PrintSuccess(result *WizardResult) {
 	fmt.Println("")
 }
 
+// wizardConfigHome overrides os.UserHomeDir() for config paths in tests.
+var wizardConfigHome string
+
 // WizardConfigPath returns the path to the wizard config file.
 func WizardConfigPath() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
+	var home string
+	if wizardConfigHome != "" {
+		home = wizardConfigHome
+	} else {
+		var err error
+		home, err = os.UserHomeDir()
+		if err != nil {
+			return ""
+		}
 	}
 	return filepath.Join(home, ".config", "bt", "pages-wizard.json")
 }
