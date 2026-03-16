@@ -205,6 +205,18 @@ Before moving to new feature work, a fresh session should review this ADR's exec
 
 ## Changelog
 
+### 2026-03-16 - Session 15: Cross-platform test suite fixes (bt-s3xg et al)
+- **Result**: 39 failing Windows tests -> 0 failures across all 26 packages
+- **Phase 1**: Renamed bv->bt stragglers in 8 files (test binaries, blurb CLI refs, correlation regex/normalizeBeadID, gitignore, updater archive)
+- **Phase 1b**: Fixed ComputeUnblocks to filter blocking edges only (not parent-child); fixed slug collision test expectations
+- **Phase 2**: Used filepath.FromSlash/Join in cass and tree test expectations
+- **Phase 3**: Added configHome override to tutorial progress manager and wizard config path (HOME env doesn't work on Windows)
+- **Phase 4**: Added runtime.GOOS skip guards for 6 Unix-only permission tests
+- **Phase 5**: Skipped shell-dependent hooks tests on Windows; fixed robot flag parsing (-r shorthand conflict with --recipe)
+- **Phase 6**: Added .exe suffix to drift test binaries; fixed file locking (defer m.Stop(), CWD restore order)
+- **Phase 7**: Normalized \r\n line endings in golden file comparison
+- **Closed**: bt-s3xg, bt-zclt, bt-3ju6, bt-7y06, bt-ri5b, bt-dwbl, bt-kmxe, bt-mo7r (8 issues)
+
 ### 2026-03-16 - Session 14: Dolt lifecycle adaptation (bt-07jp, bt-tebr)
 - **New module**: `internal/doltctl/` - server detection, startup via `bd dolt start`, PID-based ownership shutdown
 - **Port discovery**: added env var overrides (BEADS_DOLT_SERVER_PORT > BT_DOLT_PORT) to ReadDoltConfig
