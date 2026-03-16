@@ -80,6 +80,17 @@ func (a *Analyzer) GetExecutionPlan() ExecutionPlan {
 	}
 }
 
+// hasBlockingDep returns true if the issue has a blocking dependency on the given target ID.
+// Only DepBlocks (and legacy empty-string) types count; parent-child and related do not.
+func hasBlockingDep(issue model.Issue, targetID string) bool {
+	for _, dep := range issue.Dependencies {
+		if dep != nil && dep.DependsOnID == targetID && dep.Type.IsBlocking() {
+			return true
+		}
+	}
+	return false
+}
+
 // computeUnblocks finds issues that would become actionable if the given issue is closed
 func (a *Analyzer) computeUnblocks(issueID string) []string {
 	var unblocks []string
@@ -106,22 +117,25 @@ func (a *Analyzer) computeUnblocks(issueID string) []string {
 			continue
 		}
 
-		// Check if this dependent is still blocked by OTHER open issues
-		// We look at its outgoing edges (dependencies)
-		otherBlockers := a.g.From(dependentNode.ID())
+		// The graph includes both blocking and parent-child edges (IsGraphEdge).
+		// Only blocking dependencies actually gate execution, so skip dependents
+		// that are connected via non-blocking edges (e.g. parent-child, related).
+		if !hasBlockingDep(dependentIssue, issueID) {
+			continue
+		}
+
+		// Check if this dependent is still blocked by OTHER open blocking dependencies.
+		// We consult the issue's dependency list directly rather than graph edges,
+		// because the graph includes non-blocking edge types.
 		stillBlocked := false
-
-		for otherBlockers.Next() {
-			otherBlockerNode := otherBlockers.Node()
-			otherBlockerID := a.nodeToID[otherBlockerNode.ID()]
-
-			// Ignore the issue we are "completing"
-			if otherBlockerID == issueID {
+		for _, dep := range dependentIssue.Dependencies {
+			if dep == nil || !dep.Type.IsBlocking() {
 				continue
 			}
-
-			// Check status of other blocker
-			if otherBlocker, exists := a.issueMap[otherBlockerID]; exists {
+			if dep.DependsOnID == issueID {
+				continue
+			}
+			if otherBlocker, exists := a.issueMap[dep.DependsOnID]; exists {
 				if !isClosedLikeStatus(otherBlocker.Status) {
 					stillBlocked = true
 					break

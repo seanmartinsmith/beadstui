@@ -32,7 +32,7 @@ func DefaultPatterns() []*regexp.Regexp {
 
 		// beads-123 or bead-123 format (common for this project)
 		regexp.MustCompile(`(?i)beads?[-_](\d+)`),
-		regexp.MustCompile(`(?i)bv[-_](\d+)`),
+		regexp.MustCompile(`(?i)bt[-_](\d+)`),
 
 		// Generic ID at word boundary (PROJECT-123 style)
 		regexp.MustCompile(`\b([A-Z]{2,10}-\d+)\b`),
@@ -110,7 +110,7 @@ type IDMatch struct {
 func normalizeBeadID(id string) string {
 	// Handle numeric-only IDs (from beads-123 pattern)
 	if _, err := fmt.Sscanf(id, "%d", new(int)); err == nil {
-		return "bv-" + id
+		return "bt-" + id
 	}
 	// Convert to lowercase for consistency
 	return strings.ToLower(id)
@@ -213,8 +213,8 @@ func (m *ExplicitMatcher) buildGrepPatterns(beadID string) []string {
 		strings.ToUpper(beadID),
 	}
 
-	// If it's a bv-XXX style ID, also search for beads-XXX
-	if strings.HasPrefix(id, "bv-") && numericPart != "" {
+	// If it's a bt-XXX style ID, also search for beads-XXX
+	if strings.HasPrefix(id, "bt-") && numericPart != "" {
 		patterns = append(patterns,
 			"beads-"+numericPart,
 			"bead-"+numericPart,

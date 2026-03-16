@@ -32,14 +32,14 @@ This project uses [beadstui](https://github.com/seanmartinsmith/beadstui) for is
 
 ` + "```" + `bash
 # View issues (launches TUI - avoid in automated sessions)
-bv
+bt
 
 # CLI commands for agents (use these instead)
 bd ready              # Show issues ready to work (no blockers)
-br list --status=open # All open issues
-br show <id>          # Full issue details with dependencies
-br create --title="..." --type=task --priority=2
-br update <id> --status=in_progress
+bd list --status=open # All open issues
+bd show <id>          # Full issue details with dependencies
+bd create --title="..." --type=task --priority=2
+bd update <id> --status=in_progress
 bd close <id> --reason="Completed"
 bd close <id1> <id2>  # Close multiple issues at once
 bd sync               # Commit and push changes
@@ -48,7 +48,7 @@ bd sync               # Commit and push changes
 ### Workflow Pattern
 
 1. **Start**: Run ` + "`" + `bd ready` + "`" + ` to find actionable work
-2. **Claim**: Use ` + "`" + `br update <id> --status=in_progress` + "`" + `
+2. **Claim**: Use ` + "`" + `bd update <id> --status=in_progress` + "`" + `
 3. **Work**: Implement the task
 4. **Complete**: Use ` + "`" + `bd close <id>` + "`" + `
 5. **Sync**: Always run ` + "`" + `bd sync` + "`" + ` at session end
@@ -77,7 +77,7 @@ git push                # Push to remote
 
 - Check ` + "`" + `bd ready` + "`" + ` at session start to find available work
 - Update status as you work (in_progress → closed)
-- Create new issues with ` + "`" + `br create` + "`" + ` when you discover tasks
+- Create new issues with ` + "`" + `bd create` + "`" + ` when you discover tasks
 - Use descriptive titles and set appropriate priority/type
 - Always ` + "`" + `bd sync` + "`" + ` before ending session
 

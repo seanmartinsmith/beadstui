@@ -171,7 +171,7 @@ func TestExtractBinary_NestedPath(t *testing.T) {
 	tw := tar.NewWriter(gzw)
 
 	hdr := &tar.Header{
-		Name: "some/nested/path/bv",
+		Name: "some/nested/path/bt",
 		Mode: 0o755,
 		Size: int64(len(content)),
 	}

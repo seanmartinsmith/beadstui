@@ -209,7 +209,7 @@ func TestGenerateMarkdown_TOCAnchorsMatchHeadings(t *testing.T) {
 func TestGenerateMarkdown_TOCAnchorsDisambiguateSlugCollisions(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "BT_1", Title: "Same Title", Status: model.StatusOpen, IssueType: model.TypeBug},
-		{ID: "BV-1", Title: "Same Title", Status: model.StatusOpen, IssueType: model.TypeBug},
+		{ID: "BT-1", Title: "Same Title", Status: model.StatusOpen, IssueType: model.TypeBug},
 	}
 
 	md, err := GenerateMarkdown(issues, "Report")

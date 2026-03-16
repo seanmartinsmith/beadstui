@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -55,11 +56,15 @@ func TestRobotFlagsOutputJSON(t *testing.T) {
 		t.Fatalf("write beads dir: %v", err)
 	}
 
-	// Build a temporary bv binary using the repo module
-	bin := filepath.Join(tmpDir, "bt")
-	build := exec.Command("go", "build", "-C", repoRoot(t), "-o", bin, "./cmd/bv")
+	// Build a temporary bt binary using the repo module
+	binName := "bt"
+	if runtime.GOOS == "windows" {
+		binName += ".exe"
+	}
+	bin := filepath.Join(tmpDir, binName)
+	build := exec.Command("go", "build", "-C", repoRoot(t), "-o", bin, "./cmd/bt")
 	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("failed to build bv: %v\n%s", err, out)
+		t.Fatalf("failed to build bt: %v\n%s", err, out)
 	}
 
 	run := func(args ...string) []byte {
