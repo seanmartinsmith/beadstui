@@ -56,7 +56,7 @@ func TestIsBVInGitignore(t *testing.T) {
 		},
 		{
 			name:     "has .bt",
-			content:  "node_modules/\n.bv\n*.log\n",
+			content:  "node_modules/\n.bt\n*.log\n",
 			expected: true,
 		},
 		{
@@ -261,12 +261,12 @@ func TestEnsureBVInGitignore(t *testing.T) {
 		}
 	})
 
-	t.Run("recognizes existing .bv pattern", func(t *testing.T) {
+	t.Run("recognizes existing .bt pattern", func(t *testing.T) {
 		tmpDir := t.TempDir()
 		gitignorePath := filepath.Join(tmpDir, ".gitignore")
 
-		// Create existing .gitignore with .bv (without slash)
-		if err := os.WriteFile(gitignorePath, []byte(".bv\n"), 0644); err != nil {
+		// Create existing .gitignore with .bt (without slash)
+		if err := os.WriteFile(gitignorePath, []byte(".bt\n"), 0644); err != nil {
 			t.Fatalf("failed to write .gitignore: %v", err)
 		}
 
@@ -279,9 +279,9 @@ func TestEnsureBVInGitignore(t *testing.T) {
 			t.Fatalf("failed to read .gitignore: %v", err)
 		}
 
-		// Should still have just .bv, not add .bt/
+		// Should still have just .bt, not add .bt/ again
 		if strings.Contains(string(content), "# bv (beads viewer)") {
-			t.Errorf("should not add when .bv already present, got:\n%s", content)
+			t.Errorf("should not add when .bt already present, got:\n%s", content)
 		}
 	})
 }

@@ -41,13 +41,13 @@ func TestExtractIDsFromMessage(t *testing.T) {
 		{
 			name:     "beads format",
 			message:  "Update beads-456 with new status",
-			wantIDs:  []string{"bv-456"},
+			wantIDs:  []string{"bt-456"},
 			wantType: "bead",
 		},
 		{
 			name:     "bt format",
-			message:  "Implement bv-67 feature",
-			wantIDs:  []string{"bv-67"},
+			message:  "Implement bt-67 feature",
+			wantIDs:  []string{"bt-67"},
 			wantType: "bead",
 		},
 		{
@@ -112,8 +112,8 @@ func TestNormalizeBeadID(t *testing.T) {
 	}{
 		{"AUTH-123", "auth-123"},
 		{"BV-42", "bv-42"},
-		{"123", "bv-123"}, // Numeric only gets bv- prefix
-		{"456", "bv-456"},
+		{"123", "bt-123"}, // Numeric only gets bt- prefix
+		{"456", "bt-456"},
 		{"proj-999", "proj-999"},
 	}
 
@@ -142,8 +142,8 @@ func TestClassifyMatch(t *testing.T) {
 		{"Resolves BV-50", "resolves"},
 		{"[AUTH-123]", "bracket"},
 		{"beads-456", "bead"},
-		{"bv-67", "bead"},
-		{"BV-67", "bead"},
+		{"bt-67", "bead"},
+		{"BT-67", "bead"},
 		{"PROJ-789", "generic"},
 	}
 
@@ -195,9 +195,9 @@ func TestBuildGrepPatterns(t *testing.T) {
 		contains []string
 	}{
 		{
-			beadID:   "bv-42",
-			wantLen:  6, // bv-42, BV-42, beads-42, bead-42, BEADS-42, BEAD-42
-			contains: []string{"bv-42", "BV-42", "beads-42"},
+			beadID:   "bt-42",
+			wantLen:  6, // bt-42, BT-42, beads-42, bead-42, BEADS-42, BEAD-42
+			contains: []string{"bt-42", "BT-42", "beads-42"},
 		},
 		{
 			beadID:   "AUTH-123",
@@ -246,7 +246,7 @@ func TestDefaultPatterns(t *testing.T) {
 		{"Closes BV-42", true},
 		{"Fixes #PROJ-999", true},
 		{"Refs: beads-100", true},
-		{"bv-67", true},
+		{"bt-67", true},
 		{"random text", false},
 	}
 

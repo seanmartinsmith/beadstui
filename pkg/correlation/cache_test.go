@@ -282,16 +282,16 @@ func TestHistoryCache_Stats(t *testing.T) {
 
 func TestHashBeads(t *testing.T) {
 	beads1 := []BeadInfo{
-		{ID: "bv-1", Status: "open"},
-		{ID: "bv-2", Status: "closed"},
+		{ID: "bt-1", Status: "open"},
+		{ID: "bt-2", Status: "closed"},
 	}
 	beads2 := []BeadInfo{
-		{ID: "bv-1", Status: "open"},
-		{ID: "bv-2", Status: "closed"},
+		{ID: "bt-1", Status: "open"},
+		{ID: "bt-2", Status: "closed"},
 	}
 	beads3 := []BeadInfo{
-		{ID: "bv-1", Status: "closed"}, // Different status
-		{ID: "bv-2", Status: "closed"},
+		{ID: "bt-1", Status: "closed"}, // Different status
+		{ID: "bt-2", Status: "closed"},
 	}
 
 	hash1 := hashBeads(beads1)
@@ -316,10 +316,10 @@ func TestHashBeads(t *testing.T) {
 
 func TestHashOptions(t *testing.T) {
 	now := time.Now()
-	opts1 := CorrelatorOptions{BeadID: "bv-1", Limit: 100}
-	opts2 := CorrelatorOptions{BeadID: "bv-1", Limit: 100}
-	opts3 := CorrelatorOptions{BeadID: "bv-2", Limit: 100}
-	opts4 := CorrelatorOptions{BeadID: "bv-1", Since: &now}
+	opts1 := CorrelatorOptions{BeadID: "bt-1", Limit: 100}
+	opts2 := CorrelatorOptions{BeadID: "bt-1", Limit: 100}
+	opts3 := CorrelatorOptions{BeadID: "bt-2", Limit: 100}
+	opts4 := CorrelatorOptions{BeadID: "bt-1", Since: &now}
 
 	hash1 := hashOptions(opts1)
 	hash2 := hashOptions(opts2)

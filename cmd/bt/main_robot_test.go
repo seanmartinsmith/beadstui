@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -83,15 +84,19 @@ func TestRobotPlanAndPriorityIncludeMetadata(t *testing.T) {
 	runAndCheck("--robot-priority")
 }
 
-// buildTestBinary builds the current module's bv binary for testing.
+// buildTestBinary builds the current module's bt binary for testing.
 func buildTestBinary(t *testing.T) string {
 	t.Helper()
-	exe := filepath.Join(t.TempDir(), "bv-testbin")
+	name := "bt-testbin"
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	exe := filepath.Join(t.TempDir(), name)
 	cmd := exec.Command("go", "build", "-o", exe, ".")
 	cmd.Dir = "." // build current package
 	cmd.Env = append(os.Environ(), "CGO_ENABLED=0")
 	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("build bv: %v, out=%s", err, string(out))
+		t.Fatalf("build bt: %v, out=%s", err, string(out))
 	}
 	return exe
 }
