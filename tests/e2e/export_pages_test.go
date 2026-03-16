@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -15,6 +16,9 @@ import (
 )
 
 func TestExportPages_IncludesHistoryAndRunsHooks(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("hook commands use Unix shell syntax")
+	}
 	bv := buildBvBinary(t)
 	stageViewerAssets(t, bv)
 

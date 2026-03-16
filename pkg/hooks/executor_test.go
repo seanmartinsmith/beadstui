@@ -3,6 +3,7 @@ package hooks
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -289,6 +290,9 @@ func TestExecutorHookTimeout(t *testing.T) {
 }
 
 func TestExecutorEnvironmentVariables(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires Unix shell for $VAR expansion")
+	}
 	config := &Config{
 		Hooks: HooksByPhase{
 			PreExport: []Hook{
@@ -322,6 +326,9 @@ func TestExecutorEnvironmentVariables(t *testing.T) {
 }
 
 func TestExecutorCustomEnvExpansion(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires Unix shell for $VAR expansion")
+	}
 	// Set an env var to be expanded
 	os.Setenv("TEST_HOOK_VAR", "expanded_value")
 	defer os.Unsetenv("TEST_HOOK_VAR")
@@ -545,14 +552,16 @@ func TestLoadDefaultNoHooks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("getwd: %v", err)
 	}
-	t.Cleanup(func() {
-		_ = os.Chdir(origWD)
-	})
 
 	tmp := t.TempDir()
 	if err := os.Chdir(tmp); err != nil {
 		t.Fatalf("chdir temp: %v", err)
 	}
+	// Restore CWD after chdir but before TempDir cleanup (LIFO order).
+	// On Windows, TempDir removal fails if the process CWD is inside it.
+	t.Cleanup(func() {
+		_ = os.Chdir(origWD)
+	})
 
 	loader, err := LoadDefault()
 	if err != nil {
@@ -609,6 +618,9 @@ func TestExecutorCommandNotFound(t *testing.T) {
 }
 
 func TestExecutorPermissionDenied(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires Unix shell")
+	}
 	tmp := t.TempDir()
 	script := filepath.Join(tmp, "script.sh")
 	if err := os.WriteFile(script, []byte("#!/bin/sh\necho nope\n"), 0644); err != nil {
