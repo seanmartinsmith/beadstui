@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -14,7 +15,11 @@ import (
 func TestEndToEndDriftWorkflow(t *testing.T) {
 	// 1. Build the binary
 	tempDir := t.TempDir()
-	binPath := filepath.Join(tempDir, "bt")
+	binName := "bt"
+	if runtime.GOOS == "windows" {
+		binName += ".exe"
+	}
+	binPath := filepath.Join(tempDir, binName)
 
 	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/bt/")
 	cmd.Dir = "../../"
@@ -129,7 +134,11 @@ func TestEndToEndDriftWorkflow(t *testing.T) {
 func TestDriftAlerts(t *testing.T) {
 	// 1. Build
 	tempDir := t.TempDir()
-	binPath := filepath.Join(tempDir, "bt")
+	binName := "bt"
+	if runtime.GOOS == "windows" {
+		binName += ".exe"
+	}
+	binPath := filepath.Join(tempDir, binName)
 	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/bt/")
 	cmd.Dir = "../../"
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -224,7 +233,11 @@ func TestDriftAlerts(t *testing.T) {
 func TestDriftConfigCustomization(t *testing.T) {
 	// 1. Build
 	tempDir := t.TempDir()
-	binPath := filepath.Join(tempDir, "bt")
+	binName := "bt"
+	if runtime.GOOS == "windows" {
+		binName += ".exe"
+	}
+	binPath := filepath.Join(tempDir, binName)
 	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/bt/")
 	cmd.Dir = "../../"
 	if out, err := cmd.CombinedOutput(); err != nil {
@@ -357,7 +370,11 @@ actionable_decrease_warning_pct: 1000`
 func TestDriftErrorHandling(t *testing.T) {
 	// 1. Build
 	tempDir := t.TempDir()
-	binPath := filepath.Join(tempDir, "bt")
+	binName := "bt"
+	if runtime.GOOS == "windows" {
+		binName += ".exe"
+	}
+	binPath := filepath.Join(tempDir, binName)
 	cmd := exec.Command("go", "build", "-o", binPath, "./cmd/bt/")
 	cmd.Dir = "../../"
 	if out, err := cmd.CombinedOutput(); err != nil {

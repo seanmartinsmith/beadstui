@@ -97,6 +97,7 @@ func TestUpdateFileChangedReloadsSelection(t *testing.T) {
 		t.Fatalf("write beads: %v", err)
 	}
 	m := NewModel(nil, nil, beads, nil)
+	defer m.Stop()
 	m.list.SetItems([]list.Item{IssueItem{Issue: model.Issue{ID: "ONE", Title: "One", Status: model.StatusOpen}}})
 	m.list.Select(0)
 
@@ -116,9 +117,7 @@ func TestNewModel_SetsTreeBeadsDirFromBeadsPath(t *testing.T) {
 	}
 
 	m := NewModel(nil, nil, beads, nil)
-	if m.watcher != nil {
-		m.watcher.Stop()
-	}
+	defer m.Stop()
 
 	if got, want := m.tree.beadsDir, filepath.Dir(beads); got != want {
 		t.Fatalf("expected tree beadsDir %q, got %q", want, got)
