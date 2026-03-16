@@ -711,17 +711,17 @@ func TestTreeStatePath(t *testing.T) {
 		{
 			name:     "default empty beads dir",
 			beadsDir: "",
-			want:     ".beads/tree-state.json",
+			want:     filepath.Join(".beads", "tree-state.json"),
 		},
 		{
 			name:     "custom beads dir",
 			beadsDir: "/path/to/beads",
-			want:     "/path/to/beads/tree-state.json",
+			want:     filepath.Join("/path/to/beads", "tree-state.json"),
 		},
 		{
 			name:     "relative beads dir",
-			beadsDir: "custom/.beads",
-			want:     "custom/.beads/tree-state.json",
+			beadsDir: filepath.FromSlash("custom/.beads"),
+			want:     filepath.Join("custom", ".beads", "tree-state.json"),
 		},
 	}
 

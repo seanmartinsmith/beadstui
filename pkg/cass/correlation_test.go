@@ -2,6 +2,7 @@ package cass
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -141,12 +142,12 @@ func TestWorkspaceFromBeadsPath(t *testing.T) {
 		{
 			name:     "standard path",
 			input:    "/home/user/project/.beads/beads.jsonl",
-			expected: "/home/user/project",
+			expected: filepath.FromSlash("/home/user/project"),
 		},
 		{
 			name:     "windows-like path",
 			input:    "C:/Users/dev/project/.beads/issues.jsonl",
-			expected: "C:/Users/dev/project",
+			expected: filepath.FromSlash("C:/Users/dev/project"),
 		},
 	}
 
