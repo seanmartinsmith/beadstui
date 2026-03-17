@@ -20,8 +20,8 @@ import (
 
 // TestExportTopology_EmptyGraph tests export with no issues.
 func TestExportTopology_EmptyGraph(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -36,7 +36,7 @@ func TestExportTopology_EmptyGraph(t *testing.T) {
 	}
 
 	// Export should succeed with empty data
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -61,8 +61,8 @@ func TestExportTopology_EmptyGraph(t *testing.T) {
 
 // TestExportTopology_SingleNode tests export with one issue, no dependencies.
 func TestExportTopology_SingleNode(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -77,7 +77,7 @@ func TestExportTopology_SingleNode(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -104,8 +104,8 @@ func TestExportTopology_SingleNode(t *testing.T) {
 
 // TestExportTopology_LinearChain tests A -> B -> C -> D -> E chain.
 func TestExportTopology_LinearChain(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -124,7 +124,7 @@ func TestExportTopology_LinearChain(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -155,8 +155,8 @@ func TestExportTopology_LinearChain(t *testing.T) {
 
 // TestExportTopology_StarHub tests hub with multiple spokes.
 func TestExportTopology_StarHub(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -177,7 +177,7 @@ func TestExportTopology_StarHub(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -201,8 +201,8 @@ func TestExportTopology_StarHub(t *testing.T) {
 
 // TestExportTopology_Diamond tests A -> B, A -> C, B -> D, C -> D pattern.
 func TestExportTopology_Diamond(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -220,7 +220,7 @@ func TestExportTopology_Diamond(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -244,8 +244,8 @@ func TestExportTopology_Diamond(t *testing.T) {
 
 // TestExportTopology_Cycle tests A -> B -> C -> A cycle handling.
 func TestExportTopology_Cycle(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -263,7 +263,7 @@ func TestExportTopology_Cycle(t *testing.T) {
 	}
 
 	// Export should handle cycles gracefully
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -283,8 +283,8 @@ func TestExportTopology_Cycle(t *testing.T) {
 
 // TestExportTopology_SelfLoop tests issue depending on itself.
 func TestExportTopology_SelfLoop(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -300,7 +300,7 @@ func TestExportTopology_SelfLoop(t *testing.T) {
 	}
 
 	// Export should handle self-loops
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -319,8 +319,8 @@ func TestExportTopology_SelfLoop(t *testing.T) {
 
 // TestExportTopology_DisconnectedComponents tests multiple isolated subgraphs.
 func TestExportTopology_DisconnectedComponents(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -339,7 +339,7 @@ func TestExportTopology_DisconnectedComponents(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -367,8 +367,8 @@ func TestExportTopology_LargeScale(t *testing.T) {
 		t.Skip("skipping large scale test in short mode")
 	}
 
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -394,7 +394,7 @@ func TestExportTopology_LargeScale(t *testing.T) {
 	}
 
 	start := time.Now()
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	elapsed := time.Since(start)
@@ -430,8 +430,8 @@ func TestExportTopology_LargeScale(t *testing.T) {
 
 // TestExportTopology_ComplexMixed tests combination of multiple patterns.
 func TestExportTopology_ComplexMixed(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -455,7 +455,7 @@ func TestExportTopology_ComplexMixed(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -478,8 +478,8 @@ func TestExportTopology_ComplexMixed(t *testing.T) {
 
 // TestExportTopology_WideGraph tests graph with many independent roots.
 func TestExportTopology_WideGraph(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -498,7 +498,7 @@ func TestExportTopology_WideGraph(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -522,8 +522,8 @@ func TestExportTopology_WideGraph(t *testing.T) {
 
 // TestExportTopology_DeepChain tests very deep dependency chain.
 func TestExportTopology_DeepChain(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -548,7 +548,7 @@ func TestExportTopology_DeepChain(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -572,8 +572,8 @@ func TestExportTopology_DeepChain(t *testing.T) {
 
 // TestExportTopology_MixedStatus tests graph with various statuses.
 func TestExportTopology_MixedStatus(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -591,7 +591,7 @@ func TestExportTopology_MixedStatus(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir, "--pages-include-closed")
+	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-include-closed")
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -614,7 +614,7 @@ func TestExportTopology_MixedStatus(t *testing.T) {
 
 // TestExportTopology_RobotGraphJSON tests robot graph JSON output.
 func TestExportTopology_RobotGraphJSON(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -630,7 +630,7 @@ func TestExportTopology_RobotGraphJSON(t *testing.T) {
 	}
 
 	// Test JSON format
-	cmd := exec.Command(bv, "--robot-graph", "--graph-format", "json")
+	cmd := exec.Command(bt, "--robot-graph", "--graph-format", "json")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -670,7 +670,7 @@ func TestExportTopology_RobotGraphJSON(t *testing.T) {
 
 // TestExportTopology_RobotGraphDOT tests robot graph DOT output.
 func TestExportTopology_RobotGraphDOT(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -685,7 +685,7 @@ func TestExportTopology_RobotGraphDOT(t *testing.T) {
 	}
 
 	// Test DOT format
-	cmd := exec.Command(bv, "--robot-graph", "--graph-format", "dot")
+	cmd := exec.Command(bt, "--robot-graph", "--graph-format", "dot")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -716,7 +716,7 @@ func TestExportTopology_RobotGraphDOT(t *testing.T) {
 
 // TestExportTopology_RobotGraphMermaid tests robot graph Mermaid output.
 func TestExportTopology_RobotGraphMermaid(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -731,7 +731,7 @@ func TestExportTopology_RobotGraphMermaid(t *testing.T) {
 	}
 
 	// Test Mermaid format
-	cmd := exec.Command(bv, "--robot-graph", "--graph-format", "mermaid")
+	cmd := exec.Command(bt, "--robot-graph", "--graph-format", "mermaid")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {

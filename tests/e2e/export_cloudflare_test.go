@@ -19,8 +19,8 @@ import (
 
 // TestCloudflare_HeadersFileGenerated verifies _headers file is created.
 func TestCloudflare_HeadersFileGenerated(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -34,7 +34,7 @@ func TestCloudflare_HeadersFileGenerated(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -68,8 +68,8 @@ func TestCloudflare_HeadersFileGenerated(t *testing.T) {
 
 // TestCloudflare_WASMContentType verifies WASM content type header.
 func TestCloudflare_WASMContentType(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -83,7 +83,7 @@ func TestCloudflare_WASMContentType(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -102,8 +102,8 @@ func TestCloudflare_WASMContentType(t *testing.T) {
 
 // TestCloudflare_OutputDirectoryStructure verifies expected structure for CF Pages.
 func TestCloudflare_OutputDirectoryStructure(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -117,7 +117,7 @@ func TestCloudflare_OutputDirectoryStructure(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -150,8 +150,8 @@ func TestCloudflare_OutputDirectoryStructure(t *testing.T) {
 
 // TestCloudflare_ServiceWorkerForCOI verifies COI service worker present.
 func TestCloudflare_ServiceWorkerForCOI(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -165,7 +165,7 @@ func TestCloudflare_ServiceWorkerForCOI(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -193,8 +193,8 @@ func TestCloudflare_ServiceWorkerForCOI(t *testing.T) {
 
 // TestCloudflare_SQLiteChunking verifies database config for large files.
 func TestCloudflare_SQLiteChunking(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -212,7 +212,7 @@ func TestCloudflare_SQLiteChunking(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -245,8 +245,8 @@ func TestCloudflare_SQLiteChunking(t *testing.T) {
 
 // TestCloudflare_CustomExportPath verifies custom export path works.
 func TestCloudflare_CustomExportPath(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -262,7 +262,7 @@ func TestCloudflare_CustomExportPath(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", customDir)
+	cmd := exec.Command(bt, "--export-pages", customDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -276,8 +276,8 @@ func TestCloudflare_CustomExportPath(t *testing.T) {
 
 // TestCloudflare_NestedExportPath verifies nested export path works.
 func TestCloudflare_NestedExportPath(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -293,7 +293,7 @@ func TestCloudflare_NestedExportPath(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", nestedDir)
+	cmd := exec.Command(bt, "--export-pages", nestedDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -311,8 +311,8 @@ func TestCloudflare_NestedExportPath(t *testing.T) {
 
 // TestCloudflare_CustomTitle verifies --pages-title flag works.
 func TestCloudflare_CustomTitle(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -327,7 +327,7 @@ func TestCloudflare_CustomTitle(t *testing.T) {
 	}
 
 	customTitle := "My Project Dashboard"
-	cmd := exec.Command(bv, "--export-pages", exportDir, "--pages-title", customTitle)
+	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-title", customTitle)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -355,8 +355,8 @@ func TestCloudflare_CustomTitle(t *testing.T) {
 
 // TestCloudflare_IncludeClosed verifies --pages-include-closed flag.
 func TestCloudflare_IncludeClosed(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -373,7 +373,7 @@ func TestCloudflare_IncludeClosed(t *testing.T) {
 	}
 
 	// Export with closed included
-	cmd := exec.Command(bv, "--export-pages", exportDir, "--pages-include-closed")
+	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-include-closed")
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -387,8 +387,8 @@ func TestCloudflare_IncludeClosed(t *testing.T) {
 
 // TestCloudflare_IncludeClosedByDefault verifies default includes closed issues.
 func TestCloudflare_IncludeClosedByDefault(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -405,7 +405,7 @@ func TestCloudflare_IncludeClosedByDefault(t *testing.T) {
 	}
 
 	// Export without --pages-include-closed (default is true)
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -419,8 +419,8 @@ func TestCloudflare_IncludeClosedByDefault(t *testing.T) {
 
 // TestCloudflare_ExcludeClosed verifies --pages-include-closed=false excludes closed.
 func TestCloudflare_ExcludeClosed(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -437,7 +437,7 @@ func TestCloudflare_ExcludeClosed(t *testing.T) {
 	}
 
 	// Export with --pages-include-closed=false
-	cmd := exec.Command(bv, "--export-pages", exportDir, "--pages-include-closed=false")
+	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-include-closed=false")
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -455,8 +455,8 @@ func TestCloudflare_ExcludeClosed(t *testing.T) {
 
 // TestCloudflare_OverwriteExistingExport verifies re-export overwrites cleanly.
 func TestCloudflare_OverwriteExistingExport(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -471,7 +471,7 @@ func TestCloudflare_OverwriteExistingExport(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd1 := exec.Command(bv, "--export-pages", exportDir)
+	cmd1 := exec.Command(bt, "--export-pages", exportDir)
 	cmd1.Dir = repoDir
 	if out, err := cmd1.CombinedOutput(); err != nil {
 		t.Fatalf("first export failed: %v\n%s", err, out)
@@ -490,7 +490,7 @@ func TestCloudflare_OverwriteExistingExport(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd2 := exec.Command(bv, "--export-pages", exportDir)
+	cmd2 := exec.Command(bt, "--export-pages", exportDir)
 	cmd2.Dir = repoDir
 	if out, err := cmd2.CombinedOutput(); err != nil {
 		t.Fatalf("second export failed: %v\n%s", err, out)
@@ -512,8 +512,8 @@ func TestCloudflare_LargeExportPerformance(t *testing.T) {
 		t.Skip("skipping large export test in short mode")
 	}
 
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -532,7 +532,7 @@ func TestCloudflare_LargeExportPerformance(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -553,7 +553,7 @@ func TestCloudflare_LargeExportPerformance(t *testing.T) {
 
 // TestCloudflare_InvalidExportPath verifies error for invalid path.
 func TestCloudflare_InvalidExportPath(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -572,7 +572,7 @@ func TestCloudflare_InvalidExportPath(t *testing.T) {
 		t.Fatalf("create file: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", filePath)
+	cmd := exec.Command(bt, "--export-pages", filePath)
 	cmd.Dir = repoDir
 	_, err := cmd.CombinedOutput()
 	// May or may not error - depends on implementation
@@ -587,8 +587,8 @@ func TestCloudflare_InvalidExportPath(t *testing.T) {
 
 // TestCloudflare_DataDirectoryContents verifies data directory structure.
 func TestCloudflare_DataDirectoryContents(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -602,7 +602,7 @@ func TestCloudflare_DataDirectoryContents(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -634,8 +634,8 @@ func TestCloudflare_DataDirectoryContents(t *testing.T) {
 
 // TestCloudflare_HistoryExport verifies --pages-include-history flag.
 func TestCloudflare_HistoryExport(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	// Need a git repo for history
 	repoDir := t.TempDir()
@@ -679,7 +679,7 @@ func TestCloudflare_HistoryExport(t *testing.T) {
 	_ = commitCmd.Run()
 
 	// Export with history
-	cmd := exec.Command(bv, "--export-pages", exportDir, "--pages-include-history")
+	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-include-history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {

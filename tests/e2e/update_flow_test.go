@@ -15,9 +15,9 @@ import (
 // ============================================================================
 
 func TestVersionFlag_OutputsVersion(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
-	cmd := exec.Command(bv, "--version")
+	cmd := exec.Command(bt, "--version")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("--version failed: %v\n%s", err, out)
@@ -38,9 +38,9 @@ func TestVersionFlag_OutputsVersion(t *testing.T) {
 }
 
 func TestVersionFlag_IncludesBuildInfo(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
-	cmd := exec.Command(bv, "--version")
+	cmd := exec.Command(bt, "--version")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("--version failed: %v\n%s", err, out)
@@ -50,7 +50,7 @@ func TestVersionFlag_IncludesBuildInfo(t *testing.T) {
 
 	// Should include "bt" name
 	if !strings.Contains(strings.ToLower(output), "bt") {
-		t.Errorf("expected 'bv' in version output, got: %s", output)
+		t.Errorf("expected 'bt' in version output, got: %s", output)
 	}
 }
 
@@ -59,11 +59,11 @@ func TestVersionFlag_IncludesBuildInfo(t *testing.T) {
 // ============================================================================
 
 func TestRollbackFlag_FailsWithoutBackup(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	tmpDir := t.TempDir()
 
 	// Run rollback from a temp directory where there's no backup
-	cmd := exec.Command(bv, "--rollback")
+	cmd := exec.Command(bt, "--rollback")
 	cmd.Dir = tmpDir
 	out, err := cmd.CombinedOutput()
 
@@ -90,7 +90,7 @@ func TestUpdateFlag_RequiresNetwork(t *testing.T) {
 		t.Skip("Skipping network-dependent test")
 	}
 
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	tmpDir := t.TempDir()
 
 	// Create a minimal beads repo
@@ -104,7 +104,7 @@ func TestUpdateFlag_RequiresNetwork(t *testing.T) {
 
 	// --update should attempt to connect to GitHub
 	// We just verify the command runs and either succeeds or fails gracefully
-	cmd := exec.Command(bv, "--update", "-y")
+	cmd := exec.Command(bt, "--update", "-y")
 	cmd.Dir = tmpDir
 	// Set a short timeout
 	cmd.Env = append(os.Environ(), "BT_UPDATE_TIMEOUT=2s")
@@ -131,9 +131,9 @@ func TestUpdateFlag_RequiresNetwork(t *testing.T) {
 // ============================================================================
 
 func TestHelpFlag_DocumentsUpdateFeatures(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
-	cmd := exec.Command(bv, "--help")
+	cmd := exec.Command(bt, "--help")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		// --help might exit with 0 or non-zero depending on implementation
@@ -159,9 +159,9 @@ func TestHelpFlag_DocumentsUpdateFeatures(t *testing.T) {
 
 func TestRobotHelp_DocumentsUpdateFeatures(t *testing.T) {
 	// Verify robot-help documents update-related features
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
-	cmd := exec.Command(bv, "--robot-help")
+	cmd := exec.Command(bt, "--robot-help")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("-robot-help failed: %v\n%s", err, out)
@@ -182,7 +182,7 @@ func TestRobotHelp_DocumentsUpdateFeatures(t *testing.T) {
 func TestStartup_UpdateCheckDoesNotBlock(t *testing.T) {
 	// Verify that the TUI starts quickly even if update check is slow
 	// This is a basic smoke test
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	tmpDir := t.TempDir()
 
 	// Create minimal beads
@@ -195,7 +195,7 @@ func TestStartup_UpdateCheckDoesNotBlock(t *testing.T) {
 	}
 
 	// Run robot-insights which should complete quickly
-	cmd := exec.Command(bv, "--robot-insights")
+	cmd := exec.Command(bt, "--robot-insights")
 	cmd.Dir = tmpDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -217,9 +217,9 @@ func TestBinary_HasProperPermissions(t *testing.T) {
 		t.Skip("requires Unix file permissions")
 	}
 
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
-	info, err := os.Stat(bv)
+	info, err := os.Stat(bt)
 	if err != nil {
 		t.Fatalf("stat binary: %v", err)
 	}
@@ -234,7 +234,7 @@ func TestBinary_HasProperPermissions(t *testing.T) {
 func TestBinary_RespondsToSignals(t *testing.T) {
 	// Verify the binary handles interrupts gracefully
 	// This is important for the update process
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	tmpDir := t.TempDir()
 
 	// Create minimal beads
@@ -246,7 +246,7 @@ func TestBinary_RespondsToSignals(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd := exec.Command(bv, "--version")
+	cmd := exec.Command(bt, "--version")
 	cmd.Dir = tmpDir
 
 	// Should complete without hanging

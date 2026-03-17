@@ -1,6 +1,6 @@
 // Package export provides SQLite-based data export for static viewer deployment.
 //
-// This file implements the SQLiteExporter which exports bv's issue data to a SQLite
+// This file implements the SQLiteExporter which exports bt's issue data to a SQLite
 // database optimized for client-side querying with sql.js WASM.
 package export
 
@@ -13,7 +13,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
@@ -22,7 +21,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// SQLiteExporter exports bv data to a SQLite database for static deployment.
+// SQLiteExporter exports bt data to a SQLite database for static deployment.
 type SQLiteExporter struct {
 	Issues  []*model.Issue
 	Deps    []*model.Dependency
@@ -726,16 +725,6 @@ func (e *SQLiteExporter) ExportToJSON(path string) error {
 	}
 
 	return writeJSON(path, output)
-}
-
-// stringSliceContains checks if a string slice contains a value.
-func stringSliceContains(slice []string, val string) bool {
-	for _, s := range slice {
-		if strings.EqualFold(s, val) {
-			return true
-		}
-	}
-	return false
 }
 
 // GraphLayout is a compact representation of pre-computed graph layout data.

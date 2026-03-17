@@ -32,8 +32,6 @@ func TestGraphModelEmpty(t *testing.T) {
 	g.MoveRight()
 	g.PageUp()
 	g.PageDown()
-	g.ScrollLeft()
-	g.ScrollRight()
 }
 
 // TestGraphModelSingleNode verifies graph with single node
@@ -202,16 +200,9 @@ func TestGraphModelScrollBounds(t *testing.T) {
 
 	g := ui.NewGraphModel(issues, nil, theme)
 
-	// Scroll left from origin should stay at 0
-	g.ScrollLeft()
-	g.ScrollLeft()
-	g.ScrollLeft()
-	// After View call, scrollX should be clamped to 0
-
 	// PageUp from origin should stay at 0
 	g.PageUp()
 	g.PageUp()
-	// After View call, scrollY should be clamped to 0
 
 	// View should not panic
 	_ = g.View(80, 24)

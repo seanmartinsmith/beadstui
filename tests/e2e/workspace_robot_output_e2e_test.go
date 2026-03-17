@@ -11,7 +11,7 @@ import (
 )
 
 func TestWorkspaceRobotTriageCleanOutput(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	workspaceRoot := t.TempDir()
 	configPath := filepath.Join(workspaceRoot, ".bt", "workspace.yaml")
@@ -50,13 +50,13 @@ discovery:
   enabled: false
 `
 	if err := os.MkdirAll(filepath.Dir(configPath), 0o755); err != nil {
-		t.Fatalf("mkdir .bv: %v", err)
+		t.Fatalf("mkdir .bt: %v", err)
 	}
 	if err := os.WriteFile(configPath, []byte(config), 0o644); err != nil {
 		t.Fatalf("write workspace.yaml: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--robot-triage", "--workspace", configPath)
+	cmd := exec.Command(bt, "--robot-triage", "--workspace", configPath)
 	cmd.Dir = workspaceRoot
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

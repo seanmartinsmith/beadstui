@@ -1,4 +1,4 @@
-// Package export provides data export functionality for bv.
+// Package export provides data export functionality for bt.
 //
 // This file implements a local preview server for static site bundles.
 // It serves files with no-cache headers and auto-opens the browser.

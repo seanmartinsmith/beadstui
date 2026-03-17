@@ -1,4 +1,4 @@
-// Package export provides data export functionality for bv.
+// Package export provides data export functionality for bt.
 //
 // This file implements SQLite schema creation for static export,
 // following mcp_agent_mail's architecture for client-side sql.js querying.

@@ -70,9 +70,6 @@ type AdvancedInsights struct {
 	// ParallelCut: Suggestions for maximizing parallel work
 	ParallelCut *ParallelCutResult `json:"parallel_cut,omitempty"`
 
-	// ParallelGain: Parallelization gain metrics for top recommendations
-	ParallelGain *ParallelGainResult `json:"parallel_gain,omitempty"`
-
 	// CycleBreak: Suggestions for breaking cycles with minimal collateral impact
 	CycleBreak *CycleBreakResult `json:"cycle_break,omitempty"`
 
@@ -161,22 +158,6 @@ type ParallelCutItem struct {
 	EnabledTracks []string `json:"enabled_tracks,omitempty"` // Track IDs enabled
 }
 
-// ParallelGainResult provides parallelization metrics for top recommendations.
-type ParallelGainResult struct {
-	Status   FeatureStatus      `json:"status"`
-	Metrics  []ParallelGainItem `json:"metrics,omitempty"`
-	HowToUse string             `json:"how_to_use"`
-}
-
-// ParallelGainItem represents parallelization gain for one issue.
-type ParallelGainItem struct {
-	ID                string  `json:"id"`
-	Title             string  `json:"title,omitempty"`
-	CurrentParallel   int     `json:"current_parallel"`   // Current parallel streams
-	PotentialParallel int     `json:"potential_parallel"` // After completion
-	GainPercent       float64 `json:"gain_percent"`       // Percentage improvement
-}
-
 // CycleBreakResult provides suggestions for breaking cycles.
 type CycleBreakResult struct {
 	Status      FeatureStatus    `json:"status"`
@@ -202,9 +183,8 @@ func DefaultUsageHints() map[string]string {
 		"topk_set":      "Best k issues to complete for max downstream unlock. Work these in order.",
 		"coverage_set":  "Small vertex cover touching all dependency edges. Use for breadth coverage.",
 		"k_paths":       "K-shortest critical paths. Focus on issues appearing in multiple paths.",
-		"parallel_cut":  "Issues that enable parallel work. Complete to maximize team throughput.",
-		"parallel_gain": "Parallelization improvement from completing each issue.",
-		"cycle_break":   "Structural fix suggestions. Apply BEFORE working on cycle members.",
+		"parallel_cut": "Issues that enable parallel work. Complete to maximize team throughput.",
+		"cycle_break":  "Structural fix suggestions. Apply BEFORE working on cycle members.",
 	}
 }
 
@@ -227,15 +207,6 @@ func (a *Analyzer) GenerateAdvancedInsights(config AdvancedInsightsConfig) *Adva
 
 	// Parallel Cut - suggestions for maximizing parallel work (bv-154)
 	insights.ParallelCut = a.generateParallelCut(config.ParallelCutLimit)
-
-	// Parallel Gain - placeholder until bv-129 implements
-	insights.ParallelGain = &ParallelGainResult{
-		Status: FeatureStatus{
-			State:  "pending",
-			Reason: "Awaiting implementation (bv-129)",
-		},
-		HowToUse: DefaultUsageHints()["parallel_gain"],
-	}
 
 	// Cycle Break - implement basic version using existing cycle detection
 	insights.CycleBreak = a.generateCycleBreakSuggestions(config.CycleBreakLimit)

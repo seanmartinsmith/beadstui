@@ -13,7 +13,7 @@ import (
 // TestGraphNavigationStatePreservation tests that graph navigation maintains consistent state
 // when refreshing or filtering the view.
 func TestGraphNavigationStatePreservation(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	// Set up a graph with multiple nodes in layers
@@ -24,7 +24,7 @@ func TestGraphNavigationStatePreservation(t *testing.T) {
 	writeBeads(t, env, beads)
 
 	// Query the graph
-	cmd := exec.Command(bv, "--robot-graph")
+	cmd := exec.Command(bt, "--robot-graph")
 	cmd.Dir = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -61,7 +61,7 @@ func TestGraphNavigationStatePreservation(t *testing.T) {
 
 // TestGraphNavigationRootFilter tests filtering graph to a root node
 func TestGraphNavigationRootFilter(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	// Chain: A -> B -> C -> D
@@ -72,7 +72,7 @@ func TestGraphNavigationRootFilter(t *testing.T) {
 	writeBeads(t, env, beads)
 
 	// Full graph should have 4 nodes
-	fullGraph := runRobotGraph(t, bv, env)
+	fullGraph := runRobotGraph(t, bt, env)
 	fullAdj := fullGraph["adjacency"].(map[string]any)
 	fullNodes := fullAdj["nodes"].([]any)
 	if len(fullNodes) != 4 {
@@ -80,7 +80,7 @@ func TestGraphNavigationRootFilter(t *testing.T) {
 	}
 
 	// Filtered to C with depth 1 should have C and B (or C and D depending on direction)
-	cmd := exec.Command(bv, "--robot-graph", "--graph-root=C", "--graph-depth=1")
+	cmd := exec.Command(bt, "--robot-graph", "--graph-root=C", "--graph-depth=1")
 	cmd.Dir = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -116,7 +116,7 @@ func TestGraphNavigationRootFilter(t *testing.T) {
 
 // TestGraphNavigationDepthLevels tests different depth levels
 func TestGraphNavigationDepthLevels(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	// Linear chain: A -> B -> C -> D -> E
@@ -139,7 +139,7 @@ func TestGraphNavigationDepthLevels(t *testing.T) {
 
 	for _, tt := range depths {
 		t.Run("depth_"+tt.depth, func(t *testing.T) {
-			cmd := exec.Command(bv, "--robot-graph", "--graph-root=C", "--graph-depth="+tt.depth)
+			cmd := exec.Command(bt, "--robot-graph", "--graph-root=C", "--graph-depth="+tt.depth)
 			cmd.Dir = env
 			out, err := cmd.CombinedOutput()
 			if err != nil {
@@ -165,7 +165,7 @@ func TestGraphNavigationDepthLevels(t *testing.T) {
 
 // TestGraphNavigationFormats tests different output formats work
 func TestGraphNavigationFormats(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	beads := `{"id":"A","title":"Root","status":"open","priority":1,"issue_type":"task"}
@@ -183,7 +183,7 @@ func TestGraphNavigationFormats(t *testing.T) {
 
 	for _, tt := range formats {
 		t.Run(tt.format, func(t *testing.T) {
-			cmd := exec.Command(bv, "--robot-graph", "--graph-format="+tt.format)
+			cmd := exec.Command(bt, "--robot-graph", "--graph-format="+tt.format)
 			cmd.Dir = env
 			out, err := cmd.CombinedOutput()
 			if err != nil {
@@ -215,7 +215,7 @@ func TestGraphNavigationFormats(t *testing.T) {
 
 // TestGraphNavigationEmptyGraph tests behavior with no issues
 func TestGraphNavigationEmptyGraph(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	// Create empty beads dir
@@ -227,7 +227,7 @@ func TestGraphNavigationEmptyGraph(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--robot-graph")
+	cmd := exec.Command(bt, "--robot-graph")
 	cmd.Dir = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -253,7 +253,7 @@ func TestGraphNavigationEmptyGraph(t *testing.T) {
 
 // TestGraphNavigationCycleHandling tests graphs with cycles render correctly
 func TestGraphNavigationCycleHandling(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	// Create a cycle: A -> B -> C -> A
@@ -262,7 +262,7 @@ func TestGraphNavigationCycleHandling(t *testing.T) {
 {"id":"C","title":"C","status":"open","priority":2,"issue_type":"task","dependencies":[{"issue_id":"C","depends_on_id":"A","type":"blocks"}]}`
 	writeBeads(t, env, beads)
 
-	cmd := exec.Command(bv, "--robot-graph")
+	cmd := exec.Command(bt, "--robot-graph")
 	cmd.Dir = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -294,7 +294,7 @@ func TestGraphNavigationLargeGraph(t *testing.T) {
 		t.Skip("skipping large graph test in short mode")
 	}
 
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	// Generate 100 nodes
@@ -305,7 +305,7 @@ func TestGraphNavigationLargeGraph(t *testing.T) {
 	}
 	writeBeads(t, env, strings.Join(lines, "\n"))
 
-	cmd := exec.Command(bv, "--robot-graph")
+	cmd := exec.Command(bt, "--robot-graph")
 	cmd.Dir = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -326,7 +326,7 @@ func TestGraphNavigationLargeGraph(t *testing.T) {
 
 // TestGraphNavigationStatusFiltering tests that status info is included
 func TestGraphNavigationStatusFiltering(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	beads := `{"id":"open-1","title":"Open Issue","status":"open","priority":1,"issue_type":"task"}
@@ -335,7 +335,7 @@ func TestGraphNavigationStatusFiltering(t *testing.T) {
 {"id":"closed-1","title":"Closed","status":"closed","priority":3,"issue_type":"task"}`
 	writeBeads(t, env, beads)
 
-	cmd := exec.Command(bv, "--robot-graph")
+	cmd := exec.Command(bt, "--robot-graph")
 	cmd.Dir = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -368,10 +368,10 @@ func TestGraphNavigationStatusFiltering(t *testing.T) {
 }
 
 // Helper to run robot-graph and return parsed payload
-func runRobotGraph(t *testing.T, bv, env string, args ...string) map[string]any {
+func runRobotGraph(t *testing.T, bt, env string, args ...string) map[string]any {
 	t.Helper()
 	allArgs := append([]string{"--robot-graph"}, args...)
-	cmd := exec.Command(bv, allArgs...)
+	cmd := exec.Command(bt, allArgs...)
 	cmd.Dir = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {

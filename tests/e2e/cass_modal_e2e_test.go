@@ -15,7 +15,7 @@ import (
 // Cass installed - the app should work seamlessly without it.
 func TestCassModalGracefulDegradation(t *testing.T) {
 	skipIfNoScript(t)
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -35,7 +35,7 @@ func TestCassModalGracefulDegradation(t *testing.T) {
 	defer cancel()
 
 	// Launch TUI - should not crash even without Cass
-	cmd := scriptTUICommand(ctx, bv)
+	cmd := scriptTUICommand(ctx, bt)
 	cmd.Dir = tempDir
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
@@ -63,7 +63,7 @@ func TestCassModalGracefulDegradation(t *testing.T) {
 // Either way, it shouldn't crash.
 func TestCassModalNoCrashOnVKeyWithoutCass(t *testing.T) {
 	skipIfNoScript(t)
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -83,7 +83,7 @@ func TestCassModalNoCrashOnVKeyWithoutCass(t *testing.T) {
 
 	// The TUI should handle V key gracefully without Cass
 	// Using auto-close means it will exit normally if no crash occurs
-	cmd := scriptTUICommand(ctx, bv)
+	cmd := scriptTUICommand(ctx, bt)
 	cmd.Dir = tempDir
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
@@ -105,7 +105,7 @@ func TestCassModalNoCrashOnVKeyWithoutCass(t *testing.T) {
 // variable properly disables Cass integration.
 func TestCassDetectionEnvironmentVariable(t *testing.T) {
 	skipIfNoScript(t)
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -122,7 +122,7 @@ func TestCassDetectionEnvironmentVariable(t *testing.T) {
 	defer cancel()
 
 	// With BT_NO_CASS=1, Cass should be disabled
-	cmd := scriptTUICommand(ctx, bv)
+	cmd := scriptTUICommand(ctx, bt)
 	cmd.Dir = tempDir
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
@@ -143,7 +143,7 @@ func TestCassDetectionEnvironmentVariable(t *testing.T) {
 // TestCassModalRobotTriageNoCrash verifies that --robot-triage works without Cass.
 // The triage output should not require Cass and should complete normally.
 func TestCassModalRobotTriageNoCrash(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -159,7 +159,7 @@ func TestCassModalRobotTriageNoCrash(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bv, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
 	cmd.Dir = tempDir
 	cmd.Env = append(os.Environ(), "BT_NO_CASS=1")
 
@@ -179,7 +179,7 @@ func TestCassModalRobotTriageNoCrash(t *testing.T) {
 // be shown (graceful degradation - don't confuse users with missing feature).
 func TestCassStatusBarIndicator(t *testing.T) {
 	skipIfNoScript(t)
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -195,7 +195,7 @@ func TestCassStatusBarIndicator(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cmd := scriptTUICommand(ctx, bv)
+	cmd := scriptTUICommand(ctx, bt)
 	cmd.Dir = tempDir
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
@@ -228,7 +228,7 @@ func TestCassStatusBarIndicator(t *testing.T) {
 // work correctly when Cass is unavailable.
 func TestMultipleViewsWithoutCass(t *testing.T) {
 	skipIfNoScript(t)
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -250,7 +250,7 @@ func TestMultipleViewsWithoutCass(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		cmd := scriptTUICommand(ctx, bv)
+		cmd := scriptTUICommand(ctx, bt)
 		cmd.Dir = tempDir
 		cmd.Env = append(os.Environ(),
 			"TERM=xterm-256color",
@@ -273,7 +273,7 @@ func TestMultipleViewsWithoutCass(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, bv, "--robot-priority")
+		cmd := exec.CommandContext(ctx, bt, "--robot-priority")
 		cmd.Dir = tempDir
 		cmd.Env = append(os.Environ(), "BT_NO_CASS=1")
 

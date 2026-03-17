@@ -1,5 +1,5 @@
 #!/bin/bash
-# Coverage script for bv.
+# Coverage script for bt.
 #
 # Notes:
 # - Must work on macOS default bash (3.2), so avoid associative arrays.

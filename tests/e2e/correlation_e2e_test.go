@@ -105,10 +105,10 @@ func createCorrelationRepo(t *testing.T) string {
 
 // TestCorrelationExplicitMentions verifies that commits mentioning bead IDs create correlations.
 func TestCorrelationExplicitMentions(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createCorrelationRepo(t)
 
-	cmd := exec.Command(bv, "--robot-history")
+	cmd := exec.Command(bt, "--robot-history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -169,10 +169,10 @@ func TestCorrelationExplicitMentions(t *testing.T) {
 
 // TestCorrelationCommitIndex verifies commit_index maps commits to beads correctly.
 func TestCorrelationCommitIndex(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createCorrelationRepo(t)
 
-	cmd := exec.Command(bv, "--robot-history")
+	cmd := exec.Command(bt, "--robot-history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -212,10 +212,10 @@ func TestCorrelationCommitIndex(t *testing.T) {
 
 // TestCorrelationRobotRelated verifies --robot-related finds related beads.
 func TestCorrelationRobotRelated(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createCorrelationRepo(t)
 
-	cmd := exec.Command(bv, "--robot-related", "CORR-1")
+	cmd := exec.Command(bt, "--robot-related", "CORR-1")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -256,10 +256,10 @@ func TestCorrelationRobotRelated(t *testing.T) {
 
 // TestCorrelationRobotFileBeads verifies --robot-file-beads finds beads that touched a file.
 func TestCorrelationRobotFileBeads(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createCorrelationRepo(t)
 
-	cmd := exec.Command(bv, "--robot-file-beads", "pkg/auth/session.go")
+	cmd := exec.Command(bt, "--robot-file-beads", "pkg/auth/session.go")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -298,10 +298,10 @@ func TestCorrelationRobotFileBeads(t *testing.T) {
 
 // TestCorrelationRobotOrphans verifies --robot-orphans finds unlinked commits.
 func TestCorrelationRobotOrphans(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createCorrelationRepo(t)
 
-	cmd := exec.Command(bv, "--robot-orphans")
+	cmd := exec.Command(bt, "--robot-orphans")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -358,10 +358,10 @@ func TestCorrelationRobotOrphans(t *testing.T) {
 
 // TestCorrelationConfidenceLevels verifies different correlation methods produce appropriate confidence.
 func TestCorrelationConfidenceLevels(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createCorrelationRepo(t)
 
-	cmd := exec.Command(bv, "--robot-history")
+	cmd := exec.Command(bt, "--robot-history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -402,7 +402,7 @@ func TestCorrelationConfidenceLevels(t *testing.T) {
 
 // TestCorrelationSharedFileRelations verifies beads touching same files are related.
 func TestCorrelationSharedFileRelations(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	// Create a repo where two beads touch the same file
 	repoDir := t.TempDir()
@@ -464,7 +464,7 @@ func TestCorrelationSharedFileRelations(t *testing.T) {
 	git("commit", "-m", "feat(SHARE-2): add Two function")
 
 	// Both beads should show in file-beads for shared.go
-	cmd := exec.Command(bv, "--robot-file-beads", "src/shared.go")
+	cmd := exec.Command(bt, "--robot-file-beads", "src/shared.go")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -502,10 +502,10 @@ func TestCorrelationSharedFileRelations(t *testing.T) {
 
 // TestCorrelationMethodDistribution verifies method_distribution in stats.
 func TestCorrelationMethodDistribution(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createCorrelationRepo(t)
 
-	cmd := exec.Command(bv, "--robot-history")
+	cmd := exec.Command(bt, "--robot-history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -538,7 +538,7 @@ func TestCorrelationMethodDistribution(t *testing.T) {
 
 // TestCorrelationEmptyRepo verifies behavior with no git history.
 func TestCorrelationEmptyRepo(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -552,7 +552,7 @@ func TestCorrelationEmptyRepo(t *testing.T) {
 		t.Fatalf("write beads: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--robot-history")
+	cmd := exec.Command(bt, "--robot-history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -583,7 +583,7 @@ func TestCorrelationEmptyRepo(t *testing.T) {
 
 // TestCorrelationManyBeads verifies correlation handles many beads efficiently.
 func TestCorrelationManyBeads(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -625,7 +625,7 @@ func TestCorrelationManyBeads(t *testing.T) {
 	git("add", ".beads/beads.jsonl")
 	git("commit", "-m", "seed 50 beads")
 
-	cmd := exec.Command(bv, "--robot-history")
+	cmd := exec.Command(bt, "--robot-history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {

@@ -14,13 +14,13 @@ import (
 // TestTimelineDataChronologicalOrder verifies that history commits are sorted chronologically
 // for proper timeline rendering in the UI.
 func TestTimelineDataChronologicalOrder(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createMultiCommitRepo(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bv, "--robot-history")
+	cmd := exec.CommandContext(ctx, bt, "--robot-history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -67,8 +67,8 @@ func TestTimelineDataChronologicalOrder(t *testing.T) {
 
 // TestTimelineExportStructure verifies the history.json export has proper timeline structure
 func TestTimelineExportStructure(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssetsForTimeline(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssetsForTimeline(t, bt)
 
 	repoDir := createMultiCommitRepo(t)
 	exportDir := filepath.Join(repoDir, "export-timeline")
@@ -76,7 +76,7 @@ func TestTimelineExportStructure(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bv, "--export-pages", exportDir)
+	cmd := exec.CommandContext(ctx, bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -132,13 +132,13 @@ func TestTimelineExportStructure(t *testing.T) {
 
 // TestTimelineCommitDensity verifies commits can be grouped by time period for density visualization
 func TestTimelineCommitDensity(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createMultiCommitRepo(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bv, "--robot-history")
+	cmd := exec.CommandContext(ctx, bt, "--robot-history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -193,13 +193,13 @@ func TestTimelineCommitDensity(t *testing.T) {
 
 // TestTimelineBeadCorrelation verifies commits are properly correlated to beads for timeline filtering
 func TestTimelineBeadCorrelation(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createMultiCommitRepo(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bv, "--robot-history")
+	cmd := exec.CommandContext(ctx, bt, "--robot-history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -255,14 +255,14 @@ func TestTimelineBeadCorrelation(t *testing.T) {
 // TestTimelineTUIToggleWithTimeout tests timeline toggle in TUI mode (skips on timeout for CI)
 func TestTimelineTUIToggleWithTimeout(t *testing.T) {
 	skipIfNoScript(t)
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createMultiCommitRepo(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	// Use script command to simulate TTY
-	cmd := scriptTUICommand(ctx, bv, "--view=history")
+	cmd := scriptTUICommand(ctx, bt, "--view=history")
 	cmd.Dir = repoDir
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
@@ -369,13 +369,13 @@ func createMultiCommitRepo(t *testing.T) string {
 
 // TestTimelineStatsAccuracy verifies stats match actual timeline data
 func TestTimelineStatsAccuracy(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createMultiCommitRepo(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bv, "--robot-history")
+	cmd := exec.CommandContext(ctx, bt, "--robot-history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -433,11 +433,11 @@ func TestTimelineStatsAccuracy(t *testing.T) {
 }
 
 // stageViewerAssetsForTimeline copies viewer assets to the binary directory
-func stageViewerAssetsForTimeline(t *testing.T, bvPath string) {
+func stageViewerAssetsForTimeline(t *testing.T, btPath string) {
 	t.Helper()
 	root := findRepoRootForTimeline(t)
 	src := filepath.Join(root, "pkg", "export", "viewer_assets")
-	dst := filepath.Join(filepath.Dir(bvPath), "pkg", "export", "viewer_assets")
+	dst := filepath.Join(filepath.Dir(btPath), "pkg", "export", "viewer_assets")
 
 	if err := copyDirRecursiveForTimeline(src, dst); err != nil {
 		t.Fatalf("stage viewer assets: %v", err)

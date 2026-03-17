@@ -115,6 +115,16 @@ func TestFindBeadIDMentions(t *testing.T) {
 			input:    "JIRA-123 and bv-xyz789",
 			expected: []string{"bv-xyz789"},
 		},
+		{
+			name:     "bt-prefix mention",
+			input:    "Working on bt-abc123 today",
+			expected: []string{"bt-abc123"},
+		},
+		{
+			name:     "mixed bv and bt prefixes",
+			input:    "Fixed bv-abc123 and bt-def456",
+			expected: []string{"bv-abc123", "bt-def456"},
+		},
 	}
 
 	for _, tt := range tests {

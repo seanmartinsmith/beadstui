@@ -3,7 +3,7 @@ package main_test
 import "testing"
 
 func TestRobotSuggestContract(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Two similar issues to exercise suggestion pipeline (duplicates/labels may or may not trigger).
 	writeBeads(t, env, `{"id":"A","title":"Login OAuth bug","status":"open","priority":1,"issue_type":"task","description":"OAuth login fails with 500 in auth handler"}
@@ -24,7 +24,7 @@ func TestRobotSuggestContract(t *testing.T) {
 		} `json:"suggestions"`
 		UsageHints []string `json:"usage_hints"`
 	}
-	runRobotJSON(t, bv, env, "--robot-suggest", &first)
+	runRobotJSON(t, bt, env, "--robot-suggest", &first)
 
 	if first.GeneratedAt == "" {
 		t.Fatalf("suggest missing generated_at")
@@ -43,7 +43,7 @@ func TestRobotSuggestContract(t *testing.T) {
 	var second struct {
 		DataHash string `json:"data_hash"`
 	}
-	runRobotJSON(t, bv, env, "--robot-suggest", &second)
+	runRobotJSON(t, bt, env, "--robot-suggest", &second)
 	if first.DataHash != second.DataHash {
 		t.Fatalf("suggest data_hash changed between calls: %v vs %v", first.DataHash, second.DataHash)
 	}

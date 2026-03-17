@@ -415,171 +415,6 @@ func TestTriageInProgressAction(t *testing.T) {
 // Tests for bv-147 Triage Scoring
 // ============================================================================
 
-func TestComputeTriageScores_Empty(t *testing.T) {
-	scores := ComputeTriageScores(nil)
-	if scores != nil {
-		t.Errorf("expected nil for empty issues, got %d scores", len(scores))
-	}
-}
-
-func TestComputeTriageScores_BasicIssues(t *testing.T) {
-	issues := []model.Issue{
-		{ID: "a", Title: "High priority", Status: model.StatusOpen, Priority: 0, UpdatedAt: time.Now()},
-		{ID: "b", Title: "Medium priority", Status: model.StatusOpen, Priority: 2, UpdatedAt: time.Now()},
-		{ID: "c", Title: "Low priority", Status: model.StatusOpen, Priority: 4, UpdatedAt: time.Now()},
-	}
-
-	scores := ComputeTriageScores(issues)
-
-	if len(scores) != 3 {
-		t.Errorf("expected 3 scores, got %d", len(scores))
-	}
-
-	// Should be sorted by triage score descending
-	for i := 0; i < len(scores)-1; i++ {
-		if scores[i].TriageScore < scores[i+1].TriageScore {
-			t.Errorf("scores not sorted descending: %f < %f", scores[i].TriageScore, scores[i+1].TriageScore)
-		}
-	}
-
-	// Check factors applied includes base and quick_win (no unblock for isolated issues)
-	for _, score := range scores {
-		hasBase := false
-		for _, f := range score.FactorsApplied {
-			if f == "base" {
-				hasBase = true
-			}
-		}
-		if !hasBase {
-			t.Errorf("score for %s missing 'base' factor", score.IssueID)
-		}
-	}
-}
-
-func TestComputeTriageScores_WithUnblocks(t *testing.T) {
-	// Create a chain: blocker -> blocked
-	issues := []model.Issue{
-		{ID: "blocker", Title: "Blocker", Status: model.StatusOpen, Priority: 1, UpdatedAt: time.Now()},
-		{
-			ID:        "blocked",
-			Title:     "Blocked",
-			Status:    model.StatusOpen,
-			Priority:  0,
-			UpdatedAt: time.Now(),
-			Dependencies: []*model.Dependency{
-				{DependsOnID: "blocker", Type: model.DepBlocks},
-			},
-		},
-	}
-
-	scores := ComputeTriageScores(issues)
-
-	// Find the blocker score
-	var blockerScore *TriageScore
-	for i := range scores {
-		if scores[i].IssueID == "blocker" {
-			blockerScore = &scores[i]
-			break
-		}
-	}
-
-	if blockerScore == nil {
-		t.Fatal("blocker score not found")
-	}
-
-	// Blocker should have unblock boost
-	if blockerScore.TriageFactors.UnblockBoost <= 0 {
-		t.Errorf("blocker should have positive unblock boost, got %f", blockerScore.TriageFactors.UnblockBoost)
-	}
-
-	// Check unblock is in factors applied
-	hasUnblock := false
-	for _, f := range blockerScore.FactorsApplied {
-		if f == "unblock" {
-			hasUnblock = true
-		}
-	}
-	if !hasUnblock {
-		t.Error("blocker should have 'unblock' in factors applied")
-	}
-}
-
-func TestComputeTriageScores_QuickWin(t *testing.T) {
-	// Issue with no blockers should get quick win boost
-	issues := []model.Issue{
-		{ID: "easy", Title: "Easy win", Status: model.StatusOpen, Priority: 2, UpdatedAt: time.Now()},
-	}
-
-	scores := ComputeTriageScores(issues)
-
-	if len(scores) != 1 {
-		t.Fatalf("expected 1 score, got %d", len(scores))
-	}
-
-	// Should have quick_win factor
-	hasQuickWin := false
-	for _, f := range scores[0].FactorsApplied {
-		if f == "quick_win" {
-			hasQuickWin = true
-		}
-	}
-	if !hasQuickWin {
-		t.Error("isolated issue should have 'quick_win' in factors applied")
-	}
-}
-
-func TestComputeTriageScores_PendingFactors(t *testing.T) {
-	issues := []model.Issue{
-		{ID: "a", Title: "Test", Status: model.StatusOpen, Priority: 1, UpdatedAt: time.Now()},
-	}
-
-	scores := ComputeTriageScores(issues)
-
-	if len(scores) != 1 {
-		t.Fatalf("expected 1 score, got %d", len(scores))
-	}
-
-	// Should have pending factors for features not yet enabled
-	expectedPending := []string{"label_health", "claim_penalty", "attention_score"}
-	for _, expected := range expectedPending {
-		found := false
-		for _, p := range scores[0].FactorsPending {
-			if p == expected {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("expected '%s' in factors pending", expected)
-		}
-	}
-}
-
-func TestComputeTriageScoresWithOptions_CustomWeights(t *testing.T) {
-	issues := []model.Issue{
-		{ID: "a", Title: "Test", Status: model.StatusOpen, Priority: 1, UpdatedAt: time.Now()},
-	}
-
-	opts := TriageScoringOptions{
-		BaseScoreWeight:    0.5,
-		UnblockBoostWeight: 0.25,
-		QuickWinWeight:     0.25,
-		UnblockThreshold:   3,
-		QuickWinMaxDepth:   1,
-	}
-
-	scores := ComputeTriageScoresWithOptions(issues, opts)
-
-	if len(scores) != 1 {
-		t.Fatalf("expected 1 score, got %d", len(scores))
-	}
-
-	// Triage score should be different from base score (due to quick win)
-	if scores[0].TriageScore == scores[0].BaseScore {
-		t.Error("triage score should differ from base score when quick_win applied")
-	}
-}
-
 func TestGetBlockerDepth_NoBlockers(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "a", Title: "No blockers", Status: model.StatusOpen},
@@ -630,28 +465,6 @@ func TestGetBlockerDepth_Cycle(t *testing.T) {
 	depth := analyzer.GetBlockerDepth("a")
 	if depth != -1 {
 		t.Errorf("expected depth -1 for cyclic dependency, got %d", depth)
-	}
-}
-
-func TestGetTopTriageScores(t *testing.T) {
-	issues := []model.Issue{
-		{ID: "a", Status: model.StatusOpen, Priority: 0, UpdatedAt: time.Now()},
-		{ID: "b", Status: model.StatusOpen, Priority: 1, UpdatedAt: time.Now()},
-		{ID: "c", Status: model.StatusOpen, Priority: 2, UpdatedAt: time.Now()},
-		{ID: "d", Status: model.StatusOpen, Priority: 3, UpdatedAt: time.Now()},
-		{ID: "e", Status: model.StatusOpen, Priority: 4, UpdatedAt: time.Now()},
-	}
-
-	top3 := GetTopTriageScores(issues, 3)
-
-	if len(top3) != 3 {
-		t.Errorf("expected 3 top scores, got %d", len(top3))
-	}
-
-	// Request more than available
-	top10 := GetTopTriageScores(issues, 10)
-	if len(top10) != 5 {
-		t.Errorf("expected 5 scores when requesting 10 from 5, got %d", len(top10))
 	}
 }
 
@@ -964,8 +777,10 @@ func TestGenerateTriageReasonsForScore(t *testing.T) {
 	analyzer := NewAnalyzer(issues)
 	triageCtx := NewTriageContext(analyzer)
 
-	// Get triage scores
-	scores := ComputeTriageScores(issues)
+	// Get triage scores via internal pipeline (standalone wrappers removed)
+	baseScores := analyzer.ComputeImpactScores()
+	unblocksMap := buildUnblocksMap(analyzer)
+	scores := computeTriageScoresFromImpact(baseScores, unblocksMap, analyzer, DefaultTriageScoringOptions())
 
 	// Find blocker score
 	var blockerScore TriageScore

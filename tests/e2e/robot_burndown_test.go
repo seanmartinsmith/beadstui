@@ -22,7 +22,7 @@ func writeSprints(t *testing.T, dir, content string) {
 }
 
 func TestRobotBurndown_CurrentSprint(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	now := time.Now().UTC()
@@ -49,7 +49,7 @@ func TestRobotBurndown_CurrentSprint(t *testing.T) {
 		end.Format(time.RFC3339),
 	))
 
-	cmd := exec.Command(bv, "--robot-burndown", "current")
+	cmd := exec.Command(bt, "--robot-burndown", "current")
 	cmd.Dir = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {

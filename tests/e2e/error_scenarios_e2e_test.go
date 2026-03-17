@@ -18,7 +18,7 @@ import (
 
 // TestError_CorruptedBeadsJSONL tests handling of corrupted beads.jsonl file.
 func TestError_CorruptedBeadsJSONL(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	// Create .beads directory with corrupted issues.jsonl
@@ -38,7 +38,7 @@ func TestError_CorruptedBeadsJSONL(t *testing.T) {
 	}
 
 	// Robot commands should handle gracefully (partial data or error message)
-	cmd := exec.Command(bv, "--robot-triage")
+	cmd := exec.Command(bt, "--robot-triage")
 	cmd.Dir = env
 	output, err := cmd.CombinedOutput()
 
@@ -56,7 +56,7 @@ func TestError_CorruptedBeadsJSONL(t *testing.T) {
 
 // TestError_MalformedJSONLines tests various malformed JSON scenarios.
 func TestError_MalformedJSONLines(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tests := []struct {
 		name    string
@@ -97,7 +97,7 @@ func TestError_MalformedJSONLines(t *testing.T) {
 				t.Fatalf("failed to write issues.jsonl: %v", err)
 			}
 
-			cmd := exec.Command(bv, "--robot-triage")
+			cmd := exec.Command(bt, "--robot-triage")
 			cmd.Dir = env
 			output, _ := cmd.CombinedOutput()
 
@@ -109,7 +109,7 @@ func TestError_MalformedJSONLines(t *testing.T) {
 
 // TestError_MissingRequiredFields tests handling of issues missing required fields.
 func TestError_MissingRequiredFields(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	beadsDir := filepath.Join(env, ".beads")
@@ -127,7 +127,7 @@ func TestError_MissingRequiredFields(t *testing.T) {
 	}
 
 	// Should handle gracefully
-	cmd := exec.Command(bv, "--robot-triage")
+	cmd := exec.Command(bt, "--robot-triage")
 	cmd.Dir = env
 	output, err := cmd.CombinedOutput()
 
@@ -144,7 +144,7 @@ func TestError_MissingRequiredFields(t *testing.T) {
 
 // TestError_InvalidUTF8 tests handling of invalid UTF-8 in issue data.
 func TestError_InvalidUTF8(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	beadsDir := filepath.Join(env, ".beads")
@@ -163,7 +163,7 @@ func TestError_InvalidUTF8(t *testing.T) {
 		t.Fatalf("failed to write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--robot-triage")
+	cmd := exec.Command(bt, "--robot-triage")
 	cmd.Dir = env
 	output, _ := cmd.CombinedOutput()
 
@@ -177,12 +177,12 @@ func TestError_InvalidUTF8(t *testing.T) {
 
 // TestError_MissingBeadsDirectory tests behavior when .beads directory doesn't exist.
 func TestError_MissingBeadsDirectory(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	// Don't create .beads directory
 
-	cmd := exec.Command(bv, "--robot-triage")
+	cmd := exec.Command(bt, "--robot-triage")
 	cmd.Dir = env
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -203,7 +203,7 @@ func TestError_MissingBeadsDirectory(t *testing.T) {
 
 // TestError_EmptyBeadsDirectory tests behavior with empty .beads directory.
 func TestError_EmptyBeadsDirectory(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	beadsDir := filepath.Join(env, ".beads")
@@ -213,7 +213,7 @@ func TestError_EmptyBeadsDirectory(t *testing.T) {
 
 	// No issues.jsonl file
 
-	cmd := exec.Command(bv, "--robot-triage")
+	cmd := exec.Command(bt, "--robot-triage")
 	cmd.Dir = env
 	output, _ := cmd.CombinedOutput()
 
@@ -227,7 +227,7 @@ func TestError_ReadOnlyBeadsFile(t *testing.T) {
 		t.Skip("skipping read-only test when running as root")
 	}
 
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	beadsDir := filepath.Join(env, ".beads")
@@ -243,7 +243,7 @@ func TestError_ReadOnlyBeadsFile(t *testing.T) {
 	defer os.Chmod(issuesPath, 0644) // Cleanup
 
 	// Read operations should still work
-	cmd := exec.Command(bv, "--robot-triage")
+	cmd := exec.Command(bt, "--robot-triage")
 	cmd.Dir = env
 	output, err := cmd.CombinedOutput()
 
@@ -258,7 +258,7 @@ func TestError_ReadOnlyBeadsFile(t *testing.T) {
 
 // TestError_NotGitRepository tests behavior in non-git directory.
 func TestError_NotGitRepository(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	// Create .beads but no .git
@@ -274,7 +274,7 @@ func TestError_NotGitRepository(t *testing.T) {
 	}
 
 	// Regular triage should work without git
-	cmd := exec.Command(bv, "--robot-triage")
+	cmd := exec.Command(bt, "--robot-triage")
 	cmd.Dir = env
 	output, err := cmd.CombinedOutput()
 
@@ -283,7 +283,7 @@ func TestError_NotGitRepository(t *testing.T) {
 	}
 
 	// Git-dependent features should fail gracefully
-	cmd = exec.Command(bv, "--robot-diff", "--diff-since", "HEAD~1")
+	cmd = exec.Command(bt, "--robot-diff", "--diff-since", "HEAD~1")
 	cmd.Dir = env
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -302,7 +302,7 @@ func TestError_NotGitRepository(t *testing.T) {
 
 // TestError_InvalidGitRevision tests handling of invalid git revision.
 func TestError_InvalidGitRevision(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	// Initialize git repo
@@ -338,7 +338,7 @@ func TestError_InvalidGitRevision(t *testing.T) {
 	git("commit", "-m", "Initial")
 
 	// Try invalid revision
-	cmd := exec.Command(bv, "--robot-diff", "--diff-since", "nonexistent-branch-abc123")
+	cmd := exec.Command(bt, "--robot-diff", "--diff-since", "nonexistent-branch-abc123")
 	cmd.Dir = env
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -362,7 +362,7 @@ func TestError_InvalidGitRevision(t *testing.T) {
 
 // TestError_PathologicalCyclicGraph tests handling of highly cyclic graphs.
 func TestError_PathologicalCyclicGraph(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	beadsDir := filepath.Join(env, ".beads")
@@ -394,7 +394,7 @@ func TestError_PathologicalCyclicGraph(t *testing.T) {
 	}
 
 	// Should handle cyclic graph without hanging or crashing
-	cmd := exec.Command(bv, "--robot-triage")
+	cmd := exec.Command(bt, "--robot-triage")
 	cmd.Dir = env
 	output, err := cmd.CombinedOutput()
 
@@ -410,7 +410,7 @@ func TestError_PathologicalCyclicGraph(t *testing.T) {
 
 // TestError_LargeGraphAnalysis tests handling of larger graphs.
 func TestError_LargeGraphAnalysis(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	beadsDir := filepath.Join(env, ".beads")
@@ -437,7 +437,7 @@ func TestError_LargeGraphAnalysis(t *testing.T) {
 	}
 
 	// Should complete within reasonable time
-	cmd := exec.Command(bv, "--robot-triage")
+	cmd := exec.Command(bt, "--robot-triage")
 	cmd.Dir = env
 	output, err := cmd.CombinedOutput()
 
@@ -455,7 +455,7 @@ func TestError_LargeGraphAnalysis(t *testing.T) {
 
 // TestError_InvalidExportPath tests handling of invalid export paths.
 func TestError_InvalidExportPath(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	beadsDir := filepath.Join(env, ".beads")
@@ -470,7 +470,7 @@ func TestError_InvalidExportPath(t *testing.T) {
 	}
 
 	// Try to export to non-existent directory
-	cmd := exec.Command(bv, "--export-graph", "/nonexistent/path/graph.json")
+	cmd := exec.Command(bt, "--export-graph", "/nonexistent/path/graph.json")
 	cmd.Dir = env
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -494,7 +494,7 @@ func TestError_ExportToReadOnlyDirectory(t *testing.T) {
 		t.Skip("skipping read-only test when running as root")
 	}
 
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	beadsDir := filepath.Join(env, ".beads")
@@ -516,7 +516,7 @@ func TestError_ExportToReadOnlyDirectory(t *testing.T) {
 	defer os.Chmod(readOnlyDir, 0755) // Cleanup
 
 	// Try to export to read-only directory
-	cmd := exec.Command(bv, "--export-graph", filepath.Join(readOnlyDir, "graph.json"))
+	cmd := exec.Command(bt, "--export-graph", filepath.Join(readOnlyDir, "graph.json"))
 	cmd.Dir = env
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -540,7 +540,7 @@ func TestError_ExportToReadOnlyDirectory(t *testing.T) {
 
 // TestError_ExitCodes verifies that error scenarios produce non-zero exit codes.
 func TestError_ExitCodes(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tests := []struct {
 		name       string
@@ -589,7 +589,7 @@ func TestError_ExitCodes(t *testing.T) {
 				t.Fatalf("setup failed: %v", err)
 			}
 
-			cmd := exec.Command(bv, tc.args...)
+			cmd := exec.Command(bt, tc.args...)
 			cmd.Dir = env
 			err := cmd.Run()
 

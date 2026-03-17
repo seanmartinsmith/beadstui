@@ -95,7 +95,7 @@ func atomicWrite(filePath string, content []byte) error {
 
 	// Create temp file in same directory (required for atomic rename)
 	dir := filepath.Dir(filePath)
-	tmp, err := os.CreateTemp(dir, ".bv-atomic-*")
+	tmp, err := os.CreateTemp(dir, ".bt-atomic-*")
 	if err != nil {
 		return fmt.Errorf("create temp file: %w", err)
 	}

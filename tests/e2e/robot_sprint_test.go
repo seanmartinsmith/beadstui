@@ -16,7 +16,7 @@ func createSprintRepo(t *testing.T, sprintsJSONL string) string {
 		t.Fatalf("mkdir .beads: %v", err)
 	}
 
-	// Minimal beads file so bv can start.
+	// Minimal beads file so bt can start.
 	const beads = `{"id":"A","title":"Alpha","status":"open","priority":1,"issue_type":"task"}`
 	if err := os.WriteFile(filepath.Join(beadsDir, "beads.jsonl"), []byte(beads), 0o644); err != nil {
 		t.Fatalf("write beads.jsonl: %v", err)
@@ -32,10 +32,10 @@ func createSprintRepo(t *testing.T, sprintsJSONL string) string {
 }
 
 func TestRobotSprintList_Empty(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createSprintRepo(t, "")
 
-	cmd := exec.Command(bv, "--robot-sprint-list")
+	cmd := exec.Command(bt, "--robot-sprint-list")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -66,13 +66,13 @@ func TestRobotSprintList_Empty(t *testing.T) {
 }
 
 func TestRobotSprintList_Multiple(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	sprints := `{"id":"sprint-1","name":"Sprint 1","bead_ids":["A"]}` + "\n" +
 		`{"id":"sprint-2","name":"Sprint 2","bead_ids":["A"]}` + "\n"
 	repoDir := createSprintRepo(t, sprints)
 	t.Logf("sprints.jsonl:\n%s", sprints)
 
-	cmd := exec.Command(bv, "--robot-sprint-list")
+	cmd := exec.Command(bt, "--robot-sprint-list")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -98,11 +98,11 @@ func TestRobotSprintList_Multiple(t *testing.T) {
 }
 
 func TestRobotSprintShow_Found(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	sprints := `{"id":"sprint-1","name":"Sprint 1","bead_ids":["A"]}` + "\n"
 	repoDir := createSprintRepo(t, sprints)
 
-	cmd := exec.Command(bv, "--robot-sprint-show", "sprint-1")
+	cmd := exec.Command(bt, "--robot-sprint-show", "sprint-1")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -136,10 +136,10 @@ func TestRobotSprintShow_Found(t *testing.T) {
 }
 
 func TestRobotSprintShow_NotFound(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createSprintRepo(t, "")
 
-	cmd := exec.Command(bv, "--robot-sprint-show", "missing")
+	cmd := exec.Command(bt, "--robot-sprint-show", "missing")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err == nil {

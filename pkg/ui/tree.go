@@ -162,7 +162,6 @@ type TreeViewMode int
 
 const (
 	TreeModeHierarchy TreeViewMode = iota // parent-child deps (default)
-	TreeModeBlocking                      // blocking deps (future)
 )
 
 // IssueTreeNode represents a node in the hierarchical issue tree

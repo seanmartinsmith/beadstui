@@ -4,7 +4,7 @@
     Install script for beadstui (bt) on Windows.
 .DESCRIPTION
     Builds and installs bt from source using Go.
-    Pre-built Windows binaries are not yet available, so Go 1.21+ is required.
+    Pre-built Windows binaries are not yet available, so Go 1.25+ is required.
 .EXAMPLE
     irm https://raw.githubusercontent.com/seanmartinsmith/beadstui/main/install.ps1 | iex
 #>
@@ -17,7 +17,7 @@ $ErrorActionPreference = 'Stop'
 
 $REPO = "github.com/seanmartinsmith/beadstui"
 $BIN_NAME = "bt"
-$MIN_GO_VERSION = "1.21"
+$MIN_GO_VERSION = "1.25"
 
 function Write-Info { param([string]$Message) Write-Host "==> " -ForegroundColor Blue -NoNewline; Write-Host $Message }
 function Write-Success { param([string]$Message) Write-Host "==> " -ForegroundColor Green -NoNewline; Write-Host $Message }

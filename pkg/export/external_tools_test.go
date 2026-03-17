@@ -125,18 +125,6 @@ func TestDeployToGitHubPages_NoGHReturnsError(t *testing.T) {
 	}
 }
 
-func TestDeployToCloudflarePages_NoNPMOrWranglerReturnsError(t *testing.T) {
-	t.Setenv("PATH", "")
-
-	_, err := DeployToCloudflarePages(CloudflareDeployConfig{
-		ProjectName: "proj",
-		BundlePath:  filepath.Join(t.TempDir(), "bundle"),
-	})
-	if err == nil {
-		t.Fatal("Expected DeployToCloudflarePages to return error when npm/wrangler are missing")
-	}
-}
-
 func TestCheckWranglerStatus_NoToolsInstalled(t *testing.T) {
 	t.Setenv("PATH", "")
 

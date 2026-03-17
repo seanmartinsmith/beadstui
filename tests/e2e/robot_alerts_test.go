@@ -9,7 +9,7 @@ import (
 )
 
 func TestRobotAlerts_BasicAndFilters(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	now := time.Now().UTC()
@@ -53,7 +53,7 @@ func TestRobotAlerts_BasicAndFilters(t *testing.T) {
 
 	run := func(args ...string) payload {
 		t.Helper()
-		cmd := exec.Command(bv, args...)
+		cmd := exec.Command(bt, args...)
 		cmd.Dir = env
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -122,7 +122,7 @@ func TestRobotAlerts_BasicAndFilters(t *testing.T) {
 }
 
 func TestRobotAlerts_UsesBaselineWhenPresent(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	now := time.Now().UTC()
@@ -133,7 +133,7 @@ func TestRobotAlerts_UsesBaselineWhenPresent(t *testing.T) {
 		`{"id":"A","title":"A","status":"open","priority":1,"issue_type":"task","created_at":"%s","updated_at":"%s"}`,
 		ts, ts,
 	))
-	save := exec.Command(bv, "--save-baseline", "test baseline")
+	save := exec.Command(bt, "--save-baseline", "test baseline")
 	save.Dir = env
 	if out, err := save.CombinedOutput(); err != nil {
 		t.Fatalf("save baseline failed: %v\n%s", err, out)
@@ -154,7 +154,7 @@ func TestRobotAlerts_UsesBaselineWhenPresent(t *testing.T) {
 		Alerts []alert `json:"alerts"`
 	}
 
-	cmd := exec.Command(bv, "--robot-alerts")
+	cmd := exec.Command(bt, "--robot-alerts")
 	cmd.Dir = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {

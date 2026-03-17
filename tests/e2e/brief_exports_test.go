@@ -10,7 +10,7 @@ import (
 )
 
 func TestPriorityBrief_AndAgentBriefBundle(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	// A is actionable, B is blocked; ensures triage has content.
@@ -18,7 +18,7 @@ func TestPriorityBrief_AndAgentBriefBundle(t *testing.T) {
 {"id":"B","title":"Blocked","status":"open","priority":2,"issue_type":"task","dependencies":[{"issue_id":"B","depends_on_id":"A","type":"blocks"}]}`)
 
 	briefPath := filepath.Join(env, "brief.md")
-	cmd := exec.Command(bv, "--priority-brief", briefPath)
+	cmd := exec.Command(bt, "--priority-brief", briefPath)
 	cmd.Dir = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -42,7 +42,7 @@ func TestPriorityBrief_AndAgentBriefBundle(t *testing.T) {
 
 	// Agent brief bundle
 	bundleDir := filepath.Join(env, "agent-brief")
-	cmd = exec.Command(bv, "--agent-brief", bundleDir)
+	cmd = exec.Command(bt, "--agent-brief", bundleDir)
 	cmd.Dir = env
 	out, err = cmd.CombinedOutput()
 	if err != nil {

@@ -8,13 +8,13 @@ import (
 )
 
 func TestRobotSearchContract(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Use a very distinctive token with many repeats to make hashed-vector ranking stable.
 	writeBeads(t, env, `{"id":"A","title":"Semantic search target","description":"interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken","status":"open","priority":1,"issue_type":"task"}
 {"id":"B","title":"Unrelated docs","description":"readme changelog docs","status":"open","priority":2,"issue_type":"task"}`)
 
-	cmd := exec.Command(bv, "--search", "interstellarkraken", "--robot-search")
+	cmd := exec.Command(bt, "--search", "interstellarkraken", "--robot-search")
 	cmd.Dir = env
 	cmd.Env = append(os.Environ(),
 		"BT_SEMANTIC_EMBEDDER=hash",

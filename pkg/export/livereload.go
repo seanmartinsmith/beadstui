@@ -1,4 +1,4 @@
-// Package export provides data export functionality for bv.
+// Package export provides data export functionality for bt.
 //
 // This file implements live-reload via Server-Sent Events (SSE) for the preview server.
 // When files change in the bundle directory, connected browsers receive reload events.

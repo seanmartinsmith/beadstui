@@ -16,15 +16,15 @@ import (
 
 // TestWorkflow_NewProjectSetup tests the new project initialization workflow
 func TestWorkflow_NewProjectSetup(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	projectDir := t.TempDir()
 
-	// Step 1: Verify bv handles missing .beads directory gracefully
-	cmd := exec.Command(bv, "--robot-triage")
+	// Step 1: Verify bt handles missing .beads directory gracefully
+	cmd := exec.Command(bt, "--robot-triage")
 	cmd.Dir = projectDir
 	out, err := cmd.CombinedOutput()
 	if err == nil {
-		t.Log("Note: bv succeeded without .beads (may auto-create or warn)")
+		t.Log("Note: bt succeeded without .beads (may auto-create or warn)")
 	}
 	// Should either fail gracefully or return empty triage
 	if !strings.Contains(string(out), "no issues") && !strings.Contains(string(out), "beads") && err == nil {
@@ -53,7 +53,7 @@ func TestWorkflow_NewProjectSetup(t *testing.T) {
 	}
 
 	// Step 3: Run analysis on new project
-	cmd = exec.Command(bv, "--robot-insights")
+	cmd = exec.Command(bt, "--robot-insights")
 	cmd.Dir = projectDir
 	out, err = cmd.CombinedOutput()
 	if err != nil {
@@ -80,7 +80,7 @@ func TestWorkflow_NewProjectSetup(t *testing.T) {
 		t.Fatalf("failed to update beads.jsonl: %v", err)
 	}
 
-	cmd = exec.Command(bv, "--robot-plan")
+	cmd = exec.Command(bt, "--robot-plan")
 	cmd.Dir = projectDir
 	out, err = cmd.CombinedOutput()
 	if err != nil {
@@ -102,7 +102,7 @@ func TestWorkflow_NewProjectSetup(t *testing.T) {
 
 // TestWorkflow_TriageAndRecommendations tests the triage workflow
 func TestWorkflow_TriageAndRecommendations(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	projectDir := t.TempDir()
 	beadsDir := filepath.Join(projectDir, ".beads")
 	if err := os.MkdirAll(beadsDir, 0755); err != nil {
@@ -120,7 +120,7 @@ func TestWorkflow_TriageAndRecommendations(t *testing.T) {
 	}
 
 	// Step 1: Get triage recommendations
-	cmd := exec.Command(bv, "--robot-triage")
+	cmd := exec.Command(bt, "--robot-triage")
 	cmd.Dir = projectDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -154,7 +154,7 @@ func TestWorkflow_TriageAndRecommendations(t *testing.T) {
 	}
 
 	// Step 2: Get the top recommendation via --robot-next
-	cmd = exec.Command(bv, "--robot-next")
+	cmd = exec.Command(bt, "--robot-next")
 	cmd.Dir = projectDir
 	out, err = cmd.CombinedOutput()
 	if err != nil {
@@ -189,7 +189,7 @@ func TestWorkflow_TriageAndRecommendations(t *testing.T) {
 
 // TestWorkflow_TimeTravelAnalysis tests baseline/diff workflow
 func TestWorkflow_TimeTravelAnalysis(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	projectDir := t.TempDir()
 	beadsDir := filepath.Join(projectDir, ".beads")
 	if err := os.MkdirAll(beadsDir, 0755); err != nil {
@@ -227,7 +227,7 @@ func TestWorkflow_TimeTravelAnalysis(t *testing.T) {
 	git("commit", "-m", "initial state")
 
 	// Step 2: Save baseline
-	cmd := exec.Command(bv, "--save-baseline", "Initial snapshot")
+	cmd := exec.Command(bt, "--save-baseline", "Initial snapshot")
 	cmd.Dir = projectDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("save-baseline failed: %v\n%s", err, out)
@@ -240,7 +240,7 @@ func TestWorkflow_TimeTravelAnalysis(t *testing.T) {
 	}
 
 	// Step 3: Verify baseline info
-	cmd = exec.Command(bv, "--baseline-info")
+	cmd = exec.Command(bt, "--baseline-info")
 	cmd.Dir = projectDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -262,7 +262,7 @@ func TestWorkflow_TimeTravelAnalysis(t *testing.T) {
 	git("commit", "-m", "changes: close A, add D, reprioritize B")
 
 	// Step 5: Check drift
-	cmd = exec.Command(bv, "--check-drift")
+	cmd = exec.Command(bt, "--check-drift")
 	cmd.Dir = projectDir
 	out, err = cmd.CombinedOutput()
 	if err != nil {
@@ -273,7 +273,7 @@ func TestWorkflow_TimeTravelAnalysis(t *testing.T) {
 	t.Logf("Drift check output: %s", string(out))
 
 	// Step 6: Get robot-diff for detailed changes (using HEAD~1 since we have git)
-	cmd = exec.Command(bv, "--robot-diff", "--diff-since", "HEAD~1")
+	cmd = exec.Command(bt, "--robot-diff", "--diff-since", "HEAD~1")
 	cmd.Dir = projectDir
 	out, err = cmd.CombinedOutput()
 	if err != nil {
@@ -326,7 +326,7 @@ func TestWorkflow_TimeTravelAnalysis(t *testing.T) {
 
 // TestWorkflow_LabelScopedAnalysis tests label filtering workflow
 func TestWorkflow_LabelScopedAnalysis(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	projectDir := t.TempDir()
 	beadsDir := filepath.Join(projectDir, ".beads")
 	if err := os.MkdirAll(beadsDir, 0755); err != nil {
@@ -344,7 +344,7 @@ func TestWorkflow_LabelScopedAnalysis(t *testing.T) {
 	}
 
 	// Step 1: Get unfiltered graph stats
-	cmd := exec.Command(bv, "--robot-graph", "--graph-format=json")
+	cmd := exec.Command(bt, "--robot-graph", "--graph-format=json")
 	cmd.Dir = projectDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -361,7 +361,7 @@ func TestWorkflow_LabelScopedAnalysis(t *testing.T) {
 	}
 
 	// Step 2: Filter by label 'api'
-	cmd = exec.Command(bv, "--robot-graph", "--graph-format=json", "--label=api")
+	cmd = exec.Command(bt, "--robot-graph", "--graph-format=json", "--label=api")
 	cmd.Dir = projectDir
 	out, err = cmd.CombinedOutput()
 	if err != nil {
@@ -386,7 +386,7 @@ func TestWorkflow_LabelScopedAnalysis(t *testing.T) {
 	}
 
 	// Step 4: Get label health metrics
-	cmd = exec.Command(bv, "--robot-label-health")
+	cmd = exec.Command(bt, "--robot-label-health")
 	cmd.Dir = projectDir
 	out, err = cmd.CombinedOutput()
 	if err != nil {
@@ -406,7 +406,7 @@ func TestWorkflow_LabelScopedAnalysis(t *testing.T) {
 	}
 
 	// Step 5: Get label attention ranking
-	cmd = exec.Command(bv, "--robot-label-attention", "--attention-limit=3")
+	cmd = exec.Command(bt, "--robot-label-attention", "--attention-limit=3")
 	cmd.Dir = projectDir
 	out, err = cmd.CombinedOutput()
 	if err != nil {
@@ -429,7 +429,7 @@ func TestWorkflow_LabelScopedAnalysis(t *testing.T) {
 
 // TestWorkflow_ExportPipeline tests the export workflow
 func TestWorkflow_ExportPipeline(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	projectDir := t.TempDir()
 	beadsDir := filepath.Join(projectDir, ".beads")
 	if err := os.MkdirAll(beadsDir, 0755); err != nil {
@@ -445,7 +445,7 @@ func TestWorkflow_ExportPipeline(t *testing.T) {
 	}
 
 	// Step 1: Generate insights
-	cmd := exec.Command(bv, "--robot-insights")
+	cmd := exec.Command(bt, "--robot-insights")
 	cmd.Dir = projectDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -459,7 +459,7 @@ func TestWorkflow_ExportPipeline(t *testing.T) {
 
 	// Step 2: Export to markdown
 	mdPath := filepath.Join(projectDir, "report.md")
-	cmd = exec.Command(bv, "--export-md", mdPath)
+	cmd = exec.Command(bt, "--export-md", mdPath)
 	cmd.Dir = projectDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("export-md failed: %v\n%s", err, out)
@@ -483,7 +483,7 @@ func TestWorkflow_ExportPipeline(t *testing.T) {
 	// Step 3: Export graph to multiple formats
 	formats := []string{"json", "dot", "mermaid"}
 	for _, format := range formats {
-		cmd = exec.Command(bv, "--robot-graph", "--graph-format="+format)
+		cmd = exec.Command(bt, "--robot-graph", "--graph-format="+format)
 		cmd.Dir = projectDir
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -501,7 +501,7 @@ func TestWorkflow_ExportPipeline(t *testing.T) {
 	}
 
 	// Step 4: Verify all exports are consistent
-	cmd = exec.Command(bv, "--robot-triage")
+	cmd = exec.Command(bt, "--robot-triage")
 	cmd.Dir = projectDir
 	out, err = cmd.CombinedOutput()
 	if err != nil {
@@ -526,7 +526,7 @@ func TestWorkflow_ExportPipeline(t *testing.T) {
 
 // TestWorkflow_StateTransitions tests state changes are detected correctly
 func TestWorkflow_StateTransitions(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	projectDir := t.TempDir()
 	beadsDir := filepath.Join(projectDir, ".beads")
 	if err := os.MkdirAll(beadsDir, 0755); err != nil {
@@ -541,7 +541,7 @@ func TestWorkflow_StateTransitions(t *testing.T) {
 		t.Fatalf("write failed: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--robot-triage")
+	cmd := exec.Command(bt, "--robot-triage")
 	cmd.Dir = projectDir
 	out1, err := cmd.CombinedOutput()
 	if err != nil {
@@ -560,7 +560,7 @@ func TestWorkflow_StateTransitions(t *testing.T) {
 		t.Fatalf("write failed: %v", err)
 	}
 
-	cmd = exec.Command(bv, "--robot-triage")
+	cmd = exec.Command(bt, "--robot-triage")
 	cmd.Dir = projectDir
 	out2, err := cmd.CombinedOutput()
 	if err != nil {
@@ -583,7 +583,7 @@ func TestWorkflow_StateTransitions(t *testing.T) {
 		t.Fatalf("write failed: %v", err)
 	}
 
-	cmd = exec.Command(bv, "--robot-triage")
+	cmd = exec.Command(bt, "--robot-triage")
 	cmd.Dir = projectDir
 	out3, err := cmd.CombinedOutput()
 	if err != nil {

@@ -482,7 +482,7 @@ func isShellSafeChar(r rune) bool {
 }
 
 // ============================================================================
-// Priority Brief Export (bv-96)
+// Priority Brief Export (bt-96)
 // ============================================================================
 
 // PriorityBriefConfig configures the priority brief generation
@@ -506,59 +506,7 @@ func DefaultPriorityBriefConfig() PriorityBriefConfig {
 	}
 }
 
-// GeneratePriorityBrief creates a compact Markdown priority brief from triage data (bv-96)
-// This is designed for human readability and can be rendered to PNG
-func GeneratePriorityBrief(triage interface{}, config PriorityBriefConfig) string {
-	var sb strings.Builder
-
-	// Use reflection or JSON marshal/unmarshal to access fields
-	// For simplicity, we'll use direct field access assuming the types match
-
-	// Header
-	sb.WriteString("# 📊 Priority Brief\n\n")
-	sb.WriteString(fmt.Sprintf("*Generated: %s*\n\n", time.Now().Format("2006-01-02 15:04")))
-
-	// Add data hash if provided
-	if config.DataHash != "" {
-		sb.WriteString(fmt.Sprintf("**Data Hash:** `%s`\n\n", config.DataHash))
-	}
-
-	sb.WriteString("---\n\n")
-
-	// This is a simplified implementation - in production, you'd use proper type casting
-	// For now, return a placeholder that demonstrates the structure
-	sb.WriteString("## 🎯 Top Recommendations\n\n")
-	sb.WriteString("| # | Issue | Type | Priority | Score | Top Reason |\n")
-	sb.WriteString("|---|-------|------|----------|-------|------------|\n")
-	sb.WriteString("| 1 | *Run `bt --robot-triage` for data* | - | - | - | - |\n\n")
-
-	sb.WriteString("## ⚡ Quick Wins\n\n")
-	sb.WriteString("| Issue | Reason | Impact |\n")
-	sb.WriteString("|-------|--------|--------|\n")
-	sb.WriteString("| *Run `bt --robot-triage` for data* | - | - |\n\n")
-
-	sb.WriteString("## 🚧 Blockers to Clear\n\n")
-	sb.WriteString("| Issue | Unblocks | Actionable |\n")
-	sb.WriteString("|-------|----------|------------|\n")
-	sb.WriteString("| *Run `bt --robot-triage` for data* | - | - |\n\n")
-
-	// Legend
-	if config.IncludeLegend {
-		sb.WriteString("---\n\n")
-		sb.WriteString("## 📖 Legend\n\n")
-		sb.WriteString("| Metric | Description |\n")
-		sb.WriteString("|--------|-------------|\n")
-		sb.WriteString("| **PR** | PageRank - importance based on incoming dependencies |\n")
-		sb.WriteString("| **BW** | Betweenness - how often this issue is on critical paths |\n")
-		sb.WriteString("| **TI** | Time-to-Impact - urgency based on depth and estimates |\n")
-		sb.WriteString("| **Score** | Composite priority score (0.0-1.0, higher = more important) |\n")
-		sb.WriteString("| **Unblocks** | Number of issues that can proceed once this is done |\n\n")
-	}
-
-	return sb.String()
-}
-
-// GeneratePriorityBriefFromTriage creates a priority brief from a TriageResult (bv-96)
+// GeneratePriorityBriefFromTriage creates a priority brief from a TriageResult (bt-96)
 // This is the production version that takes proper triage data
 func GeneratePriorityBriefFromTriageJSON(triageJSON []byte, config PriorityBriefConfig) (string, error) {
 	// Parse the JSON

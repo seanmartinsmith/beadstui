@@ -12,7 +12,7 @@ import (
 
 // TestRobotRecipesContract verifies --robot-recipes output structure.
 func TestRobotRecipesContract(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"A","title":"Test","status":"open","priority":1,"issue_type":"task"}`)
 
@@ -23,7 +23,7 @@ func TestRobotRecipesContract(t *testing.T) {
 			Source      string `json:"source"`
 		} `json:"recipes"`
 	}
-	runRobotJSON(t, bv, env, "--robot-recipes", &payload)
+	runRobotJSON(t, bt, env, "--robot-recipes", &payload)
 
 	if len(payload.Recipes) == 0 {
 		t.Fatalf("recipes missing recipe list")
@@ -49,11 +49,11 @@ func TestRobotRecipesContract(t *testing.T) {
 
 // TestRobotHelpContract verifies --robot-help output is non-empty text.
 func TestRobotHelpContract(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"A","title":"Test","status":"open","priority":1,"issue_type":"task"}`)
 
-	cmd := exec.Command(bv, "--robot-help")
+	cmd := exec.Command(bt, "--robot-help")
 	cmd.Dir = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -82,14 +82,14 @@ func TestRobotHelpContract(t *testing.T) {
 // TestRobotDriftContract verifies --robot-drift output structure.
 // Note: --robot-drift requires --check-drift flag and may need a baseline.
 func TestRobotDriftContract(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Create issues to enable drift detection.
 	writeBeads(t, env, `{"id":"A","title":"High priority","status":"open","priority":1,"issue_type":"task","created":"2025-01-01T00:00:00Z","updated":"2025-01-02T00:00:00Z"}
 {"id":"B","title":"Old unworked","status":"open","priority":1,"issue_type":"task","created":"2025-01-01T00:00:00Z"}`)
 
 	// Run with --check-drift --robot-drift flags
-	cmd := exec.Command(bv, "--check-drift", "--robot-drift")
+	cmd := exec.Command(bt, "--check-drift", "--robot-drift")
 	cmd.Dir = env
 	out, err := cmd.CombinedOutput()
 	// Drift check may fail without baseline, that's OK
@@ -121,7 +121,7 @@ func TestRobotDriftContract(t *testing.T) {
 
 // TestRobotEmptyDataEdgeCases verifies graceful handling of empty data.
 func TestRobotEmptyDataEdgeCases(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tests := []struct {
 		name string
@@ -141,7 +141,7 @@ func TestRobotEmptyDataEdgeCases(t *testing.T) {
 			writeBeads(t, env, "")
 
 			var payload map[string]any
-			cmd := exec.Command(bv, tc.flag)
+			cmd := exec.Command(bt, tc.flag)
 			cmd.Dir = env
 			out, err := cmd.CombinedOutput()
 			// Should not crash, but may return error for empty data
@@ -165,7 +165,7 @@ func TestRobotEmptyDataEdgeCases(t *testing.T) {
 
 // TestRobotFilterByLabel verifies --label filter works with robot commands.
 func TestRobotFilterByLabel(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"API-1","title":"API issue","status":"open","priority":1,"issue_type":"task","labels":["api"]}
 {"id":"API-2","title":"API task 2","status":"open","priority":2,"issue_type":"task","labels":["api"]}
@@ -182,7 +182,7 @@ func TestRobotFilterByLabel(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			cmd := exec.Command(bv, tc.args...)
+			cmd := exec.Command(bt, tc.args...)
 			cmd.Dir = env
 			out, err := cmd.CombinedOutput()
 			if err != nil {
@@ -206,7 +206,7 @@ func TestRobotFilterByLabel(t *testing.T) {
 
 // TestRobotInvalidOptionHandling verifies graceful error handling.
 func TestRobotInvalidOptionHandling(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"A","title":"Test","status":"open","priority":1,"issue_type":"task"}`)
 
@@ -222,7 +222,7 @@ func TestRobotInvalidOptionHandling(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			cmd := exec.Command(bv, tc.args...)
+			cmd := exec.Command(bt, tc.args...)
 			cmd.Dir = env
 			_, err := cmd.CombinedOutput()
 
@@ -236,7 +236,7 @@ func TestRobotInvalidOptionHandling(t *testing.T) {
 
 // TestRobotDeterminismAcrossCommands verifies data_hash consistency.
 func TestRobotDeterminismAcrossCommands(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"A","title":"Root","status":"open","priority":1,"issue_type":"task"}
 {"id":"B","title":"Blocked","status":"open","priority":2,"issue_type":"task","dependencies":[{"issue_id":"B","depends_on_id":"A","type":"blocks"}]}`)
@@ -253,7 +253,7 @@ func TestRobotDeterminismAcrossCommands(t *testing.T) {
 		var payload struct {
 			DataHash string `json:"data_hash"`
 		}
-		runRobotJSON(t, bv, env, cmd, &payload)
+		runRobotJSON(t, bt, env, cmd, &payload)
 		hashes[cmd] = payload.DataHash
 	}
 
@@ -269,7 +269,7 @@ func TestRobotDeterminismAcrossCommands(t *testing.T) {
 
 // TestRobotOutputContainsUsageHints verifies all commands include hints.
 func TestRobotOutputContainsUsageHints(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"A","title":"Test","status":"open","priority":1,"issue_type":"task"}`)
 
@@ -286,7 +286,7 @@ func TestRobotOutputContainsUsageHints(t *testing.T) {
 			var payload struct {
 				UsageHints []string `json:"usage_hints"`
 			}
-			runRobotJSON(t, bv, env, cmd, &payload)
+			runRobotJSON(t, bt, env, cmd, &payload)
 
 			if len(payload.UsageHints) == 0 {
 				t.Fatalf("%s missing usage_hints", cmd)
@@ -302,7 +302,7 @@ func TestRobotOutputContainsUsageHints(t *testing.T) {
 
 // TestRobotPlanWithRecipe verifies --recipe filter works with plan.
 func TestRobotPlanWithRecipe(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"A","title":"Open task","status":"open","priority":1,"issue_type":"task"}
 {"id":"B","title":"Blocked task","status":"open","priority":2,"issue_type":"task","dependencies":[{"issue_id":"B","depends_on_id":"A","type":"blocks"}]}
@@ -318,7 +318,7 @@ func TestRobotPlanWithRecipe(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			cmd := exec.Command(bv, "--recipe", tc.recipe, "--robot-plan")
+			cmd := exec.Command(bt, "--recipe", tc.recipe, "--robot-plan")
 			cmd.Dir = env
 			out, err := cmd.CombinedOutput()
 			if err != nil {
@@ -344,12 +344,12 @@ func TestRobotPlanWithRecipe(t *testing.T) {
 
 // TestRobotNextWithFilters verifies --robot-next respects filters.
 func TestRobotNextWithFilters(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"BUG-1","title":"Bug issue","status":"open","priority":1,"issue_type":"bug","labels":["bug"]}
 {"id":"TASK-1","title":"Task issue","status":"open","priority":2,"issue_type":"task","labels":["feature"]}`)
 
-	cmd := exec.Command(bv, "--recipe", "actionable", "--robot-next")
+	cmd := exec.Command(bt, "--recipe", "actionable", "--robot-next")
 	cmd.Dir = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -372,7 +372,7 @@ func TestRobotNextWithFilters(t *testing.T) {
 
 // TestRobotTriageQuickWins verifies quick_wins section is populated.
 func TestRobotTriageQuickWins(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Create issues with varying complexity to generate quick wins
 	writeBeads(t, env, `{"id":"EASY","title":"Simple task","status":"open","priority":1,"issue_type":"task","estimate":"30m"}
@@ -386,7 +386,7 @@ func TestRobotTriageQuickWins(t *testing.T) {
 			} `json:"quick_wins"`
 		} `json:"triage"`
 	}
-	runRobotJSON(t, bv, env, "--robot-triage", &payload)
+	runRobotJSON(t, bt, env, "--robot-triage", &payload)
 
 	if payload.DataHash == "" {
 		t.Fatalf("triage missing data_hash")
@@ -398,7 +398,7 @@ func TestRobotTriageQuickWins(t *testing.T) {
 
 // TestRobotTriageBlockersToClear verifies blockers_to_clear section.
 func TestRobotTriageBlockersToClear(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Create blocking structure to populate blockers_to_clear
 	writeBeads(t, env, `{"id":"BLOCKER","title":"Blocking issue","status":"open","priority":1,"issue_type":"task"}
@@ -414,7 +414,7 @@ func TestRobotTriageBlockersToClear(t *testing.T) {
 			} `json:"blockers_to_clear"`
 		} `json:"triage"`
 	}
-	runRobotJSON(t, bv, env, "--robot-triage", &payload)
+	runRobotJSON(t, bt, env, "--robot-triage", &payload)
 
 	if payload.DataHash == "" {
 		t.Fatalf("triage missing data_hash")
@@ -437,7 +437,7 @@ func TestRobotTriageBlockersToClear(t *testing.T) {
 }
 
 func TestRobotMode_IgnoresBackgroundModeFlagAndEnv(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"A","title":"Alpha","status":"open","priority":1,"issue_type":"task"}`)
 
@@ -445,7 +445,7 @@ func TestRobotMode_IgnoresBackgroundModeFlagAndEnv(t *testing.T) {
 	defer cancel()
 
 	// Baseline.
-	baselineCmd := exec.CommandContext(ctx, bv, "--robot-triage")
+	baselineCmd := exec.CommandContext(ctx, bt, "--robot-triage")
 	baselineCmd.Dir = env
 	baselineOut, err := baselineCmd.CombinedOutput()
 	if err != nil {
@@ -462,7 +462,7 @@ func TestRobotMode_IgnoresBackgroundModeFlagAndEnv(t *testing.T) {
 	}
 
 	// BT_BACKGROUND_MODE should not impact robot mode behavior/output.
-	envCmd := exec.CommandContext(ctx, bv, "--robot-triage")
+	envCmd := exec.CommandContext(ctx, bt, "--robot-triage")
 	envCmd.Dir = env
 	envCmd.Env = append(os.Environ(), "BT_BACKGROUND_MODE=1")
 	envOut, err := envCmd.CombinedOutput()
@@ -480,7 +480,7 @@ func TestRobotMode_IgnoresBackgroundModeFlagAndEnv(t *testing.T) {
 	}
 
 	// --background-mode flag should be accepted but ignored for robot commands.
-	flagCmd := exec.CommandContext(ctx, bv, "--background-mode", "--robot-triage")
+	flagCmd := exec.CommandContext(ctx, bt, "--background-mode", "--robot-triage")
 	flagCmd.Dir = env
 	flagOut, err := flagCmd.CombinedOutput()
 	if err != nil {

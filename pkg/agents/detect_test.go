@@ -227,29 +227,6 @@ func TestDetectAgentFileInParents(t *testing.T) {
 	})
 }
 
-func TestAgentFileExists(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	t.Run("no file", func(t *testing.T) {
-		if AgentFileExists(tmpDir) {
-			t.Error("Expected false for empty directory")
-		}
-	})
-
-	t.Run("with AGENTS.md", func(t *testing.T) {
-		agentsPath := filepath.Join(tmpDir, "AGENTS.md")
-		err := os.WriteFile(agentsPath, []byte("# AGENTS"), 0644)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer os.Remove(agentsPath)
-
-		if !AgentFileExists(tmpDir) {
-			t.Error("Expected true when AGENTS.md exists")
-		}
-	})
-}
-
 func TestGetPreferredAgentFilePath(t *testing.T) {
 	path := GetPreferredAgentFilePath("/my/project")
 	expected := filepath.Join("/my/project", "AGENTS.md")

@@ -337,7 +337,7 @@ is_tty() {
 }
 
 ensure_go() {
-    local min_version="1.21"
+    local min_version="1.25"
     local go_version=""
 
     if command -v go >/dev/null 2>&1; then
@@ -509,7 +509,7 @@ try_go_install() {
 
     local go_version
     if ! go_version=$(ensure_go); then
-        print_error "Go 1.21 or later is required for building from source."
+        print_error "Go 1.25 or later is required for building from source."
         exit 1
     fi
 

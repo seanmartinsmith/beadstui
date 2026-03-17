@@ -622,8 +622,8 @@ func WorkspaceFromBeadsPath(beadsPath string) string {
 	return filepath.Dir(dir)       // → /path/to/project
 }
 
-// beadIDRegex matches bead IDs like "bv-abc123"
-var beadIDRegex = regexp.MustCompile(`\b(bv-[a-z0-9]+)\b`)
+// beadIDRegex matches bead IDs like "bv-abc123" or "bt-abc123"
+var beadIDRegex = regexp.MustCompile(`\b((?:bv|bt)-[a-z0-9]+)\b`)
 
 // FindBeadIDMentions finds all bead ID mentions in text.
 func FindBeadIDMentions(text string) []string {

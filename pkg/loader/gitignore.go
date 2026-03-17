@@ -1,5 +1,5 @@
 // Package loader provides issue loading and file discovery utilities.
-// This file handles automatic .gitignore management for the .bv directory.
+// This file handles automatic .gitignore management for the .bt directory.
 package loader
 
 import (
@@ -9,18 +9,18 @@ import (
 	"strings"
 )
 
-// EnsureBVInGitignore ensures that .bt/ is listed in the project's .gitignore file.
-// This prevents bv-specific files (semantic search index, baselines, drift config, etc.)
+// EnsureBTInGitignore ensures that .bt/ is listed in the project's .gitignore file.
+// This prevents bt-specific files (semantic search index, baselines, drift config, etc.)
 // from polluting the git repository.
 //
 // The function is idempotent and safe to call multiple times.
 // It will:
 //   - Create .gitignore if it doesn't exist
-//   - Add ".bt/" if it's not already present (checks for .bv, .bt/, .bt/*, etc.)
+//   - Add ".bt/" if it's not already present (checks for .bt, .bt/, .bt/*, etc.)
 //   - Preserve existing file content and formatting
 //
 // Returns nil on success, or an error if the file cannot be read/written.
-func EnsureBVInGitignore(projectDir string) error {
+func EnsureBTInGitignore(projectDir string) error {
 	if projectDir == "" {
 		var err error
 		projectDir, err = os.Getwd()
@@ -31,8 +31,8 @@ func EnsureBVInGitignore(projectDir string) error {
 
 	gitignorePath := filepath.Join(projectDir, ".gitignore")
 
-	// Check if .bv is already in .gitignore
-	alreadyPresent, err := isBVInGitignore(gitignorePath)
+	// Check if .bt is already in .gitignore
+	alreadyPresent, err := isBTInGitignore(gitignorePath)
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
@@ -44,13 +44,13 @@ func EnsureBVInGitignore(projectDir string) error {
 	return appendToGitignore(gitignorePath, ".bt/")
 }
 
-// isBVInGitignore checks if .bv is already covered by the .gitignore file.
+// isBTInGitignore checks if .bt is already covered by the .gitignore file.
 // It returns true if any of these patterns are found:
-//   - .bv
+//   - .bt
 //   - .bt/
 //   - .bt/*
 //   - .bt/**
-func isBVInGitignore(path string) (bool, error) {
+func isBTInGitignore(path string) (bool, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return false, err
@@ -65,7 +65,7 @@ func isBVInGitignore(path string) (bool, error) {
 			continue
 		}
 		// Check for patterns that would cover .bt/
-		if matchesBVPattern(line) {
+		if matchesBTPattern(line) {
 			return true, nil
 		}
 	}
@@ -73,12 +73,12 @@ func isBVInGitignore(path string) (bool, error) {
 	return false, scanner.Err()
 }
 
-// matchesBVPattern checks if a gitignore line covers the .bv directory.
-func matchesBVPattern(line string) bool {
+// matchesBTPattern checks if a gitignore line covers the .bt directory.
+func matchesBTPattern(line string) bool {
 	// Normalize: remove leading/trailing slashes for comparison
 	normalized := strings.TrimPrefix(line, "/")
 
-	// Exact matches for .bv directory
+	// Exact matches for .bt directory
 	patterns := []string{
 		".bt",
 		".bt/",
@@ -117,7 +117,7 @@ func appendToGitignore(path string, pattern string) error {
 	var toWrite string
 	if len(content) == 0 {
 		// New file: just add comment and pattern (no leading blank line)
-		toWrite = "# bv (beads viewer) local config and caches\n" + pattern + "\n"
+		toWrite = "# bt (beadstui) local config and caches\n" + pattern + "\n"
 	} else {
 		// Existing file: ensure proper separation
 		if content[len(content)-1] != '\n' {
@@ -125,7 +125,7 @@ func appendToGitignore(path string, pattern string) error {
 			toWrite = "\n"
 		}
 		// Add blank line separator, comment, and pattern
-		toWrite += "\n# bv (beads viewer) local config and caches\n" + pattern + "\n"
+		toWrite += "\n# bt (beadstui) local config and caches\n" + pattern + "\n"
 	}
 
 	if _, err := file.WriteString(toWrite); err != nil {

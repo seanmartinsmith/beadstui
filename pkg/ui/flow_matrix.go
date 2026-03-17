@@ -885,21 +885,3 @@ func (m *FlowMatrixModel) SelectedDrilldownIssue() *model.Issue {
 	return &m.drilldownIssues[m.drilldownCursor]
 }
 
-// FlowMatrixView is the legacy function for backward compatibility
-// It now returns a simple text summary pointing to the interactive view
-func FlowMatrixView(flow analysis.CrossLabelFlow, width int) string {
-	if len(flow.Labels) == 0 {
-		return "No cross-label dependencies found"
-	}
-
-	var b strings.Builder
-	b.WriteString("DEPENDENCY FLOW SUMMARY\n")
-	b.WriteString(strings.Repeat("─", 40))
-	b.WriteString("\n\n")
-
-	b.WriteString(fmt.Sprintf("Labels: %d\n", len(flow.Labels)))
-	b.WriteString(fmt.Sprintf("Cross-label dependencies: %d\n", flow.TotalCrossLabelDeps))
-	b.WriteString(fmt.Sprintf("Bottleneck labels: %v\n", flow.BottleneckLabels))
-
-	return b.String()
-}
