@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -561,4 +562,128 @@ func (c *staticMetricsCache) DataHash() string {
 
 func (c *staticMetricsCache) MaxBlockerCount() int {
 	return c.maxBlocker
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Model helper methods for semantic search state management
+// (moved from model.go to keep semantic search code co-located)
+// ════════════════════════════════════════════════════════════════════════════
+
+func cloneIssuesForAsync(issues []model.Issue) []model.Issue {
+	if len(issues) == 0 {
+		return nil
+	}
+	clones := make([]model.Issue, len(issues))
+	for i := range issues {
+		clones[i] = issues[i].Clone()
+	}
+	return clones
+}
+
+func (m *Model) updateSemanticIDs(items []list.Item) {
+	if m.semanticSearch == nil {
+		return
+	}
+	ids := make([]string, 0, len(items))
+	docs := make(map[string]string, len(items))
+	for _, it := range items {
+		if issueItem, ok := it.(IssueItem); ok {
+			id := issueItem.Issue.ID
+			ids = append(ids, id)
+			docs[id] = search.IssueDocument(issueItem.Issue)
+		}
+	}
+	m.semanticSearch.SetIDs(ids)
+	m.semanticSearch.SetDocs(docs)
+}
+
+func (m *Model) shouldShowSearchScores() bool {
+	if !m.semanticSearchEnabled || !m.semanticHybridEnabled || m.semanticSearch == nil {
+		return false
+	}
+	if m.list.FilterState() == list.Unfiltered {
+		return false
+	}
+	if strings.TrimSpace(m.list.FilterInput.Value()) == "" {
+		return false
+	}
+	return true
+}
+
+func (m *Model) updateListDelegate() {
+	m.list.SetDelegate(IssueDelegate{
+		Theme:             m.theme,
+		ShowPriorityHints: m.showPriorityHints,
+		PriorityHints:     m.priorityHints,
+		WorkspaceMode:     m.workspaceMode,
+		ShowSearchScores:  m.shouldShowSearchScores(),
+	})
+}
+
+func (m *Model) applySemanticScores(term string) {
+	if m.semanticSearch == nil {
+		return
+	}
+	scores, ok := m.semanticSearch.Scores(term)
+	if !ok {
+		return
+	}
+	items := m.list.Items()
+	for i := range items {
+		issueItem, ok := items[i].(IssueItem)
+		if !ok {
+			continue
+		}
+		if score, ok := scores[issueItem.Issue.ID]; ok {
+			issueItem.SearchScore = score.Score
+			issueItem.SearchTextScore = score.TextScore
+			issueItem.SearchComponents = score.Components
+			issueItem.SearchScoreSet = true
+		} else {
+			issueItem.SearchScore = 0
+			issueItem.SearchTextScore = 0
+			issueItem.SearchComponents = nil
+			issueItem.SearchScoreSet = false
+		}
+		items[i] = issueItem
+	}
+}
+
+func (m *Model) clearSemanticScores() {
+	items := m.list.Items()
+	changed := false
+	for i := range items {
+		issueItem, ok := items[i].(IssueItem)
+		if !ok {
+			continue
+		}
+		if issueItem.SearchScoreSet || issueItem.SearchComponents != nil {
+			issueItem.SearchScore = 0
+			issueItem.SearchTextScore = 0
+			issueItem.SearchComponents = nil
+			issueItem.SearchScoreSet = false
+			items[i] = issueItem
+			changed = true
+		}
+	}
+	if changed && m.list.FilterState() != list.Unfiltered {
+		prevState := m.list.FilterState()
+		currentTerm := m.list.FilterInput.Value()
+		// Reset cursor before SetFilterText to avoid panic on out-of-bounds access
+		m.list.Select(0)
+		m.list.SetFilterText(currentTerm)
+		if prevState == list.Filtering {
+			m.list.SetFilterState(list.Filtering)
+		}
+	}
+}
+
+func (m *Model) issuesForAsync() []model.Issue {
+	if m == nil {
+		return nil
+	}
+	if (m.snapshot != nil && len(m.snapshot.pooledIssues) > 0) || len(m.pooledIssues) > 0 {
+		return cloneIssuesForAsync(m.issues)
+	}
+	return m.issues
 }
