@@ -205,6 +205,14 @@ Before moving to new feature work, a fresh session should review this ADR's exec
 
 ## Changelog
 
+### 2026-03-17 - Session 18: Phase 3 investigation + targeted fixes (5 parallel agents)
+- **Robot reload bug**: 5 handlers bypassed --repo/--label/--as-of filters by calling datasource.LoadIssues() instead of rc.issues. Fixed.
+- **Duplicate consolidation**: Removed getTypeIcon (kept getTypeEmoji), duplicate generateMermaid, duplicate truncateRunes, truncateStrSprint, private getStatusColor (extended public Theme.GetStatusColor)
+- **Lock file migration**: Already implemented (.bv.lock -> .bt.lock with migration path). Added 3 test cases.
+- **ACFS workflows**: Deleted duplicate notify-acfs.yml, kept acfs-checksums-dispatch.yml
+- **FileChangedMsg**: Investigated, left in place - part of functional JSONL pipeline. Proper cleanup = remove JSONL support entirely (Tier 2 decision)
+- **LOC delta**: -123 net (179 added, 302 removed)
+
 ### 2026-03-17 - Session 18: Phase 2 monolith splitting (2 parallel tasks)
 - **Executed**: `docs/plans/2026-03-17-phase2-monolith-splitting.md` - 2 parallel agents + 1 follow-up
 - **model.go split** (8,332 -> 3,482 LOC): 8 new files + semantic_search.go additions
