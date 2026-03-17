@@ -32,7 +32,7 @@ func TestDefaultAdvancedInsightsConfig(t *testing.T) {
 func TestDefaultUsageHints(t *testing.T) {
 	hints := DefaultUsageHints()
 
-	expected := []string{"topk_set", "coverage_set", "k_paths", "parallel_cut", "parallel_gain", "cycle_break"}
+	expected := []string{"topk_set", "coverage_set", "k_paths", "parallel_cut", "cycle_break"}
 	for _, key := range expected {
 		if hints[key] == "" {
 			t.Errorf("Missing usage hint for %s", key)
@@ -67,9 +67,6 @@ func TestGenerateAdvancedInsightsEmpty(t *testing.T) {
 	}
 	if insights.ParallelCut == nil || insights.ParallelCut.Status.State == "" {
 		t.Error("ParallelCut missing or no status")
-	}
-	if insights.ParallelGain == nil || insights.ParallelGain.Status.State == "" {
-		t.Error("ParallelGain missing or no status")
 	}
 	if insights.CycleBreak == nil || insights.CycleBreak.Status.State == "" {
 		t.Error("CycleBreak missing or no status")
@@ -195,28 +192,11 @@ func TestCycleBreakDeterministic(t *testing.T) {
 	}
 }
 
-func TestPendingFeatureStatus(t *testing.T) {
+func TestFeatureStatus(t *testing.T) {
 	issues := []model.Issue{{ID: "A", Status: model.StatusOpen}}
 	an := NewAnalyzer(issues)
 	cfg := DefaultAdvancedInsightsConfig()
 	insights := an.GenerateAdvancedInsights(cfg)
-
-	// Features that are still pending (awaiting implementation)
-	pendingFeatures := []struct {
-		name   string
-		status FeatureStatus
-	}{
-		{"ParallelGain", insights.ParallelGain.Status},
-	}
-
-	for _, f := range pendingFeatures {
-		if f.status.State != "pending" {
-			t.Errorf("%s: expected pending state, got %s", f.name, f.status.State)
-		}
-		if f.status.Reason == "" {
-			t.Errorf("%s: expected reason for pending state", f.name)
-		}
-	}
 
 	// CycleBreak should be available
 	if insights.CycleBreak.Status.State != "available" {

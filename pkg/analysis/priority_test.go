@@ -193,51 +193,6 @@ func TestComputeImpactScoresSortedDescending(t *testing.T) {
 	}
 }
 
-func TestComputeImpactScoreSingle(t *testing.T) {
-	issues := []model.Issue{
-		{ID: "A", Title: "Task A", Status: model.StatusOpen, Priority: 1},
-		{ID: "B", Title: "Task B", Status: model.StatusOpen, Priority: 2},
-	}
-
-	an := analysis.NewAnalyzer(issues)
-
-	scoreA := an.ComputeImpactScore("A")
-	if scoreA == nil {
-		t.Fatal("Expected score for A")
-	}
-	if scoreA.IssueID != "A" {
-		t.Errorf("Expected issue A, got %s", scoreA.IssueID)
-	}
-
-	scoreNone := an.ComputeImpactScore("nonexistent")
-	if scoreNone != nil {
-		t.Error("Expected nil for nonexistent issue")
-	}
-}
-
-func TestTopImpactScores(t *testing.T) {
-	issues := []model.Issue{
-		{ID: "A", Title: "A", Status: model.StatusOpen, Priority: 0},
-		{ID: "B", Title: "B", Status: model.StatusOpen, Priority: 1},
-		{ID: "C", Title: "C", Status: model.StatusOpen, Priority: 2},
-		{ID: "D", Title: "D", Status: model.StatusOpen, Priority: 3},
-		{ID: "E", Title: "E", Status: model.StatusOpen, Priority: 4},
-	}
-
-	an := analysis.NewAnalyzer(issues)
-
-	top3 := an.TopImpactScores(3)
-	if len(top3) != 3 {
-		t.Errorf("Expected 3 scores, got %d", len(top3))
-	}
-
-	// Request more than available
-	top10 := an.TopImpactScores(10)
-	if len(top10) != 5 {
-		t.Errorf("Expected 5 scores (all available), got %d", len(top10))
-	}
-}
-
 func TestScoreBreakdownWeights(t *testing.T) {
 	// Verify weights sum to 1.0
 	totalWeight := analysis.WeightPageRank +

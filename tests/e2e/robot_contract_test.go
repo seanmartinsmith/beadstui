@@ -20,9 +20,9 @@ func writeBeads(t *testing.T, dir, content string) {
 	}
 }
 
-func runRobotJSON(t *testing.T, bv, dir string, flag string, v any) {
+func runRobotJSON(t *testing.T, bt, dir string, flag string, v any) {
 	t.Helper()
-	out, err := runCommand(bv, dir, flag)
+	out, err := runCommand(bt, dir, flag)
 	if err != nil {
 		t.Fatalf("%s failed: %v\n%s", flag, err, out)
 	}
@@ -31,9 +31,9 @@ func runRobotJSON(t *testing.T, bv, dir string, flag string, v any) {
 	}
 }
 
-// runCommand is a tiny helper to exec the bv binary with a single flag.
-func runCommand(bv, dir, flag string) ([]byte, error) {
-	cmd := execCommand(bv, flag)
+// runCommand is a tiny helper to exec the bt binary with a single flag.
+func runCommand(bt, dir, flag string) ([]byte, error) {
+	cmd := execCommand(bt, flag)
 	cmd.Dir = dir
 	return cmd.CombinedOutput()
 }
@@ -44,7 +44,7 @@ func execCommand(name string, args ...string) *exec.Cmd {
 }
 
 func TestRobotInsightsContract(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Simple chain A->B->C to populate metrics.
 	writeBeads(t, env, `{"id":"A","title":"Root","status":"open","priority":1,"issue_type":"task"}
@@ -52,7 +52,7 @@ func TestRobotInsightsContract(t *testing.T) {
 {"id":"C","title":"Leaf","status":"open","priority":3,"issue_type":"task","dependencies":[{"issue_id":"C","depends_on_id":"B","type":"blocks"}]}`)
 
 	var first map[string]any
-	runRobotJSON(t, bv, env, "--robot-insights", &first)
+	runRobotJSON(t, bt, env, "--robot-insights", &first)
 
 	// Basic contract checks
 	if first["data_hash"] == "" {
@@ -68,14 +68,14 @@ func TestRobotInsightsContract(t *testing.T) {
 
 	// Determinism: second call should share the same data_hash
 	var second map[string]any
-	runRobotJSON(t, bv, env, "--robot-insights", &second)
+	runRobotJSON(t, bt, env, "--robot-insights", &second)
 	if first["data_hash"] != second["data_hash"] {
 		t.Fatalf("data_hash changed between calls: %v vs %v", first["data_hash"], second["data_hash"])
 	}
 }
 
 func TestRobotPlanContract(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// A unblocks B; expect A actionable, unblocks contains B.
 	writeBeads(t, env, `{"id":"A","title":"Unblocker","status":"open","priority":1,"issue_type":"task"}
@@ -92,7 +92,7 @@ func TestRobotPlanContract(t *testing.T) {
 			} `json:"tracks"`
 		} `json:"plan"`
 	}
-	runRobotJSON(t, bv, env, "--robot-plan", &payload)
+	runRobotJSON(t, bt, env, "--robot-plan", &payload)
 
 	if payload.DataHash == "" {
 		t.Fatalf("plan missing data_hash")
@@ -110,7 +110,7 @@ func TestRobotPlanContract(t *testing.T) {
 }
 
 func TestRobotPriorityContract(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Mis-prioritized root with two dependents to ensure a recommendation.
 	writeBeads(t, env, `{"id":"P0","title":"Low but critical","status":"open","priority":5,"issue_type":"task"}
@@ -128,7 +128,7 @@ func TestRobotPriorityContract(t *testing.T) {
 			Direction   string   `json:"direction"`
 		} `json:"recommendations"`
 	}
-	runRobotJSON(t, bv, env, "--robot-priority", &payload)
+	runRobotJSON(t, bt, env, "--robot-priority", &payload)
 
 	if payload.DataHash == "" {
 		t.Fatalf("priority missing data_hash")
@@ -150,7 +150,7 @@ func TestRobotPriorityContract(t *testing.T) {
 }
 
 func TestRobotTriageContract(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Simple issues for triage
 	writeBeads(t, env, `{"id":"A","title":"Blocker","status":"open","priority":1,"issue_type":"task"}
@@ -169,7 +169,7 @@ func TestRobotTriageContract(t *testing.T) {
 		} `json:"triage"`
 		UsageHints []string `json:"usage_hints"`
 	}
-	runRobotJSON(t, bv, env, "--robot-triage", &payload)
+	runRobotJSON(t, bt, env, "--robot-triage", &payload)
 
 	if payload.DataHash == "" {
 		t.Fatalf("triage missing data_hash")
@@ -187,7 +187,7 @@ func TestRobotTriageContract(t *testing.T) {
 }
 
 func TestRobotTriageByTrackContract(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Two independent tracks: A->A2 and B->B2.
 	writeBeads(t, env, `{"id":"A","title":"Track A root","status":"open","priority":1,"issue_type":"task","labels":["api"]}
@@ -207,7 +207,7 @@ func TestRobotTriageByTrackContract(t *testing.T) {
 			} `json:"recommendations_by_track"`
 		} `json:"triage"`
 	}
-	runRobotJSON(t, bv, env, "--robot-triage-by-track", &payload)
+	runRobotJSON(t, bt, env, "--robot-triage-by-track", &payload)
 
 	if payload.DataHash == "" {
 		t.Fatalf("triage-by-track missing data_hash")
@@ -247,7 +247,7 @@ func TestRobotTriageByTrackContract(t *testing.T) {
 }
 
 func TestRobotTriageByLabelContract(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Mix labels and include dependencies so scores are non-trivial.
 	writeBeads(t, env, `{"id":"API-1","title":"API root","status":"open","priority":1,"issue_type":"task","labels":["api"]}
@@ -266,7 +266,7 @@ func TestRobotTriageByLabelContract(t *testing.T) {
 			} `json:"recommendations_by_label"`
 		} `json:"triage"`
 	}
-	runRobotJSON(t, bv, env, "--robot-triage-by-label", &payload)
+	runRobotJSON(t, bt, env, "--robot-triage-by-label", &payload)
 
 	if payload.DataHash == "" {
 		t.Fatalf("triage-by-label missing data_hash")
@@ -306,7 +306,7 @@ func TestRobotTriageByLabelContract(t *testing.T) {
 }
 
 func TestRobotLabelHealthContract(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"API-1","title":"API root","status":"open","priority":1,"issue_type":"task","labels":["api"]}
 {"id":"WEB-1","title":"WEB blocked by API","status":"open","priority":2,"issue_type":"task","labels":["web"],"dependencies":[{"issue_id":"WEB-1","depends_on_id":"API-1","type":"blocks"}]}`)
@@ -321,7 +321,7 @@ func TestRobotLabelHealthContract(t *testing.T) {
 			} `json:"summaries"`
 		} `json:"results"`
 	}
-	runRobotJSON(t, bv, env, "--robot-label-health", &payload)
+	runRobotJSON(t, bt, env, "--robot-label-health", &payload)
 
 	if payload.DataHash == "" {
 		t.Fatalf("label-health missing data_hash")
@@ -345,7 +345,7 @@ func TestRobotLabelHealthContract(t *testing.T) {
 }
 
 func TestRobotLabelFlowContract(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Cross-label dependency: WEB depends on API => flow from api -> web.
 	writeBeads(t, env, `{"id":"API-1","title":"API root","status":"open","priority":1,"issue_type":"task","labels":["api"]}
@@ -360,7 +360,7 @@ func TestRobotLabelFlowContract(t *testing.T) {
 			TotalCrossDep int      `json:"total_cross_label_deps"`
 		} `json:"flow"`
 	}
-	runRobotJSON(t, bv, env, "--robot-label-flow", &payload)
+	runRobotJSON(t, bt, env, "--robot-label-flow", &payload)
 
 	if payload.DataHash == "" {
 		t.Fatalf("label-flow missing data_hash")
@@ -376,7 +376,7 @@ func TestRobotLabelFlowContract(t *testing.T) {
 }
 
 func TestRobotLabelAttentionContract(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"API-1","title":"API root","status":"open","priority":1,"issue_type":"task","labels":["api"]}
 {"id":"WEB-1","title":"WEB blocked by API","status":"open","priority":2,"issue_type":"task","labels":["web"],"dependencies":[{"issue_id":"WEB-1","depends_on_id":"API-1","type":"blocks"}]}`)
@@ -390,7 +390,7 @@ func TestRobotLabelAttentionContract(t *testing.T) {
 			Label string `json:"label"`
 		} `json:"labels"`
 	}
-	runRobotJSON(t, bv, env, "--robot-label-attention", &payload)
+	runRobotJSON(t, bt, env, "--robot-label-attention", &payload)
 
 	if payload.DataHash == "" {
 		t.Fatalf("label-attention missing data_hash")
@@ -410,7 +410,7 @@ func TestRobotLabelAttentionContract(t *testing.T) {
 }
 
 func TestRobotNextContractNoActionable(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"X","title":"Done","status":"closed","priority":1,"issue_type":"task"}`)
 
@@ -419,7 +419,7 @@ func TestRobotNextContractNoActionable(t *testing.T) {
 		DataHash    string `json:"data_hash"`
 		Message     string `json:"message"`
 	}
-	runRobotJSON(t, bv, env, "--robot-next", &payload)
+	runRobotJSON(t, bt, env, "--robot-next", &payload)
 
 	if payload.GeneratedAt == "" {
 		t.Fatalf("robot-next missing generated_at")
@@ -433,7 +433,7 @@ func TestRobotNextContractNoActionable(t *testing.T) {
 }
 
 func TestRobotNextContractActionable(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// A is actionable and should be picked; B is blocked by A.
 	writeBeads(t, env, `{"id":"A","title":"Unblocker","status":"open","priority":1,"issue_type":"task"}
@@ -450,7 +450,7 @@ func TestRobotNextContractActionable(t *testing.T) {
 		ClaimCmd    string   `json:"claim_command"`
 		ShowCmd     string   `json:"show_command"`
 	}
-	runRobotJSON(t, bv, env, "--robot-next", &payload)
+	runRobotJSON(t, bt, env, "--robot-next", &payload)
 
 	if payload.GeneratedAt == "" {
 		t.Fatalf("robot-next missing generated_at")
@@ -482,7 +482,7 @@ func TestRobotNextContractActionable(t *testing.T) {
 // four standard envelope fields: generated_at, data_hash, output_format, version.
 // This is the acceptance test for bd-x1tm.
 func TestRobotEnvelopeConsistency(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"A","title":"Root","status":"open","priority":1,"issue_type":"task","labels":["api"]}
 {"id":"B","title":"Blocked","status":"open","priority":2,"issue_type":"task","labels":["web"],"dependencies":[{"issue_id":"B","depends_on_id":"A","type":"blocks"}]}`)
@@ -504,7 +504,7 @@ func TestRobotEnvelopeConsistency(t *testing.T) {
 	for _, tc := range commands {
 		t.Run(tc.name, func(t *testing.T) {
 			var payload map[string]any
-			runRobotJSON(t, bv, env, tc.flag, &payload)
+			runRobotJSON(t, bt, env, tc.flag, &payload)
 
 			for _, field := range []string{"generated_at", "data_hash"} {
 				val, ok := payload[field]
@@ -521,7 +521,7 @@ func TestRobotEnvelopeConsistency(t *testing.T) {
 }
 
 func TestRobotUsageHintsPresent(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"A","title":"Test","status":"open","priority":1,"issue_type":"task"}`)
 
@@ -539,7 +539,7 @@ func TestRobotUsageHintsPresent(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			var payload map[string]any
-			runRobotJSON(t, bv, env, tc.flag, &payload)
+			runRobotJSON(t, bt, env, tc.flag, &payload)
 
 			hints, ok := payload["usage_hints"].([]any)
 			if !ok || len(hints) == 0 {

@@ -214,26 +214,6 @@ func (a *Analyzer) ComputeImpactScoresFromStats(stats *GraphStats, now time.Time
 	return scores
 }
 
-// ComputeImpactScore returns the impact score for a single issue
-func (a *Analyzer) ComputeImpactScore(issueID string) *ImpactScore {
-	scores := a.ComputeImpactScores()
-	for i := range scores {
-		if scores[i].IssueID == issueID {
-			return &scores[i]
-		}
-	}
-	return nil
-}
-
-// TopImpactScores returns the top N impact scores
-func (a *Analyzer) TopImpactScores(n int) []ImpactScore {
-	scores := a.ComputeImpactScores()
-	if n > len(scores) {
-		n = len(scores)
-	}
-	return scores[:n]
-}
-
 // computeStaleness returns a 0-1 score based on days since update
 // Older items get higher staleness to surface them
 func computeStaleness(updatedAt time.Time, now time.Time) float64 {

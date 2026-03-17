@@ -359,8 +359,6 @@ func TestHandleGraphBoardActionableKeys(t *testing.T) {
 	// Focus graph and exercise navigation + enter selection logic
 	m.isGraphView = true
 	m.focused = focusGraph
-	m = m.handleGraphKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("H")}) // ScrollLeft
-	m = m.handleGraphKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("L")}) // ScrollRight
 	// force select first node then enter to sync list
 	m.graphView.MoveDown()
 	m = m.handleGraphKeys(tea.KeyMsg{Type: tea.KeyEnter})
@@ -776,13 +774,10 @@ func TestOpenInEditorWithArguments(t *testing.T) {
 	}
 }
 
-func TestGraphPageDownAndScrollEmpty(t *testing.T) {
+func TestGraphPageDownEmpty(t *testing.T) {
 	renderer := lipgloss.NewRenderer(nil)
 	g := NewGraphModel(nil, nil, DefaultTheme(renderer))
-	g.PageDown()   // len=0 branch
-	g.ScrollLeft() // no-op branches
-	g.ScrollRight()
-	g.ensureVisible()
+	g.PageDown() // len=0 branch
 }
 
 func TestRenderFooterErrorStatus(t *testing.T) {
@@ -1198,7 +1193,7 @@ func TestOverlaysAndWorkspaceHelpers(t *testing.T) {
 
 	// Quit confirm overlay
 	m.showQuitConfirm = true
-	if !strings.Contains(m.View(), "Quit bv?") {
+	if !strings.Contains(m.View(), "Quit bt?") {
 		t.Fatalf("quit overlay should render")
 	}
 	m.showQuitConfirm = false

@@ -20,7 +20,7 @@ import (
 // TestRace_ConcurrentRobotCommands tests that multiple robot commands can run
 // concurrently without race conditions.
 func TestRace_ConcurrentRobotCommands(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	// Create test data
@@ -59,7 +59,7 @@ func TestRace_ConcurrentRobotCommands(t *testing.T) {
 			wg.Add(1)
 			go func(cmdArgs []string) {
 				defer wg.Done()
-				cmd := exec.Command(bv, cmdArgs...)
+				cmd := exec.Command(bt, cmdArgs...)
 				cmd.Dir = env
 				if err := cmd.Run(); err != nil {
 					errors <- err
@@ -86,7 +86,7 @@ func TestRace_ConcurrentRobotCommands(t *testing.T) {
 // TestRace_ConcurrentTriageRequests simulates multiple agents requesting triage
 // simultaneously.
 func TestRace_ConcurrentTriageRequests(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	// Create test data with more issues for better concurrency stress
@@ -116,7 +116,7 @@ func TestRace_ConcurrentTriageRequests(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			cmd := exec.Command(bv, "--robot-triage")
+			cmd := exec.Command(bt, "--robot-triage")
 			cmd.Dir = env
 			var stdout bytes.Buffer
 			cmd.Stdout = &stdout
@@ -159,7 +159,7 @@ func TestRace_ConcurrentTriageRequests(t *testing.T) {
 
 // TestRace_DataConsistency verifies that concurrent reads return consistent data.
 func TestRace_DataConsistency(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	// Create deterministic test data
@@ -186,7 +186,7 @@ func TestRace_DataConsistency(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			cmd := exec.Command(bv, "--robot-next")
+			cmd := exec.Command(bt, "--robot-next")
 			cmd.Dir = env
 			var stdout bytes.Buffer
 			cmd.Stdout = &stdout
@@ -216,7 +216,7 @@ func TestRace_DataConsistency(t *testing.T) {
 
 // TestRace_ConcurrentAnalysisAndGraph tests running analysis while getting graph data.
 func TestRace_ConcurrentAnalysisAndGraph(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	// Create test data
@@ -241,7 +241,7 @@ func TestRace_ConcurrentAnalysisAndGraph(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			cmd := exec.Command(bv, "--robot-triage")
+			cmd := exec.Command(bt, "--robot-triage")
 			cmd.Dir = env
 			if err := cmd.Run(); err != nil {
 				errors <- err
@@ -255,7 +255,7 @@ func TestRace_ConcurrentAnalysisAndGraph(t *testing.T) {
 		wg.Add(1)
 		go func(format string) {
 			defer wg.Done()
-			cmd := exec.Command(bv, "--robot-graph", "--graph-format", format)
+			cmd := exec.Command(bt, "--robot-graph", "--graph-format", format)
 			cmd.Dir = env
 			if err := cmd.Run(); err != nil {
 				errors <- err
@@ -283,7 +283,7 @@ func TestRace_ConcurrentAnalysisAndGraph(t *testing.T) {
 
 // TestRace_RapidSequentialCommands tests rapid sequential command execution.
 func TestRace_RapidSequentialCommands(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	// Create test data
@@ -310,7 +310,7 @@ func TestRace_RapidSequentialCommands(t *testing.T) {
 	}
 
 	for i, args := range commands {
-		cmd := exec.Command(bv, args...)
+		cmd := exec.Command(bt, args...)
 		cmd.Dir = env
 		if err := cmd.Run(); err != nil {
 			t.Errorf("command %d (%v) failed: %v", i, args, err)
@@ -324,7 +324,7 @@ func TestRace_RapidSequentialCommands(t *testing.T) {
 
 // TestRace_ConcurrentGraphFormats tests concurrent exports in different formats.
 func TestRace_ConcurrentGraphFormats(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	// Create test data with dependencies for interesting graph
@@ -350,7 +350,7 @@ func TestRace_ConcurrentGraphFormats(t *testing.T) {
 		wg.Add(1)
 		go func(fmt string) {
 			defer wg.Done()
-			cmd := exec.Command(bv, "--robot-graph", "--graph-format", fmt)
+			cmd := exec.Command(bt, "--robot-graph", "--graph-format", fmt)
 			cmd.Dir = env
 			if err := cmd.Run(); err != nil {
 				errors <- err
@@ -382,7 +382,7 @@ func TestRace_HighConcurrencyStress(t *testing.T) {
 		t.Skip("skipping stress test in short mode")
 	}
 
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	// Create test data
@@ -424,7 +424,7 @@ func TestRace_HighConcurrencyStress(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			args := commands[idx%len(commands)]
-			cmd := exec.Command(bv, args...)
+			cmd := exec.Command(bt, args...)
 			cmd.Dir = env
 			if err := cmd.Run(); err != nil {
 				errors <- err
@@ -454,7 +454,7 @@ func TestRace_HighConcurrencyStress(t *testing.T) {
 // TestRace_ConcurrentFileReading tests that multiple processes can read
 // the same beads files concurrently.
 func TestRace_ConcurrentFileReading(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	// Create test data
@@ -478,7 +478,7 @@ func TestRace_ConcurrentFileReading(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			cmd := exec.Command(bv, "--robot-triage")
+			cmd := exec.Command(bt, "--robot-triage")
 			cmd.Dir = env
 			if err := cmd.Run(); err != nil {
 				errors <- err

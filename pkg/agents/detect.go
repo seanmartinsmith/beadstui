@@ -131,18 +131,6 @@ func DetectAgentFileInParents(workDir string, maxLevels int) AgentFileDetection 
 	return AgentFileDetection{}
 }
 
-// AgentFileExists checks if any supported agent file exists in the directory.
-// This is a quick check without reading file content.
-func AgentFileExists(workDir string) bool {
-	for _, filename := range SupportedAgentFiles {
-		filePath := filepath.Join(workDir, filename)
-		if info, err := os.Stat(filePath); err == nil && !info.IsDir() {
-			return true
-		}
-	}
-	return false
-}
-
 // GetPreferredAgentFilePath returns the path where a new agent file should be created.
 // It returns the path for AGENTS.md (preferred format).
 func GetPreferredAgentFilePath(workDir string) string {

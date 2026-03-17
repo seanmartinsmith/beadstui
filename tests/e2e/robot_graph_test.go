@@ -8,7 +8,7 @@ import (
 )
 
 func TestRobotGraph_JSONAndFilters(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	// Chain A -> B -> C (B depends on A, C depends on B).
@@ -18,7 +18,7 @@ func TestRobotGraph_JSONAndFilters(t *testing.T) {
 
 	run := func(args ...string) map[string]any {
 		t.Helper()
-		cmd := exec.Command(bv, args...)
+		cmd := exec.Command(bt, args...)
 		cmd.Dir = env
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -69,7 +69,7 @@ func TestRobotGraph_JSONAndFilters(t *testing.T) {
 }
 
 func TestRobotGraph_DOTAndMermaid(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	writeBeads(t, env, `{"id":"A","title":"Root","status":"open","priority":1,"issue_type":"task"}
@@ -85,7 +85,7 @@ func TestRobotGraph_DOTAndMermaid(t *testing.T) {
 		{name: "mermaid", graphFormat: "mermaid", wantFormat: "mermaid", wantSubstr: "graph"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := exec.Command(bv, "--robot-graph", "--graph-format="+tt.graphFormat)
+			cmd := exec.Command(bt, "--robot-graph", "--graph-format="+tt.graphFormat)
 			cmd.Dir = env
 			out, err := cmd.CombinedOutput()
 			if err != nil {

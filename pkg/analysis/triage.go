@@ -618,42 +618,6 @@ func buildUnblocksMap(analyzer *Analyzer) map[string][]string {
 	return unblocksMap
 }
 
-// computeCounts tallies issues by various dimensions
-// Deprecated: Use computeCountsWithContext for better performance via caching.
-func computeCounts(issues []model.Issue, analyzer *Analyzer) HealthCounts {
-	counts := HealthCounts{
-		Total:      len(issues),
-		ByStatus:   make(map[string]int),
-		ByType:     make(map[string]int),
-		ByPriority: make(map[int]int),
-	}
-
-	actionable := analyzer.GetActionableIssues()
-	actionableSet := make(map[string]bool, len(actionable))
-	for _, a := range actionable {
-		actionableSet[a.ID] = true
-	}
-
-	for _, issue := range issues {
-		counts.ByStatus[string(issue.Status)]++
-		counts.ByType[string(issue.IssueType)]++
-		counts.ByPriority[issue.Priority]++
-
-		if isClosedLikeStatus(issue.Status) {
-			counts.Closed++
-		} else {
-			counts.Open++
-			if actionableSet[issue.ID] {
-				counts.Actionable++
-			} else {
-				counts.Blocked++
-			}
-		}
-	}
-
-	return counts
-}
-
 // computeCountsWithContext tallies issues by various dimensions using cached actionable data.
 // This is more efficient than computeCounts when called multiple times in the same triage pass.
 func computeCountsWithContext(issues []model.Issue, ctx *TriageContext) HealthCounts {
@@ -802,65 +766,6 @@ func buildQuickWins(scores []ImpactScore, unblocksMap map[string][]string, limit
 	}
 
 	return quickWins
-}
-
-// buildBlockersToClear finds items that block the most downstream work
-// Deprecated: Use buildBlockersToClearWithContext for better performance via caching.
-func buildBlockersToClear(analyzer *Analyzer, unblocksMap map[string][]string, limit int) []BlockerItem {
-	type blocker struct {
-		id       string
-		title    string
-		unblocks []string
-	}
-
-	actionable := analyzer.GetActionableIssues()
-	actionableSet := make(map[string]bool, len(actionable))
-	for _, a := range actionable {
-		actionableSet[a.ID] = true
-	}
-
-	var blockers []blocker
-	for id, unblocks := range unblocksMap {
-		if len(unblocks) == 0 {
-			continue
-		}
-		issue := analyzer.GetIssue(id)
-		if issue == nil || isClosedLikeStatus(issue.Status) {
-			continue
-		}
-		blockers = append(blockers, blocker{
-			id:       id,
-			title:    issue.Title,
-			unblocks: unblocks,
-		})
-	}
-
-	// Sort by unblocks count descending
-	sort.Slice(blockers, func(i, j int) bool {
-		if len(blockers[i].unblocks) != len(blockers[j].unblocks) {
-			return len(blockers[i].unblocks) > len(blockers[j].unblocks)
-		}
-		// Stable tie-breaker for deterministic robot output.
-		return blockers[i].id < blockers[j].id
-	})
-
-	result := make([]BlockerItem, 0, limit)
-	for i := 0; i < len(blockers) && i < limit; i++ {
-		b := blockers[i]
-		item := BlockerItem{
-			ID:            b.id,
-			Title:         b.title,
-			UnblocksCount: len(b.unblocks),
-			UnblocksIDs:   b.unblocks,
-			Actionable:    actionableSet[b.id],
-		}
-		if !item.Actionable {
-			item.BlockedBy = analyzer.GetOpenBlockers(b.id)
-		}
-		result = append(result, item)
-	}
-
-	return result
 }
 
 // buildBlockersToClearWithContext finds items that block the most downstream work.
@@ -1041,27 +946,6 @@ func DefaultTriageScoringOptions() TriageScoringOptions {
 		EnableClaimPenalty:   false,
 		EnableAttentionScore: false,
 	}
-}
-
-// ComputeTriageScores calculates triage-optimized scores for all open issues
-func ComputeTriageScores(issues []model.Issue) []TriageScore {
-	return ComputeTriageScoresWithOptions(issues, DefaultTriageScoringOptions())
-}
-
-// ComputeTriageScoresWithOptions calculates triage scores with custom options
-func ComputeTriageScoresWithOptions(issues []model.Issue, opts TriageScoringOptions) []TriageScore {
-	if len(issues) == 0 {
-		return nil
-	}
-
-	// Build analyzer for base scoring and graph analysis
-	analyzer := NewAnalyzer(issues)
-	baseScores := analyzer.ComputeImpactScores()
-
-	// Build unblocks map for factor calculation
-	unblocksMap := buildUnblocksMap(analyzer)
-
-	return computeTriageScoresFromImpact(baseScores, unblocksMap, analyzer, opts)
 }
 
 // computeTriageScoresFromImpact calculates triage scores from base impact scores
@@ -1258,15 +1142,6 @@ func maxOf(a, b int) int {
 		return a
 	}
 	return b
-}
-
-// GetTopTriageScores returns the top N triage scores
-func GetTopTriageScores(issues []model.Issue, n int) []TriageScore {
-	scores := ComputeTriageScores(issues)
-	if n > len(scores) {
-		n = len(scores)
-	}
-	return scores[:n]
 }
 
 // ============================================================================

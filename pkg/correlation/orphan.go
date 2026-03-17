@@ -37,12 +37,12 @@ var (
 		{regexp.MustCompile(`\b(add|adds|added)\b`), 5},
 		{regexp.MustCompile(`#\d+`), 15},               // Issue number reference
 		{regexp.MustCompile(`\b[a-z]{2,5}-\d+\b`), 20}, // JIRA-style ID (lowercase since message is lowercased)
-		{regexp.MustCompile(`\bbv-[a-z0-9]+\b`), 25},   // bv-xxx pattern
+		{regexp.MustCompile(`\b(?:bv|bt)-[a-z0-9]+\b`), 25}, // bv-xxx or bt-xxx pattern
 		{regexp.MustCompile(`\bbeads?[-_]?\d+\b`), 25}, // bead-123 pattern
 	}
 
 	// Pattern for extracting specific bead IDs from messages
-	orphanBeadIDPattern = regexp.MustCompile(`(?i)\bbv-([a-z0-9]{4,8})\b`) // Case-insensitive
+	orphanBeadIDPattern = regexp.MustCompile(`(?i)\b(bv|bt)-([a-z0-9]{4,8})\b`) // Case-insensitive, both prefixes
 )
 
 // OrphanCandidate represents a commit that might be missing a bead linkage.
@@ -371,8 +371,8 @@ func (od *OrphanDetector) checkMessage(candidate *OrphanCandidate, beadScores ma
 	// Try to match specific bead IDs mentioned in message (case-insensitive)
 	matches := orphanBeadIDPattern.FindAllStringSubmatch(msg, -1)
 	for _, match := range matches {
-		if len(match) >= 2 {
-			beadID := "bv-" + strings.ToLower(match[1]) // Normalize to lowercase
+		if len(match) >= 3 {
+			beadID := strings.ToLower(match[1]) + "-" + strings.ToLower(match[2]) // Normalize to lowercase
 			history, ok := od.lookup.beads[beadID]
 			if !ok {
 				for id, h := range od.lookup.beads {

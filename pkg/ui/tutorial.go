@@ -1043,7 +1043,7 @@ const introWelcomeContent = `## Welcome to beadstui
 You switch to a browser, navigate to your issue tracker, lose context,
 and break your concentration.
 
-**The solution:** ` + "`bv`" + ` brings issue tracking *into your terminal*, where you already work.
+**The solution:** ` + "`bt`" + ` brings issue tracking *into your terminal*, where you already work.
 No browser tabs. No context switching. No cloud dependencies.
 
 ### The 30-Second Value Proposition
@@ -1080,7 +1080,7 @@ Issues are stored as plain JSONL. You can ` + "`git diff`" + ` your backlog.
 You can ` + "`grep`" + ` for patterns across all issues.
 
 **4. Human and Agent Readable**
-The same data works for both humans (via ` + "`bv`" + `) and AI agents (via ` + "`--robot-*`" + ` flags).
+The same data works for both humans (via ` + "`bt`" + `) and AI agents (via ` + "`--robot-*`" + ` flags).
 
 > Press **→** to continue.`
 
@@ -1118,7 +1118,7 @@ terminal. Stay in flow.
 // introQuickstartContent is Page 4 of the Introduction section.
 const introQuickstartContent = `## Quick Start
 
-You're already running ` + "`bv`" + ` — you're ahead of the game!
+You're already running ` + "`bt`" + ` — you're ahead of the game!
 
 ### Basic Navigation
 
@@ -1127,7 +1127,7 @@ You're already running ` + "`bv`" + ` — you're ahead of the game!
 | **j / k** | Move down / up |
 | **Enter** | Open issue details |
 | **Esc** | Close overlay / go back |
-| **q** | Quit bv |
+| **q** | Quit bt |
 
 ### Switching Views
 
@@ -1493,7 +1493,7 @@ These work in every view:
 | **?** | Help overlay |
 | **Esc** | Close overlay / go back |
 | **Enter** | Select / open |
-| **q** | Quit bv |
+| **q** | Quit bt |
 
 ### The Shortcuts Sidebar
 
@@ -2163,7 +2163,7 @@ Regular bv is for humans. **Robot mode** is for agents:
 
 | Human | Agent |
 |-------|-------|
-| ` + "`bv`" + ` (interactive TUI) | ` + "`bt --robot-*`" + ` (JSON output) |
+| ` + "`bt`" + ` (interactive TUI) | ` + "`bt --robot-*`" + ` (JSON output) |
 | Visual navigation | Structured data parsing |
 | Keyboard shortcuts | Command flags |
 

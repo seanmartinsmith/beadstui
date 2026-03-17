@@ -503,23 +503,3 @@ func TestExport_DisableRobotOutputs(t *testing.T) {
 	}
 }
 
-func TestStringSliceContains(t *testing.T) {
-	tests := []struct {
-		slice    []string
-		val      string
-		expected bool
-	}{
-		{[]string{"a", "b", "c"}, "b", true},
-		{[]string{"a", "b", "c"}, "B", true}, // case-insensitive
-		{[]string{"a", "b", "c"}, "d", false},
-		{[]string{}, "a", false},
-		{nil, "a", false},
-	}
-
-	for _, tc := range tests {
-		result := stringSliceContains(tc.slice, tc.val)
-		if result != tc.expected {
-			t.Errorf("stringSliceContains(%v, %s) = %v, expected %v", tc.slice, tc.val, result, tc.expected)
-		}
-	}
-}

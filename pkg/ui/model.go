@@ -176,19 +176,6 @@ func workerPollTickCmd() tea.Cmd {
 	})
 }
 
-// ReadyTimeoutMsg is sent after a short delay to ensure the UI becomes ready
-// even if the terminal doesn't send WindowSizeMsg promptly (bv-7wl7)
-type ReadyTimeoutMsg struct{}
-
-// ReadyTimeoutCmd returns a command that sends ReadyTimeoutMsg after 100ms.
-// This ensures the TUI doesn't hang on "Initializing..." if the terminal
-// is slow to report its size (common in tmux, SSH, some terminal emulators).
-func ReadyTimeoutCmd() tea.Cmd {
-	return tea.Tick(100*time.Millisecond, func(time.Time) tea.Msg {
-		return ReadyTimeoutMsg{}
-	})
-}
-
 // WatchFileCmd returns a command that waits for file changes and sends FileChangedMsg
 func WatchFileCmd(w *watcher.Watcher) tea.Cmd {
 	return func() tea.Msg {
@@ -1243,9 +1230,6 @@ func (m *Model) reloadFromDataSource() tea.Cmd {
 }
 
 func (m Model) Init() tea.Cmd {
-	// Note: ReadyTimeoutCmd is no longer needed since the model is now
-	// initialized as ready with default dimensions in NewModel().
-	// This eliminates the "Initializing..." phase entirely.
 	cmds := []tea.Cmd{
 		CheckUpdateCmd(),
 		WaitForPhase2Cmd(m.analysis),
@@ -1297,20 +1281,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.showUpdateModal {
 			m.updateModal, cmd = m.updateModal.Update(msg)
 			cmds = append(cmds, cmd)
-		}
-
-	case ReadyTimeoutMsg:
-		// bv-7wl7: Legacy fallback handler (no longer used).
-		// The model is now initialized as ready with default dimensions in NewModel(),
-		// so this handler should never execute. Kept for backwards compatibility.
-		if !m.ready {
-			m.width = 120
-			m.height = 40
-			m.ready = true
-			m.list.SetSize(m.width, m.height-3)
-			m.viewport = viewport.New(m.width, m.height-2)
-			m.insightsPanel.SetSize(m.width, m.height-1)
-			m.labelDashboard.SetSize(m.width, m.height-1)
 		}
 
 	case statusClearMsg:
@@ -3771,10 +3741,6 @@ func (m Model) handleGraphKeys(msg tea.KeyMsg) Model {
 		m.graphView.PageDown()
 	case "ctrl+u", "pgup":
 		m.graphView.PageUp()
-	case "H":
-		m.graphView.ScrollLeft()
-	case "L":
-		m.graphView.ScrollRight()
 	case "enter":
 		if selected := m.graphView.SelectedIssue(); selected != nil {
 			// Find and select in list
@@ -4776,7 +4742,7 @@ func (m Model) renderQuitConfirm() string {
 		Foreground(t.Primary).
 		Bold(true)
 
-	content := titleStyle.Render("Quit bv?") + "\n\n" +
+	content := titleStyle.Render("Quit bt?") + "\n\n" +
 		textStyle.Render("Press ") + keyStyle.Render("Esc") + textStyle.Render(" or ") + keyStyle.Render("Y") + textStyle.Render(" to quit\n") +
 		textStyle.Render("Press any other key to cancel")
 

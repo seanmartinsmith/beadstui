@@ -222,14 +222,14 @@ func (g *GraphModel) computeRankings() {
 func (g *GraphModel) MoveUp() {
 	if g.selectedIdx > 0 {
 		g.selectedIdx--
-		g.ensureVisible()
+
 	}
 }
 
 func (g *GraphModel) MoveDown() {
 	if g.selectedIdx < len(g.sortedIDs)-1 {
 		g.selectedIdx++
-		g.ensureVisible()
+
 	}
 }
 
@@ -241,7 +241,6 @@ func (g *GraphModel) PageUp() {
 	if g.selectedIdx < 0 {
 		g.selectedIdx = 0
 	}
-	g.ensureVisible()
 }
 
 func (g *GraphModel) PageDown() {
@@ -252,13 +251,7 @@ func (g *GraphModel) PageDown() {
 	if g.selectedIdx >= len(g.sortedIDs) {
 		g.selectedIdx = len(g.sortedIDs) - 1
 	}
-	g.ensureVisible()
 }
-
-func (g *GraphModel) ScrollLeft()  {}
-func (g *GraphModel) ScrollRight() {}
-
-func (g *GraphModel) ensureVisible() {}
 
 func (g *GraphModel) SelectedIssue() *model.Issue {
 	if len(g.sortedIDs) == 0 {
@@ -273,7 +266,7 @@ func (g *GraphModel) SelectByID(id string) bool {
 	for i, sortedID := range g.sortedIDs {
 		if sortedID == id {
 			g.selectedIdx = i
-			g.ensureVisible()
+	
 			return true
 		}
 	}

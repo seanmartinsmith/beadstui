@@ -15,7 +15,7 @@ import (
 // Note: WriteGitHubActionsWorkflow is defined in github.go
 
 // ViewerAssetsFS embeds the viewer_assets directory for static site export.
-// This allows the bv binary to include all necessary HTML/JS/CSS assets
+// This allows the bt binary to include all necessary HTML/JS/CSS assets
 // without requiring them to exist on the filesystem.
 //
 //go:embed viewer_assets
@@ -143,8 +143,3 @@ func HasEmbeddedAssets() bool {
 	return err == nil
 }
 
-// AddGitHubWorkflowToBundle adds the GitHub Actions workflow to an exported bundle.
-// This should be called after CopyEmbeddedAssets to ensure the workflow is present.
-func AddGitHubWorkflowToBundle(outputDir string) error {
-	return WriteGitHubActionsWorkflow(outputDir)
-}

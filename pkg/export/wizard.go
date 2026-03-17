@@ -1,4 +1,4 @@
-// Package export provides data export functionality for bv.
+// Package export provides data export functionality for bt.
 //
 // This file implements the interactive deployment wizard for --pages flag.
 // It guides users through exporting and deploying static sites to GitHub Pages.

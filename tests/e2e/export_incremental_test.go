@@ -17,8 +17,8 @@ import (
 
 // TestExportIncremental_AddNewIssues verifies new issues appear after re-export.
 func TestExportIncremental_AddNewIssues(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -34,7 +34,7 @@ func TestExportIncremental_AddNewIssues(t *testing.T) {
 		t.Fatalf("write initial issues.jsonl: %v", err)
 	}
 
-	runExportPages(t, bv, repoDir, exportDir)
+	runExportPages(t, bt, repoDir, exportDir)
 	initialMeta := readMetaJSON(t, exportDir)
 	if initialMeta.IssueCount != 2 {
 		t.Fatalf("initial export issue_count = %d, want 2", initialMeta.IssueCount)
@@ -50,7 +50,7 @@ func TestExportIncremental_AddNewIssues(t *testing.T) {
 	}
 
 	// Re-export
-	runExportPages(t, bv, repoDir, exportDir)
+	runExportPages(t, bt, repoDir, exportDir)
 	updatedMeta := readMetaJSON(t, exportDir)
 
 	if updatedMeta.IssueCount != 5 {
@@ -69,8 +69,8 @@ func TestExportIncremental_AddNewIssues(t *testing.T) {
 
 // TestExportIncremental_AddIssuesWithDependencies verifies new deps appear in graph.
 func TestExportIncremental_AddIssuesWithDependencies(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -86,7 +86,7 @@ func TestExportIncremental_AddIssuesWithDependencies(t *testing.T) {
 		t.Fatalf("write initial issues.jsonl: %v", err)
 	}
 
-	runExportPages(t, bv, repoDir, exportDir)
+	runExportPages(t, bt, repoDir, exportDir)
 
 	// Add issues with dependencies
 	updatedData := `{"id": "epic-1", "title": "Epic 1", "status": "open", "priority": 0, "issue_type": "epic"}
@@ -98,7 +98,7 @@ func TestExportIncremental_AddIssuesWithDependencies(t *testing.T) {
 	}
 
 	// Re-export
-	runExportPages(t, bv, repoDir, exportDir)
+	runExportPages(t, bt, repoDir, exportDir)
 
 	// Verify meta.json updated
 	meta := readMetaJSON(t, exportDir)
@@ -119,8 +119,8 @@ func TestExportIncremental_AddIssuesWithDependencies(t *testing.T) {
 
 // TestExportIncremental_CloseIssues verifies closed issues update correctly.
 func TestExportIncremental_CloseIssues(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -137,7 +137,7 @@ func TestExportIncremental_CloseIssues(t *testing.T) {
 		t.Fatalf("write initial issues.jsonl: %v", err)
 	}
 
-	runExportPages(t, bv, repoDir, exportDir, "--pages-include-closed")
+	runExportPages(t, bt, repoDir, exportDir, "--pages-include-closed")
 	initialTriage := readTriageJSON(t, exportDir)
 	initialOpenCount := initialTriage.QuickRef.OpenCount
 
@@ -150,7 +150,7 @@ func TestExportIncremental_CloseIssues(t *testing.T) {
 	}
 
 	// Re-export
-	runExportPages(t, bv, repoDir, exportDir, "--pages-include-closed")
+	runExportPages(t, bt, repoDir, exportDir, "--pages-include-closed")
 	updatedTriage := readTriageJSON(t, exportDir)
 	updatedOpenCount := updatedTriage.QuickRef.OpenCount
 
@@ -163,8 +163,8 @@ func TestExportIncremental_CloseIssues(t *testing.T) {
 
 // TestExportIncremental_CloseBlockingIssue verifies unblocking propagates.
 func TestExportIncremental_CloseBlockingIssue(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -180,7 +180,7 @@ func TestExportIncremental_CloseBlockingIssue(t *testing.T) {
 		t.Fatalf("write initial issues.jsonl: %v", err)
 	}
 
-	runExportPages(t, bv, repoDir, exportDir, "--pages-include-closed")
+	runExportPages(t, bt, repoDir, exportDir, "--pages-include-closed")
 
 	// Close the blocker
 	updatedData := `{"id": "blocker", "title": "Blocking Issue", "status": "closed", "priority": 0, "issue_type": "task"}
@@ -190,7 +190,7 @@ func TestExportIncremental_CloseBlockingIssue(t *testing.T) {
 	}
 
 	// Re-export
-	runExportPages(t, bv, repoDir, exportDir, "--pages-include-closed")
+	runExportPages(t, bt, repoDir, exportDir, "--pages-include-closed")
 	triage := readTriageJSON(t, exportDir)
 
 	// The previously blocked issue should now be actionable
@@ -206,8 +206,8 @@ func TestExportIncremental_CloseBlockingIssue(t *testing.T) {
 
 // TestExportIncremental_AddDependency verifies adding deps updates graph.
 func TestExportIncremental_AddDependency(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -223,7 +223,7 @@ func TestExportIncremental_AddDependency(t *testing.T) {
 		t.Fatalf("write initial issues.jsonl: %v", err)
 	}
 
-	runExportPages(t, bv, repoDir, exportDir)
+	runExportPages(t, bt, repoDir, exportDir)
 	initialMeta := readMetaJSON(t, exportDir)
 
 	// Add dependency relationship
@@ -234,7 +234,7 @@ func TestExportIncremental_AddDependency(t *testing.T) {
 	}
 
 	// Re-export
-	runExportPages(t, bv, repoDir, exportDir)
+	runExportPages(t, bt, repoDir, exportDir)
 	updatedMeta := readMetaJSON(t, exportDir)
 
 	// Verify export was regenerated
@@ -252,8 +252,8 @@ func TestExportIncremental_AddDependency(t *testing.T) {
 
 // TestExportIncremental_RemoveDependency verifies removing deps updates graph.
 func TestExportIncremental_RemoveDependency(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -269,7 +269,7 @@ func TestExportIncremental_RemoveDependency(t *testing.T) {
 		t.Fatalf("write initial issues.jsonl: %v", err)
 	}
 
-	runExportPages(t, bv, repoDir, exportDir)
+	runExportPages(t, bt, repoDir, exportDir)
 
 	// Remove dependency
 	updatedData := `{"id": "parent", "title": "Parent Issue", "status": "open", "priority": 0, "issue_type": "epic"}
@@ -279,7 +279,7 @@ func TestExportIncremental_RemoveDependency(t *testing.T) {
 	}
 
 	// Re-export
-	runExportPages(t, bv, repoDir, exportDir)
+	runExportPages(t, bt, repoDir, exportDir)
 	triage := readTriageJSON(t, exportDir)
 
 	// Both issues should now be open
@@ -291,8 +291,8 @@ func TestExportIncremental_RemoveDependency(t *testing.T) {
 
 // TestExportIncremental_ChangeDependencyType verifies dep type changes reflect.
 func TestExportIncremental_ChangeDependencyType(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -308,7 +308,7 @@ func TestExportIncremental_ChangeDependencyType(t *testing.T) {
 		t.Fatalf("write initial issues.jsonl: %v", err)
 	}
 
-	runExportPages(t, bv, repoDir, exportDir)
+	runExportPages(t, bt, repoDir, exportDir)
 
 	// Change to relates dependency
 	updatedData := `{"id": "A", "title": "Issue A", "status": "open", "priority": 1, "issue_type": "task"}
@@ -318,7 +318,7 @@ func TestExportIncremental_ChangeDependencyType(t *testing.T) {
 	}
 
 	// Re-export (should not error)
-	runExportPages(t, bv, repoDir, exportDir)
+	runExportPages(t, bt, repoDir, exportDir)
 
 	// Verify export succeeded
 	meta := readMetaJSON(t, exportDir)
@@ -333,8 +333,8 @@ func TestExportIncremental_ChangeDependencyType(t *testing.T) {
 
 // TestExportIncremental_DeleteIssues verifies deleted issues disappear.
 func TestExportIncremental_DeleteIssues(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -353,7 +353,7 @@ func TestExportIncremental_DeleteIssues(t *testing.T) {
 		t.Fatalf("write initial issues.jsonl: %v", err)
 	}
 
-	runExportPages(t, bv, repoDir, exportDir)
+	runExportPages(t, bt, repoDir, exportDir)
 	initialMeta := readMetaJSON(t, exportDir)
 	if initialMeta.IssueCount != 5 {
 		t.Fatalf("initial issue_count = %d, want 5", initialMeta.IssueCount)
@@ -368,7 +368,7 @@ func TestExportIncremental_DeleteIssues(t *testing.T) {
 	}
 
 	// Re-export
-	runExportPages(t, bv, repoDir, exportDir)
+	runExportPages(t, bt, repoDir, exportDir)
 	updatedMeta := readMetaJSON(t, exportDir)
 
 	if updatedMeta.IssueCount != 3 {
@@ -378,8 +378,8 @@ func TestExportIncremental_DeleteIssues(t *testing.T) {
 
 // TestExportIncremental_DeleteBlockingIssue verifies orphan refs handled.
 func TestExportIncremental_DeleteBlockingIssue(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -395,7 +395,7 @@ func TestExportIncremental_DeleteBlockingIssue(t *testing.T) {
 		t.Fatalf("write initial issues.jsonl: %v", err)
 	}
 
-	runExportPages(t, bv, repoDir, exportDir)
+	runExportPages(t, bt, repoDir, exportDir)
 
 	// Delete the blocker, leaving orphan reference
 	updatedData := `{"id": "blocked", "title": "Blocked Issue", "status": "open", "priority": 1, "issue_type": "task", "dependencies": [{"target_id": "blocker", "type": "blocks"}]}`
@@ -404,7 +404,7 @@ func TestExportIncremental_DeleteBlockingIssue(t *testing.T) {
 	}
 
 	// Re-export should handle orphan reference gracefully
-	runExportPages(t, bv, repoDir, exportDir)
+	runExportPages(t, bt, repoDir, exportDir)
 	meta := readMetaJSON(t, exportDir)
 
 	if meta.IssueCount != 1 {
@@ -414,8 +414,8 @@ func TestExportIncremental_DeleteBlockingIssue(t *testing.T) {
 
 // TestExportIncremental_DeleteAllIssues verifies empty dataset handled.
 func TestExportIncremental_DeleteAllIssues(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -431,7 +431,7 @@ func TestExportIncremental_DeleteAllIssues(t *testing.T) {
 		t.Fatalf("write initial issues.jsonl: %v", err)
 	}
 
-	runExportPages(t, bv, repoDir, exportDir)
+	runExportPages(t, bt, repoDir, exportDir)
 
 	// Delete all issues
 	if err := os.WriteFile(filepath.Join(beadsPath, "issues.jsonl"), []byte(""), 0o644); err != nil {
@@ -439,7 +439,7 @@ func TestExportIncremental_DeleteAllIssues(t *testing.T) {
 	}
 
 	// Re-export should handle empty dataset
-	runExportPages(t, bv, repoDir, exportDir)
+	runExportPages(t, bt, repoDir, exportDir)
 	meta := readMetaJSON(t, exportDir)
 
 	if meta.IssueCount != 0 {
@@ -453,8 +453,8 @@ func TestExportIncremental_DeleteAllIssues(t *testing.T) {
 
 // TestExportIncremental_MixedOperations tests add+close+delete simultaneously.
 func TestExportIncremental_MixedOperations(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -471,7 +471,7 @@ func TestExportIncremental_MixedOperations(t *testing.T) {
 		t.Fatalf("write initial issues.jsonl: %v", err)
 	}
 
-	runExportPages(t, bv, repoDir, exportDir, "--pages-include-closed")
+	runExportPages(t, bt, repoDir, exportDir, "--pages-include-closed")
 	initialMeta := readMetaJSON(t, exportDir)
 	if initialMeta.IssueCount != 3 {
 		t.Fatalf("initial issue_count = %d, want 3", initialMeta.IssueCount)
@@ -487,7 +487,7 @@ func TestExportIncremental_MixedOperations(t *testing.T) {
 	}
 
 	// Re-export
-	runExportPages(t, bv, repoDir, exportDir, "--pages-include-closed")
+	runExportPages(t, bt, repoDir, exportDir, "--pages-include-closed")
 	updatedMeta := readMetaJSON(t, exportDir)
 
 	// Expected: keep + close (now closed) + new-1 + new-2 = 4
@@ -515,8 +515,8 @@ func TestExportIncremental_MixedOperations(t *testing.T) {
 
 // TestExportIncremental_ChangePriority verifies priority changes reflect.
 func TestExportIncremental_ChangePriority(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -531,7 +531,7 @@ func TestExportIncremental_ChangePriority(t *testing.T) {
 		t.Fatalf("write initial issues.jsonl: %v", err)
 	}
 
-	runExportPages(t, bv, repoDir, exportDir)
+	runExportPages(t, bt, repoDir, exportDir)
 
 	// Bump to high priority
 	updatedData := `{"id": "issue-1", "title": "Test Issue", "status": "open", "priority": 0, "issue_type": "task"}`
@@ -540,7 +540,7 @@ func TestExportIncremental_ChangePriority(t *testing.T) {
 	}
 
 	// Re-export
-	runExportPages(t, bv, repoDir, exportDir)
+	runExportPages(t, bt, repoDir, exportDir)
 
 	// Verify triage includes the high priority issue
 	triage := readTriageJSON(t, exportDir)
@@ -551,8 +551,8 @@ func TestExportIncremental_ChangePriority(t *testing.T) {
 
 // TestExportIncremental_ChangeTitle verifies title changes reflect.
 func TestExportIncremental_ChangeTitle(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -567,7 +567,7 @@ func TestExportIncremental_ChangeTitle(t *testing.T) {
 		t.Fatalf("write initial issues.jsonl: %v", err)
 	}
 
-	runExportPages(t, bv, repoDir, exportDir)
+	runExportPages(t, bt, repoDir, exportDir)
 
 	// Change title
 	updatedData := `{"id": "issue-1", "title": "Updated Title With New Information", "status": "open", "priority": 1, "issue_type": "task"}`
@@ -576,7 +576,7 @@ func TestExportIncremental_ChangeTitle(t *testing.T) {
 	}
 
 	// Re-export
-	runExportPages(t, bv, repoDir, exportDir)
+	runExportPages(t, bt, repoDir, exportDir)
 
 	// Verify export updated (check sqlite database was regenerated)
 	dbPath := filepath.Join(exportDir, "beads.sqlite3")
@@ -595,8 +595,8 @@ func TestExportIncremental_ChangeTitle(t *testing.T) {
 
 // TestExportIncremental_ChangeExportTitle verifies --pages-title changes reflect.
 func TestExportIncremental_ChangeExportTitle(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -611,14 +611,14 @@ func TestExportIncremental_ChangeExportTitle(t *testing.T) {
 	}
 
 	// Export with original title
-	runExportPages(t, bv, repoDir, exportDir, "--pages-title", "Original Dashboard")
+	runExportPages(t, bt, repoDir, exportDir, "--pages-title", "Original Dashboard")
 	meta1 := readMetaJSON(t, exportDir)
 	if meta1.Title != "Original Dashboard" {
 		t.Errorf("initial title = %q, want %q", meta1.Title, "Original Dashboard")
 	}
 
 	// Re-export with new title
-	runExportPages(t, bv, repoDir, exportDir, "--pages-title", "Renamed Dashboard")
+	runExportPages(t, bt, repoDir, exportDir, "--pages-title", "Renamed Dashboard")
 	meta2 := readMetaJSON(t, exportDir)
 	if meta2.Title != "Renamed Dashboard" {
 		t.Errorf("updated title = %q, want %q", meta2.Title, "Renamed Dashboard")
@@ -631,8 +631,8 @@ func TestExportIncremental_ChangeExportTitle(t *testing.T) {
 
 // TestExportIncremental_ReexportWithoutChanges verifies idempotent exports.
 func TestExportIncremental_ReexportWithoutChanges(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -648,11 +648,11 @@ func TestExportIncremental_ReexportWithoutChanges(t *testing.T) {
 	}
 
 	// First export
-	runExportPages(t, bv, repoDir, exportDir)
+	runExportPages(t, bt, repoDir, exportDir)
 	meta1 := readMetaJSON(t, exportDir)
 
 	// Second export (no data changes)
-	runExportPages(t, bv, repoDir, exportDir)
+	runExportPages(t, bt, repoDir, exportDir)
 	meta2 := readMetaJSON(t, exportDir)
 
 	// Issue count should remain the same
@@ -664,8 +664,8 @@ func TestExportIncremental_ReexportWithoutChanges(t *testing.T) {
 
 // TestExportIncremental_MultipleReexports verifies stability over many exports.
 func TestExportIncremental_MultipleReexports(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -681,7 +681,7 @@ func TestExportIncremental_MultipleReexports(t *testing.T) {
 
 	// Export 5 times
 	for i := 0; i < 5; i++ {
-		runExportPages(t, bv, repoDir, exportDir)
+		runExportPages(t, bt, repoDir, exportDir)
 	}
 
 	// Final export should still be valid
@@ -710,12 +710,12 @@ func TestExportIncremental_MultipleReexports(t *testing.T) {
 // =============================================================================
 
 // runExportPages runs --export-pages with optional extra args.
-func runExportPages(t *testing.T, bv, repoDir, exportDir string, extraArgs ...string) {
+func runExportPages(t *testing.T, bt, repoDir, exportDir string, extraArgs ...string) {
 	t.Helper()
 	args := []string{"--export-pages", exportDir}
 	args = append(args, extraArgs...)
 
-	cmd := exec.Command(bv, args...)
+	cmd := exec.Command(bt, args...)
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {

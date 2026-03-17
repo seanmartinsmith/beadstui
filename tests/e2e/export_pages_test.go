@@ -19,15 +19,15 @@ func TestExportPages_IncludesHistoryAndRunsHooks(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("hook commands use Unix shell syntax")
 	}
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir, _ := createHistoryRepo(t)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
 	// Configure hooks to prove pre/post phases run.
 	if err := os.MkdirAll(filepath.Join(repoDir, ".bt"), 0o755); err != nil {
-		t.Fatalf("mkdir .bv: %v", err)
+		t.Fatalf("mkdir .bt: %v", err)
 	}
 	hooksYAML := `hooks:
   pre-export:
@@ -41,7 +41,7 @@ func TestExportPages_IncludesHistoryAndRunsHooks(t *testing.T) {
 		t.Fatalf("write hooks.yaml: %v", err)
 	}
 
-	cmd := exec.Command(bv,
+	cmd := exec.Command(bt,
 		"--export-pages", exportDir,
 		"--pages-include-history",
 		"--pages-include-closed",
@@ -97,11 +97,11 @@ func TestExportPages_IncludesHistoryAndRunsHooks(t *testing.T) {
 	}
 }
 
-func stageViewerAssets(t *testing.T, bvPath string) {
+func stageViewerAssets(t *testing.T, btPath string) {
 	t.Helper()
 	root := findRepoRoot(t)
 	src := filepath.Join(root, "pkg", "export", "viewer_assets")
-	dst := filepath.Join(filepath.Dir(bvPath), "pkg", "export", "viewer_assets")
+	dst := filepath.Join(filepath.Dir(btPath), "pkg", "export", "viewer_assets")
 
 	if err := copyDirRecursive(src, dst); err != nil {
 		t.Fatalf("stage viewer assets: %v", err)
@@ -183,13 +183,13 @@ func copyFile(src, dst string) error {
 
 // TestExportPages_HTMLStructure validates the HTML5 document structure
 func TestExportPages_HTMLStructure(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 5)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -229,13 +229,13 @@ func TestExportPages_HTMLStructure(t *testing.T) {
 }
 
 func TestExportPages_IssueOverviewMetrics(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createRepoWithDeps(t)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -314,13 +314,13 @@ func TestExportPages_IssueOverviewMetrics(t *testing.T) {
 
 // TestExportPages_CSSPresent validates CSS files are included
 func TestExportPages_CSSPresent(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 3)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -348,13 +348,13 @@ func TestExportPages_CSSPresent(t *testing.T) {
 
 // TestExportPages_JavaScriptFiles validates JS files are present
 func TestExportPages_JavaScriptFiles(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 3)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -394,13 +394,13 @@ func TestExportPages_JavaScriptFiles(t *testing.T) {
 
 // TestExportPages_SQLiteDatabase validates the SQLite export
 func TestExportPages_SQLiteDatabase(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 10)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -437,13 +437,13 @@ func TestExportPages_SQLiteDatabase(t *testing.T) {
 
 // TestExportPages_TriageJSON validates triage data export
 func TestExportPages_TriageJSON(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 5)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -477,14 +477,14 @@ func TestExportPages_TriageJSON(t *testing.T) {
 
 // TestExportPages_MetaJSON validates metadata export
 func TestExportPages_MetaJSON(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 5)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
 	// Use --pages-include-closed to include all 5 issues
-	cmd := exec.Command(bv, "--export-pages", exportDir, "--pages-title", "Test Dashboard", "--pages-include-closed")
+	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-title", "Test Dashboard", "--pages-include-closed")
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -522,13 +522,13 @@ func TestExportPages_MetaJSON(t *testing.T) {
 
 // TestExportPages_DependencyGraph validates graph data for issues with deps
 func TestExportPages_DependencyGraph(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createRepoWithDeps(t)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -570,14 +570,14 @@ func TestExportPages_DataScale_100Issues(t *testing.T) {
 }
 
 func testExportPagesWithScale(t *testing.T, issueCount int) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, issueCount)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
 	// Use --pages-include-closed to include all issues
-	cmd := exec.Command(bv, "--export-pages", exportDir, "--pages-include-closed")
+	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-include-closed")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -617,13 +617,13 @@ func testExportPagesWithScale(t *testing.T, issueCount int) {
 
 // TestExportPages_DarkModeSupport validates dark mode CSS classes
 func TestExportPages_DarkModeSupport(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 3)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -657,8 +657,8 @@ func TestExportPages_DarkModeSupport(t *testing.T) {
 
 // TestExportPages_NoXSSVulnerabilities checks for basic XSS protections
 func TestExportPages_NoXSSVulnerabilities(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	// Create repo with potentially dangerous content
 	repoDir := t.TempDir()
@@ -675,7 +675,7 @@ func TestExportPages_NoXSSVulnerabilities(t *testing.T) {
 	}
 
 	exportDir := filepath.Join(repoDir, "bv-pages")
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -693,13 +693,13 @@ func TestExportPages_NoXSSVulnerabilities(t *testing.T) {
 
 // TestExportPages_ResponsiveLayout checks for responsive design markers
 func TestExportPages_ResponsiveLayout(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 3)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -809,8 +809,8 @@ func itoa(i int) string {
 // TestExportPages_ExcludeClosed_SQLiteVerification verifies closed issues
 // are NOT in the SQLite database when --pages-include-closed=false.
 func TestExportPages_ExcludeClosed_SQLiteVerification(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -831,7 +831,7 @@ func TestExportPages_ExcludeClosed_SQLiteVerification(t *testing.T) {
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
 	// Export with --pages-include-closed=false
-	cmd := exec.Command(bv, "--export-pages", exportDir, "--pages-include-closed=false")
+	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-include-closed=false")
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -876,14 +876,14 @@ func TestExportPages_ExcludeClosed_SQLiteVerification(t *testing.T) {
 // TestExportPages_ExcludeHistory verifies history.json is absent
 // when --pages-include-history=false.
 func TestExportPages_ExcludeHistory(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir, _ := createHistoryRepo(t)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
 	// Export with --pages-include-history=false
-	cmd := exec.Command(bv, "--export-pages", exportDir, "--pages-include-history=false")
+	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-include-history=false")
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -910,14 +910,14 @@ func TestExportPages_ExcludeHistory(t *testing.T) {
 
 // TestExportPages_BothExcluded verifies minimal export with both flags false.
 func TestExportPages_BothExcluded(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir, _ := createHistoryRepo(t)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
 	// Export with both exclusions
-	cmd := exec.Command(bv, "--export-pages", exportDir,
+	cmd := exec.Command(bt, "--export-pages", exportDir,
 		"--pages-include-closed=false",
 		"--pages-include-history=false")
 	cmd.Dir = repoDir
@@ -943,8 +943,8 @@ func TestExportPages_BothExcluded(t *testing.T) {
 
 // TestExportPages_FTS5Searchable verifies the FTS5 index is created and searchable.
 func TestExportPages_FTS5Searchable(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -961,7 +961,7 @@ func TestExportPages_FTS5Searchable(t *testing.T) {
 	}
 
 	exportDir := filepath.Join(repoDir, "bv-pages")
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -991,8 +991,8 @@ func TestExportPages_FTS5Searchable(t *testing.T) {
 
 // TestExportPages_EmptyProject verifies export handles empty project gracefully.
 func TestExportPages_EmptyProject(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -1006,7 +1006,7 @@ func TestExportPages_EmptyProject(t *testing.T) {
 	}
 
 	exportDir := filepath.Join(repoDir, "bv-pages")
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 
@@ -1038,8 +1038,8 @@ func TestExportPages_EmptyProject(t *testing.T) {
 // TestExportPages_OnlyClosedIssues verifies export when all issues are closed
 // and --pages-include-closed=false results in empty export.
 func TestExportPages_OnlyClosedIssues(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -1056,7 +1056,7 @@ func TestExportPages_OnlyClosedIssues(t *testing.T) {
 	}
 
 	exportDir := filepath.Join(repoDir, "bv-pages")
-	cmd := exec.Command(bv, "--export-pages", exportDir, "--pages-include-closed=false")
+	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-include-closed=false")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 
@@ -1076,8 +1076,8 @@ func TestExportPages_OnlyClosedIssues(t *testing.T) {
 
 // TestExportPages_UnicodeContent verifies export handles Unicode correctly.
 func TestExportPages_UnicodeContent(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -1095,7 +1095,7 @@ func TestExportPages_UnicodeContent(t *testing.T) {
 	}
 
 	exportDir := filepath.Join(repoDir, "bv-pages")
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -1240,13 +1240,13 @@ func openSQLiteDB(dbPath string) (*sql.DB, error) {
 
 // TestExportPages_DetailPaneMarkup verifies detail pane markup exists in index.html
 func TestExportPages_DetailPaneMarkup(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 5)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -1282,13 +1282,13 @@ func TestExportPages_DetailPaneMarkup(t *testing.T) {
 
 // TestExportPages_GraphLayoutStructure verifies graph_layout.json has correct structure
 func TestExportPages_GraphLayoutStructure(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createRepoWithDeps(t) // Use repo with dependencies for interesting layout
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -1368,13 +1368,13 @@ func TestExportPages_GraphLayoutStructure(t *testing.T) {
 
 // TestExportPages_GraphJSSelectNodeHandler verifies selectNode handler exists in graph.js
 func TestExportPages_GraphJSSelectNodeHandler(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 3)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -1435,13 +1435,13 @@ func TestExportPages_GraphJSSelectNodeHandler(t *testing.T) {
 
 // TestExportPages_GraphLayoutNodesCovered verifies all nodes get positions
 func TestExportPages_GraphLayoutNodesCovered(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 5)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("export failed: %v\n%s", err, out)
@@ -1487,13 +1487,13 @@ func TestExportPages_GraphLayoutNodesCovered(t *testing.T) {
 
 // TestExportPages_PrecomputedLayoutUsedByViewer verifies viewer.js loads precomputed layout
 func TestExportPages_PrecomputedLayoutUsedByViewer(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 3)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -1528,13 +1528,13 @@ func TestExportPages_PrecomputedLayoutUsedByViewer(t *testing.T) {
 
 // TestExportPages_DetailPaneAllProperties verifies all detail pane property bindings exist
 func TestExportPages_DetailPaneAllProperties(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createRepoWithDeps(t) // Use deps repo for rich data
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -1582,8 +1582,8 @@ func TestExportPages_DetailPaneAllProperties(t *testing.T) {
 
 // TestExportPages_GraphLayoutCycleDetection verifies cycles are detected in graph_layout.json
 func TestExportPages_GraphLayoutCycleDetection(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	// Create repo with a dependency cycle: A -> B -> C -> A
 	repoDir := t.TempDir()
@@ -1603,7 +1603,7 @@ func TestExportPages_GraphLayoutCycleDetection(t *testing.T) {
 	}
 
 	exportDir := filepath.Join(repoDir, "bv-pages")
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -1683,8 +1683,8 @@ func TestExportPages_GraphLayoutLargeScale(t *testing.T) {
 		t.Skip("skipping large scale test in short mode")
 	}
 
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	// Create repo with 50 nodes and chain dependencies
 	repoDir := t.TempDir()
@@ -1722,7 +1722,7 @@ func TestExportPages_GraphLayoutLargeScale(t *testing.T) {
 	}
 
 	exportDir := filepath.Join(repoDir, "bv-pages")
-	cmd := exec.Command(bv, "--export-pages", exportDir, "--pages-include-closed")
+	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-include-closed")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -1787,8 +1787,8 @@ func TestExportPages_GraphLayoutLargeScale(t *testing.T) {
 
 // TestExportPages_DetailPaneIntegration verifies detail pane works with actual data
 func TestExportPages_DetailPaneIntegration(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	// Create a repo with rich data for detail pane testing
 	repoDir := t.TempDir()
@@ -1807,7 +1807,7 @@ func TestExportPages_DetailPaneIntegration(t *testing.T) {
 	}
 
 	exportDir := filepath.Join(repoDir, "bv-pages")
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -1873,13 +1873,13 @@ func TestExportPages_DetailPaneIntegration(t *testing.T) {
 
 // TestExportPages_GraphLayoutFetch verifies graph.js fetches layout correctly
 func TestExportPages_GraphLayoutFetch(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 3)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)

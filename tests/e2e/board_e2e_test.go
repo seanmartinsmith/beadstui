@@ -15,7 +15,7 @@ import (
 // Uses BT_TUI_AUTOCLOSE_MS to avoid hanging.
 func TestBoardTUIWorkflow(t *testing.T) {
 	skipIfNoScript(t)
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -38,7 +38,7 @@ func TestBoardTUIWorkflow(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cmd := scriptTUICommand(ctx, bv)
+	cmd := scriptTUICommand(ctx, bt)
 	cmd.Dir = tempDir
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
@@ -57,7 +57,7 @@ func TestBoardTUIWorkflow(t *testing.T) {
 // TestBoardRobotTriageIncludesStatusCounts verifies robot-triage returns counts by status
 // which can be used to populate a board view.
 func TestBoardRobotTriageIncludesStatusCounts(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -78,7 +78,7 @@ func TestBoardRobotTriageIncludesStatusCounts(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bv, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -116,7 +116,7 @@ func TestBoardRobotTriageIncludesStatusCounts(t *testing.T) {
 // TestBoardRobotPlanReturnsGroupedTracks verifies robot-plan can provide
 // data suitable for board swimlanes.
 func TestBoardRobotPlanReturnsGroupedTracks(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -136,7 +136,7 @@ func TestBoardRobotPlanReturnsGroupedTracks(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bv, "--robot-plan")
+	cmd := exec.CommandContext(ctx, bt, "--robot-plan")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -156,7 +156,7 @@ func TestBoardRobotPlanReturnsGroupedTracks(t *testing.T) {
 
 // TestBoardFiltersByType verifies issues can be filtered by type for type-based swimlanes.
 func TestBoardFiltersByType(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -178,7 +178,7 @@ func TestBoardFiltersByType(t *testing.T) {
 	defer cancel()
 
 	// Use robot-triage to verify types are tracked
-	cmd := exec.CommandContext(ctx, bv, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -218,7 +218,7 @@ func TestBoardFiltersByType(t *testing.T) {
 
 // TestBoardFiltersByPriority verifies issues can be filtered by priority for priority-based swimlanes.
 func TestBoardFiltersByPriority(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -240,7 +240,7 @@ func TestBoardFiltersByPriority(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bv, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -280,7 +280,7 @@ func TestBoardFiltersByPriority(t *testing.T) {
 
 // TestBoardWithDependencies verifies the board correctly handles blocked issues.
 func TestBoardWithDependencies(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -300,7 +300,7 @@ func TestBoardWithDependencies(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bv, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -348,7 +348,7 @@ func TestBoardWithDependencies(t *testing.T) {
 
 // TestBoardLargeDataset verifies board handles 100+ issues without errors.
 func TestBoardLargeDataset(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -373,7 +373,7 @@ func TestBoardLargeDataset(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bv, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -401,7 +401,7 @@ func TestBoardLargeDataset(t *testing.T) {
 
 // TestBoardEmptyState verifies board handles empty dataset gracefully.
 func TestBoardEmptyState(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -417,7 +417,7 @@ func TestBoardEmptyState(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bv, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -445,7 +445,7 @@ func TestBoardEmptyState(t *testing.T) {
 
 // TestBoardSearchIntegration verifies robot-search works for board filtering.
 func TestBoardSearchIntegration(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -466,7 +466,7 @@ func TestBoardSearchIntegration(t *testing.T) {
 	defer cancel()
 
 	// Use --search with --robot-search (semantic search via hash embedder)
-	cmd := exec.CommandContext(ctx, bv, "--search", "authentication", "--robot-search")
+	cmd := exec.CommandContext(ctx, bt, "--search", "authentication", "--robot-search")
 	cmd.Dir = tempDir
 	cmd.Env = append(os.Environ(),
 		"BT_SEMANTIC_EMBEDDER=hash",

@@ -18,8 +18,8 @@ import (
 
 // TestOffline_AllAssetsBundled verifies no external dependencies in HTML.
 func TestOffline_AllAssetsBundled(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -34,7 +34,7 @@ func TestOffline_AllAssetsBundled(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -87,8 +87,8 @@ func TestOffline_AllAssetsBundled(t *testing.T) {
 
 // TestOffline_LocalScriptReferences verifies scripts are locally bundled.
 func TestOffline_LocalScriptReferences(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -102,7 +102,7 @@ func TestOffline_LocalScriptReferences(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -141,8 +141,8 @@ func TestOffline_LocalScriptReferences(t *testing.T) {
 
 // TestOffline_LocalStyleReferences verifies stylesheets are locally bundled.
 func TestOffline_LocalStyleReferences(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -156,7 +156,7 @@ func TestOffline_LocalStyleReferences(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -194,8 +194,8 @@ func TestOffline_LocalStyleReferences(t *testing.T) {
 
 // TestOffline_SearchIndexBundled verifies search index is present.
 func TestOffline_SearchIndexBundled(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -212,7 +212,7 @@ func TestOffline_SearchIndexBundled(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir, "--pages-include-closed")
+	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-include-closed")
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -237,8 +237,8 @@ func TestOffline_SearchIndexBundled(t *testing.T) {
 
 // TestOffline_HashBasedRouting verifies single-page app structure.
 func TestOffline_HashBasedRouting(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -252,7 +252,7 @@ func TestOffline_HashBasedRouting(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -277,8 +277,8 @@ func TestOffline_HashBasedRouting(t *testing.T) {
 
 // TestOffline_GraphWASMBundled verifies graph WASM is present.
 func TestOffline_GraphWASMBundled(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -292,7 +292,7 @@ func TestOffline_GraphWASMBundled(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -324,8 +324,8 @@ func TestOffline_GraphWASMBundled(t *testing.T) {
 
 // TestOffline_ServiceWorkerPresent verifies service worker for offline.
 func TestOffline_ServiceWorkerPresent(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -339,7 +339,7 @@ func TestOffline_ServiceWorkerPresent(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -358,8 +358,8 @@ func TestOffline_ServiceWorkerPresent(t *testing.T) {
 
 // TestOffline_DataFilesBundled verifies data JSON files are present.
 func TestOffline_DataFilesBundled(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -373,7 +373,7 @@ func TestOffline_DataFilesBundled(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -399,8 +399,8 @@ func TestOffline_DataFilesBundled(t *testing.T) {
 
 // TestOffline_CompleteBundleChecklist verifies complete offline bundle.
 func TestOffline_CompleteBundleChecklist(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -414,7 +414,7 @@ func TestOffline_CompleteBundleChecklist(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -456,8 +456,8 @@ func TestOffline_CompleteBundleChecklist(t *testing.T) {
 
 // TestOffline_NoFetchAPICalls verifies no runtime fetch to external servers.
 func TestOffline_NoFetchAPICalls(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -471,7 +471,7 @@ func TestOffline_NoFetchAPICalls(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -499,8 +499,8 @@ func TestOffline_NoFetchAPICalls(t *testing.T) {
 
 // TestOffline_CrossOriginIsolation verifies COI setup for SharedArrayBuffer.
 func TestOffline_CrossOriginIsolation(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -514,7 +514,7 @@ func TestOffline_CrossOriginIsolation(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -539,8 +539,8 @@ func TestOffline_CrossOriginIsolation(t *testing.T) {
 
 // TestOffline_BundleSizeReasonable verifies bundle isn't too large.
 func TestOffline_BundleSizeReasonable(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -559,7 +559,7 @@ func TestOffline_BundleSizeReasonable(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -595,8 +595,8 @@ func TestOffline_BundleSizeReasonable(t *testing.T) {
 
 // TestOffline_RelativePaths verifies all paths are relative.
 func TestOffline_RelativePaths(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -610,7 +610,7 @@ func TestOffline_RelativePaths(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -638,8 +638,8 @@ func TestOffline_RelativePaths(t *testing.T) {
 
 // TestOffline_CSSMinified verifies CSS is reasonably sized.
 func TestOffline_CSSMinified(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := t.TempDir()
 	beadsPath := filepath.Join(repoDir, ".beads")
@@ -653,7 +653,7 @@ func TestOffline_CSSMinified(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bv, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "--export-pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)

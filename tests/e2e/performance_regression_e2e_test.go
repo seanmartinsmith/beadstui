@@ -37,14 +37,14 @@ const (
 
 // TestPerf_RobotTriageLatency verifies --robot-triage completes within threshold.
 func TestPerf_RobotTriageLatency(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	// Create test data with moderate complexity
 	createTestDataset(t, env, 100)
 
 	start := time.Now()
-	cmd := exec.Command(bv, "--robot-triage")
+	cmd := exec.Command(bt, "--robot-triage")
 	cmd.Dir = env
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("--robot-triage failed: %v", err)
@@ -59,13 +59,13 @@ func TestPerf_RobotTriageLatency(t *testing.T) {
 
 // TestPerf_RobotNextLatency verifies --robot-next completes within threshold.
 func TestPerf_RobotNextLatency(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	createTestDataset(t, env, 100)
 
 	start := time.Now()
-	cmd := exec.Command(bv, "--robot-next")
+	cmd := exec.Command(bt, "--robot-next")
 	cmd.Dir = env
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("--robot-next failed: %v", err)
@@ -80,7 +80,7 @@ func TestPerf_RobotNextLatency(t *testing.T) {
 
 // TestPerf_RobotGraphLatency verifies --robot-graph completes within threshold.
 func TestPerf_RobotGraphLatency(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	createTestDataset(t, env, 100)
@@ -89,7 +89,7 @@ func TestPerf_RobotGraphLatency(t *testing.T) {
 	for _, format := range formats {
 		t.Run(format, func(t *testing.T) {
 			start := time.Now()
-			cmd := exec.Command(bv, "--robot-graph", "--graph-format", format)
+			cmd := exec.Command(bt, "--robot-graph", "--graph-format", format)
 			cmd.Dir = env
 			if err := cmd.Run(); err != nil {
 				t.Fatalf("--robot-graph (%s) failed: %v", format, err)
@@ -106,13 +106,13 @@ func TestPerf_RobotGraphLatency(t *testing.T) {
 
 // TestPerf_RobotPlanLatency verifies --robot-plan completes within threshold.
 func TestPerf_RobotPlanLatency(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	createTestDataset(t, env, 100)
 
 	start := time.Now()
-	cmd := exec.Command(bv, "--robot-plan")
+	cmd := exec.Command(bt, "--robot-plan")
 	cmd.Dir = env
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("--robot-plan failed: %v", err)
@@ -131,13 +131,13 @@ func TestPerf_RobotPlanLatency(t *testing.T) {
 
 // TestPerf_SmallDatasetLatency tests performance with small datasets.
 func TestPerf_SmallDatasetLatency(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	createTestDataset(t, env, 20)
 
 	start := time.Now()
-	cmd := exec.Command(bv, "--robot-triage")
+	cmd := exec.Command(bt, "--robot-triage")
 	cmd.Dir = env
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed: %v", err)
@@ -152,13 +152,13 @@ func TestPerf_SmallDatasetLatency(t *testing.T) {
 
 // TestPerf_MediumDatasetLatency tests performance with medium datasets.
 func TestPerf_MediumDatasetLatency(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	createTestDataset(t, env, 200)
 
 	start := time.Now()
-	cmd := exec.Command(bv, "--robot-triage")
+	cmd := exec.Command(bt, "--robot-triage")
 	cmd.Dir = env
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed: %v", err)
@@ -177,13 +177,13 @@ func TestPerf_LargeDatasetLatency(t *testing.T) {
 		t.Skip("skipping large dataset test in short mode")
 	}
 
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	createTestDataset(t, env, 500)
 
 	start := time.Now()
-	cmd := exec.Command(bv, "--robot-triage")
+	cmd := exec.Command(bt, "--robot-triage")
 	cmd.Dir = env
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed: %v", err)
@@ -202,13 +202,13 @@ func TestPerf_LargeDatasetLatency(t *testing.T) {
 
 // TestPerf_CyclicGraphLatency tests performance with cyclic graphs.
 func TestPerf_CyclicGraphLatency(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	createCyclicDataset(t, env, 50)
 
 	start := time.Now()
-	cmd := exec.Command(bv, "--robot-triage")
+	cmd := exec.Command(bt, "--robot-triage")
 	cmd.Dir = env
 	output, _ := cmd.CombinedOutput()
 	elapsed := time.Since(start)
@@ -229,13 +229,13 @@ func TestPerf_CyclicGraphLatency(t *testing.T) {
 
 // TestPerf_DenseGraphLatency tests performance with dense graphs (many edges).
 func TestPerf_DenseGraphLatency(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	createDenseDataset(t, env, 100)
 
 	start := time.Now()
-	cmd := exec.Command(bv, "--robot-triage")
+	cmd := exec.Command(bt, "--robot-triage")
 	cmd.Dir = env
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed: %v", err)
@@ -254,14 +254,14 @@ func TestPerf_DenseGraphLatency(t *testing.T) {
 
 // TestPerf_RepeatedCommands verifies caching works (second call should be faster).
 func TestPerf_RepeatedCommands(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	createTestDataset(t, env, 100)
 
 	// First call (cold)
 	start1 := time.Now()
-	cmd1 := exec.Command(bv, "--robot-triage")
+	cmd1 := exec.Command(bt, "--robot-triage")
 	cmd1.Dir = env
 	if err := cmd1.Run(); err != nil {
 		t.Fatalf("first call failed: %v", err)
@@ -270,7 +270,7 @@ func TestPerf_RepeatedCommands(t *testing.T) {
 
 	// Second call (potentially warm/cached)
 	start2 := time.Now()
-	cmd2 := exec.Command(bv, "--robot-triage")
+	cmd2 := exec.Command(bt, "--robot-triage")
 	cmd2.Dir = env
 	if err := cmd2.Run(); err != nil {
 		t.Fatalf("second call failed: %v", err)
@@ -294,12 +294,12 @@ func TestPerf_RepeatedCommands(t *testing.T) {
 
 // TestPerf_ProfileStartup verifies --profile-startup produces timing data.
 func TestPerf_ProfileStartup(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	createTestDataset(t, env, 50)
 
-	cmd := exec.Command(bv, "--profile-startup", "--profile-json")
+	cmd := exec.Command(bt, "--profile-startup", "--profile-json")
 	cmd.Dir = env
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout

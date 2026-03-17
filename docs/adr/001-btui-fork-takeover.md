@@ -205,6 +205,30 @@ Before moving to new feature work, a fresh session should review this ADR's exec
 
 ## Changelog
 
+### 2026-03-16 - Session 17: Phase 1 mechanical cleanup (8 parallel tasks)
+- **Executed**: `docs/plans/2026-03-16-phase1-cleanup.md` - 8 parallel agents, conflict-free file partitioning
+- **Dead code deleted** (~1.5k+ LOC Go, ~7.5k LOC Rust):
+  - `internal/datasource/watch.go` (355 LOC) + `diff.go` (269 LOC) - SourceWatcher/AutoRefreshManager/SourceDiff never instantiated
+  - 8 deprecated functions from `pkg/analysis/` (computeCounts, buildBlockersToClear, ComputeTriageScores variants, ComputeImpactScore, TopImpactScores, ParallelGain)
+  - `FlowMatrixView`, `ReadyTimeoutMsg`/`Cmd`, empty graph stubs (`ensureVisible`/`ScrollLeft`/`ScrollRight`), `TreeModeBlocking` from `pkg/ui/`
+  - `GeneratePriorityBrief`, `stringSliceContains`, `DeployToCloudflarePages`, `AddGitHubWorkflowToBundle` from `pkg/export/`
+  - `AgentFileExists` from `pkg/agents/`
+  - `RobotMeta`, build tag guards, `medianMinutes` from `cmd/bt/main.go`
+  - `Makefile` (referenced non-existent bv/cmd/bv)
+  - `bv-graph-wasm/` directory (~7.5k LOC Rust, algorithms reimplemented in Go, WASM artifacts in viewer_assets/ preserved)
+- **Stale naming fixed**:
+  - `EnsureBVInGitignore` -> `EnsureBTInGitignore` (pkg/loader + cmd/bt)
+  - `.bv-atomic-*` -> `.bt-atomic-*` temp prefix (pkg/agents/file.go)
+  - "Quit bv?" -> "Quit bt?" (pkg/ui/model.go)
+  - Tutorial text bv/br -> bt/bd (pkg/ui/tutorial_content.go, tutorial.go)
+  - Package doc comments bv -> bt across 9 pkg/export/ files
+  - Script comment headers bv -> bt (coverage.sh, benchmark.sh)
+  - Orphan detection + cass correlation regexes now match both `bv-` and `bt-` prefixes (additive)
+- **E2E test renames**: 327+ bv->bt renames across 46 test files (variable names, function names, temp dir prefixes, comments)
+- **Config updates**: flake.nix version 0.14.4 -> 0.0.1, install scripts Go minimum 1.21 -> 1.25
+- **~20 dead test functions** removed alongside their dead production code
+- **Verification**: go build + go vet + go test ./... all pass (0 failures, 26 packages)
+
 ### 2026-03-16 - Session 16: Codebase audit scan (Session A)
 - **Executed**: 9-team parallel codebase audit per `docs/plans/2026-03-16-codebase-audit-plan-v2.md`
 - **Reports**: 10 files in `docs/audit/` (teams 1a, 1b, 2, 3, 4, 5, 6, 7, 8a, 8b)

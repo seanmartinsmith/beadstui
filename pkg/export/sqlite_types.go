@@ -1,4 +1,4 @@
-// Package export provides data export functionality for bv.
+// Package export provides data export functionality for bt.
 //
 // This file defines the SQLite export data structures following mcp_agent_mail's
 // proven architecture for client-side sql.js WASM querying.

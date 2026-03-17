@@ -172,17 +172,3 @@ func TestCopyEmbeddedAssets_NoTitle(t *testing.T) {
 	}
 }
 
-func TestAddGitHubWorkflowToBundle(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	err := AddGitHubWorkflowToBundle(tmpDir)
-	if err != nil {
-		t.Fatalf("AddGitHubWorkflowToBundle failed: %v", err)
-	}
-
-	// Verify workflow was created
-	workflowPath := filepath.Join(tmpDir, ".github", "workflows", "static.yml")
-	if _, err := os.Stat(workflowPath); os.IsNotExist(err) {
-		t.Error("Workflow file was not created")
-	}
-}

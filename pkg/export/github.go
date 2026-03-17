@@ -1,4 +1,4 @@
-// Package export provides data export functionality for bv.
+// Package export provides data export functionality for bt.
 //
 // This file implements GitHub CLI integration for deploying static sites
 // to GitHub Pages. It follows safety-first principles: no auto-install,

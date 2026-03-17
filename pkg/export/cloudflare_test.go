@@ -255,7 +255,7 @@ func TestCloudflareDeployConfig_Defaults(t *testing.T) {
 		BundlePath:  "/path/to/bundle",
 	}
 
-	// Default branch should be empty (set by DeployToCloudflarePages)
+	// Default branch should be empty (set by DeployToCloudflareWithAutoCreate)
 	if config.Branch != "" {
 		t.Errorf("Expected empty default branch, got %q", config.Branch)
 	}

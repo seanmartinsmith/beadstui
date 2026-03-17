@@ -21,14 +21,14 @@ func writeIssuesJSONL(t *testing.T, repoDir, content string) {
 }
 
 func TestRobotTriage_MalformedIssuesLine_NoStderr(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := t.TempDir()
 
 	issues := `{"id":"A","title":"Alpha","status":"open","priority":1,"issue_type":"task"}` + "\n" +
 		`{this is not json}` + "\n"
 	writeIssuesJSONL(t, repoDir, issues)
 
-	cmd := exec.Command(bv, "--robot-triage")
+	cmd := exec.Command(bt, "--robot-triage")
 	cmd.Dir = repoDir
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -58,12 +58,12 @@ func TestRobotTriage_MalformedIssuesLine_NoStderr(t *testing.T) {
 }
 
 func TestRobotSprintList_MalformedSprintLine_NoStderr(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	sprints := `{"id":"sprint-1","name":"Sprint 1","bead_ids":["A"]}` + "\n" +
 		`{this is not json}` + "\n"
 	repoDir := createSprintRepo(t, sprints)
 
-	cmd := exec.Command(bv, "--robot-sprint-list")
+	cmd := exec.Command(bt, "--robot-sprint-list")
 	cmd.Dir = repoDir
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

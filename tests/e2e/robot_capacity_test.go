@@ -9,7 +9,7 @@ import (
 )
 
 func TestRobotCapacity_EstimatedDaysDropsWithMoreAgents(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -30,7 +30,7 @@ func TestRobotCapacity_EstimatedDaysDropsWithMoreAgents(t *testing.T) {
 		TotalMinutes   int     `json:"total_minutes"`
 	} {
 		t.Helper()
-		cmd := exec.Command(bv, args...)
+		cmd := exec.Command(bt, args...)
 		cmd.Dir = env
 		out, err := cmd.CombinedOutput()
 		if err != nil {

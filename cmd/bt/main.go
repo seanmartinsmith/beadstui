@@ -237,28 +237,6 @@ func main() {
 		defer pprof.StopCPUProfile()
 	}
 
-	// Ensure static export flags are retained even when build tags strip features in some environments.
-	_ = exportPages
-	_ = pagesTitle
-	_ = pagesIncludeClosed
-	_ = pagesIncludeHistory
-	_ = previewPages
-	_ = previewNoLiveReload
-	_ = pagesWizard
-	_ = watchExport
-	_ = debugRender
-	_ = debugWidth
-	_ = debugHeight
-	_ = robotForecast
-	_ = forecastLabel
-	_ = forecastSprint
-	_ = forecastAgents
-	_ = robotCapacity
-	_ = capacityAgents
-	_ = capacityLabel
-	_ = labelScope
-	_ = agentBrief
-
 	envRobot := os.Getenv("BT_ROBOT") == "1"
 	stdoutIsTTY := term.IsTerminal(int(os.Stdout.Fd()))
 
@@ -1348,7 +1326,7 @@ func main() {
 		// Automatically ensure .bt/ is in .gitignore at workspace root
 		// Workspace config is typically at .bt/workspace.yaml, so project root is two levels up
 		workspaceRoot := filepath.Dir(filepath.Dir(*workspaceConfig))
-		_ = loader.EnsureBVInGitignore(workspaceRoot)
+		_ = loader.EnsureBTInGitignore(workspaceRoot)
 	} else {
 		// Load from single repo (original behavior)
 		result, err := datasource.LoadIssuesWithSource("")
@@ -1387,11 +1365,11 @@ func main() {
 		}
 
 		// Automatically ensure .bt/ is in .gitignore to prevent polluting git
-		// with search indexes, baselines, and other bv-specific files.
+		// with search indexes, baselines, and other bt-specific files.
 		// This is done silently and only in single-repo mode.
 		beadsDir, _ := loader.GetBeadsDir("")
 		projectDir := filepath.Dir(beadsDir)
-		_ = loader.EnsureBVInGitignore(projectDir)
+		_ = loader.EnsureBTInGitignore(projectDir)
 	}
 	loadDuration := time.Since(loadStart)
 
@@ -4589,7 +4567,6 @@ func main() {
 		}
 
 		// Calculate total work remaining
-		medianMinutes := 60 // default
 		totalMinutes := 0
 		for _, iss := range openIssues {
 			eta, err := analysis.EstimateETAForIssue(targetIssues, &graphStats, iss.ID, 1, now)
@@ -4744,9 +4721,6 @@ func main() {
 		if *capacityLabel != "" {
 			output.Label = *capacityLabel
 		}
-
-		// Suppress unused variable warning
-		_ = medianMinutes
 
 		encoder := newRobotEncoder(os.Stdout)
 		if err := encoder.Encode(output); err != nil {
@@ -7486,15 +7460,6 @@ type RobotEnvelope struct {
 	DataHash     string `json:"data_hash"`               // Fingerprint of source data
 	OutputFormat string `json:"output_format,omitempty"` // "json" or "toon"
 	Version      string `json:"version,omitempty"`       // bv version (e.g., "1.0.0")
-}
-
-// RobotMeta contains optional timing and computation metadata.
-// Commands that perform async/phased analysis should include this.
-type RobotMeta struct {
-	Phase2Ready bool              `json:"phase2_ready,omitempty"` // True if all async metrics computed
-	Timings     map[string]string `json:"timings,omitempty"`      // Per-metric timing info
-	CacheHit    bool              `json:"cache_hit,omitempty"`    // True if results from cache
-	IssueCount  int               `json:"issue_count,omitempty"`  // Number of issues analyzed
 }
 
 // NewRobotEnvelope creates a standard envelope for robot output.

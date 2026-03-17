@@ -42,7 +42,7 @@ func structuredTutorialPages() []StructuredTutorialPage {
 				Spacer{Lines: 1},
 				Paragraph{Text: "The problem: You're deep in flow, coding away, when you need to check an issue. You switch to a browser, navigate to your tracker, lose context, and break concentration."},
 				Spacer{Lines: 1},
-				Paragraph{Text: "The solution: bv brings issue tracking into your terminal, where you already work. No browser tabs. No context switching. No cloud dependencies."},
+				Paragraph{Text: "The solution: bt brings issue tracking into your terminal, where you already work. No browser tabs. No context switching. No cloud dependencies."},
 				Spacer{Lines: 1},
 				Section{Title: "The 30-Second Value Proposition"},
 				Bullet{Items: []string{
@@ -71,7 +71,7 @@ func structuredTutorialPages() []StructuredTutorialPage {
 				Spacer{Lines: 1},
 				ValueProp{Icon: "③", Text: "Diffable and Greppable - Issues stored as plain JSONL. Git diff your backlog. Grep for patterns."},
 				Spacer{Lines: 1},
-				ValueProp{Icon: "④", Text: "Human and Agent Readable - Same data works for humans (bv) and AI agents (--robot-* flags)."},
+				ValueProp{Icon: "④", Text: "Human and Agent Readable - Same data works for humans (bt) and AI agents (--robot-* flags)."},
 			},
 		},
 		{
@@ -86,12 +86,12 @@ func structuredTutorialPages() []StructuredTutorialPage {
 				Paragraph{Text: "Want lightweight issue tracking without subscription fees? Share your .beads/ directory through git. Everyone sees the same state."},
 				Spacer{Lines: 1},
 				Section{Title: "AI Coding Agents"},
-				Paragraph{Text: "This is where bv shines. AI agents need structured task management. The --robot-* flags output machine-readable JSON:"},
+				Paragraph{Text: "This is where bt shines. AI agents need structured task management. The --robot-* flags output machine-readable JSON:"},
 				Spacer{Lines: 1},
 				Code{Text: "bt --robot-triage    # What should I work on?\nbt --robot-plan      # How can work be parallelized?"},
 				Spacer{Lines: 1},
 				Section{Title: "Anyone Tired of Context-Switching"},
-				Paragraph{Text: "If you've ever lost your train of thought switching between your editor and a web-based tracker, bv is for you."},
+				Paragraph{Text: "If you've ever lost your train of thought switching between your editor and a web-based tracker, bt is for you."},
 			},
 		},
 		{
@@ -99,14 +99,14 @@ func structuredTutorialPages() []StructuredTutorialPage {
 			Title:   "Quick Start",
 			Section: "Introduction",
 			Elements: []TutorialElement{
-				Section{Title: "You're already running bv!"},
+				Section{Title: "You're already running bt!"},
 				Spacer{Lines: 1},
 				Section{Title: "Basic Navigation"},
 				KeyTable{Bindings: []KeyBinding{
 					{Key: "j / k", Desc: "Move down / up"},
 					{Key: "Enter", Desc: "Open issue details"},
 					{Key: "Esc", Desc: "Close overlay / go back"},
-					{Key: "q", Desc: "Quit bv"},
+					{Key: "q", Desc: "Quit bt"},
 				}},
 				Spacer{Lines: 1},
 				Section{Title: "Switching Views"},
@@ -255,15 +255,15 @@ func structuredTutorialPages() []StructuredTutorialPage {
 				Spacer{Lines: 1},
 				Section{Title: "Example Dependency Tree"},
 				Tree{
-					Root: "Epic: User Auth (bv-001)",
+					Root: "Epic: User Auth (bt-001)",
 					Children: []TutorialTreeNode{
-						{Label: "Login Form (bv-002)", Children: []TutorialTreeNode{
-							{Label: "Login Tests (bv-005)"},
+						{Label: "Login Form (bt-002)", Children: []TutorialTreeNode{
+							{Label: "Login Tests (bt-005)"},
 						}},
-						{Label: "Signup Form (bv-003)", Children: []TutorialTreeNode{
-							{Label: "Signup Tests (bv-006)"},
+						{Label: "Signup Form (bt-003)", Children: []TutorialTreeNode{
+							{Label: "Signup Tests (bt-006)"},
 						}},
-						{Label: "Password Reset (bv-004)"},
+						{Label: "Password Reset (bt-004)"},
 					},
 				},
 				Spacer{Lines: 1},
@@ -325,7 +325,7 @@ func structuredTutorialPages() []StructuredTutorialPage {
 					{Key: "?", Desc: "Help overlay"},
 					{Key: "Esc", Desc: "Close / go back"},
 					{Key: "Enter", Desc: "Select / open"},
-					{Key: "q", Desc: "Quit bv"},
+					{Key: "q", Desc: "Quit bt"},
 				}},
 				Spacer{Lines: 1},
 				Tip{Text: "Press ; for a shortcuts sidebar that stays visible"},
@@ -731,7 +731,7 @@ func structuredTutorialPages() []StructuredTutorialPage {
 				Section{Title: "Agent Workflow"},
 				Bullet{Items: []string{
 					"Call: bt --robot-next",
-					"Claim: br update ID --status=in_progress",
+					"Claim: bd update ID --status=in_progress",
 					"Work: Do the implementation",
 					"Complete: bd close ID",
 					"Repeat",
@@ -753,7 +753,7 @@ func structuredTutorialPages() []StructuredTutorialPage {
 				Spacer{Lines: 1},
 				Section{Title: "Step 1: Find Available Work"},
 				Code{Text: "bd ready  # Show actionable issues"},
-				Paragraph{Text: "Or in bv: press r to filter to ready issues."},
+				Paragraph{Text: "Or in bt: press r to filter to ready issues."},
 				Spacer{Lines: 1},
 				Section{Title: "Step 2: Review & Claim"},
 				Bullet{Items: []string{
@@ -857,7 +857,7 @@ func structuredTutorialPages() []StructuredTutorialPage {
 				Bullet{Items: []string{
 					"Find: filters (o/r) and search (/)",
 					"Review: Enter for details, g for graph",
-					"Claim: br update ID --status=in_progress",
+					"Claim: bd update ID --status=in_progress",
 					"Complete: bd close ID && bd sync",
 				}},
 			},

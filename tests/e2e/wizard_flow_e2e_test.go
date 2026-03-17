@@ -16,8 +16,8 @@ import (
 
 // TestWizard_LocalExportFlow tests the complete local export wizard flow
 func TestWizard_LocalExportFlow(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 5)
 
@@ -29,7 +29,7 @@ func TestWizard_LocalExportFlow(t *testing.T) {
 	// - Output dir: ./test-pages
 	input := "n\nTest Export\n\n3\n./test-pages\n"
 
-	cmd := exec.Command(bv, "--pages")
+	cmd := exec.Command(bt, "--pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
 	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
@@ -59,8 +59,8 @@ func TestWizard_LocalExportFlow(t *testing.T) {
 
 // TestWizard_GitHubFlowPrompts tests GitHub Pages flow prompts appear correctly
 func TestWizard_GitHubFlowPrompts(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 3)
 
@@ -75,7 +75,7 @@ func TestWizard_GitHubFlowPrompts(t *testing.T) {
 	// Then it will check prerequisites (gh CLI) which may fail
 	input := "y\nGitHub Test\nTest Subtitle\n1\ntest-repo\nn\nTest description\nn\n"
 
-	cmd := exec.Command(bv, "--pages")
+	cmd := exec.Command(bt, "--pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
 	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
@@ -96,8 +96,8 @@ func TestWizard_GitHubFlowPrompts(t *testing.T) {
 
 // TestWizard_CloudflareFlowPrompts tests Cloudflare Pages flow prompts appear correctly
 func TestWizard_CloudflareFlowPrompts(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 3)
 
@@ -111,7 +111,7 @@ func TestWizard_CloudflareFlowPrompts(t *testing.T) {
 	// Then it will check prerequisites (wrangler) which may fail
 	input := "n\nCF Test\n\n2\ntest-project\nmain\nn\n"
 
-	cmd := exec.Command(bv, "--pages")
+	cmd := exec.Command(bt, "--pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
 	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
@@ -127,15 +127,15 @@ func TestWizard_CloudflareFlowPrompts(t *testing.T) {
 
 // TestWizard_DeployTargetSelection tests all three deployment target options appear
 func TestWizard_DeployTargetSelection(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 3)
 
 	// Minimal input to get to deployment target selection, then cancel
 	input := "n\nTest\n\n"
 
-	cmd := exec.Command(bv, "--pages")
+	cmd := exec.Command(bt, "--pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
 	// Add timeout to prevent hanging
@@ -159,15 +159,15 @@ func TestWizard_DeployTargetSelection(t *testing.T) {
 
 // TestWizard_ExportConfigPrompts tests export configuration prompts
 func TestWizard_ExportConfigPrompts(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 3)
 
 	// Provide some input to trigger prompts
 	input := "y\nMy Custom Title\nMy Subtitle\n3\n./output\n"
 
-	cmd := exec.Command(bv, "--pages")
+	cmd := exec.Command(bt, "--pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
 	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1", "BT_NO_SAVED_CONFIG=1")
@@ -190,15 +190,15 @@ func TestWizard_ExportConfigPrompts(t *testing.T) {
 
 // TestWizard_BannerDisplay tests the wizard banner is displayed correctly
 func TestWizard_BannerDisplay(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 3)
 
 	// Just trigger the wizard and let it timeout/fail
 	input := ""
 
-	cmd := exec.Command(bv, "--pages")
+	cmd := exec.Command(bt, "--pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
 	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
@@ -275,8 +275,8 @@ func TestWizard_ConfigPersistence(t *testing.T) {
 
 // TestWizard_InvalidDeployTargetRecovery tests handling of invalid input
 func TestWizard_InvalidDeployTargetRecovery(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 3)
 
@@ -284,7 +284,7 @@ func TestWizard_InvalidDeployTargetRecovery(t *testing.T) {
 	// Invalid inputs should default to option 1 (GitHub)
 	input := "n\nTest\n\n9\n"
 
-	cmd := exec.Command(bv, "--pages")
+	cmd := exec.Command(bt, "--pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
 	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
@@ -300,15 +300,15 @@ func TestWizard_InvalidDeployTargetRecovery(t *testing.T) {
 
 // TestWizard_DefaultValues tests that defaults are applied correctly
 func TestWizard_DefaultValues(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 3)
 
 	// Press enter to accept all defaults, select local (3)
 	input := "\n\n\n3\n\n"
 
-	cmd := exec.Command(bv, "--pages")
+	cmd := exec.Command(bt, "--pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
 	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
@@ -331,15 +331,15 @@ func TestWizard_DefaultValues(t *testing.T) {
 
 // TestWizard_StepProgression tests wizard progresses through all steps
 func TestWizard_StepProgression(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 3)
 
 	// Complete local export flow with all inputs
 	input := "n\nTest Title\n\n3\n./test-output\n"
 
-	cmd := exec.Command(bv, "--pages")
+	cmd := exec.Command(bt, "--pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
 	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
@@ -363,15 +363,15 @@ func TestWizard_StepProgression(t *testing.T) {
 
 // TestWizard_OutputDirectoryPrompt tests output directory configuration for local export
 func TestWizard_OutputDirectoryPrompt(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 3)
 
 	// Select local export and provide custom output path
 	input := "n\nTest\n\n3\n./custom-output-dir\n"
 
-	cmd := exec.Command(bv, "--pages")
+	cmd := exec.Command(bt, "--pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
 	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
@@ -390,13 +390,13 @@ func TestWizard_OutputDirectoryPrompt(t *testing.T) {
 
 // TestWizard_InterruptHandling tests that wizard can be interrupted
 func TestWizard_InterruptHandling(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	repoDir := createSimpleRepo(t, 3)
 
 	// Start wizard and immediately close stdin (simulates Ctrl+C/interrupt)
-	cmd := exec.Command(bv, "--pages")
+	cmd := exec.Command(bt, "--pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader("")
 	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
@@ -419,8 +419,8 @@ func TestWizard_InterruptHandling(t *testing.T) {
 
 // TestWizard_MultiplePlatformFlows tests that different platforms have different prompts
 func TestWizard_MultiplePlatformFlows(t *testing.T) {
-	bv := buildBvBinary(t)
-	stageViewerAssets(t, bv)
+	bt := buildBtBinary(t)
+	stageViewerAssets(t, bt)
 
 	tests := []struct {
 		name     string
@@ -439,7 +439,7 @@ func TestWizard_MultiplePlatformFlows(t *testing.T) {
 			// Provide input to select the platform
 			input := "n\nTest\n\n" + tc.choice + "\n\n\n"
 
-			cmd := exec.Command(bv, "--pages")
+			cmd := exec.Command(bt, "--pages")
 			cmd.Dir = repoDir
 			cmd.Stdin = strings.NewReader(input)
 			cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")

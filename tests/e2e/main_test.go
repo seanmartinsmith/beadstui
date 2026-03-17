@@ -9,7 +9,7 @@ import (
 )
 
 func TestEndToEndBuildAndRun(t *testing.T) {
-	binPath := buildBvBinary(t)
+	binPath := buildBtBinary(t)
 	tempDir := t.TempDir()
 
 	// 2. Prepare a fake environment with .beads/beads.jsonl (canonical filename)
@@ -23,7 +23,7 @@ func TestEndToEndBuildAndRun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 3. Run bv --version to verify it runs
+	// 3. Run bt --version to verify it runs
 	runCmd := exec.Command(binPath, "--version")
 	runCmd.Dir = envDir
 	if out, err := runCmd.CombinedOutput(); err != nil {
@@ -32,7 +32,7 @@ func TestEndToEndBuildAndRun(t *testing.T) {
 }
 
 func TestEndToEndRobotPlan(t *testing.T) {
-	binPath := buildBvBinary(t)
+	binPath := buildBtBinary(t)
 	tempDir := t.TempDir()
 
 	// 2. Create environment with dependency chain
@@ -94,7 +94,7 @@ func TestEndToEndRobotPlan(t *testing.T) {
 }
 
 func TestEndToEndRobotInsights(t *testing.T) {
-	binPath := buildBvBinary(t)
+	binPath := buildBtBinary(t)
 	tempDir := t.TempDir()
 
 	// 2. Create environment
@@ -132,7 +132,7 @@ func TestEndToEndRobotInsights(t *testing.T) {
 }
 
 func TestEndToEndRobotPriority(t *testing.T) {
-	binPath := buildBvBinary(t)
+	binPath := buildBtBinary(t)
 	tempDir := t.TempDir()
 
 	// 2. Create environment
@@ -169,7 +169,7 @@ func TestEndToEndRobotPriority(t *testing.T) {
 }
 
 func TestEndToEndRobotRecipes(t *testing.T) {
-	binPath := buildBvBinary(t)
+	binPath := buildBtBinary(t)
 	tempDir := t.TempDir()
 
 	// 2. Create environment (doesn't need beads file strictly, but loader checks)

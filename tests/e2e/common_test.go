@@ -16,8 +16,8 @@ import (
 	"time"
 )
 
-var bvBinaryPath string
-var bvBinaryDir string
+var btBinaryPath string
+var btBinaryDir string
 
 var (
 	scriptTUISupported      = true
@@ -30,35 +30,35 @@ func TestMain(m *testing.M) {
 	os.Setenv("BT_TEST_MODE", "1")
 
 	// Build the binary once for all tests
-	if err := buildBvOnce(); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to build bv binary: %v\n", err)
+	if err := buildBtOnce(); err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to build bt binary: %v\n", err)
 		os.Exit(1)
 	}
 
-	scriptTUISupported, scriptTUIDisabledReason = detectScriptTUICapability(bvBinaryPath)
+	scriptTUISupported, scriptTUIDisabledReason = detectScriptTUICapability(btBinaryPath)
 
 	code := m.Run()
-	if bvBinaryDir != "" {
-		_ = os.RemoveAll(bvBinaryDir)
+	if btBinaryDir != "" {
+		_ = os.RemoveAll(btBinaryDir)
 	}
 	os.Exit(code)
 }
 
-func detectScriptTUICapability(bvPath string) (bool, string) {
+func detectScriptTUICapability(btPath string) (bool, string) {
 	if _, err := exec.LookPath("script"); err != nil {
 		return false, "script command not available"
 	}
 	if runtime.GOOS != "linux" && runtime.GOOS != "darwin" {
 		return false, "script TUI harness unsupported on this OS"
 	}
-	if bvPath == "" {
+	if btPath == "" {
 		return false, "bt binary path is empty"
 	}
 
-	// Smoke check: can we start bv under `script` and auto-close quickly?
+	// Smoke check: can we start bt under `script` and auto-close quickly?
 	// If this fails, script-based TUI tests should skip immediately rather than
 	// waiting out their per-test timeouts (common in CI/PTY mismatch scenarios).
-	tempDir, err := os.MkdirTemp("", "bv-e2e-tui-cap-*")
+	tempDir, err := os.MkdirTemp("", "bt-e2e-tui-cap-*")
 	if err != nil {
 		return false, fmt.Sprintf("failed to create temp dir: %v", err)
 	}
@@ -76,7 +76,7 @@ func detectScriptTUICapability(bvPath string) (bool, string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	cmd := scriptTUICommand(ctx, bvPath)
+	cmd := scriptTUICommand(ctx, btPath)
 	if cmd == nil {
 		return false, "script command unavailable"
 	}
@@ -107,12 +107,12 @@ func detectScriptTUICapability(bvPath string) (bool, string) {
 	return true, ""
 }
 
-func buildBvOnce() error {
-	tempDir, err := os.MkdirTemp("", "bv-e2e-build-*")
+func buildBtOnce() error {
+	tempDir, err := os.MkdirTemp("", "bt-e2e-build-*")
 	if err != nil {
 		return err
 	}
-	bvBinaryDir = tempDir
+	btBinaryDir = tempDir
 
 	binName := "bt"
 	if runtime.GOOS == "windows" {
@@ -131,18 +131,18 @@ func buildBvOnce() error {
 		return fmt.Errorf("go build failed: %v\n%s", err, out)
 	}
 
-	bvBinaryPath = binPath
+	btBinaryPath = binPath
 	return nil
 }
 
-// buildBvBinary returns the path to the pre-built binary.
+// buildBtBinary returns the path to the pre-built binary.
 // It acts as a helper to ensure tests use the shared binary.
-func buildBvBinary(t *testing.T) string {
+func buildBtBinary(t *testing.T) string {
 	t.Helper()
-	if bvBinaryPath == "" {
+	if btBinaryPath == "" {
 		t.Fatal("bt binary not built")
 	}
-	return bvBinaryPath
+	return btBinaryPath
 }
 
 // skipIfNoScript skips the test if the script command is unavailable
@@ -159,12 +159,12 @@ func skipIfNoScript(t *testing.T) {
 	}
 }
 
-// scriptTUICommand creates an exec.Cmd that runs the bv binary under `script`
+// scriptTUICommand creates an exec.Cmd that runs the bt binary under `script`
 // to provide a pseudo-TTY for TUI tests. This handles OS-specific differences:
 // - macOS: script -q /dev/null <cmd> [args...]
 // - Linux: script -q -c "<cmd> [args...]" /dev/null
 // Returns nil if script is unavailable (test should skip).
-func scriptTUICommand(ctx context.Context, bvPath string, args ...string) *exec.Cmd {
+func scriptTUICommand(ctx context.Context, btPath string, args ...string) *exec.Cmd {
 	// Check if script command is available
 	if _, err := exec.LookPath("script"); err != nil {
 		return nil
@@ -173,14 +173,14 @@ func scriptTUICommand(ctx context.Context, bvPath string, args ...string) *exec.
 	switch runtime.GOOS {
 	case "darwin":
 		// macOS: script -q /dev/null <cmd> [args...]
-		scriptArgs := []string{"-q", "/dev/null", bvPath}
+		scriptArgs := []string{"-q", "/dev/null", btPath}
 		scriptArgs = append(scriptArgs, args...)
 		return exec.CommandContext(ctx, "script", scriptArgs...)
 
 	case "linux":
 		// Linux: script -q -c "<cmd> [args...]" /dev/null
 		// Build the command string - need to quote/escape properly
-		cmdStr := bvPath
+		cmdStr := btPath
 		for _, arg := range args {
 			// Simple quoting for args with spaces
 			if strings.ContainsAny(arg, " \t") {
@@ -362,15 +362,15 @@ func (l *DetailedLogger) report() {
 }
 
 // ============================================================================
-// BV Command Runner - Run bv with robot flags
+// BT Command Runner - Run bt with robot flags
 // ============================================================================
 
-// runBVCommand runs the bv binary with the given arguments and returns stdout.
+// runBTCommand runs the bt binary with the given arguments and returns stdout.
 // It automatically sets up the working directory and environment.
-func runBVCommand(t *testing.T, workDir string, args ...string) ([]byte, error) {
+func runBTCommand(t *testing.T, workDir string, args ...string) ([]byte, error) {
 	t.Helper()
 
-	binPath := buildBvBinary(t)
+	binPath := buildBtBinary(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -398,11 +398,11 @@ func runBVCommand(t *testing.T, workDir string, args ...string) ([]byte, error) 
 	return stdout.Bytes(), nil
 }
 
-// runBVCommandJSON runs the bv binary and parses the JSON output into result.
-func runBVCommandJSON(t *testing.T, workDir string, result any, args ...string) error {
+// runBTCommandJSON runs the bt binary and parses the JSON output into result.
+func runBTCommandJSON(t *testing.T, workDir string, result any, args ...string) error {
 	t.Helper()
 
-	out, err := runBVCommand(t, workDir, args...)
+	out, err := runBTCommand(t, workDir, args...)
 	if err != nil {
 		return err
 	}

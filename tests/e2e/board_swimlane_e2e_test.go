@@ -15,7 +15,7 @@ import (
 // TestSwimlaneModeStatusGrouping verifies issues are correctly grouped by status.
 // This tests the data foundation for Status swimlane mode.
 func TestSwimlaneModeStatusGrouping(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -42,7 +42,7 @@ func TestSwimlaneModeStatusGrouping(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bv, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -92,7 +92,7 @@ func TestSwimlaneModeStatusGrouping(t *testing.T) {
 // TestSwimlaneModePriorityGrouping verifies issues are correctly grouped by priority.
 // This tests the data foundation for Priority swimlane mode.
 func TestSwimlaneModePriorityGrouping(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -118,7 +118,7 @@ func TestSwimlaneModePriorityGrouping(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bv, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -163,7 +163,7 @@ func TestSwimlaneModePriorityGrouping(t *testing.T) {
 // TestSwimlaneModeTypeGrouping verifies issues are correctly grouped by type.
 // This tests the data foundation for Type swimlane mode.
 func TestSwimlaneModeTypeGrouping(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -189,7 +189,7 @@ func TestSwimlaneModeTypeGrouping(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bv, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -234,7 +234,7 @@ func TestSwimlaneModeTypeGrouping(t *testing.T) {
 // TestSwimlaneMixedDataForAllModes creates data suitable for testing all three swimlane modes.
 // Each mode should correctly categorize the same set of issues.
 func TestSwimlaneMixedDataForAllModes(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -267,7 +267,7 @@ func TestSwimlaneMixedDataForAllModes(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bv, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -324,7 +324,7 @@ func TestSwimlaneMixedDataForAllModes(t *testing.T) {
 // TestSwimlaneEmptyCategoriesHandling verifies behavior when some categories are empty.
 // The board should handle missing categories gracefully.
 func TestSwimlaneEmptyCategoriesHandling(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -343,7 +343,7 @@ func TestSwimlaneEmptyCategoriesHandling(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bv, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -387,7 +387,7 @@ func TestSwimlaneEmptyCategoriesHandling(t *testing.T) {
 // Uses BT_TUI_AUTOCLOSE_MS to prevent hanging.
 func TestSwimlaneTUIStartsWithMixedData(t *testing.T) {
 	skipIfNoScript(t)
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -410,7 +410,7 @@ func TestSwimlaneTUIStartsWithMixedData(t *testing.T) {
 	defer cancel()
 
 	// Launch TUI with auto-close
-	cmd := scriptTUICommand(ctx, bv)
+	cmd := scriptTUICommand(ctx, bt)
 	cmd.Dir = tempDir
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
@@ -430,7 +430,7 @@ func TestSwimlaneTUIStartsWithMixedData(t *testing.T) {
 // TestSwimlaneDependencyVisualIndicators verifies blocked/blocking counts are tracked.
 // This supports the visual dependency indicators (red/yellow/green borders) in board view.
 func TestSwimlaneDependencyVisualIndicators(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -454,7 +454,7 @@ func TestSwimlaneDependencyVisualIndicators(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bv, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -502,7 +502,7 @@ func TestSwimlaneDependencyVisualIndicators(t *testing.T) {
 
 // TestSwimlaneSingleIssuePerCategory verifies board handles minimal data.
 func TestSwimlaneSingleIssuePerCategory(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -523,7 +523,7 @@ func TestSwimlaneSingleIssuePerCategory(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bv, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {

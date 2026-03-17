@@ -25,7 +25,7 @@ func TestE2E_GraphInsights_FullPipeline(t *testing.T) {
 	startTime := time.Now()
 
 	var result map[string]any
-	if err := runBVCommandJSON(t, fixture.Dir, &result, "--robot-insights"); err != nil {
+	if err := runBTCommandJSON(t, fixture.Dir, &result, "--robot-insights"); err != nil {
 		t.Fatalf("--robot-insights failed: %v", err)
 	}
 
@@ -79,7 +79,7 @@ func TestE2E_GraphInsights_WithCycles(t *testing.T) {
 	startTime := time.Now()
 
 	var result map[string]any
-	if err := runBVCommandJSON(t, fixture.Dir, &result, "--robot-insights"); err != nil {
+	if err := runBTCommandJSON(t, fixture.Dir, &result, "--robot-insights"); err != nil {
 		t.Fatalf("--robot-insights failed: %v", err)
 	}
 
@@ -128,7 +128,7 @@ func TestE2E_GraphPlan_ParallelTracks(t *testing.T) {
 	startTime := time.Now()
 
 	var result map[string]any
-	if err := runBVCommandJSON(t, fixture.Dir, &result, "--robot-plan"); err != nil {
+	if err := runBTCommandJSON(t, fixture.Dir, &result, "--robot-plan"); err != nil {
 		t.Fatalf("--robot-plan failed: %v", err)
 	}
 
@@ -173,7 +173,7 @@ func TestE2E_GraphStats_Metrics(t *testing.T) {
 
 	// Use --robot-insights since it includes graph stats
 	var result map[string]any
-	if err := runBVCommandJSON(t, fixture.Dir, &result, "--robot-insights"); err != nil {
+	if err := runBTCommandJSON(t, fixture.Dir, &result, "--robot-insights"); err != nil {
 		t.Fatalf("--robot-insights failed: %v", err)
 	}
 
@@ -219,7 +219,7 @@ func TestE2E_GraphExport_Formats(t *testing.T) {
 			startTime := time.Now()
 
 			var result map[string]any
-			if err := runBVCommandJSON(t, fixture.Dir, &result, "--robot-graph", "--graph-format", format); err != nil {
+			if err := runBTCommandJSON(t, fixture.Dir, &result, "--robot-graph", "--graph-format", format); err != nil {
 				t.Fatalf("--robot-graph (%s) failed: %v", format, err)
 			}
 
@@ -265,7 +265,7 @@ func TestE2E_LabelHealth(t *testing.T) {
 	startTime := time.Now()
 
 	var result map[string]any
-	if err := runBVCommandJSON(t, fixture.Dir, &result, "--robot-label-health"); err != nil {
+	if err := runBTCommandJSON(t, fixture.Dir, &result, "--robot-label-health"); err != nil {
 		t.Fatalf("--robot-label-health failed: %v", err)
 	}
 
@@ -312,7 +312,7 @@ func TestE2E_GraphAnalysis_LargeGraph(t *testing.T) {
 	startTime := time.Now()
 
 	var result map[string]any
-	if err := runBVCommandJSON(t, fixture.Dir, &result, "--robot-triage"); err != nil {
+	if err := runBTCommandJSON(t, fixture.Dir, &result, "--robot-triage"); err != nil {
 		t.Fatalf("--robot-triage failed: %v", err)
 	}
 
@@ -343,13 +343,13 @@ func BenchmarkGraphInsights(b *testing.B) {
 		NumDependencies: 150,
 	})
 
-	bv := bvBinaryPath
-	if bv == "" {
+	bt := btBinaryPath
+	if bt == "" {
 		b.Skip("bt binary not built")
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = runBVCommand(&testing.T{}, fixture.Dir, "--robot-insights")
+		_, _ = runBTCommand(&testing.T{}, fixture.Dir, "--robot-insights")
 	}
 }

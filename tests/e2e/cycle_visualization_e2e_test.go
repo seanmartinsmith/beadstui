@@ -15,11 +15,11 @@ import (
 
 // TestCycleVisualization_NoCycles tests clean DAG with no cycles
 func TestCycleVisualization_NoCycles(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createNoCycleRepo(t)
 
 	// Get robot-insights output
-	cmd := exec.Command(bv, "--robot-insights")
+	cmd := exec.Command(bt, "--robot-insights")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -44,10 +44,10 @@ func TestCycleVisualization_NoCycles(t *testing.T) {
 
 // TestCycleVisualization_TwoNodeCycle tests a simple A -> B -> A cycle
 func TestCycleVisualization_TwoNodeCycle(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createTwoNodeCycleRepo(t)
 
-	cmd := exec.Command(bv, "--robot-insights")
+	cmd := exec.Command(bt, "--robot-insights")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -74,10 +74,10 @@ func TestCycleVisualization_TwoNodeCycle(t *testing.T) {
 
 // TestCycleVisualization_ThreeNodeCycle tests A -> B -> C -> A cycle
 func TestCycleVisualization_ThreeNodeCycle(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createThreeNodeCycleRepo(t)
 
-	cmd := exec.Command(bv, "--robot-insights")
+	cmd := exec.Command(bt, "--robot-insights")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -104,10 +104,10 @@ func TestCycleVisualization_ThreeNodeCycle(t *testing.T) {
 
 // TestCycleVisualization_MultipleCycles tests multiple independent cycles
 func TestCycleVisualization_MultipleCycles(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createMultipleCyclesRepo(t)
 
-	cmd := exec.Command(bv, "--robot-insights")
+	cmd := exec.Command(bt, "--robot-insights")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -140,10 +140,10 @@ func TestCycleVisualization_SelfLoop(t *testing.T) {
 
 // TestCycleVisualization_MermaidExport tests Mermaid export includes cycle data
 func TestCycleVisualization_MermaidExport(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createTwoNodeCycleRepo(t)
 
-	cmd := exec.Command(bv, "--robot-graph", "--graph-format=mermaid")
+	cmd := exec.Command(bt, "--robot-graph", "--graph-format=mermaid")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -178,10 +178,10 @@ func TestCycleVisualization_MermaidExport(t *testing.T) {
 
 // TestCycleVisualization_DOTExport tests DOT export includes cycle styling
 func TestCycleVisualization_DOTExport(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createTwoNodeCycleRepo(t)
 
-	cmd := exec.Command(bv, "--robot-graph", "--graph-format=dot")
+	cmd := exec.Command(bt, "--robot-graph", "--graph-format=dot")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -217,10 +217,10 @@ func TestCycleVisualization_DOTExport(t *testing.T) {
 
 // TestCycleVisualization_JSONExport tests JSON export includes cycle data
 func TestCycleVisualization_JSONExport(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createThreeNodeCycleRepo(t)
 
-	cmd := exec.Command(bv, "--robot-graph", "--graph-format=json")
+	cmd := exec.Command(bt, "--robot-graph", "--graph-format=json")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -270,10 +270,10 @@ func TestCycleVisualization_JSONExport(t *testing.T) {
 
 // TestCycleVisualization_RobotSuggestCycles tests cycle suggestions via robot-suggest
 func TestCycleVisualization_RobotSuggestCycles(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createTwoNodeCycleRepo(t)
 
-	cmd := exec.Command(bv, "--robot-suggest")
+	cmd := exec.Command(bt, "--robot-suggest")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -318,10 +318,10 @@ func TestCycleVisualization_RobotSuggestCycles(t *testing.T) {
 
 // TestCycleVisualization_CycleCountInStatus tests cycle count appears in status
 func TestCycleVisualization_CycleCountInStatus(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createMultipleCyclesRepo(t)
 
-	cmd := exec.Command(bv, "--robot-insights")
+	cmd := exec.Command(bt, "--robot-insights")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -354,10 +354,10 @@ func TestCycleVisualization_CycleCountInStatus(t *testing.T) {
 
 // TestCycleVisualization_CycleMembers tests cycle member list is correct
 func TestCycleVisualization_CycleMembers(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createThreeNodeCycleRepo(t)
 
-	cmd := exec.Command(bv, "--robot-insights")
+	cmd := exec.Command(bt, "--robot-insights")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -398,10 +398,10 @@ func TestCycleVisualization_CycleMembers(t *testing.T) {
 
 // TestCycleVisualization_NestedCycles tests overlapping/nested cycle detection
 func TestCycleVisualization_NestedCycles(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createNestedCyclesRepo(t)
 
-	cmd := exec.Command(bv, "--robot-insights")
+	cmd := exec.Command(bt, "--robot-insights")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -426,7 +426,7 @@ func TestCycleVisualization_NestedCycles(t *testing.T) {
 
 // TestCycleVisualization_DeterministicOutput tests cycle output is deterministic
 func TestCycleVisualization_DeterministicOutput(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createThreeNodeCycleRepo(t)
 
 	type CycleResult struct {
@@ -435,7 +435,7 @@ func TestCycleVisualization_DeterministicOutput(t *testing.T) {
 
 	var results []CycleResult
 	for i := 0; i < 3; i++ {
-		cmd := exec.Command(bv, "--robot-insights")
+		cmd := exec.Command(bt, "--robot-insights")
 		cmd.Dir = repoDir
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -471,10 +471,10 @@ func TestCycleVisualization_DeterministicOutput(t *testing.T) {
 
 // TestCycleVisualization_MixedCycleAndDAG tests graph with both cycles and non-cycle nodes
 func TestCycleVisualization_MixedCycleAndDAG(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createMixedCycleDAGRepo(t)
 
-	cmd := exec.Command(bv, "--robot-insights")
+	cmd := exec.Command(bt, "--robot-insights")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {

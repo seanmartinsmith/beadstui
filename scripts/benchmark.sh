@@ -1,5 +1,5 @@
 #!/bin/bash
-# Benchmark script for bv graph analysis
+# Benchmark script for bt graph analysis
 # Usage:
 #   ./scripts/benchmark.sh          # Run all benchmarks
 #   ./scripts/benchmark.sh baseline # Save as baseline

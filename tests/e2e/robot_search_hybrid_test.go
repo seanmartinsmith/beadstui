@@ -8,7 +8,7 @@ import (
 )
 
 func TestRobotSearchHybridMode(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	writeBeads(t, env, `{"id":"AUTH-1","title":"Authentication bug","description":"auth failure login oauth","status":"open","priority":0,"issue_type":"bug"}
@@ -16,7 +16,7 @@ func TestRobotSearchHybridMode(t *testing.T) {
 {"id":"DEP-1","title":"Depends on AUTH-1","status":"open","priority":2,"issue_type":"task","dependencies":[{"issue_id":"DEP-1","depends_on_id":"AUTH-1","type":"blocks"}]}
 {"id":"DEP-2","title":"Depends on AUTH-1","status":"open","priority":2,"issue_type":"task","dependencies":[{"issue_id":"DEP-2","depends_on_id":"AUTH-1","type":"blocks"}]}`)
 
-	cmd := exec.Command(bv,
+	cmd := exec.Command(bt,
 		"--search", "authentication",
 		"--search-mode", "hybrid",
 		"--search-preset", "default",
@@ -68,7 +68,7 @@ func TestRobotSearchHybridMode(t *testing.T) {
 }
 
 func TestRobotSearchHybridPresetAffectsScores(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	writeBeads(t, env, `{"id":"BUG-1","title":"Auth bug","description":"auth failure","status":"open","priority":0,"issue_type":"bug"}
@@ -77,7 +77,7 @@ func TestRobotSearchHybridPresetAffectsScores(t *testing.T) {
 {"id":"DEP-2","title":"Depends on BUG-1","status":"open","priority":2,"issue_type":"task","dependencies":[{"issue_id":"DEP-2","depends_on_id":"BUG-1","type":"blocks"}]}`)
 
 	run := func(preset string) float64 {
-		cmd := exec.Command(bv,
+		cmd := exec.Command(bt,
 			"--search", "auth",
 			"--search-mode", "hybrid",
 			"--search-preset", preset,
@@ -118,13 +118,13 @@ func TestRobotSearchHybridPresetAffectsScores(t *testing.T) {
 }
 
 func TestRobotSearchHybridBackwardCompatibility(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	env := t.TempDir()
 
 	writeBeads(t, env, `{"id":"A","title":"Search target","description":"token token token","status":"open","priority":1,"issue_type":"task"}
 {"id":"B","title":"Other","description":"noise","status":"open","priority":2,"issue_type":"task"}`)
 
-	cmd := exec.Command(bv, "--search", "token", "--robot-search")
+	cmd := exec.Command(bt, "--search", "token", "--robot-search")
 	cmd.Dir = env
 	cmd.Env = append(os.Environ(),
 		"BT_SEMANTIC_EMBEDDER=hash",

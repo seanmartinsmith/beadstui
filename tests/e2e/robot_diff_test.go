@@ -108,10 +108,10 @@ func initGitRepoWithMalformedIssues(t *testing.T) string {
 }
 
 func TestRobotDiffIncludesHashesAndNewIssues(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir, priorRev := initGitRepo(t)
 
-	cmd := exec.Command(bv, "--robot-diff", "--diff-since", "HEAD~1")
+	cmd := exec.Command(bt, "--robot-diff", "--diff-since", "HEAD~1")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -157,10 +157,10 @@ func TestRobotDiffIncludesHashesAndNewIssues(t *testing.T) {
 }
 
 func TestDiffSinceAutoJSON_MalformedIssues_NoStderr(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := initGitRepoWithMalformedIssues(t)
 
-	cmd := exec.Command(bv, "--diff-since", "HEAD~1")
+	cmd := exec.Command(bt, "--diff-since", "HEAD~1")
 	cmd.Dir = repoDir
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -201,7 +201,7 @@ func TestDiffSinceAutoJSON_MalformedIssues_NoStderr(t *testing.T) {
 }
 
 func TestRobotOutputsShareDataHashAndStatus(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	envDir := t.TempDir()
 	beadsDir := filepath.Join(envDir, ".beads")
@@ -217,7 +217,7 @@ func TestRobotOutputsShareDataHashAndStatus(t *testing.T) {
 	flags := []string{"--robot-insights", "--robot-plan", "--robot-priority"}
 	hashes := make([]string, 0, len(flags))
 	for _, flag := range flags {
-		cmd := exec.Command(bv, flag)
+		cmd := exec.Command(bt, flag)
 		cmd.Dir = envDir
 		out, err := cmd.CombinedOutput()
 		if err != nil {

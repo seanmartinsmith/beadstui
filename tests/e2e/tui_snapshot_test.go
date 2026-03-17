@@ -14,7 +14,7 @@ import (
 // We rely on BT_TUI_AUTOCLOSE_MS to avoid hanging in CI.
 func TestTUIPrioritySnapshot(t *testing.T) {
 	skipIfNoScript(t)
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -31,7 +31,7 @@ func TestTUIPrioritySnapshot(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	cmd := scriptTUICommand(ctx, bv)
+	cmd := scriptTUICommand(ctx, bt)
 	cmd.Dir = tempDir
 	cmd.Env = append(os.Environ(),
 		"TERM=xterm-256color",
@@ -57,7 +57,7 @@ func TestTUIBackgroundModeRapidWrites(t *testing.T) {
 		t.Skip("skipping rapid-write TUI test in short mode")
 	}
 	skipIfNoScript(t)
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
 	beadsDir := filepath.Join(tempDir, ".beads")
@@ -76,7 +76,7 @@ func TestTUIBackgroundModeRapidWrites(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	cmd := scriptTUICommand(ctx, bv, "--background-mode")
+	cmd := scriptTUICommand(ctx, bt, "--background-mode")
 	if cmd == nil {
 		t.Skip("skipping: script command not available on this platform")
 	}

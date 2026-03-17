@@ -76,10 +76,10 @@ func createHistoryRepo(t *testing.T) (string, string) {
 }
 
 func TestRobotHistoryIncludesEventsAndCommitIndex(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir, head := createHistoryRepo(t)
 
-	cmd := exec.Command(bv, "--robot-history")
+	cmd := exec.Command(bt, "--robot-history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -191,10 +191,10 @@ func keys(m map[string]struct {
 
 // TestRobotHistoryPathHints verifies path hints are populated from correlated commits (bv-188)
 func TestRobotHistoryPathHints(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir, _ := createHistoryRepo(t)
 
-	cmd := exec.Command(bv, "--robot-history")
+	cmd := exec.Command(bt, "--robot-history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -296,10 +296,10 @@ func createRenameRepo(t *testing.T) string {
 
 // TestRobotHistoryRenameTracking verifies git rename detection works (bv-188)
 func TestRobotHistoryRenameTracking(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := createRenameRepo(t)
 
-	cmd := exec.Command(bv, "--robot-history")
+	cmd := exec.Command(bt, "--robot-history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -365,7 +365,7 @@ func TestRobotHistoryRenameTracking(t *testing.T) {
 
 // TestRobotHistoryEmptyRepo verifies behavior with no beads history (edge case)
 func TestRobotHistoryEmptyRepo(t *testing.T) {
-	bv := buildBvBinary(t)
+	bt := buildBtBinary(t)
 	repoDir := t.TempDir()
 
 	// Create minimal git repo with no beads
@@ -401,7 +401,7 @@ func TestRobotHistoryEmptyRepo(t *testing.T) {
 	git("add", ".beads/beads.jsonl")
 	git("commit", "-m", "add empty beads")
 
-	cmd := exec.Command(bv, "--robot-history")
+	cmd := exec.Command(bt, "--robot-history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
