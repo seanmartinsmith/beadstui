@@ -166,8 +166,16 @@ func (t Theme) GetStatusColor(s string) lipgloss.AdaptiveColor {
 		return t.InProgress
 	case "blocked":
 		return t.Blocked
+	case "deferred":
+		return t.Deferred
+	case "pinned":
+		return t.Pinned
+	case "hooked":
+		return t.Hooked
 	case "closed":
 		return t.Closed
+	case "tombstone":
+		return t.Tombstone
 	default:
 		return t.Subtext
 	}

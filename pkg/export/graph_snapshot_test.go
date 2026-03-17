@@ -235,7 +235,7 @@ func TestSaveGraphSnapshot_AllStatuses(t *testing.T) {
 	}
 }
 
-func TestTruncate(t *testing.T) {
+func TestTruncateRunes(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
@@ -255,9 +255,9 @@ func TestTruncate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := truncate(tt.input, tt.max)
+			result := truncateRunes(tt.input, tt.max)
 			if result != tt.expected {
-				t.Errorf("truncate(%q, %d) = %q, want %q", tt.input, tt.max, result, tt.expected)
+				t.Errorf("truncateRunes(%q, %d) = %q, want %q", tt.input, tt.max, result, tt.expected)
 			}
 		})
 	}

@@ -196,7 +196,7 @@ func (m Model) renderSprintDashboard() string {
 			}
 			daysSinceUpdate := int(now.Sub(iss.UpdatedAt).Hours() / 24)
 			sb.WriteString(t.Renderer.NewStyle().Foreground(t.Feature).Render(
-				fmt.Sprintf("  ⚠ %s - %s (%dd stale)\n", iss.ID, truncateStrSprint(iss.Title, 30), daysSinceUpdate)))
+				fmt.Sprintf("  ⚠ %s - %s (%dd stale)\n", iss.ID, truncateString(iss.Title, 30), daysSinceUpdate)))
 		}
 	}
 	sb.WriteString("\n")
@@ -222,7 +222,7 @@ func (m Model) renderSprintDashboard() string {
 				statusStyle = t.Renderer.NewStyle().Foreground(t.Blocked)
 			}
 		}
-		sb.WriteString(statusStyle.Render(fmt.Sprintf("  %s %s - %s\n", statusIcon, iss.ID, truncateStrSprint(iss.Title, 40))))
+		sb.WriteString(statusStyle.Render(fmt.Sprintf("  %s %s - %s\n", statusIcon, iss.ID, truncateString(iss.Title, 40))))
 	}
 	if len(sprintIssues) > displayLimit {
 		sb.WriteString(valStyle.Render(fmt.Sprintf("  … +%d more", len(sprintIssues)-displayLimit)))
@@ -249,19 +249,6 @@ func (m Model) renderSprintDashboard() string {
 		lipgloss.Top,
 		boxStyle.Render(sb.String()),
 	)
-}
-
-// truncateStrSprint truncates a string to maxLen runes, adding ellipsis if needed.
-// Uses rune-based counting to safely handle UTF-8 multi-byte characters.
-func truncateStrSprint(s string, maxLen int) string {
-	runes := []rune(s)
-	if len(runes) <= maxLen {
-		return s
-	}
-	if maxLen <= 3 {
-		return string(runes[:maxLen])
-	}
-	return string(runes[:maxLen-1]) + "…"
 }
 
 // handleSprintKeys handles keyboard input when in sprint view (bv-161)

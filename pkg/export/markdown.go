@@ -602,7 +602,7 @@ func GeneratePriorityBriefFromTriageJSON(triageJSON []byte, config PriorityBrief
 
 		for i := 0; i < limit; i++ {
 			rec := triage.Recommendations[i]
-			typeIcon := getTypeIcon(rec.Type)
+			typeIcon := getTypeEmoji(rec.Type)
 			reason := "-"
 			if len(rec.Reasons) > 0 {
 				reason = truncateString(rec.Reasons[0], 30)
@@ -730,20 +730,3 @@ func truncateString(s string, maxLen int) string {
 	return string(runes[:maxLen-1]) + "…"
 }
 
-// getTypeIcon returns a compact icon for issue type (for tables)
-func getTypeIcon(issueType string) string {
-	switch issueType {
-	case "bug":
-		return "🐛"
-	case "feature":
-		return "✨"
-	case "task":
-		return "📋"
-	case "epic":
-		return "🚀"
-	case "chore":
-		return "🧹"
-	default:
-		return "•"
-	}
-}
