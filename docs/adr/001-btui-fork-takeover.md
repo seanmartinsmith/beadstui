@@ -205,6 +205,22 @@ Before moving to new feature work, a fresh session should review this ADR's exec
 
 ## Changelog
 
+### 2026-03-17 - Session 18: Phase 2 monolith splitting (2 parallel tasks)
+- **Executed**: `docs/plans/2026-03-17-phase2-monolith-splitting.md` - 2 parallel agents + 1 follow-up
+- **model.go split** (8,332 -> 3,482 LOC): 8 new files + semantic_search.go additions
+  - model_keys.go (1,009), model_view.go (1,081), model_footer.go (688), model_filter.go (905)
+  - model_modes.go (271), model_export.go (280), model_editor.go (402), model_alerts.go (194)
+  - 7 semantic search helpers moved to existing semantic_search.go (+124 LOC)
+- **main.go split** (8,108 -> 1,507 LOC): 18 new files via robotCtx method pattern
+  - robot_ctx.go (44), robot_output.go (143), robot_help.go (474), robot_graph.go (382)
+  - robot_triage.go (223), robot_analysis.go (382), robot_labels.go (153), robot_alerts.go (145)
+  - robot_history.go (989), robot_sprint.go (488), cli_update.go (80), cli_agents.go (234)
+  - cli_baseline.go (186), cli_misc.go (489), helpers.go (585), burndown.go (613)
+  - profiling.go (228), pages.go (1,055)
+- **LOC delta**: net ~+397 (file headers, robotCtx struct + constructor, method signatures)
+- **Verification**: go build + go vet + go test all pass (0 failures, both packages)
+- **Next**: Phase 3 investigation items (duplicate funcs, lock migration, robot reload bug)
+
 ### 2026-03-16 - Session 17: Phase 1 mechanical cleanup (8 parallel tasks)
 - **Executed**: `docs/plans/2026-03-16-phase1-cleanup.md` - 8 parallel agents, conflict-free file partitioning
 - **Dead code deleted** (~1.5k+ LOC Go, ~7.5k LOC Rust):
