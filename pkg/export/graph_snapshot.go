@@ -163,7 +163,7 @@ func buildLayout(opts GraphSnapshotOptions) layoutResult {
 		level := levelByID[iss.ID]
 		n := layoutNode{
 			ID:       iss.ID,
-			Title:    truncate(iss.Title, 44),
+			Title:    truncateRunes(iss.Title, 44),
 			Status:   iss.Status,
 			Level:    level,
 			Rank:     pageRank[iss.ID],
@@ -416,7 +416,7 @@ func renderSVGToWriter(w io.Writer, layout layoutResult) error {
 		canvas.Roundrect(x, y, int(n.NodeW), int(n.NodeH), 8, 8,
 			fmt.Sprintf("fill:%s;stroke:%s;stroke-width:1.2", css(statusColor(n.Status)), css(colorStroke)))
 		canvas.Text(x+10, y+22, n.ID, fmt.Sprintf("fill:%s;font-size:13px;font-family:monospace;font-weight:bold", css(colorText)))
-		canvas.Text(x+10, y+42, truncate(n.Title, 40), fmt.Sprintf("fill:%s;font-size:12px;font-family:monospace", css(colorSubtle)))
+		canvas.Text(x+10, y+42, truncateRunes(n.Title, 40), fmt.Sprintf("fill:%s;font-size:12px;font-family:monospace", css(colorSubtle)))
 		canvas.Text(x+10, y+60, fmt.Sprintf("PR %.3f", n.PageRank),
 			fmt.Sprintf("fill:%s;font-size:11px;font-family:monospace", css(colorSubtle)))
 	}
@@ -437,7 +437,7 @@ func drawNode(dc *gg.Context, n layoutNode) {
 	dc.SetColor(colorText)
 	dc.DrawStringAnchored(n.ID, n.X+10, n.Y+18, 0, 0.5)
 	dc.SetColor(colorSubtle)
-	dc.DrawStringAnchored(truncate(n.Title, 40), n.X+10, n.Y+36, 0, 0.5)
+	dc.DrawStringAnchored(truncateRunes(n.Title, 40), n.X+10, n.Y+36, 0, 0.5)
 	dc.DrawStringAnchored(fmt.Sprintf("PR %.3f", n.PageRank), n.X+10, n.Y+54, 0, 0.5)
 }
 
@@ -517,20 +517,6 @@ func drawLegendRowSVG(canvas *svg.SVG, x, y int, c color.RGBA, label string) {
 }
 
 // --- helpers ---------------------------------------------------------------
-
-func truncate(s string, max int) string {
-	if max <= 0 {
-		return ""
-	}
-	runes := []rune(s)
-	if len(runes) <= max {
-		return s
-	}
-	if max <= 3 {
-		return string(runes[:max])
-	}
-	return string(runes[:max-3]) + "..."
-}
 
 func css(c color.RGBA) string {
 	return fmt.Sprintf("#%02x%02x%02x", c.R, c.G, c.B)

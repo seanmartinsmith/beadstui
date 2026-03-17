@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/seanmartinsmith/beadstui/internal/datasource"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/correlation"
 	"github.com/seanmartinsmith/beadstui/pkg/loader"
@@ -616,12 +615,6 @@ func (rc *robotCtx) runFileRelations(filePath string, threshold float64, relatio
 		os.Exit(1)
 	}
 
-	issues, err := datasource.LoadIssues(cwd)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading beads: %v\n", err)
-		os.Exit(1)
-	}
-
 	beadsDir, err := loader.GetBeadsDir("")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting beads directory: %v\n", err)
@@ -633,8 +626,8 @@ func (rc *robotCtx) runFileRelations(filePath string, threshold float64, relatio
 		os.Exit(1)
 	}
 
-	beadInfos := make([]correlation.BeadInfo, len(issues))
-	for i, issue := range issues {
+	beadInfos := make([]correlation.BeadInfo, len(rc.issues))
+	for i, issue := range rc.issues {
 		beadInfos[i] = correlation.BeadInfo{
 			ID:     issue.ID,
 			Title:  issue.Title,
@@ -691,12 +684,6 @@ func (rc *robotCtx) runRelatedWork(beadID string, relatedMinRelevance, relatedMa
 		os.Exit(1)
 	}
 
-	issues, err := datasource.LoadIssues(cwd)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading beads: %v\n", err)
-		os.Exit(1)
-	}
-
 	beadsDir, err := loader.GetBeadsDir("")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting beads directory: %v\n", err)
@@ -708,8 +695,8 @@ func (rc *robotCtx) runRelatedWork(beadID string, relatedMinRelevance, relatedMa
 		os.Exit(1)
 	}
 
-	beadInfos := make([]correlation.BeadInfo, len(issues))
-	for i, issue := range issues {
+	beadInfos := make([]correlation.BeadInfo, len(rc.issues))
+	for i, issue := range rc.issues {
 		beadInfos[i] = correlation.BeadInfo{
 			ID:     issue.ID,
 			Title:  issue.Title,
@@ -728,7 +715,7 @@ func (rc *robotCtx) runRelatedWork(beadID string, relatedMinRelevance, relatedMa
 
 	// Build dependency graph from issues
 	depGraph := make(map[string][]string)
-	for _, issue := range issues {
+	for _, issue := range rc.issues {
 		for _, dep := range issue.Dependencies {
 			depGraph[issue.ID] = append(depGraph[issue.ID], dep.DependsOnID)
 		}
@@ -774,20 +761,7 @@ func (rc *robotCtx) runRelatedWork(beadID string, relatedMinRelevance, relatedMa
 
 // runBlockerChain handles --robot-blocker-chain (bv-nlo0).
 func (rc *robotCtx) runBlockerChain(issueID string) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting current directory: %v\n", err)
-		os.Exit(1)
-	}
-
-	issues, err := datasource.LoadIssues(cwd)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading beads: %v\n", err)
-		os.Exit(1)
-	}
-
-	an := analysis.NewAnalyzer(issues)
-	result := an.GetBlockerChain(issueID)
+	result := rc.analyzer.GetBlockerChain(issueID)
 
 	if result == nil {
 		fmt.Fprintf(os.Stderr, "Issue not found: %s\n", issueID)
@@ -800,7 +774,7 @@ func (rc *robotCtx) runBlockerChain(issueID string) {
 	}
 
 	// Compute data hash for consistency
-	dataHash := analysis.ComputeDataHash(issues)
+	dataHash := rc.dataHash
 
 	output := BlockerChainOutput{
 		RobotEnvelope: NewRobotEnvelope(dataHash),
@@ -835,16 +809,9 @@ func (rc *robotCtx) runImpactNetwork(networkArg string, networkDepth, historyLim
 		os.Exit(1)
 	}
 
-	// Load issues
-	issues, err := datasource.LoadIssues(cwd)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading beads: %v\n", err)
-		os.Exit(1)
-	}
-
 	// Convert to BeadInfo slice
-	beadInfos := make([]correlation.BeadInfo, len(issues))
-	for i, issue := range issues {
+	beadInfos := make([]correlation.BeadInfo, len(rc.issues))
+	for i, issue := range rc.issues {
 		beadInfos[i] = correlation.BeadInfo{
 			ID:     issue.ID,
 			Title:  issue.Title,
@@ -863,7 +830,7 @@ func (rc *robotCtx) runImpactNetwork(networkArg string, networkDepth, historyLim
 	}
 
 	// Build impact network
-	builder := correlation.NewNetworkBuilderWithIssues(report, issues)
+	builder := correlation.NewNetworkBuilderWithIssues(report, rc.issues)
 	network := builder.Build()
 
 	// Determine if specific bead or full network
@@ -916,12 +883,6 @@ func (rc *robotCtx) runCausality(beadID string, historyLimit int) {
 		os.Exit(1)
 	}
 
-	issues, err := datasource.LoadIssues(cwd)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading beads: %v\n", err)
-		os.Exit(1)
-	}
-
 	beadsDir, err := loader.GetBeadsDir("")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting beads directory: %v\n", err)
@@ -933,8 +894,8 @@ func (rc *robotCtx) runCausality(beadID string, historyLimit int) {
 		os.Exit(1)
 	}
 
-	beadInfos := make([]correlation.BeadInfo, len(issues))
-	for i, issue := range issues {
+	beadInfos := make([]correlation.BeadInfo, len(rc.issues))
+	for i, issue := range rc.issues {
 		beadInfos[i] = correlation.BeadInfo{
 			ID:     issue.ID,
 			Title:  issue.Title,
@@ -953,7 +914,7 @@ func (rc *robotCtx) runCausality(beadID string, historyLimit int) {
 
 	// Build blocker titles map for better descriptions
 	blockerTitles := make(map[string]string)
-	for _, issue := range issues {
+	for _, issue := range rc.issues {
 		blockerTitles[issue.ID] = issue.Title
 	}
 

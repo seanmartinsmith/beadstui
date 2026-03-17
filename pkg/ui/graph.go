@@ -379,7 +379,7 @@ func (g *GraphModel) renderNodeList(width, height int, t Theme) string {
 				Width(width)
 		} else {
 			style = t.Renderer.NewStyle().
-				Foreground(getStatusColor(issue.Status, t)).
+				Foreground(t.GetStatusColor(string(issue.Status))).
 				Width(width)
 		}
 		lines = append(lines, style.Render(line))
@@ -557,7 +557,7 @@ func (g *GraphModel) renderNodeBox(id string, boxWidth int, t Theme, isEgo bool)
 
 	if issue != nil {
 		statusIcon = getStatusIcon(issue.Status)
-		statusColor = getStatusColor(issue.Status, t)
+		statusColor = t.GetStatusColor(string(issue.Status))
 		displayID = smartTruncateID(id, boxWidth-4)
 		if issue.Title != "" {
 			title = truncateRunesHelper(issue.Title, boxWidth-4, "…")
@@ -865,7 +865,11 @@ func (g *GraphModel) renderMetricsPanel(id string, width int, t Theme) string {
 	return strings.Join(rows, "\n")
 }
 
-// Helper functions
+// Graph-specific icon helpers. These intentionally use different emoji sets than
+// the public helpers in helpers.go and theme.go. The graph panel uses a distinct
+// visual language (e.g. colored circles for status, different priority/type icons)
+// tuned for the compact node rendering context. If these should be unified with
+// the board/tree icon sets, consolidate into the public helpers and update both.
 
 func getStatusIcon(status model.Status) string {
 	switch {
@@ -885,29 +889,6 @@ func getStatusIcon(status model.Status) string {
 		return "🪝"
 	default:
 		return "⚪"
-	}
-}
-
-func getStatusColor(status model.Status, t Theme) lipgloss.AdaptiveColor {
-	switch status {
-	case model.StatusOpen:
-		return t.Open
-	case model.StatusInProgress:
-		return t.InProgress
-	case model.StatusBlocked:
-		return t.Blocked
-	case model.StatusDeferred:
-		return t.Deferred
-	case model.StatusPinned:
-		return t.Pinned
-	case model.StatusHooked:
-		return t.Hooked
-	case model.StatusClosed:
-		return t.Closed
-	case model.StatusTombstone:
-		return t.Tombstone
-	default:
-		return t.Secondary
 	}
 }
 

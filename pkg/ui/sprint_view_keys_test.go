@@ -58,10 +58,10 @@ func TestHandleSprintKeys_NextPrevSprint(t *testing.T) {
 }
 
 // =============================================================================
-// truncateStrSprint Tests
+// truncateString Tests (formerly truncateStrSprint, consolidated)
 // =============================================================================
 
-func TestTruncateStrSprint(t *testing.T) {
+func TestTruncateString_SprintView(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
@@ -132,9 +132,9 @@ func TestTruncateStrSprint(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := truncateStrSprint(tt.input, tt.maxLen)
+			result := truncateString(tt.input, tt.maxLen)
 			if result != tt.expected {
-				t.Errorf("truncateStrSprint(%q, %d) = %q, want %q", tt.input, tt.maxLen, result, tt.expected)
+				t.Errorf("truncateString(%q, %d) = %q, want %q", tt.input, tt.maxLen, result, tt.expected)
 			}
 		})
 	}

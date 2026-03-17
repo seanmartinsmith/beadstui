@@ -264,6 +264,102 @@ func TestNewLock_EmptyLockFile(t *testing.T) {
 	defer lock.Release()
 }
 
+func TestMigrateLegacyLock_RenamesWhenOnlyLegacyExists(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a legacy .bv.lock file
+	legacyPath := filepath.Join(tmpDir, LegacyLockFileName)
+	info := LockInfo{
+		PID:       99999999,
+		StartedAt: time.Now().Add(-time.Hour),
+		Hostname:  "legacy-host",
+	}
+	data, err := json.Marshal(info)
+	if err != nil {
+		t.Fatalf("marshaling legacy lock: %v", err)
+	}
+	if err := os.WriteFile(legacyPath, data, 0644); err != nil {
+		t.Fatalf("writing legacy lock: %v", err)
+	}
+
+	// NewLock should migrate legacy to new path
+	lock, err := NewLock(tmpDir)
+	if err != nil {
+		t.Fatalf("NewLock failed: %v", err)
+	}
+	defer lock.Release()
+
+	// Legacy file should be gone
+	if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
+		t.Error("legacy lock file should have been renamed away")
+	}
+
+	// New lock file should exist at .bt.lock path
+	newPath := filepath.Join(tmpDir, LockFileName)
+	if _, err := os.Stat(newPath); os.IsNotExist(err) {
+		t.Error("new lock file should exist after migration")
+	}
+}
+
+func TestMigrateLegacyLock_CleansUpLegacyWhenBothExist(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create both legacy and new lock files
+	legacyPath := filepath.Join(tmpDir, LegacyLockFileName)
+	newPath := filepath.Join(tmpDir, LockFileName)
+
+	legacyInfo := LockInfo{PID: 99999998, StartedAt: time.Now().Add(-2 * time.Hour), Hostname: "old"}
+	newInfo := LockInfo{PID: 99999999, StartedAt: time.Now().Add(-time.Hour), Hostname: "new"}
+
+	legacyData, _ := json.Marshal(legacyInfo)
+	newData, _ := json.Marshal(newInfo)
+
+	if err := os.WriteFile(legacyPath, legacyData, 0644); err != nil {
+		t.Fatalf("writing legacy lock: %v", err)
+	}
+	if err := os.WriteFile(newPath, newData, 0644); err != nil {
+		t.Fatalf("writing new lock: %v", err)
+	}
+
+	// NewLock should prefer .bt.lock and clean up .bv.lock
+	lock, err := NewLock(tmpDir)
+	if err != nil {
+		t.Fatalf("NewLock failed: %v", err)
+	}
+	defer lock.Release()
+
+	// Legacy file should be removed
+	if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
+		t.Error("legacy lock file should have been removed when both exist")
+	}
+
+	// New lock file should still exist
+	if _, err := os.Stat(newPath); os.IsNotExist(err) {
+		t.Error("new lock file should still exist")
+	}
+}
+
+func TestMigrateLegacyLock_NoopWhenNoLegacy(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// No legacy file, no new file - just a clean directory
+	lock, err := NewLock(tmpDir)
+	if err != nil {
+		t.Fatalf("NewLock failed: %v", err)
+	}
+	defer lock.Release()
+
+	if !lock.IsFirstInstance() {
+		t.Error("should be first instance on clean directory")
+	}
+
+	// Legacy file should not exist
+	legacyPath := filepath.Join(tmpDir, LegacyLockFileName)
+	if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
+		t.Error("legacy lock file should not exist")
+	}
+}
+
 func TestNewLock_ConcurrentStaleTakeover(t *testing.T) {
 	// Test that concurrent attempts to take over a stale lock don't both succeed
 	// (verifies the atomic rename + verify fix for the TOCTOU race condition)

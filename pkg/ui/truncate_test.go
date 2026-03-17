@@ -34,7 +34,9 @@ func TestTruncateString_UTF8Safe(t *testing.T) {
 	}
 }
 
-func TestTruncateStrSprint_UTF8Safe(t *testing.T) {
+// TestTruncateString_SprintViewCases covers cases previously tested via
+// the removed truncateStrSprint duplicate (consolidated into truncateString).
+func TestTruncateString_SprintViewCases(t *testing.T) {
 	tests := []struct {
 		name   string
 		input  string
@@ -49,15 +51,15 @@ func TestTruncateStrSprint_UTF8Safe(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := truncateStrSprint(tt.input, tt.maxLen)
+			got := truncateString(tt.input, tt.maxLen)
 			if got != tt.want {
-				t.Fatalf("truncateStrSprint(%q, %d) = %q; want %q", tt.input, tt.maxLen, got, tt.want)
+				t.Fatalf("truncateString(%q, %d) = %q; want %q", tt.input, tt.maxLen, got, tt.want)
 			}
 			if !utf8.ValidString(got) {
-				t.Fatalf("truncateStrSprint output is not valid UTF-8: %q", got)
+				t.Fatalf("truncateString output is not valid UTF-8: %q", got)
 			}
 			if tt.maxLen >= 0 && len([]rune(got)) > tt.maxLen {
-				t.Fatalf("truncateStrSprint output has %d runes; max %d", len([]rune(got)), tt.maxLen)
+				t.Fatalf("truncateString output has %d runes; max %d", len([]rune(got)), tt.maxLen)
 			}
 		})
 	}

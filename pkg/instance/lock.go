@@ -1,5 +1,5 @@
-// Package instance provides multi-instance coordination for bv.
-// It detects when multiple bv instances are running on the same repository
+// Package instance provides multi-instance coordination for bt.
+// It detects when multiple bt instances are running on the same repository
 // and provides mechanisms for coordination and user feedback.
 package instance
 
@@ -34,12 +34,43 @@ type Lock struct {
 }
 
 // LockFileName is the name of the lock file created in .beads directory.
-const LockFileName = ".bv.lock"
+const LockFileName = ".bt.lock"
+
+// LegacyLockFileName is the old lock filename from the bv era.
+// Used during migration to avoid dual-instance detection failures on upgrade.
+const LegacyLockFileName = ".bv.lock"
+
+// migrateLegacyLock renames .bv.lock to .bt.lock if the legacy file exists
+// and the new file does not. This provides a seamless upgrade path so users
+// don't hit dual-instance detection failures after the rename.
+func migrateLegacyLock(beadsDir string) {
+	legacyPath := filepath.Join(beadsDir, LegacyLockFileName)
+	newPath := filepath.Join(beadsDir, LockFileName)
+
+	// Only migrate if legacy exists and new does not
+	if _, err := os.Stat(legacyPath); err != nil {
+		return // no legacy lock, nothing to do
+	}
+	if _, err := os.Stat(newPath); err == nil {
+		// New lock already exists - legacy is orphaned, clean it up
+		os.Remove(legacyPath)
+		return
+	}
+
+	// Rename legacy to new
+	if err := os.Rename(legacyPath, newPath); err != nil {
+		// On Windows, rename can fail if the file is held open by another process.
+		// In that case, just leave it - the other process will release eventually.
+		return
+	}
+}
 
 // NewLock creates a new instance lock for the given beads directory.
 // If this is the first instance, it creates and holds the lock.
 // If another instance already holds the lock, it returns a Lock with isFirst=false.
 func NewLock(beadsDir string) (*Lock, error) {
+	migrateLegacyLock(beadsDir)
+
 	lockPath := filepath.Join(beadsDir, LockFileName)
 
 	// Try to create lock file with exclusive access
