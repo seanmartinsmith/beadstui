@@ -325,7 +325,7 @@ func (m Model) renderSplitView() string {
 func (m *Model) renderHelpOverlay() string {
 	t := m.theme
 
-	gapWidth := 2 // gap between columns
+	gapWidth := 3 // gap between panels in river layout
 
 	// Tomorrow Night gradient for help overlay sections
 	colors := []lipgloss.AdaptiveColor{
@@ -337,7 +337,8 @@ func (m *Model) renderHelpOverlay() string {
 		{Light: "#eab700", Dark: "#f0c674"}, // Yellow
 	}
 
-	// Helper to render a section panel (auto-sized to content)
+	// Helper to render a section panel (auto-sized to content).
+	// Flipped layout: description on left, key right-aligned (bt-dx7k).
 	renderPanel := func(title string, icon string, colorIdx int, shortcuts []struct{ key, desc string }) string {
 		color := colors[colorIdx%len(colors)]
 
@@ -348,32 +349,38 @@ func (m *Model) renderHelpOverlay() string {
 		descStyle := t.Renderer.NewStyle().
 			Foreground(t.Base.GetForeground())
 
-		// Find the widest key for alignment
-		keyCol := 8
+		// Find widest key and widest desc for alignment
+		maxKeyWidth := 0
+		maxDescWidth := 0
 		for _, s := range shortcuts {
-			if w := lipgloss.Width(s.key); w > keyCol {
-				keyCol = w
+			if w := lipgloss.Width(s.key); w > maxKeyWidth {
+				maxKeyWidth = w
+			}
+			if w := lipgloss.Width(s.desc); w > maxDescWidth {
+				maxDescWidth = w
 			}
 		}
-		keyCol += 2 // gap after key
+
+		// Inner content width: left pad + desc + gap + key + right pad
+		innerWidth := 1 + maxDescWidth + 2 + maxKeyWidth + 1
 
 		var lines []string
-		maxLineWidth := 0
 		for _, s := range shortcuts {
+			desc := descStyle.Render(s.desc)
 			key := keyStyle.Render(s.key)
-			pad := keyCol - lipgloss.Width(s.key)
-			if pad < 1 {
-				pad = 1
+			descPad := maxDescWidth - lipgloss.Width(s.desc)
+			// Description left-aligned, key right-aligned
+			line := " " + desc + strings.Repeat(" ", descPad+2) + key
+			// Pad to full inner width for consistent panel sizing
+			lineWidth := lipgloss.Width(line)
+			if lineWidth < innerWidth {
+				line += strings.Repeat(" ", innerWidth-lineWidth)
 			}
-			line := " " + key + strings.Repeat(" ", pad) + descStyle.Render(s.desc)
 			lines = append(lines, line)
-			if w := lipgloss.Width(line); w > maxLineWidth {
-				maxLineWidth = w
-			}
 		}
 
-		// Size panel to content: content width + border (2) + right padding (1)
-		panelWidth := maxLineWidth + 3
+		// Panel width: inner content + border (2) + right pad (1)
+		panelWidth := innerWidth + 3
 		titleWidth := lipgloss.Width(icon+" "+title) + 6 // title + border decorations
 		if titleWidth > panelWidth {
 			panelWidth = titleWidth
@@ -480,7 +487,7 @@ func (m *Model) renderHelpOverlay() string {
 		{"polling", "Live reload uses polling"},
 	}
 
-	// Build shortcut panels - order matters for responsive layout pairing
+	// Build shortcut panels
 	panels := []string{
 		renderPanel("Navigation", "🧭", 0, navSection),
 		renderPanel("Views", "👁", 1, viewsSection),
@@ -492,87 +499,75 @@ func (m *Model) renderHelpOverlay() string {
 		renderPanel("Actions", "⚡", 1, actionsSection),
 	}
 
-	// Build each row with gaps
+	// River/masonry layout: greedily pack panels into rows (bt-dx7k)
+	availableWidth := m.width - 4 // leave margin on sides
 	gap := strings.Repeat(" ", gapWidth)
-	joinRow := func(row []string) string {
-		result := row[0]
-		for _, p := range row[1:] {
-			result = lipgloss.JoinHorizontal(lipgloss.Top, result, gap, p)
+
+	var rows []string
+	var currentRow []string
+	currentRowWidth := 0
+
+	for _, panel := range panels {
+		panelWidth := lipgloss.Width(panel)
+		needed := panelWidth
+		if len(currentRow) > 0 {
+			needed += gapWidth // account for gap before this panel
 		}
-		return result
+
+		if currentRowWidth+needed > availableWidth && len(currentRow) > 0 {
+			// Current row is full, flush it
+			joined := currentRow[0]
+			for _, p := range currentRow[1:] {
+				joined = lipgloss.JoinHorizontal(lipgloss.Top, joined, gap, p)
+			}
+			rows = append(rows, joined)
+			currentRow = []string{panel}
+			currentRowWidth = panelWidth
+		} else {
+			currentRow = append(currentRow, panel)
+			currentRowWidth += needed
+		}
+	}
+	if len(currentRow) > 0 {
+		joined := currentRow[0]
+		for _, p := range currentRow[1:] {
+			joined = lipgloss.JoinHorizontal(lipgloss.Top, joined, gap, p)
+		}
+		rows = append(rows, joined)
 	}
 
-	// Responsive layout based on terminal width (bt-aog1)
-	var body string
-	switch {
-	case m.width >= 140:
-		// Wide: 4x2 grid
-		row1 := joinRow([]string{panels[0], panels[2], panels[4], panels[6]})
-		row2 := joinRow([]string{panels[1], panels[3], panels[5], panels[7]})
-		body = lipgloss.JoinVertical(lipgloss.Center, row1, row2)
-	case m.width >= 80:
-		// Medium: 2x4 grid
-		r1 := joinRow([]string{panels[0], panels[1]})
-		r2 := joinRow([]string{panels[2], panels[3]})
-		r3 := joinRow([]string{panels[4], panels[5]})
-		r4 := joinRow([]string{panels[6], panels[7]})
-		body = lipgloss.JoinVertical(lipgloss.Center, r1, r2, r3, r4)
-	default:
-		// Narrow: single column
-		body = lipgloss.JoinVertical(lipgloss.Center, panels...)
+	body := lipgloss.JoinVertical(lipgloss.Center, rows...)
+
+	// Status indicators panel - append to river flow if room
+	statusPanel := renderPanel("Status Indicators", "🩺", 2, statusSection)
+	statusHeight := lipgloss.Height(statusPanel)
+	bodyHeight := lipgloss.Height(body)
+	// Show status panel if there's vertical room
+	if bodyHeight+statusHeight+4 < m.height {
+		body = lipgloss.JoinVertical(lipgloss.Center, body, statusPanel)
 	}
 
-	// Subtitle line inside panel
+	// Title and subtitle as plain centered text (no outer border)
+	titleStyle := t.Renderer.NewStyle().
+		Foreground(t.Primary).
+		Bold(true)
 	subtitleStyle := t.Renderer.NewStyle().
 		Foreground(t.Secondary).
 		Italic(true)
-	subtitle := subtitleStyle.Render("Space: Tutorial │ ? or Esc to close")
 
-	// Combine subtitle and body
-	content := lipgloss.JoinVertical(lipgloss.Center, subtitle, "", body)
+	header := lipgloss.JoinVertical(lipgloss.Center,
+		titleStyle.Render("Keyboard Shortcuts"),
+		subtitleStyle.Render("Space: Tutorial  |  ? or Esc to close"),
+	)
 
-	// Outer container as titled panel
-	outerWidth := lipgloss.Width(body) + 6 // body + border + padding
-	if outerWidth > m.width-4 {
-		outerWidth = m.width - 4
-	}
-	bc := t.Primary
-	helpBox := RenderTitledPanel(t.Renderer, content, PanelOpts{
-		Title:       "Keyboard Shortcuts",
-		Width:       outerWidth,
-		Focused:     true,
-		CenterTitle: true,
-		BorderColor: &bc,
-		TitleColor:  &bc,
-	})
+	fullContent := lipgloss.JoinVertical(lipgloss.Center, header, "", body)
 
-	// Status indicators legend - pinned right above the status bar
-	// On narrow terminals, skip it to save vertical space (bt-aog1)
-	helpBoxHeight := lipgloss.Height(helpBox)
-	statusPanel := renderPanel("Status Indicators", "🩺", 2, statusSection)
-	statusHeight := lipgloss.Height(statusPanel)
-	showStatus := m.height > helpBoxHeight+statusHeight+4 // enough room for both
-
-	if showStatus {
-		upperHeight := m.height - 1 - statusHeight // -1 for footer
-		shortcutsCentered := lipgloss.Place(
-			m.width,
-			upperHeight,
-			lipgloss.Center,
-			lipgloss.Center,
-			helpBox,
-		)
-		statusCentered := lipgloss.PlaceHorizontal(m.width, lipgloss.Center, statusPanel)
-		return shortcutsCentered + "\n" + statusCentered
-	}
-
-	// No room for status panel - just center the shortcuts
 	return lipgloss.Place(
 		m.width,
 		m.height-1,
 		lipgloss.Center,
 		lipgloss.Center,
-		helpBox,
+		fullContent,
 	)
 }
 
