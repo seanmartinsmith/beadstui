@@ -80,21 +80,25 @@ func alertKey(a drift.Alert) string {
 	return fmt.Sprintf("%s:%s:%s", a.Type, a.Severity, a.IssueID)
 }
 
-// renderAlertsPanel renders the alerts overlay panel
+// alertsVisibleLines returns the number of alert items that fit in the
+// viewport, accounting for panel chrome (borders, summary, footer, padding).
+func (m Model) alertsVisibleLines() int {
+	// Cap panel at ~70% of terminal height
+	panelMax := m.height * 7 / 10
+	// Subtract chrome: top border(1) + summary(1) + blank(1) + blank(1) + footer(1) + bottom border(1) = 6
+	lines := panelMax - 6
+	if lines < 3 {
+		lines = 3
+	}
+	return lines
+}
+
+// renderAlertsPanel renders the alerts overlay panel using RenderTitledPanel
+// for visual consistency with the rest of the TUI.
 func (m Model) renderAlertsPanel() string {
 	t := m.theme
 
-	boxStyle := t.Renderer.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(t.Primary).
-		Padding(1, 2).
-		Width(min(80, m.width-4)).
-		MaxHeight(m.height - 4)
-
-	titleStyle := t.Renderer.NewStyle().
-		Bold(true).
-		Foreground(t.Primary).
-		MarginBottom(1)
+	panelWidth := min(80, m.width-4)
 
 	// Filter out dismissed alerts
 	var visibleAlerts []drift.Alert
@@ -104,13 +108,22 @@ func (m Model) renderAlertsPanel() string {
 		}
 	}
 
+	// Inner content width (panel width minus borders and padding)
+	innerWidth := panelWidth - 4 // 2 border + 2 padding
+
+	// Build issue title lookup for detail line
+	issueTitles := make(map[string]string)
+	for _, item := range m.list.Items() {
+		if it, ok := item.(IssueItem); ok {
+			issueTitles[it.Issue.ID] = it.Issue.Title
+		}
+	}
+
 	var sb strings.Builder
-	sb.WriteString(titleStyle.Render("🔔 Alerts Panel"))
-	sb.WriteString("\n\n")
 
 	if len(visibleAlerts) == 0 {
-		sb.WriteString(t.Renderer.NewStyle().Foreground(ColorSuccess).Render("✓ No active alerts"))
-		sb.WriteString("\n\n")
+		sb.WriteString(t.Renderer.NewStyle().Foreground(ColorSuccess).Render(" No active alerts"))
+		sb.WriteString("\n")
 	} else {
 		// Summary line
 		summaryStyle := t.Renderer.NewStyle().Foreground(t.Secondary)
@@ -124,11 +137,40 @@ func (m Model) renderAlertsPanel() string {
 		if m.alertsInfo > 0 {
 			summary += fmt.Sprintf(" • %d info", m.alertsInfo)
 		}
+		sb.WriteString(" ")
 		sb.WriteString(summaryStyle.Render(summary))
-		sb.WriteString("\n\n")
+		sb.WriteString("\n")
 
-		// Render each alert
-		for i, a := range visibleAlerts {
+		// Scrollable alert list
+		visLines := m.alertsVisibleLines()
+		scrollOffset := m.alertsScrollOffset
+
+		// Clamp scroll offset
+		if scrollOffset > len(visibleAlerts)-visLines {
+			scrollOffset = len(visibleAlerts) - visLines
+		}
+		if scrollOffset < 0 {
+			scrollOffset = 0
+		}
+
+		endIdx := scrollOffset + visLines
+		if endIdx > len(visibleAlerts) {
+			endIdx = len(visibleAlerts)
+		}
+
+		// Scroll indicator: above
+		if scrollOffset > 0 {
+			hint := t.Renderer.NewStyle().Foreground(t.Muted).Render(
+				fmt.Sprintf(" ▴ %d more above", scrollOffset))
+			sb.WriteString(hint)
+			sb.WriteString("\n")
+		} else {
+			sb.WriteString("\n")
+		}
+
+		// Render visible window of alerts (centered)
+		for i := scrollOffset; i < endIdx; i++ {
+			a := visibleAlerts[i]
 			selected := i == m.alertsCursor
 
 			// Severity indicator
@@ -137,13 +179,13 @@ func (m Model) renderAlertsPanel() string {
 			switch a.Severity {
 			case drift.SeverityCritical:
 				severityStyle = t.Renderer.NewStyle().Foreground(t.Blocked).Bold(true)
-				severityIcon = "⚠"
+				severityIcon = "▲"
 			case drift.SeverityWarning:
 				severityStyle = t.Renderer.NewStyle().Foreground(t.Feature)
-				severityIcon = "⚡"
+				severityIcon = "△"
 			default:
 				severityStyle = t.Renderer.NewStyle().Foreground(t.Secondary)
-				severityIcon = "ℹ"
+				severityIcon = "○"
 			}
 
 			// Cursor indicator
@@ -154,41 +196,87 @@ func (m Model) renderAlertsPanel() string {
 
 			// Alert line
 			line := fmt.Sprintf("%s%s %s", cursor, severityIcon, a.Message)
+			if lipgloss.Width(line) > innerWidth {
+				line = truncateRunesHelper(line, innerWidth, "…")
+			}
 			if selected {
 				line = t.Renderer.NewStyle().Bold(true).Render(line)
 			}
-			sb.WriteString(severityStyle.Render(line))
+			rendered := severityStyle.Render(line)
+
+			// Center the alert line
+			lineWidth := lipgloss.Width(rendered)
+			pad := (innerWidth - lineWidth) / 2
+			if pad < 0 {
+				pad = 0
+			}
+			sb.WriteString(strings.Repeat(" ", pad))
+			sb.WriteString(rendered)
 			sb.WriteString("\n")
 
-			// Show issue ID if available and selected
+			// Detail for selected alert: issue title (wraps to ~2 lines max)
 			if selected && a.IssueID != "" {
-				issueHint := t.Renderer.NewStyle().Foreground(t.Muted).Italic(true).Render(
-					fmt.Sprintf("     Issue: %s (press Enter to jump)", a.IssueID))
-				sb.WriteString(issueHint)
-				sb.WriteString("\n")
+				if title, ok := issueTitles[a.IssueID]; ok && title != "" {
+					titleStyle := t.Renderer.NewStyle().Foreground(t.Muted).Italic(true)
+					detailMaxWidth := innerWidth - 8 // indent on each side
+					wrappedStr := wrapText(title, detailMaxWidth)
+					for _, wline := range strings.Split(wrappedStr, "\n") {
+						styled := titleStyle.Render("    " + wline)
+						styledWidth := lipgloss.Width(styled)
+						dPad := (innerWidth - styledWidth) / 2
+						if dPad < 0 {
+							dPad = 0
+						}
+						sb.WriteString(strings.Repeat(" ", dPad))
+						sb.WriteString(styled)
+						sb.WriteString("\n")
+					}
+				}
 			}
+		}
 
-			// Show unblocks info for blocking cascade alerts
-			if selected && a.UnblocksCount > 0 {
-				unblockHint := t.Renderer.NewStyle().Foreground(t.Open).Render(
-					fmt.Sprintf("     Unblocks %d items (priority sum: %d)", a.UnblocksCount, a.DownstreamPrioritySum))
-				sb.WriteString(unblockHint)
-				sb.WriteString("\n")
-			}
+		// Scroll indicator: below
+		remaining := len(visibleAlerts) - endIdx
+		if remaining > 0 {
+			hint := t.Renderer.NewStyle().Foreground(t.Muted).Render(
+				fmt.Sprintf(" ▾ %d more below", remaining))
+			sb.WriteString(hint)
 		}
 	}
 
 	sb.WriteString("\n")
 	sb.WriteString(t.Renderer.NewStyle().Foreground(t.Muted).Italic(true).Render(
-		"j/k: navigate • Enter: jump to issue • d: dismiss • Esc: close"))
+		" enter: open • c: clear • C: clear all • esc: close"))
 
-	content := boxStyle.Render(sb.String())
+	// Pad each content line for inner padding
+	paddedContent := padContentLines(sb.String(), 1)
+
+	// Use blocked/red color to match alert severity
+	alertColor := t.Blocked
+
+	panel := RenderTitledPanel(t.Renderer, paddedContent, PanelOpts{
+		Title:       "Alerts!",
+		Width:       panelWidth,
+		BorderColor: &alertColor,
+		TitleColor:  &alertColor,
+	})
 
 	return lipgloss.Place(
 		m.width,
 		m.height-1,
 		lipgloss.Center,
 		lipgloss.Center,
-		content,
+		panel,
 	)
 }
+
+// padContentLines adds horizontal padding to each line of content.
+func padContentLines(content string, pad int) string {
+	padding := strings.Repeat(" ", pad)
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		lines[i] = padding + line
+	}
+	return strings.Join(lines, "\n")
+}
+

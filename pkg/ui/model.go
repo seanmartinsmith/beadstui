@@ -470,9 +470,10 @@ type Model struct {
 	alertsCritical  int
 	alertsWarning   int
 	alertsInfo      int
-	showAlertsPanel bool
-	alertsCursor    int
-	dismissedAlerts map[string]bool
+	showAlertsPanel    bool
+	alertsCursor       int
+	alertsScrollOffset int
+	dismissedAlerts    map[string]bool
 
 	// Sprint view (bv-161)
 	sprints        []model.Sprint
@@ -2468,11 +2469,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "j", "down":
 				if m.alertsCursor < len(activeAlerts)-1 {
 					m.alertsCursor++
+					// Scroll down if cursor moves past visible area
+					visLines := m.alertsVisibleLines()
+					if visLines > 0 && m.alertsCursor >= m.alertsScrollOffset+visLines {
+						m.alertsScrollOffset = m.alertsCursor - visLines + 1
+					}
 				}
 				return m, nil
 			case "k", "up":
 				if m.alertsCursor > 0 {
 					m.alertsCursor--
+					// Scroll up if cursor moves above visible area
+					if m.alertsCursor < m.alertsScrollOffset {
+						m.alertsScrollOffset = m.alertsCursor
+					}
 				}
 				return m, nil
 			case "enter":
@@ -2491,8 +2501,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.showAlertsPanel = false
 				return m, nil
-			case "d":
-				// Dismiss the selected alert
+			case "c":
+				// Clear the selected alert
 				if m.alertsCursor < len(activeAlerts) {
 					key := alertKey(activeAlerts[m.alertsCursor])
 					m.dismissedAlerts[key] = true
@@ -2509,11 +2519,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if m.alertsCursor < 0 {
 						m.alertsCursor = 0
 					}
+					// Scroll offset may need adjusting
+					if m.alertsScrollOffset > m.alertsCursor {
+						m.alertsScrollOffset = m.alertsCursor
+					}
 					// Close panel if no alerts left
 					if remaining == 0 {
 						m.showAlertsPanel = false
 					}
 				}
+				return m, nil
+			case "C":
+				// Clear all alerts
+				for _, a := range activeAlerts {
+					m.dismissedAlerts[alertKey(a)] = true
+				}
+				m.alertsCursor = 0
+				m.alertsScrollOffset = 0
+				m.showAlertsPanel = false
 				return m, nil
 			case "esc", "q", "!":
 				m.showAlertsPanel = false
@@ -3111,7 +3134,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				if activeCount > 0 {
 					m.showAlertsPanel = !m.showAlertsPanel
-					m.alertsCursor = 0 // Reset cursor when opening
+					m.alertsCursor = 0       // Reset cursor when opening
+					m.alertsScrollOffset = 0 // Reset scroll position
 				} else {
 					m.statusMsg = "No active alerts"
 					m.statusIsError = false
@@ -3246,6 +3270,34 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.MouseMsg:
+		// Intercept mouse wheel when alerts panel is open
+		if m.showAlertsPanel {
+			var activeAlerts []drift.Alert
+			for _, a := range m.alerts {
+				if !m.dismissedAlerts[alertKey(a)] {
+					activeAlerts = append(activeAlerts, a)
+				}
+			}
+			switch msg.Button {
+			case tea.MouseButtonWheelUp:
+				if m.alertsCursor > 0 {
+					m.alertsCursor--
+					if m.alertsCursor < m.alertsScrollOffset {
+						m.alertsScrollOffset = m.alertsCursor
+					}
+				}
+			case tea.MouseButtonWheelDown:
+				if m.alertsCursor < len(activeAlerts)-1 {
+					m.alertsCursor++
+					visLines := m.alertsVisibleLines()
+					if visLines > 0 && m.alertsCursor >= m.alertsScrollOffset+visLines {
+						m.alertsScrollOffset = m.alertsCursor - visLines + 1
+					}
+				}
+			}
+			return m, nil
+		}
+
 		// Handle mouse wheel scrolling
 		switch msg.Button {
 		case tea.MouseButtonWheelUp:
