@@ -85,9 +85,11 @@ Environment variables for Dolt connection:
 
 ## Origin story
 
-Jeffrey Emanuel built [beads_viewer](https://github.com/Dicklesworthstone/beads_viewer) as a rich TUI for his `beads_rust` fork. It's a substantial piece of work - graph analysis, robot mode for AI agents, kanban boards, insights dashboards, the whole stack. When upstream beads moved to Dolt and away from the file formats `beads_rust` used, the viewer needed a new home.
+[Steve Yegge](https://github.com/steveyegge) built [beads](https://github.com/steveyegge/beads) - a git-native issue tracker in Go, originally backed by SQLite and JSONL. [Jeffrey Emanuel](https://github.com/Dicklesworthstone) built [beads_viewer](https://github.com/Dicklesworthstone/beads_viewer) as a TUI companion for it.
 
-`bt` picks up that work and repoints it at upstream beads. The rename, the Dolt integration, the cross-platform test suite, the theme system - that's the fork. The foundation - the TUI architecture, the graph algorithms, the view system - that's Jeffrey's.
+In early 2026, Steve began migrating beads to Dolt as its storage backend. By v0.50 (Feb 2026), SQLite and JSONL were removed entirely - Dolt became the only path. Jeffrey's tooling was built around the classic architecture, so rather than follow the migration, he forked beads into [beads_rust](https://github.com/Dicklesworthstone/beads_rust) - a Rust rewrite that freezes the SQLite + JSONL model. Steve endorsed the fork. beads_viewer pivoted to support beads_rust.
+
+`bt` goes the other direction. I forked beads_viewer and retargeted it at upstream beads and its Dolt backend, so the TUI stays compatible as beads evolves. The Dolt integration, cross-platform test suite, theme system, and ongoing UI work is the fork. The TUI architecture, graph algorithms, and view system underneath - that's Jeffrey's foundation.
 
 ## License
 
