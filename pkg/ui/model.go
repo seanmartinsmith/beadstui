@@ -35,7 +35,7 @@ import (
 // DoltServerStopper is implemented by doltctl.ServerState. Keeps ui decoupled
 // from the doltctl package. Only the StopIfOwned method is called at shutdown.
 type DoltServerStopper interface {
-	StopIfOwned() error
+	StopIfOwned() (stopped bool, err error)
 }
 
 // View width thresholds for adaptive layout
@@ -458,6 +458,7 @@ type Model struct {
 	lastDoltVerified time.Time // Last successful Dolt poll (even if no data changed)
 	doltConnected    bool      // True when Dolt poll loop is healthy
 	doltServer       DoltServerStopper // Dolt server lifecycle handle (bt-07jp); nil if not managed
+	doltShutdownMsg  string            // Message to print after TUI exits (bt-llek)
 
 	// Workspace mode state
 	workspaceMode    bool            // True when viewing multiple repos
@@ -3479,8 +3480,10 @@ func (m *Model) Stop() {
 	}
 	// Stop Dolt server if bt started it (bt-07jp)
 	if m.doltServer != nil {
-		if err := m.doltServer.StopIfOwned(); err != nil {
+		if stopped, err := m.doltServer.StopIfOwned(); err != nil {
 			log.Printf("WARN: failed to stop Dolt server: %v", err)
+		} else if stopped {
+			m.doltShutdownMsg = "Stopped Dolt server."
 		}
 	}
 }
@@ -3492,6 +3495,12 @@ func (m *Model) SetDoltServer(s DoltServerStopper, reconnectFn func(beadsDir str
 	if m.backgroundWorker != nil && reconnectFn != nil {
 		m.backgroundWorker.SetDoltReconnectFn(reconnectFn)
 	}
+}
+
+// DoltShutdownMsg returns a message to print after the TUI exits,
+// indicating whether bt stopped its Dolt server (bt-llek).
+func (m *Model) DoltShutdownMsg() string {
+	return m.doltShutdownMsg
 }
 
 // clearAttentionOverlay hides the attention overlay and clears its rendered text.

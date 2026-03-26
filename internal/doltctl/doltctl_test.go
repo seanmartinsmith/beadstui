@@ -49,9 +49,12 @@ func TestStopIfOwned_NotStartedByBT(t *testing.T) {
 		StartedByBT: false,
 		Port:        12345,
 	}
-	err := s.StopIfOwned()
+	stopped, err := s.StopIfOwned()
 	if err != nil {
 		t.Fatalf("expected nil error for non-owned server, got: %v", err)
+	}
+	if stopped {
+		t.Fatal("expected stopped=false for non-owned server")
 	}
 }
 
@@ -70,9 +73,12 @@ func TestStopIfOwned_PIDChanged(t *testing.T) {
 		BeadsDir:    tmpDir,
 	}
 	// StopIfOwned should return nil (skip stopping) because PID doesn't match
-	err := s.StopIfOwned()
+	stopped, err := s.StopIfOwned()
 	if err != nil {
 		t.Fatalf("expected nil error when PID changed, got: %v", err)
+	}
+	if stopped {
+		t.Fatal("expected stopped=false when PID changed")
 	}
 }
 
@@ -86,9 +92,12 @@ func TestStopIfOwned_PIDFileGone(t *testing.T) {
 		BeadsDir:    tmpDir,
 		// no PID file exists
 	}
-	err := s.StopIfOwned()
+	stopped, err := s.StopIfOwned()
 	if err != nil {
 		t.Fatalf("expected nil error when PID file gone, got: %v", err)
+	}
+	if stopped {
+		t.Fatal("expected stopped=false when PID file gone")
 	}
 }
 
@@ -110,9 +119,12 @@ func TestStopIfOwned_PIDMatches(t *testing.T) {
 			return nil
 		},
 	}
-	err := s.StopIfOwned()
+	stopped, err := s.StopIfOwned()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if !stopped {
+		t.Fatal("expected stopped=true when PID matches")
 	}
 	if !called {
 		t.Fatal("expected stopFunc to be called when PID matches")
@@ -135,9 +147,12 @@ func TestStopIfOwned_PIDMatches_StopFails(t *testing.T) {
 			return errors.New("bd dolt stop failed")
 		},
 	}
-	err := s.StopIfOwned()
+	stopped, err := s.StopIfOwned()
 	if err == nil {
 		t.Fatal("expected error when stopFunc fails")
+	}
+	if !stopped {
+		t.Fatal("expected stopped=true even when stopFunc fails")
 	}
 }
 

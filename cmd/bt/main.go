@@ -1471,7 +1471,13 @@ func runTUIProgram(m ui.Model) error {
 		}
 	}
 
-	_, err := p.Run()
+	finalModel, err := p.Run()
+	// Print Dolt shutdown message after TUI exits (bt-llek)
+	if fm, ok := finalModel.(ui.Model); ok {
+		if msg := fm.DoltShutdownMsg(); msg != "" {
+			fmt.Fprintln(os.Stderr, msg)
+		}
+	}
 	if err != nil && errors.Is(err, tea.ErrProgramKilled) {
 		if err == tea.ErrProgramKilled || errors.Is(err, tea.ErrInterrupted) {
 			return nil
