@@ -142,34 +142,35 @@ func EnsureServer(beadsDir string, lookPath LookPathFunc) (*ServerState, error) 
 }
 
 // StopIfOwned stops the Dolt server only if bt started it and PID still matches.
-func (s *ServerState) StopIfOwned() error {
+// Returns true if the server was actually stopped, false if skipped.
+func (s *ServerState) StopIfOwned() (bool, error) {
 	if s == nil {
-		return nil
+		return false, nil
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if !s.StartedByBT {
-		return nil
+		return false, nil
 	}
 
 	// Check PID file - if gone or changed, someone else took over
 	currentPID, err := readPIDFile(s.BeadsDir)
 	if err != nil {
 		// PID file gone - server already stopped or taken over
-		return nil
+		return false, nil
 	}
 	if currentPID != s.ServerPID {
 		// Different PID - another process restarted the server
-		return nil
+		return false, nil
 	}
 
 	// PID matches - we own this server, stop it
 	if s.stopFunc != nil {
-		return s.stopFunc()
+		return true, s.stopFunc()
 	}
-	return runBdDoltStop()
+	return true, runBdDoltStop()
 }
 
 // runBdDoltStop calls `bd dolt stop` with a 5-second timeout.
