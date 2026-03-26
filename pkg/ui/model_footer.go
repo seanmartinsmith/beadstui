@@ -104,7 +104,7 @@ func (m *Model) renderFooter() string {
 
 	filterBadge := lipgloss.NewStyle().
 		Background(ColorPrimary).
-		Foreground(ColorText).
+		Foreground(ColorBgContrast).
 		Bold(true).
 		Padding(0, 1).
 		Render(fmt.Sprintf("%s %s", filterIcon, filterTxt))
@@ -567,18 +567,27 @@ func (m *Model) renderFooter() string {
 		}
 	}
 
-	keysSection := lipgloss.NewStyle().
+	// Progressive truncation: drop middle hints until they fit, keeping
+	// the first (primary action) and last ("?" help) visible.
+	keysStyle := lipgloss.NewStyle().
 		Foreground(ColorSubtext).
-		Padding(0, 1).
-		Render(strings.Join(keyHints, sep))
+		Padding(0, 1)
 
-	// ─────────────────────────────────────────────────────────────────────────
-	// COUNT BADGE - Total issues displayed
-	// ─────────────────────────────────────────────────────────────────────────
 	countBadge := lipgloss.NewStyle().
 		Foreground(ColorSecondary).
 		Padding(0, 1).
 		Render(fmt.Sprintf("%d issues", len(m.list.Items())))
+
+	keysSection := keysStyle.Render(strings.Join(keyHints, sep))
+	if len(keyHints) > 2 {
+		// Estimate available space for key hints
+		availableWidth := m.width - lipgloss.Width(countBadge) - 2
+		for len(keyHints) > 2 && lipgloss.Width(keysSection) > availableWidth {
+			// Remove second-to-last hint (keep first + "?" help)
+			keyHints = append(keyHints[:len(keyHints)-2], keyHints[len(keyHints)-1])
+			keysSection = keysStyle.Render(strings.Join(keyHints, sep))
+		}
+	}
 
 	// ─────────────────────────────────────────────────────────────────────────
 	// ASSEMBLE FOOTER with proper spacing
