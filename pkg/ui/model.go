@@ -13,6 +13,7 @@ import (
 	"github.com/seanmartinsmith/beadstui/internal/datasource"
 	"github.com/seanmartinsmith/beadstui/pkg/agents"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
+	"github.com/seanmartinsmith/beadstui/pkg/bql"
 	"github.com/seanmartinsmith/beadstui/pkg/cass"
 	"github.com/seanmartinsmith/beadstui/pkg/correlation"
 	"github.com/seanmartinsmith/beadstui/pkg/drift"
@@ -71,6 +72,7 @@ const (
 	focusTutorial    // Interactive tutorial (bv-8y31)
 	focusCassModal   // Cass session preview modal (bv-5bqh)
 	focusUpdateModal // Self-update modal (bv-182)
+	focusBQLQuery    // BQL composable search modal
 )
 
 // SortMode represents the current list sorting mode (bv-3ita)
@@ -428,6 +430,12 @@ type Model struct {
 	recipePicker     RecipePickerModel
 	activeRecipe     *recipe.Recipe
 	recipeLoader     *recipe.Loader
+
+	// BQL query modal
+	showBQLQuery  bool
+	bqlQuery      BQLQueryModal
+	bqlEngine     *bql.MemoryExecutor
+	activeBQLExpr *bql.Query // Parsed BQL expression (nil = no BQL filter active)
 
 	// Label picker (bv-126)
 	showLabelPicker bool
@@ -794,6 +802,10 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 	_ = recipeLoader.Load() // Load recipes (errors are non-fatal, will just show empty)
 	recipePicker := NewRecipePickerModel(recipeLoader.List(), theme)
 
+	// Initialize BQL query modal
+	bqlQueryModal := NewBQLQueryModal(theme)
+	bqlEngine := bql.NewMemoryExecutor()
+
 	// Initialize label picker (bv-126)
 	labelExtraction := analysis.ExtractLabels(issues)
 	labelCounts := extractLabelCounts(labelExtraction.Stats)
@@ -960,6 +972,8 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		recipeLoader:        recipeLoader,
 		recipePicker:        recipePicker,
 		activeRecipe:        activeRecipe,
+		bqlQuery:            bqlQueryModal,
+		bqlEngine:           bqlEngine,
 		labelPicker:         labelPicker,
 		labelDrilldownCache: make(map[string][]model.Issue),
 		timeTravelInput:     ti,
@@ -2150,6 +2164,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.applyRecipe(m.activeRecipe)
 		}
 
+		// Re-apply BQL filter if active
+		if m.activeBQLExpr != nil && strings.HasPrefix(m.currentFilter, "bql:") {
+			queryStr := strings.TrimPrefix(m.currentFilter, "bql:")
+			m.applyBQL(m.activeBQLExpr, queryStr)
+		}
+
 		// Reload sprints (bv-161)
 		if m.beadsPath != "" {
 			beadsDir := filepath.Dir(m.beadsPath)
@@ -2553,6 +2573,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m = m.handleRepoPickerKeys(msg)
 			return m, nil
+		}
+
+		// Handle BQL query modal before global keys
+		if m.showBQLQuery {
+			if msg.String() == "ctrl+c" {
+				return m, tea.Quit
+			}
+			m, cmd = m.handleBQLQueryKeys(msg)
+			return m, cmd
 		}
 
 		// Handle recipe picker overlay before global keys (esc/q/etc.)
@@ -3143,6 +3172,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, nil
 
+			case ":":
+				// Open BQL query modal
+				m.bqlQuery.SetSize(m.width, m.height-1)
+				m.bqlQuery.Reset()
+				m.showBQLQuery = true
+				m.focused = focusBQLQuery
+				return m, m.bqlQuery.Focus()
+
 			case "'":
 				// Toggle recipe picker overlay
 				m.showRecipePicker = !m.showRecipePicker
@@ -3196,6 +3233,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// Focus-specific key handling
 			switch m.focused {
+			case focusBQLQuery:
+				// BQL modal already handled in overlay dispatch above; no-op here
+				return m, nil
+
 			case focusRecipePicker:
 				m = m.handleRecipePickerKeys(msg)
 

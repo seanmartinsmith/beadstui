@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/seanmartinsmith/beadstui/pkg/bql"
+
 	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -702,6 +704,61 @@ func (m Model) handleRepoPickerKeys(msg tea.KeyMsg) Model {
 		m.focused = focusList
 	}
 	return m
+}
+
+// handleBQLQueryKeys handles keyboard input when BQL query modal is focused.
+func (m Model) handleBQLQueryKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
+	switch msg.String() {
+	case "enter":
+		query := m.bqlQuery.Value()
+		if query == "" {
+			// Empty query = clear BQL filter, show all
+			m.activeBQLExpr = nil
+			m.currentFilter = "all"
+			m.applyFilter()
+		} else {
+			// Parse and validate
+			parsed, err := bql.Parse(query)
+			if err != nil {
+				m.bqlQuery.SetError(err.Error())
+				return m, nil // Stay in modal
+			}
+			if err := bql.Validate(parsed); err != nil {
+				m.bqlQuery.SetError(err.Error())
+				return m, nil // Stay in modal
+			}
+			// Clear stale filter state from other filter types
+			m.setActiveRecipe(nil)
+			m.list.ResetFilter()
+			// Apply BQL via dedicated path
+			m.activeBQLExpr = parsed
+			m.applyBQL(parsed, query)
+			m.bqlQuery.AddToHistory(query)
+		}
+		m.showBQLQuery = false
+		m.focused = focusList
+		m.statusMsg = "BQL: " + query
+		m.statusIsError = false
+		return m, nil
+
+	case "esc":
+		m.showBQLQuery = false
+		m.focused = focusList
+		return m, nil
+
+	case "up":
+		m.bqlQuery.HistoryPrev()
+		return m, nil
+
+	case "down":
+		m.bqlQuery.HistoryNext()
+		return m, nil
+
+	default:
+		var cmd tea.Cmd
+		m.bqlQuery, cmd = m.bqlQuery.Update(msg)
+		return m, cmd
+	}
 }
 
 // handleLabelPickerKeys handles keyboard input when label picker is focused (bv-126)

@@ -63,6 +63,8 @@ func (m Model) View() string {
 		body = m.renderAlertsPanel()
 	} else if m.showTimeTravelPrompt {
 		body = m.renderTimeTravelPrompt()
+	} else if m.showBQLQuery {
+		body = m.bqlQuery.View()
 	} else if m.showRecipePicker {
 		body = m.recipePicker.View()
 	} else if m.showRepoPicker {

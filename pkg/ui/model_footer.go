@@ -92,7 +92,14 @@ func (m *Model) renderFooter() string {
 			filterTxt = "READY"
 			filterIcon = "🚀"
 		default:
-			if strings.HasPrefix(m.currentFilter, "recipe:") {
+			if strings.HasPrefix(m.currentFilter, "bql:") {
+				bqlStr := m.currentFilter[4:]
+				if len(bqlStr) > 30 {
+					bqlStr = bqlStr[:27] + "..."
+				}
+				filterTxt = "BQL: " + bqlStr
+				filterIcon = "🔍"
+			} else if strings.HasPrefix(m.currentFilter, "recipe:") {
 				filterTxt = strings.ToUpper(m.currentFilter[7:])
 				filterIcon = "📑"
 			} else {
