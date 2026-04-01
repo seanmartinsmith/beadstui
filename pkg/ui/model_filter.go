@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/seanmartinsmith/beadstui/pkg/bql"
 	"github.com/seanmartinsmith/beadstui/pkg/correlation"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/recipe"
@@ -48,6 +49,7 @@ func (m *Model) hasActiveFilters() bool {
 func (m *Model) clearAllFilters() {
 	m.currentFilter = "all"
 	m.setActiveRecipe(nil) // Clear any active recipe filter
+	m.activeBQLExpr = nil  // Clear BQL state
 	// Reset the fuzzy search filter by resetting the filter state
 	m.list.ResetFilter()
 	m.applyFilter()
@@ -104,6 +106,13 @@ func (m *Model) matchesCurrentFilter(issue model.Issue) bool {
 }
 
 func (m *Model) filteredIssuesForActiveView() []model.Issue {
+	// BQL filter active? Use BQL executor (set-level operations: ORDER BY, EXPAND)
+	if m.activeBQLExpr != nil && strings.HasPrefix(m.currentFilter, "bql:") {
+		issues := m.workspacePrefilter(m.issues)
+		opts := bql.ExecuteOpts{IssueMap: m.issueMap}
+		return m.bqlEngine.Execute(m.activeBQLExpr, issues, opts)
+	}
+
 	filtered := make([]model.Issue, 0, len(m.issues))
 	recipeFilterActive := m.activeRecipe != nil && strings.HasPrefix(m.currentFilter, "recipe:")
 	if recipeFilterActive {
@@ -884,6 +893,64 @@ func truncateString(s string, maxLen int) string {
 		return string(runes[:maxLen])
 	}
 	return string(runes[:maxLen-1]) + "…"
+}
+
+// workspacePrefilter removes issues not in the active repo set (workspace mode).
+// Returns the input slice unchanged if not in workspace mode or all repos are active.
+func (m *Model) workspacePrefilter(issues []model.Issue) []model.Issue {
+	if !m.workspaceMode || m.activeRepos == nil {
+		return issues
+	}
+	filtered := make([]model.Issue, 0, len(issues))
+	for _, issue := range issues {
+		repoKey := strings.ToLower(ExtractRepoPrefix(issue.ID))
+		if repoKey == "" || m.activeRepos[repoKey] {
+			filtered = append(filtered, issue)
+		}
+	}
+	return filtered
+}
+
+// applyBQL applies a parsed BQL query using the dedicated BQL execution path.
+// This bypasses matchesCurrentFilter() because BQL has set-level operations
+// (ORDER BY, EXPAND) that can't work per-issue.
+func (m *Model) applyBQL(query *bql.Query, queryStr string) {
+	issues := m.workspacePrefilter(m.issues)
+	opts := bql.ExecuteOpts{IssueMap: m.issueMap}
+	filtered := m.bqlEngine.Execute(query, issues, opts)
+
+	var filteredItems []list.Item
+	for _, issue := range filtered {
+		item := IssueItem{
+			Issue:      issue,
+			GraphScore: m.analysis.GetPageRankScore(issue.ID),
+			Impact:     m.analysis.GetCriticalPathScore(issue.ID),
+			DiffStatus: m.getDiffStatus(issue.ID),
+			RepoPrefix: ExtractRepoPrefix(issue.ID),
+		}
+		item.TriageScore = m.triageScores[issue.ID]
+		if reasons, exists := m.triageReasons[issue.ID]; exists {
+			item.TriageReason = reasons.Primary
+			item.TriageReasons = reasons.All
+		}
+		item.IsQuickWin = m.quickWinSet[issue.ID]
+		item.IsBlocker = m.blockerSet[issue.ID]
+		item.UnblocksCount = len(m.unblocksMap[issue.ID])
+		filteredItems = append(filteredItems, item)
+	}
+
+	m.list.SetItems(filteredItems)
+	m.updateSemanticIDs(filteredItems)
+	m.currentFilter = "bql:" + queryStr
+
+	m.board.SetIssues(filtered)
+	filterIns := m.analysis.GenerateInsights(len(filtered))
+	m.graphView.SetIssues(filtered, &filterIns)
+
+	if len(filteredItems) > 0 && m.list.Index() >= len(filteredItems) {
+		m.list.Select(0)
+	}
+	m.updateViewportContent()
 }
 
 // GetTypeIconMD returns the emoji icon for an issue type (for markdown)

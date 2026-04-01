@@ -19,5 +19,6 @@ type Executor interface {
 // ExecuteOpts provides context needed by the executor beyond the issue list.
 type ExecuteOpts struct {
 	// IssueMap enables dependency lookups for blocked field and EXPAND.
-	IssueMap map[string]model.Issue
+	// Uses pointer values to match bt's Model.issueMap type.
+	IssueMap map[string]*model.Issue
 }

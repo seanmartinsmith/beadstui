@@ -256,12 +256,12 @@ func fieldValue(issue model.Issue, field string) any {
 }
 
 // isIssueBlocked checks if an issue has open blocking dependencies.
-func isIssueBlocked(issue model.Issue, issueMap map[string]model.Issue) bool {
+func isIssueBlocked(issue model.Issue, issueMap map[string]*model.Issue) bool {
 	for _, dep := range issue.Dependencies {
 		if dep == nil || !dep.Type.IsBlocking() {
 			continue
 		}
-		if blocker, exists := issueMap[dep.DependsOnID]; exists {
+		if blocker, exists := issueMap[dep.DependsOnID]; exists && blocker != nil {
 			if !blocker.Status.IsClosed() && !blocker.Status.IsTombstone() {
 				return true
 			}
@@ -456,6 +456,9 @@ func expandIssues(matched []model.Issue, expand *ExpandClause, opts ExecuteOpts)
 	if expand.Type == ExpandDown || expand.Type == ExpandAll {
 		reverseDeps = make(map[string][]string)
 		for id, issue := range opts.IssueMap {
+			if issue == nil {
+				continue
+			}
 			for _, dep := range issue.Dependencies {
 				if dep != nil && dep.Type.IsBlocking() {
 					reverseDeps[dep.DependsOnID] = append(reverseDeps[dep.DependsOnID], id)
@@ -478,20 +481,20 @@ func expandIssues(matched []model.Issue, expand *ExpandClause, opts ExecuteOpts)
 	for depth := 0; depth < maxDepth && len(queue) > 0; depth++ {
 		var nextQueue []string
 		for _, id := range queue {
-			issue, ok := opts.IssueMap[id]
-			if !ok {
+			issuep, ok := opts.IssueMap[id]
+			if !ok || issuep == nil {
 				continue
 			}
 
 			// Expand UP: follow dependencies (what this issue depends on)
 			if expand.Type == ExpandUp || expand.Type == ExpandAll {
-				for _, dep := range issue.Dependencies {
+				for _, dep := range issuep.Dependencies {
 					if dep == nil || !dep.Type.IsBlocking() {
 						continue
 					}
 					if !seen[dep.DependsOnID] {
-						if related, ok := opts.IssueMap[dep.DependsOnID]; ok {
-							matched = append(matched, related)
+						if related, ok := opts.IssueMap[dep.DependsOnID]; ok && related != nil {
+							matched = append(matched, *related)
 							seen[dep.DependsOnID] = true
 							nextQueue = append(nextQueue, dep.DependsOnID)
 						}
@@ -503,8 +506,8 @@ func expandIssues(matched []model.Issue, expand *ExpandClause, opts ExecuteOpts)
 			if expand.Type == ExpandDown || expand.Type == ExpandAll {
 				for _, depID := range reverseDeps[id] {
 					if !seen[depID] {
-						if related, ok := opts.IssueMap[depID]; ok {
-							matched = append(matched, related)
+						if related, ok := opts.IssueMap[depID]; ok && related != nil {
+							matched = append(matched, *related)
 							seen[depID] = true
 							nextQueue = append(nextQueue, depID)
 						}

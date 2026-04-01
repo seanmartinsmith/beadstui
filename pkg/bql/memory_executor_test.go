@@ -57,9 +57,9 @@ var testIssues = []model.Issue{
 }
 
 func testOpts() ExecuteOpts {
-	m := make(map[string]model.Issue, len(testIssues))
-	for _, issue := range testIssues {
-		m[issue.ID] = issue
+	m := make(map[string]*model.Issue, len(testIssues))
+	for i := range testIssues {
+		m[testIssues[i].ID] = &testIssues[i]
 	}
 	return ExecuteOpts{IssueMap: m}
 }
