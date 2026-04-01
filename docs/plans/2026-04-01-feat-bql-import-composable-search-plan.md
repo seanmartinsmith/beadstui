@@ -1,7 +1,7 @@
 ---
 title: "feat: BQL Import - Composable Structured Search"
 type: feat
-status: active
+status: completed
 date: 2026-04-01
 origin: docs/brainstorms/2026-04-01-bql-import-brainstorm.md
 ---
