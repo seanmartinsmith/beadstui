@@ -279,6 +279,16 @@ Before moving to new feature work, a fresh session should review this ADR's exec
 - **Phase 7**: Normalized \r\n line endings in golden file comparison
 - **Closed**: bt-s3xg, bt-zclt, bt-3ju6, bt-7y06, bt-ri5b, bt-dwbl, bt-kmxe, bt-mo7r (8 issues)
 
+### 2026-04-01 - Session 16: BQL composable search
+- **New package**: `pkg/bql/` - BQL parser vendored from zjrosen/perles (MIT), adapted for bt
+- **Parser layer**: lexer, parser, AST, tokens, validator, SQL builder (~1,500 LOC from perles)
+- **MemoryExecutor**: in-memory BQL evaluation against model.Issue - comparisons, contains, IN/NOT IN, label arrays, date literals, priority shorthand, boolean logic, blocked computed field, ORDER BY, EXPAND dependency traversal (522 LOC, 28 tests)
+- **TUI integration**: `:` keybind opens BQL modal from any view, dedicated `applyBQL()` path (parallel to `applyRecipe()`), workspace pre-filter, Dolt refresh re-application, footer badge
+- **Architecture decisions**: BQL as additive (coexists with `/` fuzzy/semantic), dedicated filter path for set-level operations, `Executor` interface designed for future SQL/Dolt executor (global beads)
+- **Competitive context**: perles has BQL but no CRUD/multi-project; bt now has BQL + workspace mode + Dolt lifecycle
+- **Docs**: brainstorm at `docs/brainstorms/2026-04-01-bql-import-brainstorm.md`, plan at `docs/plans/2026-04-01-feat-bql-import-composable-search-plan.md`
+- **Total**: 22 files, ~3,950 lines, 27 packages pass, 0 failures
+
 ### 2026-03-16 - Session 14: Dolt lifecycle adaptation (bt-07jp, bt-tebr)
 - **New module**: `internal/doltctl/` - server detection, startup via `bd dolt start`, PID-based ownership shutdown
 - **Port discovery**: added env var overrides (BEADS_DOLT_SERVER_PORT > BT_DOLT_PORT) to ReadDoltConfig

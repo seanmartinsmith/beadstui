@@ -123,16 +123,19 @@ func (m Model) handleBoardKeys(msg tea.KeyMsg) Model {
 
 	// Global filter keys (bv-naov) - consistent with list view
 	case "o":
+		m.activeBQLExpr = nil
 		m.currentFilter = "open"
 		m.applyFilter()
 		m.statusMsg = "Filter: Open issues"
 		m.statusIsError = false
 	case "c":
+		m.activeBQLExpr = nil
 		m.currentFilter = "closed"
 		m.applyFilter()
 		m.statusMsg = "Filter: Closed issues"
 		m.statusIsError = false
 	case "r":
+		m.activeBQLExpr = nil
 		m.currentFilter = "ready"
 		m.applyFilter()
 		m.statusMsg = "Filter: Ready (no blockers)"
@@ -877,15 +880,19 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 			m.list.Select(newIdx)
 		}
 	case "o":
+		m.activeBQLExpr = nil
 		m.currentFilter = "open"
 		m.applyFilter()
 	case "c":
+		m.activeBQLExpr = nil
 		m.currentFilter = "closed"
 		m.applyFilter()
 	case "r":
+		m.activeBQLExpr = nil
 		m.currentFilter = "ready"
 		m.applyFilter()
 	case "a":
+		m.activeBQLExpr = nil
 		m.currentFilter = "all"
 		m.applyFilter()
 	case "t":

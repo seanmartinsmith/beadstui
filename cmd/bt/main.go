@@ -26,6 +26,7 @@ import (
 	"github.com/seanmartinsmith/beadstui/internal/datasource"
 	"github.com/seanmartinsmith/beadstui/internal/doltctl"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
+	"github.com/seanmartinsmith/beadstui/pkg/bql"
 	"github.com/seanmartinsmith/beadstui/pkg/baseline"
 	"github.com/seanmartinsmith/beadstui/pkg/export"
 	"github.com/seanmartinsmith/beadstui/pkg/hooks"
@@ -98,6 +99,8 @@ func main() {
 	alertType := flag.String("alert-type", "", "Filter robot alerts by alert type (e.g., stale_issue)")
 	alertLabel := flag.String("alert-label", "", "Filter robot alerts by label match")
 	recipeName := flag.StringP("recipe", "r", "", "Apply named recipe (e.g., triage, actionable, high-impact)")
+	bqlQuery := flag.String("bql", "", "BQL query to pre-filter issues (e.g., 'status:open priority<P2')")
+	robotBQL := flag.Bool("robot-bql", false, "Output BQL-filtered issues as JSON for AI agents (use with --bql)")
 	semanticQuery := flag.String("search", "", "Semantic search query (vector-based; builds/updates index on first run)")
 	robotSearch := flag.Bool("robot-search", false, "Output semantic search results as JSON for AI agents (use with --search)")
 	searchLimit := flag.Int("search-limit", 10, "Max results for --search/--robot-search")
@@ -561,6 +564,39 @@ func main() {
 	// Apply --repo filter if specified
 	if *repoFilter != "" {
 		issues = filterByRepo(issues, *repoFilter)
+	}
+
+	// Apply --bql filter if specified
+	if *robotBQL && *bqlQuery == "" {
+		fmt.Fprintln(os.Stderr, "Error: --robot-bql requires --bql \"query\"")
+		os.Exit(1)
+	}
+	if *bqlQuery != "" {
+		parsed, err := bql.Parse(*bqlQuery)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "BQL parse error: %v\n", err)
+			os.Exit(1)
+		}
+		if err := bql.Validate(parsed); err != nil {
+			fmt.Fprintf(os.Stderr, "BQL validation error: %v\n", err)
+			os.Exit(1)
+		}
+		issueMap := make(map[string]*model.Issue, len(issues))
+		for i := range issues {
+			issueMap[issues[i].ID] = &issues[i]
+		}
+		executor := bql.NewMemoryExecutor()
+		issues = executor.Execute(parsed, issues, bql.ExecuteOpts{IssueMap: issueMap})
+
+		if *robotBQL {
+			enc := json.NewEncoder(os.Stdout)
+			enc.SetIndent("", "  ")
+			if err := enc.Encode(issues); err != nil {
+				fmt.Fprintf(os.Stderr, "Error encoding robot-bql: %v\n", err)
+				os.Exit(1)
+			}
+			os.Exit(0)
+		}
 	}
 
 	issuesForSearch := issues
