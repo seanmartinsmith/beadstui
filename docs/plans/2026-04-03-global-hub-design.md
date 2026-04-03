@@ -193,6 +193,139 @@ These claims in the design doc need revision:
 
 4. **"Cross-database dependencies won't be visible"** (Non-Goals) - **Correct for now**, but worth noting: if global mode builds a `UNION ALL` across `db1.dependencies` and `db2.dependencies`, cross-project blockers become queryable. The dependency graph renderer in bt already handles cross-issue refs. This could be a natural extension, not a hard limitation.
 
+## Migration Guide: Per-Project Servers to Shared Server
+
+### Current State (as of 2026-04-03)
+
+22 repos with beads, 14 running individual Dolt servers on separate ports. None on the shared server. This means 14 separate `dolt` processes consuming memory and ports.
+
+### Database Name Collisions
+
+These must be resolved BEFORE migration:
+- `lil_sto` is used by both `Areas/lil world` AND `Areas/lil_sto` - one needs renaming
+
+### Migration Steps Per Repo
+
+**This is a human-in-the-loop process.** Each repo is migrated individually. Do a test repo first (pick the least critical one), verify it works end-to-end, then do the rest.
+
+For each repo:
+
+```
+1. EXPORT: bd export -o /tmp/<repo>-backup.jsonl
+   - Creates a portable backup of all issues + memories
+   - Verify: wc -l /tmp/<repo>-backup.jsonl (should match bd list --status=all count)
+
+2. STOP OLD SERVER: kill $(cat .beads/dolt-server.pid)
+   - Stops the per-project Dolt server
+   - Verify: curl localhost:<port> fails
+
+3. UPDATE METADATA: edit .beads/metadata.json
+   - Set dolt_mode: "server"
+   - Set dolt_server_host: "127.0.0.1"
+   - Set dolt_server_port: 3308
+   - Keep dolt_database as-is (unless resolving a collision)
+   - Keep project_id as-is
+
+4. ADD SHARED SERVER CONFIG: edit .beads/config.yaml
+   - Add: dolt.shared-server: "true"
+
+5. VERIFY CONNECTION: bd list
+   - Should connect to shared server on port 3308
+   - First run creates the database on the shared server
+   - If empty (new database), proceed to step 6
+   - If issues appear (database already existed), verify they're correct
+
+6. IMPORT (if needed): bd import /tmp/<repo>-backup.jsonl
+   - Only needed if the database was newly created on the shared server
+   - Verify: bd list --status=all count matches the backup
+
+7. CLEANUP: remove old per-project dolt data (optional, after validation)
+   - rm -rf .beads/dolt/ .beads/embeddeddolt/
+   - rm .beads/dolt-server.pid .beads/dolt-server.port .beads/dolt-server.log .beads/dolt-server.lock
+   - Keep .beads/metadata.json, config.yaml, and everything else
+```
+
+### Rollback
+
+If something goes wrong:
+- The JSONL backup from step 1 is the safety net
+- Restore original metadata.json (revert dolt_mode, port changes)
+- Restart per-project server: `bd dolt start`
+- Re-import from backup if data was lost
+
+### Future: `bt setup-global` Slash Command
+
+The manual migration above should eventually become an interactive slash command in bt:
+- Interview process: "which repos do you want to include?"
+- Checks each repo's current state
+- Detects and resolves database name collisions
+- Walks through export/migrate/verify per repo with human approval at each step
+- LLM-guided, not fully automated - the human confirms each destructive action
+
+This is a separate feature (not part of the data layer plan) but should be tracked as a bead.
+
+**Sketch of what the slash command needs to handle:**
+
+- Detect shared server state: is it running? Does `~/.beads/shared-server/dolt-server.port` exist?
+- If not running: guide user through `bd init --shared-server` in any project to bootstrap it
+- Enumerate local repos: find all `.beads/metadata.json` files under home directory
+- For each repo, determine current state: embedded vs per-project server vs already on shared server
+- Detect database name collisions (multiple repos with same `dolt_database` value)
+- Present the collision and ask user to pick new names
+- For each repo the user selects:
+  - Confirm: "migrate <repo> (database: <name>, <N> issues)? [y/n]"
+  - Run `bd export` to create safety backup
+  - Update `metadata.json` with shared server connection (port 3308, dolt_mode: server)
+  - Add `dolt.shared-server: "true"` to `config.yaml`
+  - Verify `bd list` connects and returns data
+  - If empty (new database on shared server): run `bd import` from the backup
+  - Offer to stop the old per-project server
+- After all selected repos are migrated: verify with `SHOW DATABASES` on shared server
+- Print summary of what was migrated and any repos that were skipped
+
+**Beads commands the slash command uses:**
+- `bd export -o <path>` - backup before migration
+- `bd import <path>` - restore into shared server database (upsert semantics, handles memories)
+- `bd list --status=all --json` - verify issue counts before/after
+- `bd config get issue_prefix` - read current prefix
+- `bd dolt start` - NOT used for shared server (it starts per-project servers only)
+- Shared server lifecycle is managed by any `bd` command when `dolt.shared-server: true` is in config
+
+**Beads metadata fields that matter:**
+- `dolt_mode`: must be `"server"` (not `"embedded"`)
+- `dolt_server_host`: `"127.0.0.1"` for shared server
+- `dolt_server_port`: `3308` (shared server default, vs per-project dynamic ports)
+- `dolt_database`: the database name on the shared server (must be unique across all repos)
+- `project_id`: keep as-is (identity verification)
+- Config yaml `dolt.shared-server`: `"true"` signals beads to use the shared server lifecycle
+
+### Repos Inventory (for reference)
+
+| Database | Port | Location | Notes |
+|----------|------|----------|-------|
+| `bv` | 14710 | System/tools/bt | Unusual db name (inherited) |
+| `beads` | 29256 | System/tools/beads | |
+| `tpane` | 13953 | System/tools/tpane | |
+| `obs` | 13625 | .obs | Hub repo |
+| `cass` | 34321 | System/tools/cass | |
+| `marketplace` | 13846 | System/marketplace | |
+| `lil-sto` | 34348 | Projects/lil-sto | COLLISION: hyphen vs underscore |
+| `lil_sto` | 25374 | Areas/lil world | COLLISION: same name as lil_sto |
+| `lil_sto` | 26452 | Areas/lil_sto | COLLISION: same name as lil world |
+| `beads_dotfiles` | 13887 | .files | |
+| `beads_portfolio` | 34337 | Projects/portfolio | |
+| `prod` | 26472 | .prod | |
+| `sms` | 26491 | .sms | |
+| `updoots` | 13727 | System/tools/updoots | |
+| (no db name) | 22437 | System/tools/coding_agent_session_search | Needs db name set |
+| (no db name) | 22482 | System/tools/cass_memory_system | Needs db name set |
+| (no db name) | none | Projects/playground | Dormant |
+| (no db name) | none | Projects/widgets | Dormant |
+| (no db name) | none | System/tools/ohmy-dev-browser | Dormant |
+| (no db name) | none | System/tools/slb | Dormant |
+| `cctui` | none | System/tools/cctui | Dormant |
+| `dev_browser` | none | System/tools/dev-browser | Dormant |
+
 ## Non-Goals
 
 - **Back-propagation** - editing issues in global mode writes to the correct project database (which Dolt handles naturally via `USE database` before the write). No special handling needed.
