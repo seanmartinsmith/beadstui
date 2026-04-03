@@ -212,7 +212,7 @@ Before moving to new feature work, a fresh session should review this ADR's exec
 - **P2 findings**: 3 stale error message strings reference old `br` CLI name (assertions correct, messages stale)
 - **P3 findings**: ~10 comment references to historical `bv-XXXX` issue IDs (purely cosmetic)
 - **Key conclusion**: bv->bt rename was thorough. No dead-code tests, no tests for removed features, no structural issues. SQLite/JSONL backend tests remain valid (legacy support still active).
-- **Report**: `docs/audits/test-suite-audit.md`
+- **Report**: `docs/audit/test-suite-audit.md`
 
 ### 2026-03-17 - Session 18: Phase 3 investigation + targeted fixes (5 parallel agents)
 - **Robot reload bug**: 5 handlers bypassed --repo/--label/--as-of filters by calling datasource.LoadIssues() instead of rc.issues. Fixed.
