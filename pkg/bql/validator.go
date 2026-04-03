@@ -48,6 +48,19 @@ var ValidTypeValues = map[string]bool{
 	"chore":   true,
 }
 
+// ValidStatusValues are the valid values for the status field.
+var ValidStatusValues = map[string]bool{
+	"open":        true,
+	"in_progress": true,
+	"blocked":     true,
+	"deferred":    true,
+	"pinned":      true,
+	"hooked":      true,
+	"review":      true,
+	"closed":      true,
+	"tombstone":   true,
+}
+
 // ValidPriorityValues are the valid values for the priority field.
 var ValidPriorityValues = map[string]bool{
 	"P0": true, "p0": true,
@@ -196,6 +209,10 @@ func validateValue(field string, fieldType FieldType, value Value) error {
 		case "type":
 			if !ValidTypeValues[value.String] {
 				return fmt.Errorf("invalid value %q for field %q (valid: bug, feature, task, epic, chore)", value.String, field)
+			}
+		case "status":
+			if !ValidStatusValues[strings.ToLower(value.String)] {
+				return fmt.Errorf("invalid value %q for field %q (valid: open, in_progress, blocked, deferred, pinned, hooked, review, closed, tombstone)", value.String, field)
 			}
 		}
 

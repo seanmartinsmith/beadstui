@@ -311,6 +311,77 @@ func TestExecute_NilIssueMap(t *testing.T) {
 	}
 }
 
+func TestExecute_DateEquality(t *testing.T) {
+	// bt-001 was created on 2026-03-01. With date-only comparison,
+	// "created_at = 2026-03-01" should match even though the issue
+	// was created at midnight and the query resolves to midnight.
+	// More importantly, an issue created at 14:30 should also match.
+	issues := []model.Issue{
+		{
+			ID:        "dt-001",
+			Title:     "Morning issue",
+			Status:    model.StatusOpen,
+			CreatedAt: time.Date(2026, 3, 1, 9, 30, 0, 0, time.UTC),
+			UpdatedAt: time.Date(2026, 3, 1, 9, 30, 0, 0, time.UTC),
+		},
+		{
+			ID:        "dt-002",
+			Title:     "Evening issue",
+			Status:    model.StatusOpen,
+			CreatedAt: time.Date(2026, 3, 1, 22, 45, 0, 0, time.UTC),
+			UpdatedAt: time.Date(2026, 3, 1, 22, 45, 0, 0, time.UTC),
+		},
+		{
+			ID:        "dt-003",
+			Title:     "Next day issue",
+			Status:    model.StatusOpen,
+			CreatedAt: time.Date(2026, 3, 2, 0, 0, 0, 0, time.UTC),
+			UpdatedAt: time.Date(2026, 3, 2, 0, 0, 0, 0, time.UTC),
+		},
+	}
+
+	query, err := Parse("created_at = 2026-03-01")
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	e := NewMemoryExecutor()
+	result := e.Execute(query, issues, ExecuteOpts{})
+	if len(result) != 2 {
+		t.Errorf("got %d results, want 2 (both March 1 issues). IDs: %v", len(result), ids(result))
+	}
+}
+
+func TestExecute_ISODateComparison(t *testing.T) {
+	// Test that ISO dates work with comparison operators
+	query, err := Parse("created_at > 2026-02-15")
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	e := NewMemoryExecutor()
+	result := e.Execute(query, testIssues, ExecuteOpts{})
+	// bt-001 (Mar 1), bt-002 (Mar 10), bt-004 (Mar 5) should match; bt-003 (Feb 1) should not
+	if len(result) != 3 {
+		t.Errorf("got %d results, want 3. IDs: %v", len(result), ids(result))
+	}
+}
+
+func TestParse_ISODate(t *testing.T) {
+	query, err := Parse("created_at > 2026-01-15")
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	comp, ok := query.Filter.(*CompareExpr)
+	if !ok {
+		t.Fatal("expected CompareExpr")
+	}
+	if comp.Value.Type != ValueDate {
+		t.Errorf("got value type %d, want ValueDate (%d)", comp.Value.Type, ValueDate)
+	}
+	if comp.Value.String != "2026-01-15" {
+		t.Errorf("got value string %q, want %q", comp.Value.String, "2026-01-15")
+	}
+}
+
 func ids(issues []model.Issue) []string {
 	out := make([]string, len(issues))
 	for i, issue := range issues {

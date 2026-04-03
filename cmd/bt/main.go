@@ -589,9 +589,20 @@ func main() {
 		issues = executor.Execute(parsed, issues, bql.ExecuteOpts{IssueMap: issueMap})
 
 		if *robotBQL {
-			enc := json.NewEncoder(os.Stdout)
-			enc.SetIndent("", "  ")
-			if err := enc.Encode(issues); err != nil {
+			bqlHash := analysis.ComputeDataHash(issues)
+			output := struct {
+				RobotEnvelope
+				Query  string        `json:"query"`
+				Count  int           `json:"count"`
+				Issues []model.Issue `json:"issues"`
+			}{
+				RobotEnvelope: NewRobotEnvelope(bqlHash),
+				Query:         *bqlQuery,
+				Count:         len(issues),
+				Issues:        issues,
+			}
+			enc := newRobotEncoder(os.Stdout)
+			if err := enc.Encode(output); err != nil {
 				fmt.Fprintf(os.Stderr, "Error encoding robot-bql: %v\n", err)
 				os.Exit(1)
 			}

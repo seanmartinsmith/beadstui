@@ -164,7 +164,8 @@ func (l *Lexer) readString(quote byte) string {
 	return str
 }
 
-// readNumber reads a number (including negative numbers and date/time offsets like -7d, -24h, -3m).
+// readNumber reads a number (including negative numbers, date/time offsets like -7d, -24h, -3m,
+// and ISO dates like 2026-01-15).
 func (l *Lexer) readNumber() string {
 	start := l.pos - 1
 	if l.ch == '-' {
@@ -176,6 +177,32 @@ func (l *Lexer) readNumber() string {
 	// Support time offset formats: -7d (days), -24h (hours), -3m (months)
 	if l.ch == 'd' || l.ch == 'D' || l.ch == 'h' || l.ch == 'H' || l.ch == 'm' || l.ch == 'M' {
 		l.readChar()
+		return l.input[start : l.pos-1]
+	}
+	// Support ISO date format: YYYY-MM-DD (e.g., 2026-01-15)
+	if l.ch == '-' && l.pos-start >= 5 { // at least 4 digits read (YYYY)
+		// Peek ahead to check for MM-DD pattern
+		saved := l.pos
+		l.readChar() // consume first -
+		if isDigit(l.ch) {
+			l.readChar()
+			if isDigit(l.ch) {
+				l.readChar()
+				if l.ch == '-' {
+					l.readChar() // consume second -
+					if isDigit(l.ch) {
+						l.readChar()
+						if isDigit(l.ch) {
+							l.readChar()
+							return l.input[start : l.pos-1]
+						}
+					}
+				}
+			}
+		}
+		// Not an ISO date - backtrack
+		l.pos = saved
+		l.ch = l.input[l.pos-1]
 	}
 	return l.input[start : l.pos-1]
 }
