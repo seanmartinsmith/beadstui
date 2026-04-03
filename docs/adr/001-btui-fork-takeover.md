@@ -201,9 +201,18 @@ Before moving to new feature work, a fresh session should review this ADR's exec
 - bt-9x36: Dolt disconnect UX polish
 - README prose rewrite
 - bt-xft1: beads data separation (deferred)
-- 11 pre-existing test failures (Windows path separators, golden files, tutorial tests)
+- E2E export tests panic on Windows (path length overflow) - see bt-79eg audit
 
 ## Changelog
+
+### 2026-04-03 - Session 19: Test suite audit (bt-79eg)
+- **Audit scope**: 268 test files across 27 packages, all passing on Windows
+- **Result**: 249 KEEP, 12 UPDATE (cosmetic), 7 REVIEW (platform-specific), 0 REMOVE, 0 REWRITE
+- **P1 finding**: E2E export tests panic on Windows from path length overflow in copyDirRecursive helper
+- **P2 findings**: 3 stale error message strings reference old `br` CLI name (assertions correct, messages stale)
+- **P3 findings**: ~10 comment references to historical `bv-XXXX` issue IDs (purely cosmetic)
+- **Key conclusion**: bv->bt rename was thorough. No dead-code tests, no tests for removed features, no structural issues. SQLite/JSONL backend tests remain valid (legacy support still active).
+- **Report**: `docs/audits/test-suite-audit.md`
 
 ### 2026-03-17 - Session 18: Phase 3 investigation + targeted fixes (5 parallel agents)
 - **Robot reload bug**: 5 handlers bypassed --repo/--label/--as-of filters by calling datasource.LoadIssues() instead of rc.issues. Fixed.
