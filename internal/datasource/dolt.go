@@ -62,18 +62,10 @@ func (r *DoltReader) LoadIssues() ([]model.Issue, error) {
 
 // LoadIssuesFiltered reads issues matching an optional filter function.
 func (r *DoltReader) LoadIssuesFiltered(filter func(*model.Issue) bool) ([]model.Issue, error) {
-	query := `
-		SELECT
-			id, title, description, status, priority, issue_type,
-			assignee, estimated_minutes, created_at, updated_at,
-			due_at, closed_at, external_ref, compaction_level,
-			compacted_at, compacted_at_commit, original_size,
-			design, acceptance_criteria, notes, source_repo,
-			close_reason
+	query := `SELECT ` + IssuesColumns + `
 		FROM issues
 		WHERE status != 'tombstone'
-		ORDER BY updated_at DESC
-	`
+		ORDER BY updated_at DESC`
 
 	rows, err := r.db.Query(query)
 	if err != nil {

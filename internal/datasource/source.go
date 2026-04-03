@@ -28,6 +28,8 @@ type SourceType string
 const (
 	// SourceTypeDolt is a running Dolt SQL server
 	SourceTypeDolt SourceType = "dolt"
+	// SourceTypeDoltGlobal is a shared Dolt server with multiple databases
+	SourceTypeDoltGlobal SourceType = "dolt_global"
 	// SourceTypeSQLite is a SQLite database (beads.db)
 	SourceTypeSQLite SourceType = "sqlite"
 	// SourceTypeJSONLWorktree is a JSONL file from a git worktree
@@ -48,7 +50,7 @@ const (
 type DataSource struct {
 	// Type identifies the source type
 	Type SourceType `json:"type"`
-	// Path is the absolute path to the source file
+	// Path is the absolute path to the source file (or DSN for Dolt sources)
 	Path string `json:"path"`
 	// Priority determines preference when timestamps are equal (higher = preferred)
 	Priority int `json:"priority"`
@@ -62,6 +64,8 @@ type DataSource struct {
 	IssueCount int `json:"issue_count"`
 	// Size is the file size in bytes
 	Size int64 `json:"size"`
+	// RepoFilter narrows database enumeration in global mode (case-insensitive match)
+	RepoFilter string `json:"repo_filter,omitempty"`
 }
 
 // String returns a human-readable description of the source

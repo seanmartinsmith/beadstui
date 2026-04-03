@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -114,6 +115,7 @@ func main() {
 	profileJSON := flag.Bool("profile-json", false, "Output profile in JSON format (use with --profile-startup)")
 	noHooks := flag.Bool("no-hooks", false, "Skip running hooks during export")
 	workspaceConfig := flag.String("workspace", "", "Load issues from workspace config file (.bt/workspace.yaml)")
+	globalFlag := flag.Bool("global", false, "Show issues from all projects on shared Dolt server")
 	repoFilter := flag.String("repo", "", "Filter issues by repository prefix (e.g., 'api-' or 'api')")
 	saveBaseline := flag.String("save-baseline", "", "Save current metrics as baseline with optional description")
 	baselineInfo := flag.Bool("baseline-info", false, "Show information about the current baseline")
@@ -214,6 +216,16 @@ func main() {
 		flag.PrintDefaults()
 	}
 	flag.Parse()
+
+	// --global flag validation
+	if *globalFlag && *workspaceConfig != "" {
+		fmt.Fprintln(os.Stderr, "Error: --global and --workspace are mutually exclusive")
+		os.Exit(1)
+	}
+	if *globalFlag && *asOf != "" {
+		fmt.Fprintln(os.Stderr, "Error: --global and --as-of are mutually exclusive")
+		os.Exit(1)
+	}
 
 	// CPU profiling support
 	if *cpuProfile != "" {
@@ -515,6 +527,42 @@ func main() {
 		// Workspace config is typically at .bt/workspace.yaml, so project root is two levels up
 		workspaceRoot := filepath.Dir(filepath.Dir(*workspaceConfig))
 		_ = loader.EnsureBTInGitignore(workspaceRoot)
+	} else if *globalFlag {
+		// Load from all databases on shared Dolt server
+		host, port, err := datasource.DiscoverSharedServer()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Global mode error: %v\n", err)
+			os.Exit(1)
+		}
+
+		globalSource := datasource.NewGlobalDataSource(host, port)
+		if *repoFilter != "" {
+			globalSource.RepoFilter = *repoFilter
+		}
+		result, err := datasource.LoadFromSource(globalSource)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Global mode load error: %v\n", err)
+			os.Exit(1)
+		}
+
+		issues = result
+		selectedSource = &globalSource
+		beadsPath = "" // poll-based refresh handles liveness
+
+		// Build workspace info for UI (reuse workspace mode's badge/picker system)
+		var repoPrefixes []string
+		seen := make(map[string]bool)
+		for _, issue := range issues {
+			if issue.SourceRepo != "" && !seen[issue.SourceRepo] {
+				repoPrefixes = append(repoPrefixes, issue.SourceRepo)
+				seen[issue.SourceRepo] = true
+			}
+		}
+		workspaceInfo = &workspace.LoadSummary{
+			TotalRepos:   len(repoPrefixes),
+			TotalIssues:  len(issues),
+			RepoPrefixes: repoPrefixes,
+		}
 	} else {
 		// Load from single repo (original behavior)
 		result, err := datasource.LoadIssuesWithSource("")
@@ -1432,6 +1480,24 @@ func main() {
 			return nil
 		})
 	}
+
+	// Global mode: set up reconnect (verify reachability, no auto-start)
+	if *globalFlag {
+		m.SetProjectName("global")
+		m.SetDoltServer(nil, func(_ string) error {
+			host, port, err := datasource.DiscoverSharedServer()
+			if err != nil {
+				return err
+			}
+			conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", host, port), 2*time.Second)
+			if err != nil {
+				return fmt.Errorf("shared Dolt server unreachable at %s:%d", host, port)
+			}
+			conn.Close()
+			return nil
+		})
+	}
+
 	defer m.Stop() // Clean up file watcher + Dolt server
 
 	// Enable workspace mode if loading from workspace config
