@@ -92,6 +92,30 @@ func TestValidate_InOnBoolField(t *testing.T) {
 	}
 }
 
+func TestValidate_InvalidStatusValue(t *testing.T) {
+	query, err := Parse("status = typo")
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	if err := Validate(query); err == nil {
+		t.Error("expected error for invalid status value 'typo'")
+	}
+}
+
+func TestValidate_ValidStatusValues(t *testing.T) {
+	for _, status := range []string{"open", "in_progress", "closed", "blocked", "deferred", "tombstone"} {
+		t.Run(status, func(t *testing.T) {
+			query, err := Parse("status = " + status)
+			if err != nil {
+				t.Fatalf("Parse: %v", err)
+			}
+			if err := Validate(query); err != nil {
+				t.Errorf("Validate(status = %s): %v", status, err)
+			}
+		})
+	}
+}
+
 func TestValidate_CustomFields(t *testing.T) {
 	customFields := map[string]FieldType{
 		"custom_field": FieldString,

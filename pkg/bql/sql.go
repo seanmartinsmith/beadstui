@@ -15,17 +15,11 @@ import (
 type SQLBuilder struct {
 	query      *Query
 	params     []any
-	readySQL   func(isReady bool) string
 	blockedSQL func(isBlocked bool) string
 }
 
 // SQLBuilderOption configures a SQLBuilder.
 type SQLBuilderOption func(*SQLBuilder)
-
-// WithReadySQL overrides the default ready field SQL generation.
-func WithReadySQL(fn func(isReady bool) string) SQLBuilderOption {
-	return func(b *SQLBuilder) { b.readySQL = fn }
-}
 
 // WithBlockedSQL overrides the default blocked field SQL generation.
 func WithBlockedSQL(fn func(isBlocked bool) string) SQLBuilderOption {

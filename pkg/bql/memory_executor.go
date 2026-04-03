@@ -305,12 +305,14 @@ func compareStrings(a, b string, op TokenType) bool {
 }
 
 // compareTimes compares two times using the given operator.
+// For = and !=, both values are truncated to date-only (midnight) so that
+// queries like "created_at = today" match any time on that day.
 func compareTimes(a, b time.Time, op TokenType) bool {
 	switch op {
 	case TokenEq:
-		return a.Equal(b)
+		return truncateToDate(a).Equal(truncateToDate(b))
 	case TokenNeq:
-		return !a.Equal(b)
+		return !truncateToDate(a).Equal(truncateToDate(b))
 	case TokenLt:
 		return a.Before(b)
 	case TokenGt:
@@ -321,6 +323,12 @@ func compareTimes(a, b time.Time, op TokenType) bool {
 		return !a.Before(b)
 	}
 	return false
+}
+
+// truncateToDate returns t with time components zeroed (midnight in t's location).
+func truncateToDate(t time.Time) time.Time {
+	y, m, d := t.Date()
+	return time.Date(y, m, d, 0, 0, 0, 0, t.Location())
 }
 
 // resolveDateValue converts a BQL date literal to a time.Time.
@@ -352,6 +360,14 @@ func resolveDateValue(dateStr string) (time.Time, error) {
 			return now.Add(-time.Duration(n) * time.Hour), nil
 		case 'm', 'M':
 			return now.AddDate(0, -n, 0), nil
+		}
+	}
+
+	// ISO date format: YYYY-MM-DD
+	if len(dateStr) == 10 && dateStr[4] == '-' && dateStr[7] == '-' {
+		t, err := time.Parse("2006-01-02", dateStr)
+		if err == nil {
+			return t, nil
 		}
 	}
 

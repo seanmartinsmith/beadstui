@@ -36,7 +36,7 @@ This ADR tracks the path from "working fork" to "shippable product."
 The robot API is bt's primary agent interface. Three critical bugs where output skips the standard RobotEnvelope (--robot-search, --robot-bql, --robot-diff). 18 undocumented env vars. Positional args silently ignored.
 
 Scope:
-- [ ] Fix envelope bypass in robot-search, robot-bql, robot-diff
+- [ ] Fix envelope bypass in robot-search, ~~robot-bql~~, robot-diff (robot-bql fixed session 18)
 - [ ] Add positional arg warning/support
 - [ ] Document all 18 missing env vars in --robot-docs env
 - [ ] Consolidate duplicate confidence/agent-count flags
@@ -51,11 +51,11 @@ Scope:
 BQL parser, memory executor, TUI modal, and CLI flags are shipped. Five bugs found in gap analysis. Three features remain.
 
 Bugs:
-- [ ] Add ValidStatusValues to validator (parallel to ValidTypeValues)
-- [ ] Fix date equality (truncate to day, not exact time match)
-- [ ] Add ISO date parsing to lexer
-- [ ] Remove readySQL dead code from sql.go
-- [ ] Fix --robot-bql envelope (overlaps with Stream 1)
+- [x] Add ValidStatusValues to validator (parallel to ValidTypeValues) - session 18
+- [x] Fix date equality (truncate to day, not exact time match) - session 18
+- [x] Add ISO date parsing to lexer - session 18
+- [x] Remove readySQL dead code from sql.go - session 18
+- [x] Fix --robot-bql envelope (overlaps with Stream 1) - session 18
 
 Remaining features:
 - [ ] Syntax highlighting in BQL modal (bt-faaw)

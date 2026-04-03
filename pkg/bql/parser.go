@@ -270,7 +270,7 @@ func (p *Parser) parseValue() (Value, error) {
 	return v, nil
 }
 
-// parseNumberValue parses a number literal (including date/time offsets).
+// parseNumberValue parses a number literal (including date/time offsets and ISO dates).
 func parseNumberValue(literal string) Value {
 	// Check for date/time offset formats (-7d days, -24h hours, -3m months)
 	if len(literal) > 1 {
@@ -278,6 +278,11 @@ func parseNumberValue(literal string) Value {
 		if suffix == 'd' || suffix == 'D' || suffix == 'h' || suffix == 'H' || suffix == 'm' || suffix == 'M' {
 			return Value{Type: ValueDate, Raw: literal, String: literal}
 		}
+	}
+
+	// Check for ISO date format (YYYY-MM-DD, e.g., 2026-01-15)
+	if len(literal) == 10 && literal[4] == '-' && literal[7] == '-' {
+		return Value{Type: ValueDate, Raw: literal, String: literal}
 	}
 
 	// Parse as integer
