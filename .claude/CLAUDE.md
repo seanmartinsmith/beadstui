@@ -7,18 +7,18 @@
 Before doing ANY work in this project, read the active ADR:
 
 ```
-docs/adr/001-btui-fork-takeover.md
+docs/adr/002-stabilize-and-ship.md
 ```
 
-This is the spine document for the fork takeover. It tracks:
+This is the spine document. It tracks:
 - What decisions have been made vs what's still open
-- Which work streams exist and their dependencies
-- What's already been implemented
-- Where the last session left off (check the Changelog at the bottom)
+- Which work streams exist and their status
+- Audit reports that inform each stream
+- Open design decisions that block implementation
 
 **Do not start implementation without checking the ADR.** If the user asks you to do something, orient against the ADR first to understand where it fits.
 
-After completing significant work, update the ADR's Changelog section and any relevant status fields.
+After completing significant work, update `CHANGELOG.md` and any relevant ADR-002 stream statuses.
 
 ## What This Is
 
@@ -55,19 +55,18 @@ Fork of Jeffrey Emanuel's beads_viewer, retargeted to upstream beads (Go/Dolt) i
 - Mark tasks in_progress before starting, completed when done
 
 ### Planning Flow
-1. Check ADR-001 for current state and open questions
-2. Read relevant plan docs before implementing
+1. Check ADR-002 for current state and open questions
+2. Read relevant plan docs and audit reports before implementing
 3. Flag anything that contradicts the ADR or plan - don't silently adapt
 
 ## End-of-Session Protocol
 
 Before ending a session where significant work was done:
 
-1. **Update ADR-001 Changelog** - add a dated entry summarizing what was done
-2. **Update stream statuses** - if a stream's status changed, reflect it in the ADR
+1. **Update CHANGELOG.md** - add a session entry summarizing what was done
+2. **Update ADR-002 stream statuses** - if a stream's status changed, reflect it
 3. **Record new open questions** - anything discovered that needs a decision
-4. **Link new plans** - if a plan doc was created, add it to the Related Plans section
-5. **Update auto-memory** - if project state changed materially, update MEMORY.md
+4. **Update auto-memory** - if project state changed materially, update MEMORY.md
 
 If the session is ending abruptly (context limits, user stopping), at minimum do step 1 - a changelog entry is the bare minimum handoff.
 
