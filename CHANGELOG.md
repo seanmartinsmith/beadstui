@@ -6,6 +6,26 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-03b - BQL bug fixes + global hub planning
+
+**BQL bugs (bt-bjk4)**: Fixed all 5 bugs from gap analysis:
+1. Status enum validation - added `ValidStatusValues` map, catches typos like `status=opne`
+2. `--robot-bql` envelope - now uses `RobotEnvelope` + `robotEncoder` (adds metadata, TOON support)
+3. Dead code removal - removed unused `WithReadySQL` from sql.go
+4. Date equality semantics - `created_at = today` now matches any time on that day (truncates to midnight)
+5. ISO date parsing - `created_at > 2026-01-15` now works in lexer, parser, and executor
+
+Tests added for all fixes. Full suite passes (27 packages, 0 failures).
+
+**Triage**: bt-dx7k reopened (blocked, not in-progress), bt-28g8 closed (audit done), bt-2bns deferred (Charm v2), bt-xft1 closed (resolved by shared server architecture).
+
+**Global hub design verification**: Verified 5 assumptions from the beads session's design doc against actual codebase. Updated open questions with findings. Key correction: poll system needs real refactoring, not just a query swap.
+
+**Global hub data layer plan**: `docs/plans/2026-04-03-feat-global-hub-data-layer-plan.md` - 4-phase implementation plan for GlobalDoltReader. Batch N+1 queries into 3 UNION ALL, single aggregated MAX for poll, --global flag, workspace UI reuse.
+
+**Beads closed**: bt-bjk4 (BQL bugs), bt-28g8 (keybinding audit), bt-xft1 (data separation)
+**ADR-002 updated**: Stream 2 bugs all checked off, Stream 1 robot-bql checked off
+
 ## 2026-04-03 - Parallel audit swarm
 
 Burned expiring weekly credits on 5 parallel research agents. All read-only, no code changes.
