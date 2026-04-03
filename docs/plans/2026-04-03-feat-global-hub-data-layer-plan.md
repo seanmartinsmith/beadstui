@@ -13,7 +13,7 @@ bead: bt-6wbd
 
 Build a `GlobalDoltReader` that connects to beads' shared Dolt server, enumerates all project databases, and loads issues from all of them via `UNION ALL` queries with `database.table` qualified names. Adapt the poll-based refresh system to detect changes across multiple databases. Populate `Issue.SourceRepo` from the database name.
 
-This is data layer only - pure Go, no Charm/Bubble Tea dependency, framework-agnostic. It will survive the Charm v2 migration untouched.
+Phases 1-3 are data layer only - pure Go, no Charm/Bubble Tea dependency, framework-agnostic. They will survive the Charm v2 migration untouched. Phase 4 has two parts: 4a-4b are pure CLI/flag work (no Charm dependency), 4c-4d wire into the Bubble Tea UI model via `EnableWorkspaceMode` and will need review during the Charm v2 migration (bt-zta9).
 
 ## Problem Statement
 
@@ -74,6 +74,8 @@ pkg/ui/background_worker.go          (MODIFY)
 |------|--------|-------------|
 | `internal/datasource/global_dolt.go` | **CREATE** | GlobalDoltReader struct, all methods |
 | `internal/datasource/global_dolt_test.go` | **CREATE** | Unit tests for enumeration, query building, SourceRepo population |
+| `internal/datasource/columns.go` | **CREATE** | Shared `IssuesColumns` constant used by both DoltReader and GlobalDoltReader |
+| `internal/datasource/dolt.go` | MODIFY | Replace inline column list with `IssuesColumns` reference |
 | `internal/datasource/source.go` | MODIFY | Add `SourceTypeDoltGlobal` constant (priority 120, above Dolt) |
 | `internal/datasource/load.go` | MODIFY | Add `SourceTypeDoltGlobal` case in `LoadFromSource()` |
 | `pkg/ui/background_worker.go` | MODIFY | Add `globalDoltPollOnce()`, dispatch in `startDoltPollLoop()` |
@@ -116,25 +118,37 @@ type GlobalDoltReader struct {
   ```
   (Single query instead of N validation queries)
 - If zero valid databases: return error `"no beads databases found on shared server"`
-- Log discovered databases at slog.Info level
+- Log discovered databases at slog.Info level: `"global mode: discovered N databases [db1, db2, ...] - restart bt to pick up new projects"`
+- Print to stderr on startup (not just slog): `"global mode: N databases (db1, db2, db3, ...)"` so the user sees what's loaded even without debug logging
 
-**1c. UNION ALL query builder**
+**1c. Shared column list + UNION ALL query builder**
+
+First, extract the column list from `dolt.go:65-72` into a shared constant in `internal/datasource/columns.go`:
+```go
+// IssuesColumns is the canonical column list for the issues table.
+// Used by both DoltReader and GlobalDoltReader. One place to update
+// when beads adds columns upstream.
+const IssuesColumns = `id, title, description, status, priority, issue_type,
+    assignee, estimated_minutes, created_at, updated_at,
+    due_at, closed_at, external_ref, compaction_level,
+    compacted_at, compacted_at_commit, original_size,
+    design, acceptance_criteria, notes, source_repo,
+    close_reason`
+```
+
+Then update `DoltReader.LoadIssuesFiltered` (dolt.go:65) to use `IssuesColumns` instead of its inline column list. This is a prerequisite - do it first and verify tests still pass before creating GlobalDoltReader.
 
 `buildIssuesQuery(databases []string) -> string`
 - For each database, generate:
   ```sql
-  SELECT id, title, description, status, priority, issue_type, assignee,
-         created_at, updated_at, due_at, closed_at, external_ref,
-         source_repo, compaction_level, original_size, design, notes,
-         close_reason, closed_by, wisps, molecules,
-         '<db_name>' AS _global_source
+  SELECT <IssuesColumns>, '<db_name>' AS _global_source
   FROM `<db_name>`.issues
   WHERE status != 'tombstone'
   ```
 - Join parts with `UNION ALL`
 - Append `ORDER BY updated_at DESC`
 - The `_global_source` column carries the database name alongside whatever `source_repo` may contain
-- Column list matches `dolt.go:65-76` exactly (22 columns + 1 synthetic)
+- Both readers use `IssuesColumns` - if beads adds columns, update one constant
 
 **1d. Batch labels/dependencies/comments**
 
@@ -311,7 +325,7 @@ if *globalFlag {
 globalFlag := flag.Bool("global", false, "Show issues from all projects on shared Dolt server")
 ```
 
-**4b. Mutual exclusion** (after `flag.Parse()`):
+**4b. Flag validation and --repo interaction** (after `flag.Parse()`):
 ```go
 if *globalFlag && *workspaceConfig != "" {
     fmt.Fprintln(os.Stderr, "Error: --global and --workspace are mutually exclusive")
@@ -322,6 +336,16 @@ if *globalFlag && *asOfRef != "" {
     os.Exit(1)
 }
 ```
+
+**--repo interaction with --global**: `bt --global --repo bt` narrows the enumerated database list to only include databases matching the `--repo` value. This filtering happens at the database enumeration stage, BEFORE building queries - so only the matching database is queried:
+```go
+if *globalFlag && *repoFilter != "" {
+    // Filter database list before query construction
+    // Matches database name case-insensitively (consistent with existing --repo behavior)
+    globalSource.FilterDatabases(*repoFilter)
+}
+```
+This is more efficient than loading all databases and filtering in Go afterward, since the UNION ALL query only includes the matched database(s). The existing `filterByRepo()` in `cmd/bt/helpers.go:61-63` remains as a fallback for filtering by `Issue.SourceRepo` after loading.
 
 **4c. Loading branch** (between workspace and single-repo, around line 517):
 ```go
@@ -355,12 +379,15 @@ if *globalFlag && *asOfRef != "" {
     workspaceInfo = &workspace.LoadSummary{
         TotalRepos:   len(repoPrefixes),
         TotalIssues:  len(issues),
-        RepoPrefixes: repoPrefixes,
+        RepoPrefixes: repoPrefixes, // verified: field exists at workspace/loader.go:256
     }
 ```
 
-**4d. UI mode activation** (in the TUI setup section, around line 1430):
-The existing `EnableWorkspaceMode` call already fires when `workspaceInfo != nil`. Global mode populates `workspaceInfo`, so the repo picker, badges, and prefilter activate automatically. No UI code changes needed.
+**4d. UI mode activation** (Charm-dependent - review during bt-zta9 migration)
+
+The existing `EnableWorkspaceMode` call (main.go:1427-1435) already fires when `workspaceInfo != nil`. Global mode populates `workspaceInfo`, so the repo picker, badges, and prefilter activate automatically. No new UI code needed, but this wiring point touches `pkg/ui/model_modes.go:37-52` and will need review when Charm v2 migration changes the model struct.
+
+**Note**: Steps 4a-4b are pure CLI work with no Charm dependency. Steps 4c-4d create the coupling between the data layer and the Bubble Tea model. During Charm v2 migration, only 4c-4d need revisiting - the `workspace.LoadSummary` construction is framework-agnostic, but `EnableWorkspaceMode` and `SetDoltServer` are Charm model methods.
 
 **Success criteria**:
 - [ ] `--global` flag recognized and documented in `--help`
@@ -386,7 +413,7 @@ The existing `EnableWorkspaceMode` call already fires when `workspaceInfo != nil
 ## Known Limitations (Phase 1)
 
 1. **No auto-start for shared server** - user must start it manually or via `bd dolt start --shared`
-2. **Database list is static** - discovered at startup, new projects require restart
+2. **Database list is static** - discovered at startup, printed to stderr. New projects added to the shared server require restarting bt to appear.
 3. **ID collisions undetected** - two databases with overlapping prefixes silently overwrites in issueMap
 4. **Full reload on any change** - one edit in one project reloads all databases. Acceptable at 10 DBs, not at 100.
 5. **No write support** - global mode is read-only. Writing back requires knowing which project's `bd` to invoke.
