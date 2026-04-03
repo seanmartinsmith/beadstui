@@ -70,3 +70,6 @@ target-*/
 .dolt/
 *.db
 _tmp/
+
+# Beads / Dolt files (added by bd init)
+.beads-credential-key
