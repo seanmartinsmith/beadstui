@@ -103,7 +103,7 @@ type GlobalDoltReader struct {
 - Env var override: `BT_GLOBAL_DOLT_PORT` (parallel to `BT_DOLT_PORT`)
 - Default host: `127.0.0.1`, user: `root`
 - DSN: `` root@tcp(127.0.0.1:<port>)/?parseTime=true&timeout=2s `` (no database in path)
-- If port file doesn't exist: return clear error `"shared Dolt server not found at ~/.beads/shared-server/ - start it with 'bd dolt start --shared'"`
+- If port file doesn't exist: return clear error `"shared Dolt server not running - ensure at least one project is configured with 'bd init --shared-server'"`
 
 **1b. Database enumeration and validation**
 
@@ -259,6 +259,11 @@ func (w *BackgroundWorker) globalDoltPollOnce(lastModified *time.Time, firstPoll
         return err
     }
     
+    // NULL timestamp (all databases empty) scans as zero time in Go - skip comparison
+    if modTime.IsZero() {
+        return nil
+    }
+    
     // Same change detection logic as doltPollOnce
     if *firstPoll {
         *lastModified = modTime
@@ -402,7 +407,7 @@ The existing `EnableWorkspaceMode` call (main.go:1427-1435) already fires when `
 
 | Scenario | Behavior |
 |----------|----------|
-| Shared server not running | Exit with: `"shared Dolt server not found at ~/.beads/shared-server/ - start it with 'bd dolt start --shared'"` |
+| Shared server not running | Exit with: `"shared Dolt server not running - ensure at least one project is configured with 'bd init --shared-server'"` |
 | Port file exists but server unreachable | Exit with: `"shared Dolt server at 127.0.0.1:<port> is not responding"` |
 | Zero valid beads databases | Exit with: `"no beads databases found on shared server"` |
 | Some databases have schema issues | Skip broken DBs, log `slog.Warn`, continue with healthy DBs |
@@ -413,7 +418,7 @@ The existing `EnableWorkspaceMode` call (main.go:1427-1435) already fires when `
 
 ## Known Limitations (Phase 1)
 
-1. **No auto-start for shared server** - user must start it manually or via `bd dolt start --shared`
+1. **No auto-start for shared server** - shared server starts automatically when a `bd` command runs in a project configured with `bd init --shared-server`. bt does not start it.
 2. **Database list is static** - discovered at startup, printed to stderr. New projects added to the shared server require restarting bt to appear.
 3. **ID collisions undetected** - two databases with overlapping prefixes silently overwrites in issueMap
 4. **Full reload on any change** - one edit in one project reloads all databases. Acceptable at 10 DBs, not at 100.
