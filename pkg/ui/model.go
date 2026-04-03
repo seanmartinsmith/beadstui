@@ -490,6 +490,9 @@ type Model struct {
 	isSprintView   bool
 	sprintViewText string
 
+	// Project identity
+	projectName string // Display name for the current project (directory basename)
+
 	// AGENTS.md integration (bv-i8dk)
 	showAgentPrompt  bool
 	agentPromptModal AgentPromptModal

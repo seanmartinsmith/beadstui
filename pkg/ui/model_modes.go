@@ -10,6 +10,11 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
+// SetProjectName sets the display name for the current project (shown in footer).
+func (m *Model) SetProjectName(name string) {
+	m.projectName = name
+}
+
 // SetFilter sets the current filter and applies it (exposed for testing)
 func (m *Model) SetFilter(f string) {
 	m.currentFilter = f

@@ -1405,6 +1405,12 @@ func main() {
 
 	// Initial Model with live reload support
 	m := ui.NewModel(issues, activeRecipe, beadsPath, selectedSource)
+
+	// Set project name for footer display (directory basename)
+	if beadsDir, err := loader.GetBeadsDir(""); err == nil {
+		m.SetProjectName(filepath.Base(filepath.Dir(beadsDir)))
+	}
+
 	if serverState != nil {
 		m.SetDoltServer(serverState, func(beadsDir string) error {
 			newState, err := doltctl.EnsureServer(beadsDir, exec.LookPath)

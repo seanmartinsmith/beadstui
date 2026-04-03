@@ -116,6 +116,15 @@ func (m *Model) renderFooter() string {
 		Padding(0, 1).
 		Render(fmt.Sprintf("%s %s", filterIcon, filterTxt))
 
+	// Project name badge - at-a-glance workspace identity
+	projectBadge := ""
+	if m.projectName != "" && !m.workspaceMode {
+		projectBadge = lipgloss.NewStyle().
+			Foreground(ColorSecondary).
+			Padding(0, 1).
+			Render("~ " + m.projectName)
+	}
+
 	// Search mode badge when filtering
 	searchBadge := ""
 	if m.list.FilterState() != list.Unfiltered {
@@ -600,6 +609,9 @@ func (m *Model) renderFooter() string {
 	// ASSEMBLE FOOTER with proper spacing
 	// ─────────────────────────────────────────────────────────────────────────
 	leftWidth := lipgloss.Width(filterBadge) + lipgloss.Width(labelHint) + lipgloss.Width(statsSection)
+	if projectBadge != "" {
+		leftWidth += lipgloss.Width(projectBadge) + 1
+	}
 	if phase2Section != "" {
 		leftWidth += lipgloss.Width(phase2Section) + 1
 	}
@@ -647,6 +659,9 @@ func (m *Model) renderFooter() string {
 	// Build the footer
 	var parts []string
 	parts = append(parts, filterBadge)
+	if projectBadge != "" {
+		parts = append(parts, projectBadge)
+	}
 	if searchBadge != "" {
 		parts = append(parts, searchBadge)
 	}
