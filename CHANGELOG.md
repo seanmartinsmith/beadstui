@@ -1,12 +1,12 @@
 # Changelog
 
-Session-indexed development log for beadstui. Each entry covers one Claude Code session's work.
+Development log for beadstui. Each entry covers one Claude Code session's work, keyed by date.
 
 For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
-## Session 17 (2026-04-03) - Parallel audit swarm
+## 2026-04-03 - Parallel audit swarm
 
 Burned expiring weekly credits on 5 parallel research agents. All read-only, no code changes.
 
@@ -21,7 +21,7 @@ Burned expiring weekly credits on 5 parallel research agents. All read-only, no 
 **Beads created**: bt-0cht (P1, robot-mode fixes), bt-5dvl (P2, test fixes), bt-bjk4 (P2, BQL bugs), bt-iuqy (P2, README review)
 **ADR-001 closed out**, ADR-002 created as new project spine. Changelog extracted to this file.
 
-## Session 16 (2026-04-01) - BQL composable search
+## 2026-04-01 - BQL composable search
 
 New package `pkg/bql/` - BQL parser vendored from zjrosen/perles (MIT), adapted for bt.
 
@@ -33,7 +33,7 @@ New package `pkg/bql/` - BQL parser vendored from zjrosen/perles (MIT), adapted 
 
 22 files, ~3,950 lines, 27 packages pass, 0 failures.
 
-## Session 15 (2026-03-16) - Cross-platform test suite fixes
+## 2026-03-16b - Cross-platform test suite fixes
 
 39 failing Windows tests -> 0 failures across all 26 packages.
 
@@ -48,7 +48,7 @@ New package `pkg/bql/` - BQL parser vendored from zjrosen/perles (MIT), adapted 
 
 **Closed**: bt-s3xg, bt-zclt, bt-3ju6, bt-7y06, bt-ri5b, bt-dwbl, bt-kmxe, bt-mo7r (8 issues)
 
-## Session 14 (2026-03-16) - Dolt lifecycle adaptation
+## 2026-03-16a - Dolt lifecycle adaptation
 
 New module `internal/doltctl/` for Dolt server management.
 
@@ -61,7 +61,7 @@ New module `internal/doltctl/` for Dolt server management.
 
 11 doltctl tests + 6 metadata tests. **Closed**: bt-07jp (P1), bt-tebr (P2, subsumed)
 
-## Session 13 (2026-03-12) - Brainstorm + audit planning
+## 2026-03-12 - Brainstorm + audit planning
 
 No code changes. Post-takeover roadmap brainstorm + codebase audit design.
 
@@ -71,13 +71,13 @@ No code changes. Post-takeover roadmap brainstorm + codebase audit design.
 - Created 8 dogfood beads from TUI usage
 - Docs: `docs/brainstorms/2026-03-12-post-takeover-roadmap.md`, `docs/plans/2026-03-12-codebase-audit-plan.md`
 
-## Session 12 (2026-03-11) - Dolt freshness + responsive help
+## 2026-03-11b - Dolt freshness + responsive help
 
 - **bt-3ynd**: Fixed false STALE indicator - freshness tracks last successful poll, not snapshot build time
 - **bt-aog1**: Responsive help overlay - 4x2 grid (wide), 2x4 (medium), single column (narrow)
 - **bt-xavk**: Created help system redesign plan (docs/plans/help-system-redesign.md)
 
-## Session 11 (2026-03-11) - Dogfood polish
+## 2026-03-11a - Dogfood polish
 
 - Absolute timestamps in details pane + expanded card
 - Priority shows P0-P4 text next to icon
@@ -86,22 +86,22 @@ No code changes. Post-takeover roadmap brainstorm + codebase audit design.
 - Board: auto-hide empty columns on card expand
 - Shortcut audit: found 22 undocumented keys
 
-## Session 10 (2026-03-07) - Beads migration
+## 2026-03-07 - Beads migration
 
 Renamed issue prefix bv->bt (553 issues). Set beads.role=maintainer. Local folder renamed. Memory migrated.
 
-## Session 9 (2026-03-05) - ADR review cleanup
+## 2026-03-05c - ADR review cleanup
 
 Fixed 14 stale `bv` CLI refs in AGENTS.md. Fixed insights detail panel viewport off-by-one.
 
-## Session 8 (2026-03-05) - Titled panels
+## 2026-03-05b - Titled panels
 
 Converted insights, board, and help overlay to RenderTitledPanel. Added BorderColor/TitleColor overrides. Board cards use RoundedBorder + border-only selection.
 
-## Session 7 (2026-03-05) - Tomorrow Night theme
+## 2026-03-05a - Tomorrow Night theme
 
 Visual overhaul: Tomorrow Night + matcha-dark-sea teal. Theme config system (embedded defaults, layered loading). TitledPanel helper. Swapped all Color* vars. 18 new tests.
 
-## Sessions 1-6 (2026-02-25 to 2026-03-04) - Fork takeover
+## 2026-02-25 to 2026-03-04 - Fork takeover
 
 See [ADR-001](docs/adr/001-btui-fork-takeover.md) for detailed session-by-session changelog of the fork takeover work (streams 1-4: Dolt verification, rename, data migration, spring cleaning).
