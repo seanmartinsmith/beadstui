@@ -204,46 +204,50 @@ These claims in the design doc need revision:
 These must be resolved BEFORE migration:
 - `lil_sto` is used by both `Areas/lil world` AND `Areas/lil_sto` - one needs renaming
 
-### Migration Steps Per Repo
+### Migration Steps Per Repo (Empirically Verified 2026-04-03)
 
 **This is a human-in-the-loop process.** Each repo is migrated individually. Do a test repo first (pick the least critical one), verify it works end-to-end, then do the rest.
+
+**IMPORTANT: Do NOT manually edit metadata.json + run bd bootstrap. It doesn't work - bootstrap can't reliably create databases on the shared server. Use `bd init --shared-server --force` instead.**
 
 For each repo:
 
 ```
 1. EXPORT: bd export -o /tmp/<repo>-backup.jsonl
-   - Creates a portable backup of all issues + memories
-   - Verify: wc -l /tmp/<repo>-backup.jsonl (should match bd list --status=all count)
+   - Creates a portable backup of all issues, labels, dependencies, and memories
+   - Verify: wc -l /tmp/<repo>-backup.jsonl
+   - NOTE: comment text may not be included in export (comment_count is
+     exported but comment bodies may be missing - verify after import)
 
 2. STOP OLD SERVER: kill $(cat .beads/dolt-server.pid)
    - Stops the per-project Dolt server
-   - Verify: curl localhost:<port> fails
+   - Skip if the repo uses embedded mode (no server to stop)
 
-3. UPDATE METADATA: edit .beads/metadata.json
-   - Set dolt_mode: "server"
-   - Set dolt_server_host: "127.0.0.1"
-   - Set dolt_server_port: 3308
-   - Keep dolt_database as-is (unless resolving a collision)
-   - Keep project_id as-is
+3. RE-INIT WITH SHARED SERVER:
+   bd init --shared-server --prefix <current-prefix> --force
+   - This creates the database on the shared server
+   - Sets metadata.json and config.yaml correctly
+   - The --force flag is required to overwrite existing .beads config
+   - Do NOT set dolt_server_port in metadata.json (deprecated, causes warnings)
 
-4. ADD SHARED SERVER CONFIG: edit .beads/config.yaml
-   - Add: dolt.shared-server: "true"
+4. IMPORT: bd import /tmp/<repo>-backup.jsonl
+   - Imports issues, labels, dependencies, and memories into the shared server database
+   - Upsert semantics - safe to re-run
 
-5. VERIFY CONNECTION: bd list
-   - Should connect to shared server on port 3308
-   - First run creates the database on the shared server
-   - If empty (new database), proceed to step 6
-   - If issues appear (database already existed), verify they're correct
+5. VERIFY:
+   - bd list --status=all (count should match pre-migration)
+   - bd show <any-issue-id> (check labels, dependencies present)
+   - bt --global (should include this repo's issues)
 
-6. IMPORT (if needed): bd import /tmp/<repo>-backup.jsonl
-   - Only needed if the database was newly created on the shared server
-   - Verify: bd list --status=all count matches the backup
-
-7. CLEANUP: remove old per-project dolt data (optional, after validation)
+6. CLEANUP (optional, after verification):
    - rm -rf .beads/dolt/ .beads/embeddeddolt/
-   - rm .beads/dolt-server.pid .beads/dolt-server.port .beads/dolt-server.log .beads/dolt-server.lock
-   - Keep .beads/metadata.json, config.yaml, and everything else
+   - rm -f .beads/dolt-server.pid .beads/dolt-server.port .beads/dolt-server.log .beads/dolt-server.lock
+   - The old per-project data is no longer needed
 ```
+
+### Known Issue: Comment Export
+
+During migration testing, `bd export` reported `comment_count=1` but after import the comment count was 0. Comment text may not survive the export/import round-trip. This needs investigation - may be a beads bug worth filing upstream. Workaround: if comments are critical, verify them after migration and re-add manually if missing.
 
 ### Rollback
 
