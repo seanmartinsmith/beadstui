@@ -161,6 +161,14 @@ func LoadFromSource(source DataSource) ([]model.Issue, error) {
 		defer reader.Close()
 		return reader.LoadIssues()
 
+	case SourceTypeDoltGlobal:
+		reader, err := NewGlobalDoltReader(source)
+		if err != nil {
+			return nil, err
+		}
+		defer reader.Close()
+		return reader.LoadIssues()
+
 	case SourceTypeSQLite:
 		reader, err := NewSQLiteReader(source)
 		if err != nil {

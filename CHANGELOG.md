@@ -6,6 +6,33 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-03c - Global hub data layer (bt-6wbd phase 1)
+
+**GlobalDoltReader shipped**: `internal/datasource/global_dolt.go` - connects to shared Dolt server without a database in the DSN, enumerates all beads project databases, loads issues via UNION ALL with backtick-quoted `database.table` syntax.
+
+**Key implementation**:
+- `DiscoverSharedServer()` reads `~/.beads/shared-server/dolt-server.port`, env override via `BT_GLOBAL_DOLT_PORT`
+- `EnumerateDatabases()` uses `information_schema.tables` (single query, not N validation queries), filters system DBs
+- `LoadIssues()` via UNION ALL across all databases, `SourceRepo` set from database name (overrides column)
+- Batch labels/deps/comments via 3 UNION ALL queries (not N+1 per-issue)
+- `GetLastModified()` via aggregated `MAX(MAX(updated_at))` across all databases
+- Partial failure: broken DBs skipped with `slog.Warn`, healthy DBs loaded
+
+**Source type integration**: `SourceTypeDoltGlobal` added to source.go, `RepoFilter` field on `DataSource`, `LoadFromSource` dispatch case in load.go.
+
+**Poll loop**: `globalDoltPollOnce()` in background_worker.go, dispatched when source type is `SourceTypeDoltGlobal`. Reconnect does TCP dial only (no auto-start, shared server is user-managed).
+
+**CLI**: `--global` flag, mutually exclusive with `--workspace` and `--as-of`. `--repo` filters database list at enumeration (before UNION ALL). Workspace mode UI activates automatically (badges, picker, prefilter).
+
+**Shared column list**: Extracted `IssuesColumns` constant to `columns.go`, used by both `DoltReader` and `GlobalDoltReader`.
+
+**Tests**: 16 new unit tests in `global_dolt_test.go` (query building, system DB filtering, backtick quoting, discovery, DSN construction). Full suite: 27 packages, 0 failures.
+
+**Files created**: `internal/datasource/global_dolt.go`, `internal/datasource/global_dolt_test.go`, `internal/datasource/columns.go`
+**Files modified**: `internal/datasource/dolt.go`, `internal/datasource/source.go`, `internal/datasource/load.go`, `pkg/ui/background_worker.go`, `cmd/bt/main.go`
+
+**Bead closed**: bt-6wbd
+
 ## 2026-04-03b - BQL bug fixes + global hub planning
 
 **BQL bugs (bt-bjk4)**: Fixed all 5 bugs from gap analysis:

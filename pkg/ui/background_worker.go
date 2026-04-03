@@ -594,7 +594,7 @@ func (w *BackgroundWorker) Start() error {
 
 		w.startLoop()
 		w.startWatchdog()
-	} else if w.dataSource != nil && w.dataSource.Type == datasource.SourceTypeDolt {
+	} else if w.dataSource != nil && (w.dataSource.Type == datasource.SourceTypeDolt || w.dataSource.Type == datasource.SourceTypeDoltGlobal) {
 		// Dolt source without file watcher - use poll loop for change detection
 		if idleGCEnabled && idleGCGCPercent > 0 {
 			w.mu.Lock()
@@ -1006,7 +1006,7 @@ func (w *BackgroundWorker) processLoop(loopCtx context.Context, done chan struct
 	w.mu.RLock()
 	heartbeatInterval := w.heartbeatInterval
 	wch := w.watcher
-	isDolt := w.dataSource != nil && w.dataSource.Type == datasource.SourceTypeDolt
+	isDolt := w.dataSource != nil && (w.dataSource.Type == datasource.SourceTypeDolt || w.dataSource.Type == datasource.SourceTypeDoltGlobal)
 	w.mu.RUnlock()
 
 	if wch == nil && !isDolt {
@@ -1337,7 +1337,7 @@ func (w *BackgroundWorker) maybeIdleGC(now time.Time) {
 // This is called from the worker goroutine (NOT the UI thread).
 // Returns nil if no source is available, loading fails, or content is unchanged.
 func (w *BackgroundWorker) buildSnapshot() *DataSnapshot {
-	isDolt := w.dataSource != nil && w.dataSource.Type == datasource.SourceTypeDolt
+	isDolt := w.dataSource != nil && (w.dataSource.Type == datasource.SourceTypeDolt || w.dataSource.Type == datasource.SourceTypeDoltGlobal)
 	if w.beadsPath == "" && !isDolt {
 		return nil
 	}
@@ -1973,7 +1973,12 @@ func (w *BackgroundWorker) startDoltPollLoop() {
 		case <-w.ctx.Done():
 			return
 		case <-ticker.C:
-			pollErr := w.doltPollOnce(&lastModified, &firstPoll)
+			var pollErr error
+			if w.dataSource != nil && w.dataSource.Type == datasource.SourceTypeDoltGlobal {
+				pollErr = w.globalDoltPollOnce(&lastModified, &firstPoll)
+			} else {
+				pollErr = w.doltPollOnce(&lastModified, &firstPoll)
+			}
 			if pollErr != nil {
 				consecutiveFails++
 
@@ -2059,6 +2064,40 @@ func (w *BackgroundWorker) doltPollOnce(lastModified *time.Time, firstPoll *bool
 	reader.Close()
 	if err != nil {
 		return fmt.Errorf("query: %w", err)
+	}
+
+	if *firstPoll {
+		*lastModified = modTime
+		*firstPoll = false
+		return nil
+	}
+
+	if !modTime.Equal(*lastModified) {
+		*lastModified = modTime
+		w.noteFileChange(time.Now())
+		w.TriggerRefresh()
+	}
+	return nil
+}
+
+// globalDoltPollOnce performs a single poll cycle for global mode.
+// Connects to the shared server, queries aggregated MAX(updated_at) across
+// all databases, and triggers a refresh when data changes.
+func (w *BackgroundWorker) globalDoltPollOnce(lastModified *time.Time, firstPoll *bool) error {
+	reader, err := datasource.NewGlobalDoltReader(*w.dataSource)
+	if err != nil {
+		return fmt.Errorf("connect: %w", err)
+	}
+
+	modTime, err := reader.GetLastModified()
+	reader.Close()
+	if err != nil {
+		return fmt.Errorf("query: %w", err)
+	}
+
+	// NULL timestamp (all databases empty) scans as zero time - skip comparison
+	if modTime.IsZero() {
+		return nil
 	}
 
 	if *firstPoll {
