@@ -1,7 +1,8 @@
 ---
 title: "ADR-001: beads_viewer -> beadstui fork takeover"
-status: completed (pending review)
+status: completed
 date: 2026-02-25
+closed: 2026-04-03
 decision-makers: [seanmartinsmith]
 ---
 
@@ -9,7 +10,7 @@ decision-makers: [seanmartinsmith]
 
 ## Status
 
-**Completed (pending review)** - all 4 work streams done. Next session should run an ADR review to grade execution quality before moving to new feature work.
+**Completed** - all 4 work streams done, audit review passed (session 17). Superseded by [ADR-002](002-stabilize-and-ship.md) for ongoing project tracking. Session changelog moved to root `CHANGELOG.md`.
 
 ## Context
 
