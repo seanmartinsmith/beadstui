@@ -76,7 +76,7 @@ pkg/ui/background_worker.go          (MODIFY)
 | `internal/datasource/global_dolt_test.go` | **CREATE** | Unit tests for enumeration, query building, SourceRepo population |
 | `internal/datasource/columns.go` | **CREATE** | Shared `IssuesColumns` constant used by both DoltReader and GlobalDoltReader |
 | `internal/datasource/dolt.go` | MODIFY | Replace inline column list with `IssuesColumns` reference |
-| `internal/datasource/source.go` | MODIFY | Add `SourceTypeDoltGlobal` constant (priority 120, above Dolt) |
+| `internal/datasource/source.go` | MODIFY | Add `SourceTypeDoltGlobal` constant, add `RepoFilter` field to `DataSource` |
 | `internal/datasource/load.go` | MODIFY | Add `SourceTypeDoltGlobal` case in `LoadFromSource()` |
 | `pkg/ui/background_worker.go` | MODIFY | Add `globalDoltPollOnce()`, dispatch in `startDoltPollLoop()` |
 | `cmd/bt/main.go` | MODIFY | Add `--global` flag, new loading branch, mutual exclusion with `--workspace`/`--as-of` |
@@ -213,7 +213,7 @@ Returns single timestamp. Semantics match existing `DoltReader.GetLastModified()
 ```go
 SourceTypeDoltGlobal SourceType = "dolt_global"
 ```
-Priority 120 (above SourceTypeDolt at 110). This won't affect auto-discovery since global sources are only created by the `--global` flag, not by `DiscoverSources()`.
+Global sources are only created by the `--global` flag, not by `DiscoverSources()`, so the priority field is unused.
 
 **2b. LoadFromSource dispatch** (`load.go`):
 Add case in `LoadFromSource()`:
@@ -231,6 +231,7 @@ case SourceTypeDoltGlobal:
 New function `NewGlobalDataSource(host string, port int) DataSource` that builds a `DataSource` with:
 - Type: `SourceTypeDoltGlobal`
 - Path: DSN without database (the connection string)
+- RepoFilter: optional string field on `DataSource` (empty = all databases, non-empty = case-insensitive match against database names during enumeration)
 - No project-specific metadata
 
 **Success criteria**:
@@ -238,11 +239,11 @@ New function `NewGlobalDataSource(host string, port int) DataSource` that builds
 - [ ] `LoadFromSource` dispatches to `GlobalDoltReader`
 - [ ] `NewGlobalDataSource` constructs a valid DataSource for global mode
 
-#### Phase 3: Poll Loop Adaptation (background_worker.go)
+#### Phase 3: Poll Loop Adaptation (background_worker.go + main.go reconnect)
 
 **Deliverables**: Enable poll-based change detection in global mode.
 
-This is the riskiest phase. The current poll loop is at `background_worker.go:1956-2076`.
+This is the riskiest phase: the poll loop constructs a fresh `DoltReader` per cycle (line 2053) and assumes a single database. The change detection, backoff, and reconnect paths all need a second codepath for global mode. Regression risk is high since a bug here causes silent stale data or connection storms.
 
 **3a. New poll function** `globalDoltPollOnce`:
 ```go
@@ -337,15 +338,15 @@ if *globalFlag && *asOfRef != "" {
 }
 ```
 
-**--repo interaction with --global**: `bt --global --repo bt` narrows the enumerated database list to only include databases matching the `--repo` value. This filtering happens at the database enumeration stage, BEFORE building queries - so only the matching database is queried:
+**--repo interaction with --global**: `bt --global --repo bt` narrows the enumerated database list to only include databases matching the `--repo` value. This filtering happens in main.go's loading branch (4c), BEFORE constructing the reader - so only the matching database is queried:
 ```go
-if *globalFlag && *repoFilter != "" {
-    // Filter database list before query construction
-    // Matches database name case-insensitively (consistent with existing --repo behavior)
-    globalSource.FilterDatabases(*repoFilter)
+// In the --global loading branch, after DiscoverSharedServer:
+globalSource := datasource.NewGlobalDataSource(host, port)
+if *repoFilter != "" {
+    globalSource.RepoFilter = *repoFilter // stored on DataSource, read by GlobalDoltReader.EnumerateDatabases
 }
 ```
-This is more efficient than loading all databases and filtering in Go afterward, since the UNION ALL query only includes the matched database(s). The existing `filterByRepo()` in `cmd/bt/helpers.go:61-63` remains as a fallback for filtering by `Issue.SourceRepo` after loading.
+`EnumerateDatabases` checks `RepoFilter` and applies a case-insensitive match against database names, reducing the list before building any UNION ALL queries. This avoids adding methods to the `DataSource` struct - just a new optional field. The existing `filterByRepo()` in `cmd/bt/helpers.go:61-63` still runs afterward as a safety net but is effectively a no-op when `RepoFilter` was applied upstream.
 
 **4c. Loading branch** (between workspace and single-repo, around line 517):
 ```go
