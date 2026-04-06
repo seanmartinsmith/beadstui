@@ -1,3 +1,5 @@
 sync:
     mode: dolt-native
 sync.mode: simple
+
+dolt.shared-server: true
