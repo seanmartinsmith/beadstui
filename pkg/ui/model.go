@@ -838,7 +838,7 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		}
 	}
 
-	isDolt := ds != nil && ds.Type == datasource.SourceTypeDolt
+	isDolt := ds != nil && (ds.Type == datasource.SourceTypeDolt || ds.Type == datasource.SourceTypeDoltGlobal)
 
 	// Compute beadsDir for reconnect and port resolution
 	workerBeadsDir, _ := loader.GetBeadsDir("")
@@ -1106,9 +1106,10 @@ func (m *Model) replaceIssues(newIssues []model.Issue) {
 	m.updateViewportContent()
 }
 
-// isDoltSource returns true if the model's datasource is a Dolt server.
+// isDoltSource returns true if the model's datasource is a Dolt server
+// (single-repo or global).
 func (m *Model) isDoltSource() bool {
-	return m.dataSource != nil && m.dataSource.Type == datasource.SourceTypeDolt
+	return m.dataSource != nil && (m.dataSource.Type == datasource.SourceTypeDolt || m.dataSource.Type == datasource.SourceTypeDoltGlobal)
 }
 
 // reloadFromDataSource returns a Cmd that reloads issues from the stored DataSource.
