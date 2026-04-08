@@ -149,7 +149,6 @@ func EnumerateDatabases(db *sql.DB, repoFilter string) ([]string, error) {
 	}
 
 	slog.Info("global mode: discovered databases", "count", len(databases), "databases", databases)
-	fmt.Fprintf(os.Stderr, "global mode: %d databases (%s)\n", len(databases), strings.Join(databases, ", "))
 
 	return databases, nil
 }
