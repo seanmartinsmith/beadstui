@@ -183,7 +183,6 @@ func (r *GlobalDoltReader) LoadIssues() ([]model.Issue, error) {
 	}
 	defer rows.Close()
 
-	issueMap := make(map[string]*model.Issue)
 	var issues []model.Issue
 	for rows.Next() {
 		issue, err := scanGlobalIssue(rows)
@@ -192,10 +191,18 @@ func (r *GlobalDoltReader) LoadIssues() ([]model.Issue, error) {
 			continue
 		}
 		issues = append(issues, *issue)
-		issueMap[issue.ID] = &issues[len(issues)-1]
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating global issues: %w", err)
+	}
+
+	// Build issueMap after the loop so all pointers target the final
+	// backing array. Building it during append causes pointer invalidation
+	// when the slice grows - batch-loaded deps/labels/comments would be
+	// written to stale copies that the returned slice never sees.
+	issueMap := make(map[string]*model.Issue, len(issues))
+	for i := range issues {
+		issueMap[issues[i].ID] = &issues[i]
 	}
 
 	// Batch load labels, dependencies, comments
