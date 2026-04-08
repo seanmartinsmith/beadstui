@@ -3102,6 +3102,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.isBoardView = false
 				m.isActionableView = false
 				m.isHistoryView = false
+				m.isSplitView = false
 				m.focused = focusLabelDashboard
 				// Compute label health (fast; phase1 metrics only needed) with caching
 				if !m.labelHealthCached {
