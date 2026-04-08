@@ -3288,10 +3288,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m = m.handleBoardKeys(msg)
 
 			case focusLabelDashboard:
+				// Exit label dashboard
+				if msg.String() == "esc" || msg.String() == "q" || msg.String() == "[" {
+					m.isSplitView = true
+					m.focused = focusList
+					return m, nil
+				}
 				if selectedLabel, cmd := m.labelDashboard.Update(msg); selectedLabel != "" {
 					// Filter list by selected label and jump back to list view
 					m.currentFilter = "label:" + selectedLabel
 					m.applyFilter()
+					m.isSplitView = true
 					m.focused = focusList
 					return m, cmd
 				}
