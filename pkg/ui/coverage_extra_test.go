@@ -509,7 +509,7 @@ func TestRenderFooterStatusAndBadges(t *testing.T) {
 	m.updateAvailable = true
 	m.updateTag = "v9.9.9"
 	m.workspaceMode = true
-	m.workspaceSummary = "2 repos"
+	m.workspaceSummary = "2 projects"
 	footer = m.renderFooter()
 	for _, expect := range []string{"READY", "◉", "⭐", "📦"} {
 		if !strings.Contains(footer, expect) {
@@ -1042,14 +1042,14 @@ func TestRenderFooterVariantsAndDiffStatus(t *testing.T) {
 	m.updateAvailable = true
 	m.updateTag = "v9.9.9"
 	m.workspaceMode = true
-	m.workspaceSummary = "2 repos"
+	m.workspaceSummary = "2 projects"
 	m.countOpen = 1
 	m.countReady = 1
 	m.countBlocked = 0
 	m.countClosed = 1
 
 	out = m.renderFooter()
-	for _, want := range []string{"⏱", "v9.9.9", "2 repos"} {
+	for _, want := range []string{"⏱", "v9.9.9", "2 projects"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("footer missing %q in %q", want, out)
 		}

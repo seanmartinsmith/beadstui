@@ -426,7 +426,8 @@ func (m *Model) renderHelpOverlay() string {
 		{";", "Shortcuts bar"},
 		{"!", "Alerts panel"},
 		{"'", "Recipes"},
-		{"w", "Repo picker"},
+		{"w", "Project picker"},
+		{"W", "Toggle project scope"},
 		{"q", "Back / Quit"},
 		{"Ctrl+c", "Force quit"},
 	}

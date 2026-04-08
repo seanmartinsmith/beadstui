@@ -686,13 +686,13 @@ func (m Model) handleRepoPickerKeys(msg tea.KeyMsg) Model {
 	case "enter":
 		selected := m.repoPicker.SelectedRepos()
 
-		// Normalize: nil means "all repos" (no filter). Also treat empty as "all" to avoid hiding everything.
+		// Normalize: nil means "all projects" (no filter). Also treat empty as "all" to avoid hiding everything.
 		if len(selected) == 0 || len(selected) == len(m.availableRepos) {
 			m.activeRepos = nil
-			m.statusMsg = "Repo filter: all repos"
+			m.statusMsg = "Project filter: all projects"
 		} else {
 			m.activeRepos = selected
-			m.statusMsg = fmt.Sprintf("Repo filter: %s", formatRepoList(sortedRepoKeys(selected), 3))
+			m.statusMsg = fmt.Sprintf("Project filter: %s", formatRepoList(sortedRepoKeys(selected), 3))
 		}
 		m.statusIsError = false
 

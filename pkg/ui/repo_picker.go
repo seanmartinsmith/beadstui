@@ -125,12 +125,12 @@ func (m *RepoPickerModel) View() string {
 		Foreground(t.Primary).
 		Bold(true).
 		MarginBottom(1)
-	lines = append(lines, titleStyle.Render("Repo Filter"))
+	lines = append(lines, titleStyle.Render("Project Filter"))
 	lines = append(lines, "")
 
 	if len(m.repos) == 0 {
 		emptyStyle := t.Renderer.NewStyle().Foreground(t.Secondary).Italic(true)
-		lines = append(lines, emptyStyle.Render("No repos available."))
+		lines = append(lines, emptyStyle.Render("No projects available."))
 	} else {
 		for i, repo := range m.repos {
 			isCursor := i == m.selectedIndex
