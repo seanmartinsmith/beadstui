@@ -441,7 +441,7 @@ type Model struct {
 	showLabelPicker bool
 	labelPicker     LabelPickerModel
 
-	// Repo picker (workspace mode)
+	// Project picker (multi-project mode)
 	showRepoPicker bool
 	repoPicker     RepoPickerModel
 
@@ -472,7 +472,8 @@ type Model struct {
 	workspaceMode    bool            // True when viewing multiple repos
 	availableRepos   []string        // List of repo prefixes available
 	activeRepos      map[string]bool // Which repos are currently shown (nil = all)
-	workspaceSummary string          // Summary text for footer (e.g., "3 repos")
+	workspaceSummary string          // Summary text for footer (e.g., "3 projects")
+	currentProjectDB string          // Auto-detected project DB name for W toggle (empty = no home project)
 
 	// Alerts panel (bv-168)
 	alerts          []drift.Alert
@@ -3195,10 +3196,39 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, nil
 
-			case "w":
-				// Toggle repo picker overlay (workspace mode)
+			case "W":
+				// Quick toggle between current project and all projects
 				if !m.workspaceMode || len(m.availableRepos) == 0 {
-					m.statusMsg = "Repo filter available only in workspace mode"
+					m.statusMsg = "Project filter available only in multi-project mode"
+					m.statusIsError = false
+					return m, nil
+				}
+				if m.currentProjectDB == "" {
+					m.statusMsg = "No home project detected (not in a beads directory)"
+					m.statusIsError = false
+					return m, nil
+				}
+				if m.activeRepos != nil {
+					// Currently filtered - expand to all
+					m.activeRepos = nil
+					m.statusMsg = "Showing all projects"
+				} else {
+					// Currently showing all - filter to home project
+					m.activeRepos = map[string]bool{m.currentProjectDB: true}
+					m.statusMsg = fmt.Sprintf("Showing project: %s", m.currentProjectDB)
+				}
+				m.statusIsError = false
+				if m.activeRecipe != nil {
+					m.applyRecipe(m.activeRecipe)
+				} else {
+					m.applyFilter()
+				}
+				return m, nil
+
+			case "w":
+				// Project picker overlay (multi-project mode)
+				if !m.workspaceMode || len(m.availableRepos) == 0 {
+					m.statusMsg = "Project filter available only in multi-project mode"
 					m.statusIsError = false
 					return m, nil
 				}
