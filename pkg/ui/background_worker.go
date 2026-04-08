@@ -2002,7 +2002,9 @@ func (w *BackgroundWorker) startDoltPollLoop() {
 				}
 
 				// Auto-reconnect: after 3 consecutive failures, try to restart Dolt (bt-07jp)
-				if consecutiveFails == 3 && w.doltReconnectFn != nil && w.beadsDir != "" {
+				// Global mode doesn't need beadsDir (reconnect just checks server reachability)
+				isGlobal := w.dataSource != nil && w.dataSource.Type == datasource.SourceTypeDoltGlobal
+				if consecutiveFails == 3 && w.doltReconnectFn != nil && (w.beadsDir != "" || isGlobal) {
 					w.logEvent(LogLevelInfo, "dolt_reconnect_attempt", nil)
 					w.send(DoltConnectionStatusMsg{
 						Connected:        false,
