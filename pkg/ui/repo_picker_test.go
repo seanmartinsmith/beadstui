@@ -36,7 +36,7 @@ func TestRepoPickerViewContainsRepos(t *testing.T) {
 	m.SetSize(60, 20)
 
 	out := m.View()
-	if !strings.Contains(out, "Repo Filter") {
+	if !strings.Contains(out, "Project Filter") {
 		t.Fatalf("expected title in view, got:\n%s", out)
 	}
 	if !strings.Contains(out, "api") {

@@ -106,7 +106,7 @@ func (m Model) CurrentContext() Context {
 		return ContextAlerts
 	}
 
-	// Repo picker overlay (workspace mode)
+	// Project picker overlay (multi-project mode)
 	if m.showRepoPicker {
 		return ContextRepoPicker
 	}
@@ -198,7 +198,7 @@ func (c Context) Description() string {
 		ContextLabelGraphAnalysis: "Label graph analysis",
 		ContextTimeTravelInput:    "Time-travel input",
 		ContextAlerts:             "Alerts panel",
-		ContextRepoPicker:         "Repo picker",
+		ContextRepoPicker:         "Project picker",
 		ContextAgentPrompt:        "Agent prompt",
 		ContextCassSession:        "Cass session preview",
 		ContextInsights:           "Insights panel",

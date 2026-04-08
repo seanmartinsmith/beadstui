@@ -508,7 +508,7 @@ func (m *Model) renderFooter() string {
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
-	// REPO FILTER BADGE - Active repo selection (workspace mode)
+	// PROJECT FILTER BADGE - Active project selection (multi-project mode)
 	// ─────────────────────────────────────────────────────────────────────────
 	repoFilterSection := ""
 	if m.workspaceMode && m.activeRepos != nil && len(m.activeRepos) > 0 {
@@ -578,7 +578,7 @@ func (m *Model) renderFooter() string {
 		} else {
 			keyHints = append(keyHints, keyStyle.Render("⏎")+" details", keyStyle.Render("t")+" diff", keyStyle.Render("S")+" triage", keyStyle.Render("l")+" labels", keyStyle.Render("Ctrl+R")+" refresh", keyStyle.Render("?")+" help")
 			if m.workspaceMode {
-				keyHints = append(keyHints, keyStyle.Render("w")+" repos")
+				keyHints = append(keyHints, keyStyle.Render("w")+" projects")
 			}
 		}
 	}
