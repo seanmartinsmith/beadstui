@@ -41,9 +41,9 @@ func (m *Model) EnableWorkspaceMode(info WorkspaceInfo) {
 
 	if info.RepoCount > 0 {
 		if info.FailedCount > 0 {
-			m.workspaceSummary = fmt.Sprintf("%d/%d repos", info.RepoCount-info.FailedCount, info.RepoCount)
+			m.workspaceSummary = fmt.Sprintf("%d/%d projects", info.RepoCount-info.FailedCount, info.RepoCount)
 		} else {
-			m.workspaceSummary = fmt.Sprintf("%d repos", info.RepoCount)
+			m.workspaceSummary = fmt.Sprintf("%d projects", info.RepoCount)
 		}
 	}
 
@@ -54,6 +54,16 @@ func (m *Model) EnableWorkspaceMode(info WorkspaceInfo) {
 // IsWorkspaceMode returns whether workspace mode is active
 func (m Model) IsWorkspaceMode() bool {
 	return m.workspaceMode
+}
+
+// SetCurrentProjectDB records the auto-detected project DB name for the W toggle.
+func (m *Model) SetCurrentProjectDB(db string) {
+	m.currentProjectDB = db
+}
+
+// SetActiveRepos sets the active repo filter. nil means all repos visible.
+func (m *Model) SetActiveRepos(repos map[string]bool) {
+	m.activeRepos = repos
 }
 
 // enterHistoryView loads correlation data and shows the history view

@@ -470,7 +470,8 @@ func main() {
 	var selectedSource *datasource.DataSource
 	var serverState *doltctl.ServerState
 	var workspaceInfo *workspace.LoadSummary
-	var asOfResolved string // Resolved commit SHA when using --as-of (for robot output metadata)
+	var asOfResolved string    // Resolved commit SHA when using --as-of (for robot output metadata)
+	var currentProjectDB string // Auto-detected project DB name for W toggle (empty = no home project)
 
 	if *asOf != "" {
 		// Time-travel mode: load historical issues from git
@@ -563,8 +564,43 @@ func main() {
 			TotalIssues:  len(issues),
 			RepoPrefixes: repoPrefixes,
 		}
-	} else {
-		// Load from single repo (original behavior)
+	} else if host, port, discoverErr := datasource.DiscoverSharedServer(); discoverErr == nil {
+		// Auto-global: shared server detected, use it without requiring --global flag.
+		// If in a beads dir, auto-filter to the current project.
+		globalSource := datasource.NewGlobalDataSource(host, port)
+		result, loadErr := datasource.LoadFromSource(globalSource)
+		if loadErr == nil {
+			issues = result
+			selectedSource = &globalSource
+			beadsPath = "" // poll-based refresh
+
+			// Build workspace info for UI
+			var repoPrefixes []string
+			seen := make(map[string]bool)
+			for _, issue := range issues {
+				if issue.SourceRepo != "" && !seen[issue.SourceRepo] {
+					repoPrefixes = append(repoPrefixes, issue.SourceRepo)
+					seen[issue.SourceRepo] = true
+				}
+			}
+			workspaceInfo = &workspace.LoadSummary{
+				TotalRepos:   len(repoPrefixes),
+				TotalIssues:  len(issues),
+				RepoPrefixes: repoPrefixes,
+			}
+
+			// Auto-filter to current project if in a beads dir
+			currentProjectDB = detectCurrentProjectDB()
+		} else {
+			// Shared server found but load failed - fall through to single-repo
+			if !envRobot {
+				fmt.Fprintf(os.Stderr, "Warning: shared Dolt server found but load failed (%v), falling back to local project\n", loadErr)
+			}
+		}
+	}
+
+	if len(issues) == 0 && selectedSource == nil && *asOf == "" && *workspaceConfig == "" && !*globalFlag {
+		// Load from single repo (original behavior / auto-global fallback)
 		result, err := datasource.LoadIssuesWithSource("")
 		if errors.Is(err, datasource.ErrDoltRequired) {
 			// Dolt server not running - try to start it (bt-07jp)
@@ -1500,7 +1536,7 @@ func main() {
 
 	defer m.Stop() // Clean up file watcher + Dolt server
 
-	// Enable workspace mode if loading from workspace config
+	// Enable workspace mode if loading from workspace/global config
 	if workspaceInfo != nil {
 		m.EnableWorkspaceMode(ui.WorkspaceInfo{
 			Enabled:      true,
@@ -1509,6 +1545,13 @@ func main() {
 			TotalIssues:  workspaceInfo.TotalIssues,
 			RepoPrefixes: workspaceInfo.RepoPrefixes,
 		})
+	}
+
+	// Set auto-detected project for W toggle (auto-global mode)
+	if currentProjectDB != "" {
+		m.SetCurrentProjectDB(currentProjectDB)
+		// Auto-filter to current project on startup
+		m.SetActiveRepos(map[string]bool{currentProjectDB: true})
 	}
 
 	// Debug render mode - output a view to file and exit
@@ -1629,4 +1672,24 @@ func loadBackgroundModeFromUserConfig() (bool, bool) {
 		return false, false
 	}
 	return *cfg.Experimental.BackgroundMode, true
+}
+
+// detectCurrentProjectDB reads the dolt_database name from the cwd's .beads/metadata.json.
+// Returns empty string if not in a beads project or if the field is missing.
+func detectCurrentProjectDB() string {
+	beadsDir, err := loader.GetBeadsDir("")
+	if err != nil {
+		return ""
+	}
+	data, err := os.ReadFile(filepath.Join(beadsDir, "metadata.json"))
+	if err != nil {
+		return ""
+	}
+	var meta struct {
+		DoltDatabase string `json:"dolt_database"`
+	}
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return ""
+	}
+	return meta.DoltDatabase
 }
