@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/lipgloss/table"
-	"github.com/charmbracelet/lipgloss/tree"
+	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/table"
+	"charm.land/lipgloss/v2/tree"
 )
 
 // TutorialElement is the interface for renderable tutorial content
@@ -20,7 +20,7 @@ type Paragraph struct {
 }
 
 func (p Paragraph) Render(theme Theme, width int) string {
-	style := theme.Renderer.NewStyle().
+	style := lipgloss.NewStyle().
 		Width(width).
 		Foreground(theme.Base.GetForeground())
 	return style.Render(p.Text)
@@ -32,10 +32,9 @@ type Section struct {
 }
 
 func (s Section) Render(theme Theme, width int) string {
-	r := theme.Renderer
 
 	// Title with bold styling
-	titleStyle := r.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Foreground(theme.Primary).
 		Bold(true)
 
@@ -47,7 +46,7 @@ func (s Section) Render(theme Theme, width int) string {
 		lineWidth = 3
 	}
 
-	underlineStyle := r.NewStyle().
+	underlineStyle := lipgloss.NewStyle().
 		Foreground(theme.Muted)
 
 	underline := underlineStyle.Render(strings.Repeat("─", lineWidth))
@@ -85,14 +84,14 @@ func (kt KeyTable) Render(theme Theme, width int) string {
 		StyleFunc(func(row, col int) lipgloss.Style {
 			// Key column styling
 			if col == 0 {
-				return theme.Renderer.NewStyle().
+				return lipgloss.NewStyle().
 					Foreground(theme.Primary).
 					Bold(true).
 					Width(18).
 					PaddingRight(1)
 			}
 			// Description column - alternating subtle background for readability
-			baseStyle := theme.Renderer.NewStyle().
+			baseStyle := lipgloss.NewStyle().
 				Foreground(theme.Base.GetForeground())
 
 			// Subtle alternating row colors for better visual scanning
@@ -111,9 +110,8 @@ type Tip struct {
 }
 
 func (t Tip) Render(theme Theme, width int) string {
-	r := theme.Renderer
 
-	boxStyle := r.NewStyle().
+	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(theme.Feature).
 		Padding(0, 1).
@@ -121,7 +119,7 @@ func (t Tip) Render(theme Theme, width int) string {
 		Foreground(theme.Base.GetForeground())
 
 	// Lightbulb icon with bold TIP label
-	iconStyle := r.NewStyle().
+	iconStyle := lipgloss.NewStyle().
 		Foreground(theme.Feature).
 		Bold(true)
 
@@ -137,11 +135,10 @@ type StatusFlow struct {
 
 type FlowStep struct {
 	Label string
-	Color lipgloss.AdaptiveColor
+	Color AdaptiveColor
 }
 
 func (sf StatusFlow) Render(theme Theme, width int) string {
-	r := theme.Renderer
 
 	numSteps := len(sf.Steps)
 	if numSteps == 0 {
@@ -149,13 +146,13 @@ func (sf StatusFlow) Render(theme Theme, width int) string {
 	}
 
 	// Arrow style using proper arrow character
-	arrowStyle := r.NewStyle().
+	arrowStyle := lipgloss.NewStyle().
 		Foreground(theme.Muted).
 		Bold(true)
 
 	var boxes []string
 	for i, step := range sf.Steps {
-		boxStyle := r.NewStyle().
+		boxStyle := lipgloss.NewStyle().
 			Border(lipgloss.NormalBorder()).
 			BorderForeground(step.Color).
 			Foreground(step.Color).
@@ -179,14 +176,13 @@ type Code struct {
 }
 
 func (c Code) Render(theme Theme, width int) string {
-	r := theme.Renderer
 
 	// Create a styled code block with left accent border
 	accentBorder := lipgloss.Border{
 		Left: "│",
 	}
 
-	style := r.NewStyle().
+	style := lipgloss.NewStyle().
 		Foreground(theme.Open).
 		Background(ColorBg).
 		Border(accentBorder).
@@ -204,14 +200,13 @@ type Bullet struct {
 }
 
 func (b Bullet) Render(theme Theme, width int) string {
-	r := theme.Renderer
 
 	// Bullet character in primary color
-	bulletStyle := r.NewStyle().
+	bulletStyle := lipgloss.NewStyle().
 		Foreground(theme.Primary)
 
 	// Text with proper wrapping
-	textStyle := r.NewStyle().
+	textStyle := lipgloss.NewStyle().
 		Foreground(theme.Base.GetForeground()).
 		Width(width - 4)
 
@@ -240,9 +235,8 @@ func (s Spacer) Render(theme Theme, width int) string {
 type Divider struct{}
 
 func (d Divider) Render(theme Theme, width int) string {
-	r := theme.Renderer
 
-	lineStyle := r.NewStyle().
+	lineStyle := lipgloss.NewStyle().
 		Foreground(theme.Muted)
 
 	lineWidth := width - 4
@@ -267,19 +261,18 @@ type TutorialTreeNode struct {
 }
 
 func (t Tree) Render(theme Theme, width int) string {
-	r := theme.Renderer
 
 	// Style for the tree items
-	itemStyle := r.NewStyle().
+	itemStyle := lipgloss.NewStyle().
 		Foreground(theme.Base.GetForeground())
 
 	// Style for the root
-	rootStyle := r.NewStyle().
+	rootStyle := lipgloss.NewStyle().
 		Foreground(theme.Primary).
 		Bold(true)
 
 	// Style for the enumerators (├── └──)
-	enumStyle := r.NewStyle().
+	enumStyle := lipgloss.NewStyle().
 		Foreground(theme.Muted)
 
 	// Build the tree
@@ -311,20 +304,19 @@ func buildTreeNode(node TutorialTreeNode, itemStyle, enumStyle lipgloss.Style) *
 type InfoBox struct {
 	Title   string
 	Content string
-	Color   lipgloss.AdaptiveColor
+	Color   AdaptiveColor
 }
 
 func (ib InfoBox) Render(theme Theme, width int) string {
-	r := theme.Renderer
 
-	titleStyle := r.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Foreground(ib.Color).
 		Bold(true)
 
-	contentStyle := r.NewStyle().
+	contentStyle := lipgloss.NewStyle().
 		Foreground(theme.Base.GetForeground())
 
-	boxStyle := r.NewStyle().
+	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(ib.Color).
 		Padding(0, 1).
@@ -341,16 +333,15 @@ type ValueProp struct {
 }
 
 func (vp ValueProp) Render(theme Theme, width int) string {
-	r := theme.Renderer
 
 	// Icon/number in a small rounded box for visual pop
-	iconStyle := r.NewStyle().
+	iconStyle := lipgloss.NewStyle().
 		Foreground(theme.Primary).
 		Bold(true).
 		Width(4)
 
 	// Text with proper wrapping
-	textStyle := r.NewStyle().
+	textStyle := lipgloss.NewStyle().
 		Foreground(theme.Base.GetForeground()).
 		Width(width - 6)
 
@@ -363,16 +354,15 @@ type Warning struct {
 }
 
 func (w Warning) Render(theme Theme, width int) string {
-	r := theme.Renderer
 
-	boxStyle := r.NewStyle().
+	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(theme.Blocked).
 		Padding(0, 1).
 		Width(width - 2).
 		Foreground(theme.Base.GetForeground())
 
-	iconStyle := r.NewStyle().
+	iconStyle := lipgloss.NewStyle().
 		Foreground(theme.Blocked).
 		Bold(true)
 
@@ -387,16 +377,15 @@ type Note struct {
 }
 
 func (n Note) Render(theme Theme, width int) string {
-	r := theme.Renderer
 
-	boxStyle := r.NewStyle().
+	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(theme.InProgress).
 		Padding(0, 1).
 		Width(width - 2).
 		Foreground(theme.Base.GetForeground())
 
-	iconStyle := r.NewStyle().
+	iconStyle := lipgloss.NewStyle().
 		Foreground(theme.InProgress).
 		Bold(true)
 
@@ -420,12 +409,12 @@ func (st StyledTable) Render(theme Theme, width int) string {
 		Headers(st.Headers...).
 		Rows(st.Rows...).
 		Border(lipgloss.NormalBorder()).
-		BorderStyle(theme.Renderer.NewStyle().Foreground(theme.Border)).
+		BorderStyle(lipgloss.NewStyle().Foreground(theme.Border)).
 		Width(width - 2).
 		StyleFunc(func(row, col int) lipgloss.Style {
 			// Header row styling
 			if row == table.HeaderRow {
-				return theme.Renderer.NewStyle().
+				return lipgloss.NewStyle().
 					Foreground(theme.Primary).
 					Bold(true).
 					Align(lipgloss.Center).
@@ -433,7 +422,7 @@ func (st StyledTable) Render(theme Theme, width int) string {
 			}
 
 			// Data rows with alternating colors
-			baseStyle := theme.Renderer.NewStyle().
+			baseStyle := lipgloss.NewStyle().
 				Foreground(theme.Base.GetForeground()).
 				Padding(0, 1)
 
@@ -454,7 +443,6 @@ type ProgressIndicator struct {
 }
 
 func (pi ProgressIndicator) Render(theme Theme, width int) string {
-	r := theme.Renderer
 
 	// Calculate progress
 	if pi.Total <= 0 {
@@ -466,7 +454,7 @@ func (pi ProgressIndicator) Render(theme Theme, width int) string {
 	}
 
 	// Label
-	labelStyle := r.NewStyle().
+	labelStyle := lipgloss.NewStyle().
 		Foreground(theme.Muted)
 
 	// Progress bar - use lipgloss.Width for proper Unicode width calculation
@@ -479,11 +467,11 @@ func (pi ProgressIndicator) Render(theme Theme, width int) string {
 	filledWidth := int(float64(barWidth) * progress)
 	emptyWidth := barWidth - filledWidth
 
-	filledStyle := r.NewStyle().
+	filledStyle := lipgloss.NewStyle().
 		Foreground(theme.Open).
 		Background(theme.Open)
 
-	emptyStyle := r.NewStyle().
+	emptyStyle := lipgloss.NewStyle().
 		Foreground(theme.Muted).
 		Background(ColorBgHighlight)
 
@@ -491,7 +479,7 @@ func (pi ProgressIndicator) Render(theme Theme, width int) string {
 	empty := emptyStyle.Render(strings.Repeat("░", emptyWidth))
 
 	// Percentage - format as right-aligned 3-digit number with %
-	pctStyle := r.NewStyle().
+	pctStyle := lipgloss.NewStyle().
 		Foreground(theme.Primary).
 		Bold(true)
 
@@ -504,11 +492,11 @@ func (pi ProgressIndicator) Render(theme Theme, width int) string {
 // Highlight renders inline highlighted/emphasized text
 type Highlight struct {
 	Text  string
-	Color lipgloss.AdaptiveColor
+	Color AdaptiveColor
 }
 
 func (h Highlight) Render(theme Theme, width int) string {
-	style := theme.Renderer.NewStyle().
+	style := lipgloss.NewStyle().
 		Foreground(h.Color).
 		Bold(true)
 

@@ -1,10 +1,11 @@
 package ui
 
 import (
+	"image/color"
 	"math"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 // RenderSparkline creates a textual bar chart of value (0.0 - 1.0)
@@ -60,7 +61,7 @@ func RenderSparkline(val float64, width int) string {
 }
 
 // GetHeatmapColor returns a color based on score (0-1)
-func GetHeatmapColor(score float64, t Theme) lipgloss.TerminalColor {
+func GetHeatmapColor(score float64, t Theme) color.Color {
 	if score > 0.8 {
 		return t.Primary // Peak/High
 	} else if score > 0.5 {
@@ -74,10 +75,10 @@ func GetHeatmapColor(score float64, t Theme) lipgloss.TerminalColor {
 // HeatmapGradientColors defines the color gradient for enhanced heatmap (bv-t4yg)
 // Ordered from cold (low count) to hot (high count).
 // Uses ThemeFg so 16-color terminals fall back to ANSI white.
-var HeatmapGradientColors []lipgloss.TerminalColor
+var HeatmapGradientColors []color.Color
 
 func init() {
-	HeatmapGradientColors = []lipgloss.TerminalColor{
+	HeatmapGradientColors = []color.Color{
 		ThemeFg("#1d1f21"), // 0: bg - empty
 		ThemeFg("#282a2e"), // 1: subtle - very few
 		ThemeFg("#373b41"), // 2: highlight - few
@@ -90,7 +91,7 @@ func init() {
 }
 
 // GetHeatGradientColor returns an interpolated color for heatmap intensity (0-1) (bv-t4yg)
-func GetHeatGradientColor(intensity float64, t Theme) lipgloss.TerminalColor {
+func GetHeatGradientColor(intensity float64, t Theme) color.Color {
 	if intensity <= 0 {
 		return HeatmapGradientColors[0]
 	}
@@ -110,7 +111,7 @@ func GetHeatGradientColor(intensity float64, t Theme) lipgloss.TerminalColor {
 // GetHeatGradientColorBg returns a background-friendly color for heatmap cell (bv-t4yg)
 // Returns both the background color and appropriate foreground for contrast.
 // On 16-color terminals, backgrounds are transparent and foreground uses ANSI-safe colors.
-func GetHeatGradientColorBg(intensity float64) (bg lipgloss.TerminalColor, fg lipgloss.TerminalColor) {
+func GetHeatGradientColorBg(intensity float64) (bg color.Color, fg color.Color) {
 	if intensity <= 0 {
 		return ThemeBg("#1d1f21"), ThemeFg("#969896") // Bg, muted fg
 	}
@@ -131,7 +132,7 @@ func GetHeatGradientColorBg(intensity float64) (bg lipgloss.TerminalColor, fg li
 
 // RepoColors maps repo prefixes to distinctive colors for visual differentiation
 // These colors are designed to be visible on both light and dark backgrounds
-var RepoColors = []lipgloss.AdaptiveColor{
+var RepoColors = []AdaptiveColor{
 	{Light: "#c82829", Dark: "#cc6666"}, // Red
 	{Light: "#3e999f", Dark: "#8abeb7"}, // Teal
 	{Light: "#4271ae", Dark: "#81a2be"}, // Blue
@@ -143,7 +144,7 @@ var RepoColors = []lipgloss.AdaptiveColor{
 }
 
 // GetRepoColor returns a consistent color for a repo prefix based on hash
-func GetRepoColor(prefix string) lipgloss.AdaptiveColor {
+func GetRepoColor(prefix string) AdaptiveColor {
 	if prefix == "" {
 		return ColorMuted
 	}

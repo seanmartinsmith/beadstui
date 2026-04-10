@@ -3,7 +3,7 @@ package ui
 import (
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 // RepoPickerModel represents the repository filter picker overlay (workspace mode).
@@ -121,7 +121,7 @@ func (m *RepoPickerModel) View() string {
 
 	var lines []string
 
-	titleStyle := t.Renderer.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Foreground(t.Primary).
 		Bold(true).
 		MarginBottom(1)
@@ -129,14 +129,14 @@ func (m *RepoPickerModel) View() string {
 	lines = append(lines, "")
 
 	if len(m.repos) == 0 {
-		emptyStyle := t.Renderer.NewStyle().Foreground(t.Secondary).Italic(true)
+		emptyStyle := lipgloss.NewStyle().Foreground(t.Secondary).Italic(true)
 		lines = append(lines, emptyStyle.Render("No projects available."))
 	} else {
 		for i, repo := range m.repos {
 			isCursor := i == m.selectedIndex
 			isSelected := m.selected[repo]
 
-			nameStyle := t.Renderer.NewStyle().Foreground(t.Base.GetForeground())
+			nameStyle := lipgloss.NewStyle().Foreground(t.Base.GetForeground())
 			if isCursor {
 				nameStyle = nameStyle.Foreground(t.Primary).Bold(true)
 			}
@@ -156,14 +156,14 @@ func (m *RepoPickerModel) View() string {
 	}
 
 	lines = append(lines, "")
-	footerStyle := t.Renderer.NewStyle().
+	footerStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary).
 		Italic(true)
 	lines = append(lines, footerStyle.Render("j/k: navigate • space: toggle • a: all • enter: apply • esc: cancel"))
 
 	content := strings.Join(lines, "\n")
 
-	boxStyle := t.Renderer.NewStyle().
+	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(t.Primary).
 		Padding(1, 2).

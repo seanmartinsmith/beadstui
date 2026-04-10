@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/cass"
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // testTheme is defined in history_test.go and reused here
@@ -88,37 +88,37 @@ func TestCassSessionModal_Update_Navigation(t *testing.T) {
 	}
 
 	// Move down
-	modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: 'j', Text: string('j')})
 	if modal.selected != 1 {
 		t.Errorf("After 'j', selection should be 1, got %d", modal.selected)
 	}
 
 	// Move down again
-	modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: 'j', Text: string('j')})
 	if modal.selected != 2 {
 		t.Errorf("After second 'j', selection should be 2, got %d", modal.selected)
 	}
 
 	// Try to move past the end (should stay at 2)
-	modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: 'j', Text: string('j')})
 	if modal.selected != 2 {
 		t.Errorf("Should not move past end, selection should be 2, got %d", modal.selected)
 	}
 
 	// Move up
-	modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: 'k', Text: string('k')})
 	if modal.selected != 1 {
 		t.Errorf("After 'k', selection should be 1, got %d", modal.selected)
 	}
 
 	// Move up to beginning
-	modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: 'k', Text: string('k')})
 	if modal.selected != 0 {
 		t.Errorf("After second 'k', selection should be 0, got %d", modal.selected)
 	}
 
 	// Try to move before beginning
-	modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: 'k', Text: string('k')})
 	if modal.selected != 0 {
 		t.Errorf("Should not move before beginning, selection should be 0, got %d", modal.selected)
 	}
@@ -137,13 +137,13 @@ func TestCassSessionModal_Update_ArrowKeys(t *testing.T) {
 	modal := NewCassSessionModal("bv-arrow", result, theme)
 
 	// Arrow down
-	modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyDown})
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	if modal.selected != 1 {
 		t.Errorf("After down arrow, selection should be 1, got %d", modal.selected)
 	}
 
 	// Arrow up
-	modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyUp})
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: tea.KeyUp})
 	if modal.selected != 0 {
 		t.Errorf("After up arrow, selection should be 0, got %d", modal.selected)
 	}
@@ -165,7 +165,7 @@ func TestCassSessionModal_Update_CopyCommand(t *testing.T) {
 
 	// Press 'y' to copy - note: actual clipboard copy may fail in test environment
 	// but the copied flag should be set if successful, we mainly test it doesn't panic
-	modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: 'y', Text: string('y')})
 	// Can't reliably test clipboard in CI, just verify no panic
 }
 
@@ -476,12 +476,12 @@ func TestCassSessionModal_SingleSession(t *testing.T) {
 	modal := NewCassSessionModal("bv-single", result, theme)
 
 	// Navigation should not crash with single session
-	modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: 'j', Text: string('j')})
 	if modal.selected != 0 {
 		t.Errorf("With single session, selection should stay at 0, got %d", modal.selected)
 	}
 
-	modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: 'k', Text: string('k')})
 	if modal.selected != 0 {
 		t.Errorf("With single session, selection should stay at 0, got %d", modal.selected)
 	}
@@ -506,7 +506,7 @@ func TestCassSessionModal_NavigationCappedByMaxDisplay(t *testing.T) {
 	// Navigation should stop at index 2 (third session), not 4
 	// Move down 5 times
 	for i := 0; i < 5; i++ {
-		modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+		modal, _ = modal.Update(tea.KeyPressMsg{Code: 'j', Text: string('j')})
 	}
 
 	// Should be capped at maxDisplay-1 (index 2), not len(sessions)-1 (index 4)
@@ -584,7 +584,7 @@ func TestCassSessionModal_CopyFeedbackTiming(t *testing.T) {
 	}
 
 	// Simulate copy (may fail in CI but should set the flag if clipboard available)
-	modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: 'y', Text: string('y')})
 
 	// If clipboard is available, copied should be true and copiedAt set
 	// We can't reliably test this in CI, but the View() shouldn't panic
@@ -729,9 +729,9 @@ func TestCassSessionModal_UnhandledKeyIgnored(t *testing.T) {
 	initialSelected := modal.selected
 
 	// Press unhandled keys - should not change state
-	modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
-	modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
-	modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: 'x', Text: string('x')})
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: 'q', Text: string('q')})
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: 'a', Text: string('a')})
 
 	if modal.selected != initialSelected {
 		t.Errorf("Unhandled keys should not change selection, got %d", modal.selected)

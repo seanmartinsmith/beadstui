@@ -7,7 +7,6 @@ import (
 
 	"github.com/seanmartinsmith/beadstui/pkg/cass"
 	"github.com/seanmartinsmith/beadstui/pkg/correlation"
-	"github.com/charmbracelet/lipgloss"
 )
 
 func createTestHistoryReport() *correlation.HistoryReport {
@@ -99,7 +98,7 @@ func createTestHistoryReport() *correlation.HistoryReport {
 }
 
 func testTheme() Theme {
-	return DefaultTheme(lipgloss.NewRenderer(nil))
+	return DefaultTheme()
 }
 
 func TestNewHistoryModel(t *testing.T) {

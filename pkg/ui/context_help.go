@@ -3,7 +3,7 @@ package ui
 import (
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 // ContextHelpContent contains compact help content for each context.
@@ -42,7 +42,6 @@ func GetContextHelp(ctx Context) string {
 func RenderContextHelp(ctx Context, theme Theme, width, height int) string {
 	content := GetContextHelp(ctx)
 
-	r := theme.Renderer
 
 	// Modal dimensions - compact
 	modalWidth := 60
@@ -51,16 +50,16 @@ func RenderContextHelp(ctx Context, theme Theme, width, height int) string {
 	}
 
 	// Title
-	titleStyle := r.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(theme.Primary)
 
 	// Content style
-	contentStyle := r.NewStyle().
+	contentStyle := lipgloss.NewStyle().
 		Foreground(theme.Subtext)
 
 	// Footer hint
-	footerStyle := r.NewStyle().
+	footerStyle := lipgloss.NewStyle().
 		Foreground(theme.Muted).
 		Italic(true)
 
@@ -68,14 +67,14 @@ func RenderContextHelp(ctx Context, theme Theme, width, height int) string {
 	var b strings.Builder
 	b.WriteString(titleStyle.Render("Quick Reference"))
 	b.WriteString("\n")
-	b.WriteString(r.NewStyle().Foreground(theme.Border).Render(strings.Repeat("─", modalWidth-4)))
+	b.WriteString(lipgloss.NewStyle().Foreground(theme.Border).Render(strings.Repeat("─", modalWidth-4)))
 	b.WriteString("\n\n")
 	b.WriteString(contentStyle.Render(content))
 	b.WriteString("\n\n")
 	b.WriteString(footerStyle.Render("Press ` for full tutorial │ Esc to close"))
 
 	// Wrap in modal style
-	modalStyle := r.NewStyle().
+	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(theme.Secondary).
 		Padding(1, 2).

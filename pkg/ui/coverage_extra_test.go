@@ -14,8 +14,8 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/recipe"
 	"github.com/seanmartinsmith/beadstui/pkg/watcher"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // Basic helpers and tiny behaviours that were previously uncovered.
@@ -60,7 +60,7 @@ func TestRecipePickerIndexesAndCounts(t *testing.T) {
 	if err := loader.Load(); err != nil {
 		t.Skipf("recipes not available: %v", err)
 	}
-	picker := NewRecipePickerModel(loader.List(), DefaultTheme(lipgloss.NewRenderer(nil)))
+	picker := NewRecipePickerModel(loader.List(), DefaultTheme())
 	if picker.SelectedIndex() != 0 {
 		t.Fatalf("initial SelectedIndex = %d, want 0", picker.SelectedIndex())
 	}
@@ -171,45 +171,45 @@ func TestHandleListKeysFiltersAndTimeTravelPrompt(t *testing.T) {
 	m.focused = focusList
 	m.isSplitView = false
 
-	m = m.handleListKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("o")})
+	m = m.handleListKeys(tea.KeyPressMsg{Code: 'o', Text: "o"})
 	if m.currentFilter != "open" {
 		t.Fatalf("expected filter 'open', got %s", m.currentFilter)
 	}
-	m = m.handleListKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
+	m = m.handleListKeys(tea.KeyPressMsg{Code: 'c', Text: "c"})
 	if m.currentFilter != "closed" {
 		t.Fatalf("expected filter 'closed', got %s", m.currentFilter)
 	}
-	m = m.handleListKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
+	m = m.handleListKeys(tea.KeyPressMsg{Code: 'r', Text: "r"})
 	if m.currentFilter != "ready" {
 		t.Fatalf("expected filter 'ready', got %s", m.currentFilter)
 	}
 
 	// Paging up/down
 	m.list.Select(0)
-	m = m.handleListKeys(tea.KeyMsg{Type: tea.KeyCtrlD})
+	m = m.handleListKeys(tea.KeyPressMsg{Code: 'd', Mod: tea.ModCtrl})
 	if m.list.Index() == 0 {
 		t.Fatalf("ctrl+d should move selection down")
 	}
-	m = m.handleListKeys(tea.KeyMsg{Type: tea.KeyCtrlU})
+	m = m.handleListKeys(tea.KeyPressMsg{Code: 'u', Mod: tea.ModCtrl})
 	if m.list.Index() != 0 {
 		t.Fatalf("ctrl+u should move selection up")
 	}
 
 	// Enter should flip showDetails in mobile view
 	m.showDetails = false
-	m = m.handleListKeys(tea.KeyMsg{Type: tea.KeyEnter})
+	m = m.handleListKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if !m.showDetails {
 		t.Fatalf("enter should show details when not split view")
 	}
 
 	// Time-travel prompt toggling
 	m.timeTravelMode = false
-	m = m.handleListKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+	m = m.handleListKeys(tea.KeyPressMsg{Code: 't', Text: "t"})
 	if !m.showTimeTravelPrompt || m.focused != focusTimeTravelInput {
 		t.Fatalf("time-travel prompt not activated")
 	}
 	// Cancel via Esc to avoid git dependency
-	m = m.handleTimeTravelInputKeys(tea.KeyMsg{Type: tea.KeyEsc})
+	m = m.handleTimeTravelInputKeys(tea.KeyPressMsg{Code: tea.KeyEsc})
 	if m.showTimeTravelPrompt {
 		t.Fatalf("prompt should close on esc")
 	}
@@ -306,42 +306,42 @@ func TestViewTogglesGraphBoardInsightsActionable(t *testing.T) {
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
 
 	// Graph toggle
-	modelAny, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
+	modelAny, _ := m.Update(tea.KeyPressMsg{Code: 'g', Text: "g"})
 	m = modelAny.(Model)
 	if !m.isGraphView || m.focused != focusGraph {
 		t.Fatalf("graph view not activated")
 	}
 
 	// Board toggle
-	modelAny, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("b")})
+	modelAny, _ = m.Update(tea.KeyPressMsg{Code: 'b', Text: "b"})
 	m = modelAny.(Model)
 	if !m.isBoardView || m.focused != focusBoard {
 		t.Fatalf("board view not activated")
 	}
 
 	// Insights toggle
-	modelAny, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("i")})
+	modelAny, _ = m.Update(tea.KeyPressMsg{Code: 'i', Text: "i"})
 	m = modelAny.(Model)
 	if m.focused != focusInsights {
 		t.Fatalf("insights not focused after toggle")
 	}
 
 	// Actionable toggle
-	modelAny, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a")})
+	modelAny, _ = m.Update(tea.KeyPressMsg{Code: 'a', Text: "a"})
 	m = modelAny.(Model)
 	if !m.isActionableView || m.focused != focusActionable {
 		t.Fatalf("actionable view not activated")
 	}
 
 	// Priority hints toggle
-	modelAny, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("p")})
+	modelAny, _ = m.Update(tea.KeyPressMsg{Code: 'p', Text: "p"})
 	m = modelAny.(Model)
 	if !m.showPriorityHints {
 		t.Fatalf("priority hints should toggle on with 'p'")
 	}
 
 	// Recipe picker toggle (' key)
-	modelAny, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'\''}})
+	modelAny, _ = m.Update(tea.KeyPressMsg{Code: '\'', Text: "'"})
 	m = modelAny.(Model)
 	if !m.showRecipePicker || m.focused != focusRecipePicker {
 		t.Fatalf("recipe picker not opened correctly")
@@ -361,7 +361,7 @@ func TestHandleGraphBoardActionableKeys(t *testing.T) {
 	m.focused = focusGraph
 	// force select first node then enter to sync list
 	m.graphView.MoveDown()
-	m = m.handleGraphKeys(tea.KeyMsg{Type: tea.KeyEnter})
+	m = m.handleGraphKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if m.isGraphView {
 		t.Fatalf("enter should exit graph view")
 	}
@@ -369,15 +369,15 @@ func TestHandleGraphBoardActionableKeys(t *testing.T) {
 	// Focus board navigation paths
 	m.isBoardView = true
 	m.focused = focusBoard
-	m = m.handleBoardKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("h")})
-	m = m.handleBoardKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
-	m = m.handleBoardKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
-	m = m.handleBoardKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	m = m.handleBoardKeys(tea.KeyPressMsg{Code: 'h', Text: "h"})
+	m = m.handleBoardKeys(tea.KeyPressMsg{Code: 'l', Text: "l"})
+	m = m.handleBoardKeys(tea.KeyPressMsg{Code: 'j', Text: "j"})
+	m = m.handleBoardKeys(tea.KeyPressMsg{Code: 'k', Text: "k"})
 	// Navigate back to Open column (with items) - Status mode shows all columns (bv-tf6j)
 	m.board.JumpToFirstColumn()
 	// Enter should exit board when selection exists
 	m.board.MoveToTop()
-	m = m.handleBoardKeys(tea.KeyMsg{Type: tea.KeyEnter})
+	m = m.handleBoardKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if m.isBoardView {
 		t.Fatalf("enter should exit board view")
 	}
@@ -393,7 +393,7 @@ func TestHandleGraphBoardActionableKeys(t *testing.T) {
 	m.isActionableView = true
 	m.focused = focusActionable
 	m.actionableView = NewActionableModel(plan, m.theme)
-	m = m.handleActionableKeys(tea.KeyMsg{Type: tea.KeyEnter})
+	m = m.handleActionableKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if m.isActionableView {
 		t.Fatalf("enter should exit actionable view")
 	}
@@ -413,17 +413,17 @@ func TestHandleRecipePickerAndInsightsKeys(t *testing.T) {
 	}
 	m.insightsPanel = NewInsightsModel(ins, m.issueMap, m.theme)
 	m.focused = focusInsights
-	m = m.handleInsightsKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
-	m = m.handleInsightsKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")})
-	m = m.handleInsightsKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("x")})
-	m = m.handleInsightsKeys(tea.KeyMsg{Type: tea.KeyEnter})
+	m = m.handleInsightsKeys(tea.KeyPressMsg{Code: 'l', Text: "l"})
+	m = m.handleInsightsKeys(tea.KeyPressMsg{Code: 'e', Text: "e"})
+	m = m.handleInsightsKeys(tea.KeyPressMsg{Code: 'x', Text: "x"})
+	m = m.handleInsightsKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
 
 	// Recipe picker escape path
 	m.showRecipePicker = true
 	m.focused = focusRecipePicker
-	m = m.handleRecipePickerKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
-	m = m.handleRecipePickerKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
-	m = m.handleRecipePickerKeys(tea.KeyMsg{Type: tea.KeyEsc})
+	m = m.handleRecipePickerKeys(tea.KeyPressMsg{Code: 'j', Text: "j"})
+	m = m.handleRecipePickerKeys(tea.KeyPressMsg{Code: 'k', Text: "k"})
+	m = m.handleRecipePickerKeys(tea.KeyPressMsg{Code: tea.KeyEsc})
 	if m.showRecipePicker {
 		t.Fatalf("recipe picker should close on esc")
 	}
@@ -431,7 +431,7 @@ func TestHandleRecipePickerAndInsightsKeys(t *testing.T) {
 	// Enter applies selection
 	m.showRecipePicker = true
 	m.focused = focusRecipePicker
-	m = m.handleRecipePickerKeys(tea.KeyMsg{Type: tea.KeyEnter})
+	m = m.handleRecipePickerKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if m.activeRecipe == nil || m.showRecipePicker {
 		t.Fatalf("enter should apply recipe and close picker")
 	}
@@ -604,14 +604,14 @@ func TestView_LoadingScreen_TransitionsOnFirstSnapshotOrError(t *testing.T) {
 	m.snapshot = nil
 	m.snapshotInitPending = true
 
-	if out := m.View(); !strings.Contains(out, "Loading beads") {
+	if out := m.View().Content; !strings.Contains(out, "Loading beads") {
 		t.Fatalf("expected loading screen before first snapshot, got: %q", out)
 	}
 
 	// Error should exit the loading screen (we already have initial data).
 	modelAny, _ := m.Update(SnapshotErrorMsg{Err: errors.New("boom"), Recoverable: true})
 	mErr := modelAny.(Model)
-	if out := mErr.View(); strings.Contains(out, "Loading beads") {
+	if out := mErr.View().Content; strings.Contains(out, "Loading beads") {
 		t.Fatalf("expected loading screen to clear on error, got: %q", out)
 	}
 
@@ -620,7 +620,7 @@ func TestView_LoadingScreen_TransitionsOnFirstSnapshotOrError(t *testing.T) {
 	snap := NewSnapshotBuilder(issues).Build()
 	modelAny, _ = m.Update(SnapshotReadyMsg{Snapshot: snap})
 	mOK := modelAny.(Model)
-	if out := mOK.View(); strings.Contains(out, "Loading beads") {
+	if out := mOK.View().Content; strings.Contains(out, "Loading beads") {
 		t.Fatalf("expected loading screen to clear on first snapshot, got: %q", out)
 	}
 }
@@ -693,8 +693,7 @@ func TestExportToMarkdownSmoke(t *testing.T) {
 }
 
 func TestGraphConnectorDown(t *testing.T) {
-	renderer := lipgloss.NewRenderer(nil)
-	theme := DefaultTheme(renderer)
+	theme := DefaultTheme()
 	g := &GraphModel{theme: theme}
 
 	if out := g.renderConnectorDown(0, 20, theme); out != "" {
@@ -775,8 +774,7 @@ func TestOpenInEditorWithArguments(t *testing.T) {
 }
 
 func TestGraphPageDownEmpty(t *testing.T) {
-	renderer := lipgloss.NewRenderer(nil)
-	g := NewGraphModel(nil, nil, DefaultTheme(renderer))
+	g := NewGraphModel(nil, nil, DefaultTheme())
 	g.PageDown() // len=0 branch
 }
 
@@ -898,16 +896,16 @@ func TestBoardAndInsightsExtraKeys(t *testing.T) {
 	// Board page up/down coverage
 	m.isBoardView = true
 	m.focused = focusBoard
-	m = m.handleBoardKeys(tea.KeyMsg{Type: tea.KeyCtrlD})
-	m = m.handleBoardKeys(tea.KeyMsg{Type: tea.KeyCtrlU})
-	m = m.handleBoardKeys(tea.KeyMsg{Type: tea.KeyHome})
-	m = m.handleBoardKeys(tea.KeyMsg{Type: tea.KeyEnd})
+	m = m.handleBoardKeys(tea.KeyPressMsg{Code: 'd', Mod: tea.ModCtrl})
+	m = m.handleBoardKeys(tea.KeyPressMsg{Code: 'u', Mod: tea.ModCtrl})
+	m = m.handleBoardKeys(tea.KeyPressMsg{Code: tea.KeyHome})
+	m = m.handleBoardKeys(tea.KeyPressMsg{Code: tea.KeyEnd})
 
 	// Insights escape and tab navigation
 	m.focused = focusInsights
-	m = m.handleInsightsKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("h")})
-	m = m.handleInsightsKeys(tea.KeyMsg{Type: tea.KeyTab})
-	m = m.handleInsightsKeys(tea.KeyMsg{Type: tea.KeyEsc})
+	m = m.handleInsightsKeys(tea.KeyPressMsg{Code: 'h', Text: "h"})
+	m = m.handleInsightsKeys(tea.KeyPressMsg{Code: tea.KeyTab})
+	m = m.handleInsightsKeys(tea.KeyPressMsg{Code: tea.KeyEsc})
 	if m.focused != focusList {
 		t.Fatalf("Esc should return focus to list")
 	}
@@ -922,7 +920,7 @@ func TestBoardAndInsightsExtraKeys(t *testing.T) {
 	m.showTimeTravelPrompt = true
 	m.focused = focusTimeTravelInput
 	m.timeTravelInput.SetValue("HEAD~1")
-	m = m.handleTimeTravelInputKeys(tea.KeyMsg{Type: tea.KeyEnter})
+	m = m.handleTimeTravelInputKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if !m.statusIsError && m.statusMsg == "" {
 		t.Fatalf("expected status message after attempting time-travel without git")
 	}
@@ -1083,17 +1081,19 @@ func TestGraphRenderBlocksAndDependents(t *testing.T) {
 		map[string]int{"EGO": 0}, map[string]int{"EGO": 0},
 		nil, 0, nil,
 	)}
-	g := NewGraphModel(issues, &ins, DefaultTheme(lipgloss.NewRenderer(nil)))
+	g := NewGraphModel(issues, &ins, DefaultTheme())
 
 	blockers := []string{"B1", "B2", "B3", "B4", "B5", "B6"}
 	dependents := []string{"D1", "D2", "D3"}
 	blockOut := g.renderBlockersVisual(blockers, 80, g.theme)
-	if !strings.Contains(blockOut, "+1 more") {
-		t.Fatalf("blockers visual should include + more badge")
+	blockStripped := ansi.Strip(blockOut)
+	if !strings.Contains(blockStripped, "+1") || !strings.Contains(blockStripped, "more") {
+		t.Fatalf("blockers visual should include +N more badge, got: %q", blockStripped)
 	}
 	depOut := g.renderDependentsVisual(dependents, 80, g.theme)
-	if !strings.Contains(depOut, "D1") || !strings.Contains(depOut, "D3") {
-		t.Fatalf("dependents visual missing entries: %s", depOut)
+	depStripped := ansi.Strip(depOut)
+	if !strings.Contains(depStripped, "D1") || !strings.Contains(depStripped, "D3") {
+		t.Fatalf("dependents visual missing entries: %s", depStripped)
 	}
 }
 
@@ -1160,20 +1160,20 @@ func TestUpdateMouseAndResize(t *testing.T) {
 
 	// Mouse wheel up/down in list focus
 	m.focused = focusList
-	_, _ = m.Update(tea.MouseMsg{Button: tea.MouseButtonWheelUp})
-	_, _ = m.Update(tea.MouseMsg{Button: tea.MouseButtonWheelDown})
+	_, _ = m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelUp})
+	_, _ = m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown})
 
 	// Switch focus and scroll other components
 	m.focused = focusDetail
-	_, _ = m.Update(tea.MouseMsg{Button: tea.MouseButtonWheelDown})
+	_, _ = m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown})
 	m.focused = focusInsights
-	_, _ = m.Update(tea.MouseMsg{Button: tea.MouseButtonWheelUp})
+	_, _ = m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelUp})
 	m.focused = focusBoard
-	_, _ = m.Update(tea.MouseMsg{Button: tea.MouseButtonWheelUp})
+	_, _ = m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelUp})
 	m.focused = focusGraph
-	_, _ = m.Update(tea.MouseMsg{Button: tea.MouseButtonWheelDown})
+	_, _ = m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown})
 	m.focused = focusActionable
-	_, _ = m.Update(tea.MouseMsg{Button: tea.MouseButtonWheelUp})
+	_, _ = m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelUp})
 }
 
 func TestOverlaysAndWorkspaceHelpers(t *testing.T) {
@@ -1193,14 +1193,14 @@ func TestOverlaysAndWorkspaceHelpers(t *testing.T) {
 
 	// Quit confirm overlay
 	m.showQuitConfirm = true
-	if !strings.Contains(m.View(), "Quit bt?") {
+	if !strings.Contains(m.View().Content, "Quit bt?") {
 		t.Fatalf("quit overlay should render")
 	}
 	m.showQuitConfirm = false
 
 	// Help overlay
 	m.showHelp = true
-	if !strings.Contains(m.View(), "Keyboard") {
+	if !strings.Contains(m.View().Content, "Keyboard") {
 		t.Fatalf("help overlay should render")
 	}
 	m.showHelp = false
@@ -1241,50 +1241,50 @@ func TestHelpOverlayScroll(t *testing.T) {
 	m.helpScroll = 0
 
 	// Test scroll down
-	m = m.handleHelpKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	m = m.handleHelpKeys(tea.KeyPressMsg{Code: 'j', Text: "j"})
 	if m.helpScroll != 1 {
 		t.Fatalf("expected helpScroll=1 after j, got %d", m.helpScroll)
 	}
 
 	// Test scroll up
-	m = m.handleHelpKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	m = m.handleHelpKeys(tea.KeyPressMsg{Code: 'k', Text: "k"})
 	if m.helpScroll != 0 {
 		t.Fatalf("expected helpScroll=0 after k, got %d", m.helpScroll)
 	}
 
 	// Test scroll up at top (should stay at 0)
-	m = m.handleHelpKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	m = m.handleHelpKeys(tea.KeyPressMsg{Code: 'k', Text: "k"})
 	if m.helpScroll != 0 {
 		t.Fatalf("expected helpScroll=0 at top, got %d", m.helpScroll)
 	}
 
 	// Test page down
-	m = m.handleHelpKeys(tea.KeyMsg{Type: tea.KeyCtrlD})
+	m = m.handleHelpKeys(tea.KeyPressMsg{Code: 'd', Mod: tea.ModCtrl})
 	if m.helpScroll != 10 {
 		t.Fatalf("expected helpScroll=10 after ctrl+d, got %d", m.helpScroll)
 	}
 
 	// Test page up
-	m = m.handleHelpKeys(tea.KeyMsg{Type: tea.KeyCtrlU})
+	m = m.handleHelpKeys(tea.KeyPressMsg{Code: 'u', Mod: tea.ModCtrl})
 	if m.helpScroll != 0 {
 		t.Fatalf("expected helpScroll=0 after ctrl+u, got %d", m.helpScroll)
 	}
 
 	// Test home
 	m.helpScroll = 5
-	m = m.handleHelpKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
+	m = m.handleHelpKeys(tea.KeyPressMsg{Code: 'g', Text: "g"})
 	if m.helpScroll != 0 {
 		t.Fatalf("expected helpScroll=0 after g, got %d", m.helpScroll)
 	}
 
 	// Test end
-	m = m.handleHelpKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("G")})
+	m = m.handleHelpKeys(tea.KeyPressMsg{Code: 'G', Text: "G"})
 	if m.helpScroll < 10 {
 		t.Fatalf("expected helpScroll>10 after G, got %d", m.helpScroll)
 	}
 
 	// Test q closes help
-	m = m.handleHelpKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
+	m = m.handleHelpKeys(tea.KeyPressMsg{Code: 'q', Text: "q"})
 	if m.showHelp {
 		t.Fatalf("expected showHelp=false after q")
 	}
@@ -1296,7 +1296,7 @@ func TestHelpOverlayScroll(t *testing.T) {
 	m.showHelp = true
 	m.focused = focusHelp
 	m.helpScroll = 5
-	m = m.handleHelpKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("x")})
+	m = m.handleHelpKeys(tea.KeyPressMsg{Code: 'x', Text: "x"})
 	if m.showHelp {
 		t.Fatalf("expected showHelp=false after x")
 	}
@@ -1322,7 +1322,7 @@ func TestHelpOverlayScroll(t *testing.T) {
 	m.showHelp = true
 	m.focused = focusHelp
 	m.helpScroll = 5
-	m = m.handleHelpKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(" ")})
+	m = m.handleHelpKeys(tea.KeyPressMsg{Code: ' ', Text: " "})
 	if m.showHelp {
 		t.Fatalf("expected showHelp=false after Space")
 	}

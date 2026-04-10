@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/seanmartinsmith/beadstui/pkg/model"
-	"github.com/charmbracelet/bubbles/viewport"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/viewport"
+	"charm.land/lipgloss/v2"
 )
 
 // TreeState represents the persistent state of the tree view (bv-zv7p).
@@ -279,8 +279,8 @@ func buildIssueTreeNodes(issues []model.Issue) ([]*IssueTreeNode, map[string]*Is
 func (t *TreeModel) SetSize(width, height int) {
 	t.width = width
 	t.height = height
-	t.viewport.Width = width
-	t.viewport.Height = height
+	t.viewport.SetWidth(width)
+	t.viewport.SetHeight(height)
 }
 
 // Build constructs the tree from issues using parent-child dependencies.
@@ -522,20 +522,19 @@ func (t *TreeModel) renderPositionIndicator(start, end int) string {
 	displayEnd := end
 
 	indicator := fmt.Sprintf(" [%d-%d of %d]", displayStart, displayEnd, total)
-	return t.theme.Renderer.NewStyle().
+	return lipgloss.NewStyle().
 		Foreground(t.theme.Muted).
 		Render(indicator)
 }
 
 // renderEmptyState renders the view when there are no issues.
 func (t *TreeModel) renderEmptyState() string {
-	r := t.theme.Renderer
 
-	titleStyle := r.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Foreground(t.theme.Primary).
 		Bold(true)
 
-	mutedStyle := r.NewStyle().
+	mutedStyle := lipgloss.NewStyle().
 		Foreground(t.theme.Muted)
 
 	var sb strings.Builder
@@ -559,7 +558,6 @@ func (t *TreeModel) renderNode(node *IssueTreeNode, isSelected bool) string {
 	}
 
 	issue := node.Issue
-	r := t.theme.Renderer
 	var sb strings.Builder
 
 	// Build the tree prefix (indentation + branch characters)
@@ -568,19 +566,19 @@ func (t *TreeModel) renderNode(node *IssueTreeNode, isSelected bool) string {
 
 	// Expand/collapse indicator
 	indicator := t.getExpandIndicator(node)
-	indicatorStyle := r.NewStyle().Foreground(t.theme.Secondary)
+	indicatorStyle := lipgloss.NewStyle().Foreground(t.theme.Secondary)
 	sb.WriteString(indicatorStyle.Render(indicator))
 	sb.WriteString(" ")
 
 	// Type icon
 	icon, iconColor := t.theme.GetTypeIcon(string(issue.IssueType))
-	iconStyle := r.NewStyle().Foreground(iconColor)
+	iconStyle := lipgloss.NewStyle().Foreground(iconColor)
 	sb.WriteString(iconStyle.Render(icon))
 	sb.WriteString(" ")
 
 	// Priority badge (P0, P1, P2, etc.)
 	prioText := fmt.Sprintf("P%d", issue.Priority)
-	prioStyle := r.NewStyle().Bold(true)
+	prioStyle := lipgloss.NewStyle().Bold(true)
 	if issue.Priority <= 1 {
 		prioStyle = prioStyle.Foreground(t.theme.Primary)
 	} else {
@@ -590,7 +588,7 @@ func (t *TreeModel) renderNode(node *IssueTreeNode, isSelected bool) string {
 	sb.WriteString(" ")
 
 	// Issue ID
-	idStyle := r.NewStyle().Foreground(t.theme.Highlight)
+	idStyle := lipgloss.NewStyle().Foreground(t.theme.Highlight)
 	sb.WriteString(idStyle.Render(issue.ID))
 	sb.WriteString(" ")
 
@@ -609,7 +607,7 @@ func (t *TreeModel) renderNode(node *IssueTreeNode, isSelected bool) string {
 	// Status indicator (colored dot at end)
 	statusColor := t.theme.GetStatusColor(string(issue.Status))
 	statusDot := " " + GetStatusIcon(string(issue.Status))
-	statusStyle := r.NewStyle().Foreground(statusColor)
+	statusStyle := lipgloss.NewStyle().Foreground(statusColor)
 	sb.WriteString(statusStyle.Render(statusDot))
 
 	return sb.String()
@@ -621,8 +619,7 @@ func (t *TreeModel) buildTreePrefix(node *IssueTreeNode) string {
 		return "" // Root nodes have no prefix
 	}
 
-	r := t.theme.Renderer
-	treeStyle := r.NewStyle().Foreground(t.theme.Muted)
+	treeStyle := lipgloss.NewStyle().Foreground(t.theme.Muted)
 
 	var prefixParts []string
 
@@ -721,7 +718,7 @@ func (t *TreeModel) truncateTitle(title string, maxLen int) string {
 }
 
 // GetPriorityColor returns the color for a priority level.
-func (t *TreeModel) GetPriorityColor(priority int) lipgloss.AdaptiveColor {
+func (t *TreeModel) GetPriorityColor(priority int) AdaptiveColor {
 	switch priority {
 	case 0:
 		return t.theme.Primary // Critical - red/bright

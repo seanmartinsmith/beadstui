@@ -1,11 +1,9 @@
 package ui
 
 import (
-	"io"
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/lipgloss"
 )
 
 func TestRenderPriorityBadge(t *testing.T) {
@@ -78,8 +76,7 @@ func TestRenderStatusBadge_AllStatusesHaveColors(t *testing.T) {
 }
 
 func TestRenderMiniBar(t *testing.T) {
-	renderer := lipgloss.NewRenderer(io.Discard)
-	theme := DefaultTheme(renderer)
+	theme := DefaultTheme()
 
 	tests := []struct {
 		val   float64

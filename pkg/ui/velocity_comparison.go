@@ -8,6 +8,8 @@ import (
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
+
+	"charm.land/lipgloss/v2"
 )
 
 // VelocityComparisonModel shows side-by-side velocity comparison for all labels
@@ -186,14 +188,14 @@ func (m *VelocityComparisonModel) View() string {
 	var sb strings.Builder
 
 	// Title
-	titleStyle := t.Renderer.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Foreground(t.Primary).
 		Bold(true)
 	sb.WriteString(titleStyle.Render("Velocity Comparison"))
 	sb.WriteString("\n\n")
 
 	// Table header
-	headerStyle := t.Renderer.NewStyle().
+	headerStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary).
 		Bold(true)
 
@@ -224,14 +226,14 @@ func (m *VelocityComparisonModel) View() string {
 	sb.WriteString("\n")
 
 	// Separator
-	sepStyle := t.Renderer.NewStyle().Foreground(t.Secondary)
+	sepStyle := lipgloss.NewStyle().Foreground(t.Secondary)
 	separator := strings.Repeat("─", min(len(header)+2, m.width-2))
 	sb.WriteString(sepStyle.Render(separator))
 	sb.WriteString("\n")
 
 	// Data rows
 	if len(m.data) == 0 {
-		dimStyle := t.Renderer.NewStyle().
+		dimStyle := lipgloss.NewStyle().
 			Foreground(t.Secondary).
 			Italic(true)
 		sb.WriteString(dimStyle.Render("  No velocity data available"))
@@ -248,7 +250,7 @@ func (m *VelocityComparisonModel) View() string {
 			isSelected := i == m.cursor
 
 			// Row style
-			rowStyle := t.Renderer.NewStyle()
+			rowStyle := lipgloss.NewStyle()
 			if isSelected {
 				rowStyle = rowStyle.
 					Foreground(t.Primary).
@@ -263,7 +265,7 @@ func (m *VelocityComparisonModel) View() string {
 			}
 
 			// Format trend with color
-			trendStyle := t.Renderer.NewStyle()
+			trendStyle := lipgloss.NewStyle()
 			switch row.Trend {
 			case "accelerating":
 				trendStyle = trendStyle.Foreground(ThemeFg("#b5bd68"))
@@ -283,7 +285,7 @@ func (m *VelocityComparisonModel) View() string {
 			}
 
 			// Format sparkline
-			sparkStyle := t.Renderer.NewStyle().Foreground(ThemeFg("#81a2be"))
+			sparkStyle := lipgloss.NewStyle().Foreground(ThemeFg("#81a2be"))
 
 			// Build row string
 			rowText := fmt.Sprintf("%-*s %*d %*d %*d %*d %*.1f ",
@@ -310,7 +312,7 @@ func (m *VelocityComparisonModel) View() string {
 		// Show scroll indicator if needed
 		if len(m.data) > visibleRows {
 			scrollInfo := fmt.Sprintf("  [%d-%d of %d]", m.scrollOffset+1, endIdx, len(m.data))
-			dimStyle := t.Renderer.NewStyle().
+			dimStyle := lipgloss.NewStyle().
 				Foreground(t.Secondary).
 				Italic(true)
 			sb.WriteString(dimStyle.Render(scrollInfo))
@@ -319,7 +321,7 @@ func (m *VelocityComparisonModel) View() string {
 	}
 
 	// Footer hints
-	footerStyle := t.Renderer.NewStyle().
+	footerStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary).
 		Italic(true)
 	sb.WriteString("\n")

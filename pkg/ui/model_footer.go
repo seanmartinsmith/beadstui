@@ -9,9 +9,9 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/search"
 	"github.com/seanmartinsmith/beadstui/pkg/watcher"
 
-	"github.com/charmbracelet/bubbles/list"
-	 tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/list"
+	 tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // setTransientStatus sets a status message that auto-clears after the given duration.

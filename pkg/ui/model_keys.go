@@ -7,7 +7,7 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/bql"
 
 	"github.com/atotto/clipboard"
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // handleBoardKeys handles keyboard input when the board is focused (bv-yg39)
@@ -252,7 +252,7 @@ func (m Model) handleTreeKeys(msg tea.KeyMsg) Model {
 		m.tree.MoveDown()
 	case "k", "up":
 		m.tree.MoveUp()
-	case "enter", " ":
+	case "enter", "space":
 		m.tree.ToggleExpand()
 	case "h", "left":
 		m.tree.CollapseOrJumpToParent()
@@ -676,7 +676,7 @@ func (m Model) handleRepoPickerKeys(msg tea.KeyMsg) Model {
 		m.repoPicker.MoveDown()
 	case "k", "up":
 		m.repoPicker.MoveUp()
-	case " ", "space":
+	case "space":
 		m.repoPicker.ToggleSelected()
 	case "a":
 		m.repoPicker.SelectAll()
@@ -1057,7 +1057,7 @@ func (m Model) handleHelpKeys(msg tea.KeyMsg) Model {
 		m.showHelp = false
 		m.helpScroll = 0
 		m.focused = m.restoreFocusFromHelp()
-	case " ": // Space opens interactive tutorial (bv-0trk, bv-8y31)
+	case "space": // Space opens interactive tutorial (bv-0trk, bv-8y31)
 		m.showHelp = false
 		m.helpScroll = 0
 		m.showTutorial = true

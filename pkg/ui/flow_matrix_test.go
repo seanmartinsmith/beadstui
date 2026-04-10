@@ -13,7 +13,7 @@ import (
 // =============================================================================
 
 func testFlowTheme() ui.Theme {
-	return ui.DefaultTheme(nil)
+	return ui.DefaultTheme()
 }
 
 func TestNewFlowMatrixModel(t *testing.T) {

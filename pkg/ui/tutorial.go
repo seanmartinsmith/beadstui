@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // TutorialPage represents a single page of tutorial content.
@@ -81,7 +81,7 @@ func (m TutorialModel) Init() tea.Cmd {
 // Update handles keyboard input for the tutorial with focus management (bv-wdsd).
 func (m TutorialModel) Update(msg tea.Msg) (TutorialModel, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		// Global keys (work in any focus mode)
 		switch msg.String() {
 		case "esc", "q":
@@ -133,7 +133,7 @@ func (m TutorialModel) Update(msg tea.Msg) (TutorialModel, tea.Cmd) {
 func (m TutorialModel) handleContentKeys(msg tea.KeyMsg) TutorialModel {
 	switch msg.String() {
 	// Page navigation
-	case "right", "l", "n", " ": // Space added for next page
+	case "right", "l", "n", "space": // Space added for next page
 		m.NextPage()
 	case "left", "h", "p", "shift+tab":
 		m.PrevPage()
@@ -197,7 +197,7 @@ func (m TutorialModel) handleTOCKeys(msg tea.KeyMsg) TutorialModel {
 		m.tocCursor = 0
 	case "G", "end":
 		m.tocCursor = len(pages) - 1
-	case "enter", " ":
+	case "enter", "space":
 		// Jump to selected page in TOC
 		m.JumpToPage(m.tocCursor)
 		m.focus = focusTutorialContent
@@ -228,7 +228,6 @@ func (m TutorialModel) View() string {
 	// Mark as viewed
 	m.progress[currentPage.ID] = true
 
-	r := m.theme.Renderer
 
 	// Calculate dimensions
 	contentWidth := m.width - 6 // padding and borders
@@ -248,13 +247,13 @@ func (m TutorialModel) View() string {
 	b.WriteString("\n")
 
 	// Separator line
-	sepStyle := r.NewStyle().Foreground(m.theme.Border)
+	sepStyle := lipgloss.NewStyle().Foreground(m.theme.Border)
 	b.WriteString(sepStyle.Render(strings.Repeat("─", contentWidth+4)))
 	b.WriteString("\n")
 
 	// Page title and section
-	pageTitleStyle := r.NewStyle().Bold(true).Foreground(m.theme.Primary)
-	sectionStyle := r.NewStyle().Foreground(m.theme.Subtext).Italic(true)
+	pageTitleStyle := lipgloss.NewStyle().Bold(true).Foreground(m.theme.Primary)
+	sectionStyle := lipgloss.NewStyle().Foreground(m.theme.Subtext).Italic(true)
 	pageTitle := pageTitleStyle.Render(currentPage.Title)
 	if currentPage.Section != "" {
 		pageTitle += sectionStyle.Render(" — " + currentPage.Section)
@@ -280,7 +279,7 @@ func (m TutorialModel) View() string {
 	b.WriteString(footer)
 
 	// Wrap in modal style
-	modalStyle := r.NewStyle().
+	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(m.theme.Primary).
 		Padding(1, 2).
@@ -292,15 +291,14 @@ func (m TutorialModel) View() string {
 
 // renderHeader renders the tutorial header with title and progress bar.
 func (m TutorialModel) renderHeader(page TutorialPage, totalPages int) string {
-	r := m.theme.Renderer
 
-	titleStyle := r.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(m.theme.Primary)
 
 	// Progress indicator: [2/15] ███░░░
 	pageNum := m.currentPage + 1
-	progressText := r.NewStyle().
+	progressText := lipgloss.NewStyle().
 		Foreground(m.theme.Subtext).
 		Render(fmt.Sprintf("[%d/%d]", pageNum, totalPages))
 
@@ -317,10 +315,10 @@ func (m TutorialModel) renderHeader(page TutorialPage, totalPages int) string {
 	if filledWidth > barWidth {
 		filledWidth = barWidth
 	}
-	progressBar := r.NewStyle().
+	progressBar := lipgloss.NewStyle().
 		Foreground(m.theme.Open). // Using Open (green) for progress
 		Render(strings.Repeat("█", filledWidth)) +
-		r.NewStyle().
+		lipgloss.NewStyle().
 			Foreground(m.theme.Muted).
 			Render(strings.Repeat("░", barWidth-filledWidth))
 
@@ -335,7 +333,6 @@ func (m TutorialModel) renderHeader(page TutorialPage, totalPages int) string {
 
 // renderContent renders the page content with native lipgloss components or Glamour markdown.
 func (m TutorialModel) renderContent(page TutorialPage, width int) string {
-	r := m.theme.Renderer
 
 	// Check if we have a structured page for this ID (preferred)
 	if structuredPage := getStructuredPage(page.ID); structuredPage != nil {
@@ -408,11 +405,11 @@ func (m TutorialModel) renderContent(page TutorialPage, width int) string {
 
 	// Add scroll indicators (these are accounted for in the height calculation)
 	if m.scrollOffset > 0 {
-		scrollUpHint := r.NewStyle().Foreground(m.theme.Muted).Render("↑ more above")
+		scrollUpHint := lipgloss.NewStyle().Foreground(m.theme.Muted).Render("↑ more above")
 		content = scrollUpHint + "\n" + content
 	}
 	if endLine < len(lines) {
-		scrollDownHint := r.NewStyle().Foreground(m.theme.Muted).Render("↓ more below")
+		scrollDownHint := lipgloss.NewStyle().Foreground(m.theme.Muted).Render("↓ more below")
 		content = content + "\n" + scrollDownHint
 	}
 
@@ -454,11 +451,11 @@ func (m TutorialModel) renderStructuredContent(page StructuredTutorialPage, widt
 
 	// Add scroll indicators
 	if m.scrollOffset > 0 {
-		scrollUpHint := m.theme.Renderer.NewStyle().Foreground(m.theme.Muted).Render("↑ more above")
+		scrollUpHint := lipgloss.NewStyle().Foreground(m.theme.Muted).Render("↑ more above")
 		content = scrollUpHint + "\n" + content
 	}
 	if endLine < len(lines) {
-		scrollDownHint := m.theme.Renderer.NewStyle().Foreground(m.theme.Muted).Render("↓ more below")
+		scrollDownHint := lipgloss.NewStyle().Foreground(m.theme.Muted).Render("↓ more below")
 		content = content + "\n" + scrollDownHint
 	}
 
@@ -467,7 +464,6 @@ func (m TutorialModel) renderStructuredContent(page StructuredTutorialPage, widt
 
 // renderTOC renders the table of contents sidebar with focus indication (bv-wdsd).
 func (m TutorialModel) renderTOC(pages []TutorialPage) string {
-	r := m.theme.Renderer
 
 	// Use different border style when TOC has focus
 	borderColor := m.theme.Border
@@ -475,40 +471,40 @@ func (m TutorialModel) renderTOC(pages []TutorialPage) string {
 		borderColor = m.theme.Primary
 	}
 
-	tocStyle := r.NewStyle().
+	tocStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
 		Padding(0, 1).
 		Width(22)
 
-	headerStyle := r.NewStyle().
+	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(m.theme.Primary)
 
-	sectionStyle := r.NewStyle().
+	sectionStyle := lipgloss.NewStyle().
 		Foreground(m.theme.Secondary).
 		Bold(true)
 
-	itemStyle := r.NewStyle().
+	itemStyle := lipgloss.NewStyle().
 		Foreground(m.theme.Subtext)
 
-	selectedStyle := r.NewStyle().
+	selectedStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(m.theme.Primary)
 
 	// TOC cursor style (when TOC has focus and cursor is on this item)
-	cursorStyle := r.NewStyle().
+	cursorStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(m.theme.InProgress).
 		Background(m.theme.Highlight)
 
-	viewedStyle := r.NewStyle().
+	viewedStyle := lipgloss.NewStyle().
 		Foreground(m.theme.Open)
 
 	var b strings.Builder
 	b.WriteString(headerStyle.Render("Contents"))
 	if m.focus == focusTutorialTOC {
-		b.WriteString(r.NewStyle().Foreground(m.theme.Primary).Render(" ●"))
+		b.WriteString(lipgloss.NewStyle().Foreground(m.theme.Primary).Render(" ●"))
 	}
 	b.WriteString("\n")
 
@@ -557,16 +553,15 @@ func (m TutorialModel) renderTOC(pages []TutorialPage) string {
 
 // renderFooter renders context-sensitive navigation hints (bv-wdsd).
 func (m TutorialModel) renderFooter(totalPages int) string {
-	r := m.theme.Renderer
 
-	keyStyle := r.NewStyle().
+	keyStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(m.theme.Primary)
 
-	descStyle := r.NewStyle().
+	descStyle := lipgloss.NewStyle().
 		Foreground(m.theme.Subtext)
 
-	sepStyle := r.NewStyle().
+	sepStyle := lipgloss.NewStyle().
 		Foreground(m.theme.Muted)
 
 	var hints []string
@@ -597,9 +592,8 @@ func (m TutorialModel) renderFooter(totalPages int) string {
 
 // renderEmptyState renders a message when no pages are available.
 func (m TutorialModel) renderEmptyState() string {
-	r := m.theme.Renderer
 
-	style := r.NewStyle().
+	style := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(m.theme.Primary).
 		Padding(2, 4).
@@ -771,9 +765,8 @@ func (m TutorialModel) CenterTutorial(termWidth, termHeight int) string {
 		padLeft = 0
 	}
 
-	r := m.theme.Renderer
 
-	centered := r.NewStyle().
+	centered := lipgloss.NewStyle().
 		MarginTop(padTop).
 		MarginLeft(padLeft).
 		Render(tutorial)

@@ -6,7 +6,7 @@ import (
 
 	"github.com/seanmartinsmith/beadstui/pkg/recipe"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 // RecipePickerModel represents the recipe picker overlay
@@ -84,7 +84,7 @@ func (m *RecipePickerModel) View() string {
 	var lines []string
 
 	// Title
-	titleStyle := t.Renderer.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Foreground(t.Primary).
 		Bold(true).
 		MarginBottom(1)
@@ -96,7 +96,7 @@ func (m *RecipePickerModel) View() string {
 		isSelected := i == m.selectedIndex
 
 		// Name line
-		nameStyle := t.Renderer.NewStyle()
+		nameStyle := lipgloss.NewStyle()
 		if isSelected {
 			nameStyle = nameStyle.Foreground(t.Primary).Bold(true)
 		} else {
@@ -113,7 +113,7 @@ func (m *RecipePickerModel) View() string {
 
 		// Description (indented, dimmed)
 		if r.Description != "" {
-			descStyle := t.Renderer.NewStyle().
+			descStyle := lipgloss.NewStyle().
 				Foreground(t.Secondary).
 				Italic(true)
 			desc := "    " + truncateRunesHelper(r.Description, boxWidth-8, "…")
@@ -128,7 +128,7 @@ func (m *RecipePickerModel) View() string {
 
 	// Footer with keybindings
 	lines = append(lines, "")
-	footerStyle := t.Renderer.NewStyle().
+	footerStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary).
 		Italic(true)
 	lines = append(lines, footerStyle.Render("j/k: navigate • enter: apply • esc: cancel"))
@@ -136,7 +136,7 @@ func (m *RecipePickerModel) View() string {
 	content := strings.Join(lines, "\n")
 
 	// Box style
-	boxStyle := t.Renderer.NewStyle().
+	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(t.Primary).
 		Padding(1, 2).

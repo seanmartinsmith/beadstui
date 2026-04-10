@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // LabelDashboardModel renders a lightweight table of label health

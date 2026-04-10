@@ -7,7 +7,7 @@ import (
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
-	"github.com/charmbracelet/bubbles/list"
+	"charm.land/bubbles/v2/list"
 )
 
 // exercise Phase2Ready and FileChanged branches of Update for coverage.
@@ -75,7 +75,7 @@ func TestInsightsCurrentPanelItemCount(t *testing.T) {
 		Cycles:       [][]string{{"X", "Y"}},
 		Stats:        analysis.NewGraphStatsForTest(nil, nil, nil, nil, nil, nil, nil, nil, nil, 0, nil),
 	}
-	m := NewInsightsModel(ins, map[string]*model.Issue{}, DefaultTheme(nil))
+	m := NewInsightsModel(ins, map[string]*model.Issue{}, DefaultTheme())
 	m.SetTopPicks([]analysis.TopPick{{ID: "P1", Score: 1.0}})
 	counts := []int{m.currentPanelItemCount()}
 	for i := 0; i < int(PanelCount)-1; i++ {

@@ -3,7 +3,7 @@ package ui
 import (
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 // CapsLock Key Detection
@@ -141,22 +141,10 @@ func (c *CapsLockTracker) IsPending() bool {
 // Returns false if uncertain - users should use the alternative trigger key.
 func IsCapsLock(msg tea.KeyMsg) bool {
 	// Most terminals don't pass CapsLock through, so this is conservative.
-	// We check for patterns that some terminals might use.
-
-	// Some terminals might send CapsLock as a specific escape sequence
-	// or with a particular key type. In practice, this rarely works.
-
-	// Check if it looks like a potential CapsLock event
-	// Note: msg.String() returns "" for unknown keys
-	if msg.Type == tea.KeyRunes && len(msg.Runes) == 0 {
-		// Empty runes could indicate a modifier-only key
-		return false // Still too ambiguous
-	}
-
-	// Kitty terminal protocol might send CapsLock as a specific sequence
-	// but BubbleTea doesn't expose this directly
-
-	return false // Conservative: assume CapsLock not detected
+	// In Bubble Tea v2, there is no reliable way to detect CapsLock as a
+	// distinct key event. Users should use the alternative trigger key.
+	_ = msg
+	return false
 }
 
 // IsTutorialTrigger checks if the key message is the tutorial trigger key.

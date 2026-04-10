@@ -10,8 +10,8 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/recipe"
 
-	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/viewport"
+	"charm.land/bubbles/v2/list"
+	"charm.land/bubbles/v2/viewport"
 )
 
 // getDiffStatus returns the diff status for an issue if time-travel mode is active
@@ -607,7 +607,7 @@ func (m *Model) recalculateSplitPaneSizes() {
 	}
 
 	m.list.SetSize(listInnerWidth, listHeight)
-	m.viewport = viewport.New(detailInnerWidth, bodyHeight-2)
+	m.viewport = viewport.New(viewport.WithWidth(detailInnerWidth), viewport.WithHeight(bodyHeight-2))
 	m.renderer.SetWidthWithTheme(detailInnerWidth, m.theme)
 	m.updateViewportContent()
 }

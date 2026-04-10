@@ -5,13 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
 )
 
 func newTestTutorialModel() TutorialModel {
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
-	return NewTutorialModel(theme)
+	return NewTutorialModel(DefaultTheme())
 }
 
 func TestNewTutorialModel(t *testing.T) {
@@ -42,45 +40,45 @@ func TestTutorialNavigation(t *testing.T) {
 	totalPages := len(m.pages)
 
 	// Test next page
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'n', Text: "n"})
 	if m.currentPage != 1 {
 		t.Errorf("Expected page 1 after 'n', got %d", m.currentPage)
 	}
 
 	// Test right arrow
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRight})
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyRight})
 	if m.currentPage != 2 {
 		t.Errorf("Expected page 2 after right arrow, got %d", m.currentPage)
 	}
 
 	// Test previous page
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("p")})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'p', Text: "p"})
 	if m.currentPage != 1 {
 		t.Errorf("Expected page 1 after 'p', got %d", m.currentPage)
 	}
 
 	// Test left arrow
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
 	if m.currentPage != 0 {
 		t.Errorf("Expected page 0 after left arrow, got %d", m.currentPage)
 	}
 
 	// Test boundary - can't go below 0
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyLeft})
 	if m.currentPage != 0 {
 		t.Errorf("Expected page to stay at 0, got %d", m.currentPage)
 	}
 
 	// Go to last page
 	for i := 0; i < totalPages; i++ {
-		m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRight})
+		m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyRight})
 	}
 	if m.currentPage != totalPages-1 {
 		t.Errorf("Expected to be at last page %d, got %d", totalPages-1, m.currentPage)
 	}
 
 	// Test boundary - can't go above max
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRight})
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyRight})
 	if m.currentPage != totalPages-1 {
 		t.Errorf("Expected to stay at last page, got %d", m.currentPage)
 	}
@@ -90,32 +88,32 @@ func TestTutorialScrolling(t *testing.T) {
 	m := newTestTutorialModel()
 
 	// Test scroll down
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'j', Text: "j"})
 	if m.scrollOffset != 1 {
 		t.Errorf("Expected scroll 1 after 'j', got %d", m.scrollOffset)
 	}
 
 	// Test scroll up
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'k', Text: "k"})
 	if m.scrollOffset != 0 {
 		t.Errorf("Expected scroll 0 after 'k', got %d", m.scrollOffset)
 	}
 
 	// Can't scroll below 0
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'k', Text: "k"})
 	if m.scrollOffset != 0 {
 		t.Errorf("Expected scroll to stay at 0, got %d", m.scrollOffset)
 	}
 
 	// Test home
 	m.scrollOffset = 5
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("g")})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'g', Text: "g"})
 	if m.scrollOffset != 0 {
 		t.Errorf("Expected scroll 0 after 'g', got %d", m.scrollOffset)
 	}
 
 	// Test end (will be clamped in View)
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("G")})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'G', Text: "G"})
 	if m.scrollOffset == 0 {
 		t.Error("Expected scroll to increase after 'G'")
 	}
@@ -128,12 +126,12 @@ func TestTutorialTOCToggle(t *testing.T) {
 		t.Error("TOC should be hidden initially")
 	}
 
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 't', Text: "t"})
 	if !m.tocVisible {
 		t.Error("TOC should be visible after 't'")
 	}
 
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 't', Text: "t"})
 	if m.tocVisible {
 		t.Error("TOC should be hidden after second 't'")
 	}
@@ -143,19 +141,19 @@ func TestTutorialJumpToPage(t *testing.T) {
 	m := newTestTutorialModel()
 
 	// Jump to page 3 using number key
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("3")})
+	m, _ = m.Update(tea.KeyPressMsg{Code: '3', Text: "3"})
 	if m.currentPage != 2 { // 0-indexed
 		t.Errorf("Expected page 2 after '3', got %d", m.currentPage)
 	}
 
 	// Jump to page 1
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("1")})
+	m, _ = m.Update(tea.KeyPressMsg{Code: '1', Text: "1"})
 	if m.currentPage != 0 {
 		t.Errorf("Expected page 0 after '1', got %d", m.currentPage)
 	}
 
 	// Invalid page number (beyond available pages)
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("9")})
+	m, _ = m.Update(tea.KeyPressMsg{Code: '9', Text: "9"})
 	// Should not change if page doesn't exist
 }
 
@@ -393,50 +391,50 @@ func TestTutorialAlternativeKeys(t *testing.T) {
 	m := newTestTutorialModel()
 
 	// Test 'l' for next page
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'l', Text: "l"})
 	if m.currentPage != 1 {
 		t.Error("'l' should navigate to next page")
 	}
 
 	// Test 'h' for prev page
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("h")})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'h', Text: "h"})
 	if m.currentPage != 0 {
 		t.Error("'h' should navigate to previous page")
 	}
 
 	// Test Tab for next page
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 	if m.currentPage != 1 {
 		t.Error("Tab should navigate to next page")
 	}
 
 	// Test Shift+Tab for prev page
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyShiftTab})
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab, Mod: tea.ModShift})
 	if m.currentPage != 0 {
 		t.Error("Shift+Tab should navigate to previous page")
 	}
 
 	// Test down arrow for scroll
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 	if m.scrollOffset != 1 {
 		t.Error("Down arrow should scroll down")
 	}
 
 	// Test up arrow for scroll
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyUp})
 	if m.scrollOffset != 0 {
 		t.Error("Up arrow should scroll up")
 	}
 
 	// Test Home for scroll
 	m.scrollOffset = 10
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyHome})
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyHome})
 	if m.scrollOffset != 0 {
 		t.Error("Home should scroll to top")
 	}
 
 	// Test End for scroll
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnd})
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnd})
 	if m.scrollOffset == 0 {
 		t.Error("End should scroll down")
 	}
@@ -716,14 +714,14 @@ func TestTutorialExitKeys(t *testing.T) {
 		t.Error("Should not close initially")
 	}
 
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'q', Text: "q"})
 	if !m.ShouldClose() {
 		t.Error("'q' should trigger close")
 	}
 
 	// Test Esc key closes
 	m = newTestTutorialModel()
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
 	if !m.ShouldClose() {
 		t.Error("Esc should trigger close")
 	}
@@ -733,7 +731,7 @@ func TestTutorialSpaceNavigates(t *testing.T) {
 	m := newTestTutorialModel()
 
 	// Space should advance to next page
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(" ")})
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeySpace})
 	if m.currentPage != 1 {
 		t.Error("Space should navigate to next page")
 	}
@@ -744,7 +742,7 @@ func TestTutorialHalfPageScroll(t *testing.T) {
 	m.SetSize(80, 30)
 
 	// Ctrl+d should scroll half page down
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlD})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'd', Mod: tea.ModCtrl})
 	if m.scrollOffset == 0 {
 		t.Error("Ctrl+d should scroll down")
 	}
@@ -752,7 +750,7 @@ func TestTutorialHalfPageScroll(t *testing.T) {
 	savedOffset := m.scrollOffset
 
 	// Ctrl+u should scroll half page up
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlU})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'u', Mod: tea.ModCtrl})
 	if m.scrollOffset >= savedOffset {
 		t.Error("Ctrl+u should scroll up")
 	}
@@ -767,7 +765,7 @@ func TestTutorialFocusManagement(t *testing.T) {
 	}
 
 	// Toggle TOC with 't'
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 't', Text: "t"})
 	if !m.tocVisible {
 		t.Error("TOC should be visible after 't'")
 	}
@@ -776,13 +774,13 @@ func TestTutorialFocusManagement(t *testing.T) {
 	}
 
 	// Tab switches focus back to content
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 	if m.focus != focusTutorialContent {
 		t.Error("Tab should switch focus to content")
 	}
 
 	// Tab again switches back to TOC (when visible)
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyTab})
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyTab})
 	if m.focus != focusTutorialTOC {
 		t.Error("Tab should switch focus back to TOC")
 	}
@@ -795,20 +793,20 @@ func TestTutorialTOCNavigation(t *testing.T) {
 	m.tocCursor = 0
 
 	// j/down moves cursor down
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'j', Text: "j"})
 	if m.tocCursor != 1 {
 		t.Error("'j' should move TOC cursor down")
 	}
 
 	// k/up moves cursor up
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'k', Text: "k"})
 	if m.tocCursor != 0 {
 		t.Error("'k' should move TOC cursor up")
 	}
 
 	// Enter jumps to selected page
 	m.tocCursor = 2
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if m.currentPage != 2 {
 		t.Error("Enter should jump to TOC cursor position")
 	}
@@ -1119,7 +1117,7 @@ func TestScrollingWithLongContent(t *testing.T) {
 
 	// Scroll down multiple times
 	for i := 0; i < 10; i++ {
-		m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+		m, _ = m.Update(tea.KeyPressMsg{Code: 'j', Text: "j"})
 	}
 
 	// Scroll offset should have increased
@@ -1128,11 +1126,11 @@ func TestScrollingWithLongContent(t *testing.T) {
 	}
 
 	// Scroll to end
-	m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("G")})
+	m, _ = m.Update(tea.KeyPressMsg{Code: 'G', Text: "G"})
 
 	// Scroll up
 	for i := 0; i < 5; i++ {
-		m, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+		m, _ = m.Update(tea.KeyPressMsg{Code: 'k', Text: "k"})
 	}
 
 	// Should not crash

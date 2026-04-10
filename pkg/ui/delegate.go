@@ -7,9 +7,9 @@ import (
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 
-	"github.com/charmbracelet/bubbles/list"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // IssueDelegate renders issue items in the list
@@ -89,7 +89,7 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 	if width > 120 {
 		spark := RenderSparkline(i.GraphScore, 5)
 		sparkColor := GetHeatmapColor(i.GraphScore, t)
-		sparkStyle := t.Renderer.NewStyle().Foreground(sparkColor)
+		sparkStyle := lipgloss.NewStyle().Foreground(sparkColor)
 		rightParts = append(rightParts, sparkStyle.Render(spark))
 		rightWidth += 6 // 5 + 1 spacing
 	}
@@ -104,7 +104,7 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 	// Labels (if present and we have room) - render as mini tags
 	if width > 140 && len(i.Issue.Labels) > 0 {
 		labelStr := truncateRunesHelper(strings.Join(i.Issue.Labels, ","), 20, "…")
-		labelStyle := t.Renderer.NewStyle().
+		labelStyle := lipgloss.NewStyle().
 			Foreground(ColorPrimary).
 			Background(ColorBgSubtle).
 			Padding(0, 1)
@@ -204,7 +204,7 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 	}
 
 	// Type icon with color
-	leftSide.WriteString(t.Renderer.NewStyle().Foreground(iconColor).Render(icon))
+	leftSide.WriteString(lipgloss.NewStyle().Foreground(iconColor).Render(icon))
 	leftSide.WriteString(" ")
 
 	// Priority badge (polished)
@@ -264,7 +264,7 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 	}
 
 	// Title with emphasis when selected
-	titleStyle := t.Renderer.NewStyle()
+	titleStyle := lipgloss.NewStyle()
 	if isSelected {
 		titleStyle = titleStyle.Foreground(t.Primary).Bold(true)
 	} else {
@@ -287,7 +287,7 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 	row := leftSide.String() + strings.Repeat(" ", padding) + rightSide
 
 	// Apply row background for selection and clamp width
-	rowStyle := t.Renderer.NewStyle().Width(width).MaxWidth(width)
+	rowStyle := lipgloss.NewStyle().Width(width).MaxWidth(width)
 	if isSelected {
 		row = rowStyle.Background(t.Highlight).Render(row)
 	} else {

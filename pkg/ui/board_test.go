@@ -2,7 +2,6 @@ package ui_test
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -10,7 +9,7 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/ui"
 
-	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func createTime(hoursAgo int) time.Time {
@@ -18,7 +17,7 @@ func createTime(hoursAgo int) time.Time {
 }
 
 func createTheme() ui.Theme {
-	return ui.DefaultTheme(lipgloss.NewRenderer(os.Stdout))
+	return ui.DefaultTheme()
 }
 
 // TestBoardModelBlackbox tests basic selection and update behavior
@@ -1836,8 +1835,9 @@ func TestInlineCardExpansion_ShowsDescription(t *testing.T) {
 	// Render the board
 	output := b.View(120, 40)
 
-	// Should contain the unique description text
-	if !strings.Contains(output, "UNIQUE_DESC_CONTENT") {
+	// Check with ANSI codes stripped - glamour v2 may embed escape codes within words
+	stripped := ansi.Strip(output)
+	if !strings.Contains(stripped, "UNIQUE_DESC_CONTENT") {
 		t.Error("Expanded card should show description content")
 	}
 }

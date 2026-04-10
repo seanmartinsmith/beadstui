@@ -3,14 +3,15 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/cass"
 	"github.com/seanmartinsmith/beadstui/pkg/correlation"
-	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textinput"
+	"charm.land/lipgloss/v2"
 )
 
 // historyFocus tracks which pane has focus in the history view
@@ -171,7 +172,7 @@ func NewHistoryModel(report *correlation.HistoryReport, theme Theme) HistoryMode
 	ti := textinput.New()
 	ti.Placeholder = "Search commits, beads, authors..."
 	ti.CharLimit = 100
-	ti.Width = 40
+	ti.SetWidth(40)
 
 	h := HistoryModel{
 		report:        report,
@@ -1475,18 +1476,17 @@ func (h *HistoryModel) formatTimelineTimestamp(t time.Time) string {
 // renderTimelinePanel renders the timeline visualization panel (bv-1x6o)
 func (h *HistoryModel) renderTimelinePanel(width, height int) string {
 	t := h.theme
-	r := t.Renderer
 
 	// Panel border style
 	borderColor := t.Border
-	panelStyle := r.NewStyle().
+	panelStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
 		Width(width - 2).
 		Height(height - 2)
 
 	// Title style
-	titleStyle := r.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(t.Primary).
 		Width(width - 4).
@@ -1495,7 +1495,7 @@ func (h *HistoryModel) renderTimelinePanel(width, height int) string {
 	// Get selected bead
 	if len(h.beadIDs) == 0 || h.selectedBead >= len(h.beadIDs) {
 		content := titleStyle.Render("TIMELINE") + "\n\n" +
-			r.NewStyle().Foreground(t.Secondary).Render("Select a bead to view timeline")
+			lipgloss.NewStyle().Foreground(t.Secondary).Render("Select a bead to view timeline")
 		return panelStyle.Render(content)
 	}
 
@@ -1503,7 +1503,7 @@ func (h *HistoryModel) renderTimelinePanel(width, height int) string {
 	hist, ok := h.report.Histories[beadID]
 	if !ok {
 		content := titleStyle.Render("TIMELINE") + "\n\n" +
-			r.NewStyle().Foreground(t.Secondary).Render("No history data")
+			lipgloss.NewStyle().Foreground(t.Secondary).Render("No history data")
 		return panelStyle.Render(content)
 	}
 
@@ -1516,7 +1516,7 @@ func (h *HistoryModel) renderTimelinePanel(width, height int) string {
 
 	if len(entries) == 0 {
 		b.WriteString("\n")
-		b.WriteString(r.NewStyle().Foreground(t.Secondary).Render("No events recorded"))
+		b.WriteString(lipgloss.NewStyle().Foreground(t.Secondary).Render("No events recorded"))
 	} else {
 		// Render timeline entries
 		maxVisible := height - 6 // Account for title, borders, summary
@@ -1546,20 +1546,20 @@ func (h *HistoryModel) renderTimelinePanel(width, height int) string {
 
 			// Timestamp on left
 			timestamp := h.formatTimelineTimestamp(entry.Timestamp)
-			timestampStyle := r.NewStyle().
+			timestampStyle := lipgloss.NewStyle().
 				Foreground(t.Subtext).
 				Width(8).
 				Align(lipgloss.Right)
 			b.WriteString(timestampStyle.Render(timestamp))
 
 			// Vertical line
-			b.WriteString(r.NewStyle().Foreground(lineColor).Render(" ┃ "))
+			b.WriteString(lipgloss.NewStyle().Foreground(lineColor).Render(" ┃ "))
 
 			// Entry content
 			switch entry.EntryType {
 			case timelineEntryEvent:
 				// Event marker with appropriate color
-				var eventColor lipgloss.TerminalColor
+				var eventColor color.Color
 				switch entry.EventType {
 				case "created":
 					eventColor = t.Secondary
@@ -1572,11 +1572,11 @@ func (h *HistoryModel) renderTimelinePanel(width, height int) string {
 				default:
 					eventColor = t.Secondary
 				}
-				eventStyle := r.NewStyle().Foreground(eventColor).Bold(true)
+				eventStyle := lipgloss.NewStyle().Foreground(eventColor).Bold(true)
 				b.WriteString(eventStyle.Render(entry.Label))
 				if entry.Detail != "" {
 					b.WriteString(" ")
-					detailStyle := r.NewStyle().Foreground(t.Subtext)
+					detailStyle := lipgloss.NewStyle().Foreground(t.Subtext)
 					// Truncate detail if needed
 					maxDetail := width - 22
 					detail := truncateRunesHelper(entry.Detail, maxDetail, "...")
@@ -1585,7 +1585,7 @@ func (h *HistoryModel) renderTimelinePanel(width, height int) string {
 
 			case timelineEntryCommit:
 				// Commit with confidence coloring
-				var confColor lipgloss.TerminalColor
+				var confColor color.Color
 				if entry.Confidence >= 0.8 {
 					confColor = t.Closed // Green for high confidence
 				} else if entry.Confidence >= 0.5 {
@@ -1593,14 +1593,14 @@ func (h *HistoryModel) renderTimelinePanel(width, height int) string {
 				} else {
 					confColor = t.Subtext // Gray for low
 				}
-				shaStyle := r.NewStyle().Foreground(confColor).Bold(true)
+				shaStyle := lipgloss.NewStyle().Foreground(confColor).Bold(true)
 				b.WriteString("├─ ")
 				b.WriteString(shaStyle.Render(entry.Label))
 				b.WriteString(" ")
 
 				// Confidence percentage
 				confPct := int(entry.Confidence * 100)
-				confStyle := r.NewStyle().Foreground(confColor)
+				confStyle := lipgloss.NewStyle().Foreground(confColor)
 				b.WriteString(confStyle.Render(fmt.Sprintf("%d%%", confPct)))
 
 				// Truncate message (UTF-8 safe using runewidth)
@@ -1610,14 +1610,14 @@ func (h *HistoryModel) renderTimelinePanel(width, height int) string {
 				if msg != "" {
 					b.WriteString("\n")
 					b.WriteString(timestampStyle.Render(""))
-					b.WriteString(r.NewStyle().Foreground(lineColor).Render(" ┃   "))
-					msgStyle := r.NewStyle().Foreground(t.Subtext).Italic(true)
+					b.WriteString(lipgloss.NewStyle().Foreground(lineColor).Render(" ┃   "))
+					msgStyle := lipgloss.NewStyle().Foreground(t.Subtext).Italic(true)
 					b.WriteString(msgStyle.Render(msg))
 				}
 
 			case timelineEntrySession:
 				// Session entry with score-based coloring (bv-pr1l)
-				var sessionColor lipgloss.TerminalColor
+				var sessionColor color.Color
 				if entry.SessionScore >= 80 {
 					sessionColor = t.Primary // High relevance - primary color
 				} else if entry.SessionScore >= 50 {
@@ -1625,18 +1625,18 @@ func (h *HistoryModel) renderTimelinePanel(width, height int) string {
 				} else {
 					sessionColor = t.Subtext // Lower relevance
 				}
-				sessionStyle := r.NewStyle().Foreground(sessionColor).Bold(true)
+				sessionStyle := lipgloss.NewStyle().Foreground(sessionColor).Bold(true)
 				b.WriteString(sessionStyle.Render(entry.Label))
 
 				// Show detail (session title) if available
 				if entry.Detail != "" {
 					b.WriteString("\n")
 					b.WriteString(timestampStyle.Render(""))
-					b.WriteString(r.NewStyle().Foreground(lineColor).Render(" ┃   "))
+					b.WriteString(lipgloss.NewStyle().Foreground(lineColor).Render(" ┃   "))
 					// Truncate title if needed
 					maxTitle := width - 16
 					title := truncateRunesHelper(entry.Detail, maxTitle, "...")
-					titleStyle := r.NewStyle().Foreground(t.Subtext).Italic(true)
+					titleStyle := lipgloss.NewStyle().Foreground(t.Subtext).Italic(true)
 					b.WriteString(titleStyle.Render(title))
 				}
 			}
@@ -1646,10 +1646,10 @@ func (h *HistoryModel) renderTimelinePanel(width, height int) string {
 		if len(entries) > maxVisible {
 			b.WriteString("\n")
 			scrollInfo := fmt.Sprintf("↕ %d-%d of %d", startIdx+1, endIdx, len(entries))
-			scrollStyle := r.NewStyle().Foreground(t.Subtext).Italic(true)
+			scrollStyle := lipgloss.NewStyle().Foreground(t.Subtext).Italic(true)
 			// Pad for timestamp column alignment
-			b.WriteString(r.NewStyle().Width(8).Render(""))
-			b.WriteString(r.NewStyle().Foreground(lineColor).Render(" ┃ "))
+			b.WriteString(lipgloss.NewStyle().Width(8).Render(""))
+			b.WriteString(lipgloss.NewStyle().Foreground(lineColor).Render(" ┃ "))
 			b.WriteString(scrollStyle.Render(scrollInfo))
 		}
 	}
@@ -1657,10 +1657,10 @@ func (h *HistoryModel) renderTimelinePanel(width, height int) string {
 	// Add cycle time summary at bottom if available
 	if hist.CycleTime != nil {
 		b.WriteString("\n")
-		b.WriteString(r.NewStyle().Foreground(t.Border).Render(strings.Repeat("─", width-6)))
+		b.WriteString(lipgloss.NewStyle().Foreground(t.Border).Render(strings.Repeat("─", width-6)))
 		b.WriteString("\n")
 
-		summaryStyle := r.NewStyle().Foreground(t.Subtext)
+		summaryStyle := lipgloss.NewStyle().Foreground(t.Subtext)
 		if hist.CycleTime.CreateToClose != nil {
 			b.WriteString(summaryStyle.Render(fmt.Sprintf("Cycle: %s", formatDuration(*hist.CycleTime.CreateToClose))))
 		}
@@ -1696,7 +1696,6 @@ func formatDuration(d time.Duration) string {
 // Example: ○──●──├──├──├──✓  5d cycle, 3 commits
 func (h *HistoryModel) renderCompactTimeline(hist correlation.BeadHistory, maxWidth int) string {
 	t := h.theme
-	r := t.Renderer
 
 	var markers []string
 	var startTime, endTime time.Time
@@ -1735,7 +1734,7 @@ func (h *HistoryModel) renderCompactTimeline(hist correlation.BeadHistory, maxWi
 	}
 
 	if len(markers) == 0 {
-		return r.NewStyle().Foreground(t.Subtext).Render("(no timeline data)")
+		return lipgloss.NewStyle().Foreground(t.Subtext).Render("(no timeline data)")
 	}
 
 	// Build the timeline string
@@ -1766,7 +1765,7 @@ func (h *HistoryModel) renderCompactTimeline(hist correlation.BeadHistory, maxWi
 			endTime.Format("Jan 2"))
 		// Only add date range if we have room
 		if len(result)+len(dateRange)+4 < maxWidth {
-			result += "\n" + r.NewStyle().Foreground(t.Subtext).Render(dateRange)
+			result += "\n" + lipgloss.NewStyle().Foreground(t.Subtext).Render(dateRange)
 		}
 	}
 
@@ -1779,7 +1778,7 @@ func (h *HistoryModel) renderCompactTimeline(hist correlation.BeadHistory, maxWi
 // renderEmpty renders an empty state message
 func (h *HistoryModel) renderEmpty(msg string) string {
 	t := h.theme
-	style := t.Renderer.NewStyle().
+	style := lipgloss.NewStyle().
 		Width(h.width).
 		Height(h.height).
 		Align(lipgloss.Center, lipgloss.Center).
@@ -1792,7 +1791,7 @@ func (h *HistoryModel) renderEmpty(msg string) string {
 func (h *HistoryModel) renderHeader() string {
 	t := h.theme
 
-	titleStyle := t.Renderer.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(t.Primary).
 		Padding(0, 1)
@@ -1815,7 +1814,7 @@ func (h *HistoryModel) renderHeader() string {
 	// input occurs, the flash persists until next action - this is acceptable TUI behavior.
 	isTransitioning := !h.modeChangedAt.IsZero() && time.Since(h.modeChangedAt) <= 150*time.Millisecond
 
-	modeStyle := t.Renderer.NewStyle().
+	modeStyle := lipgloss.NewStyle().
 		Bold(true).
 		Padding(0, 1)
 
@@ -1836,19 +1835,19 @@ func (h *HistoryModel) renderHeader() string {
 	var rightContent string
 	if h.searchActive {
 		// Show search input
-		searchStyle := t.Renderer.NewStyle().
+		searchStyle := lipgloss.NewStyle().
 			Border(lipgloss.NormalBorder()).
 			BorderForeground(t.Primary).
 			Padding(0, 1)
 
-		modeLabel := t.Renderer.NewStyle().
+		modeLabel := lipgloss.NewStyle().
 			Foreground(t.Secondary).
 			Render(fmt.Sprintf("[%s] ", h.GetSearchModeName()))
 
 		inputView := h.searchInput.View()
 		searchBox := searchStyle.Render(modeLabel + inputView)
 
-		escHint := t.Renderer.NewStyle().
+		escHint := lipgloss.NewStyle().
 			Foreground(t.Muted).
 			Padding(0, 1).
 			Render("[Esc] cancel")
@@ -1856,7 +1855,7 @@ func (h *HistoryModel) renderHeader() string {
 		rightContent = searchBox + escHint
 	} else {
 		// Show close hint and search hint
-		rightContent = t.Renderer.NewStyle().
+		rightContent = lipgloss.NewStyle().
 			Foreground(t.Muted).
 			Padding(0, 1).
 			Render("[/] search  [H] close")
@@ -1881,7 +1880,7 @@ func (h *HistoryModel) renderHeader() string {
 	if separatorWidth < 1 {
 		separatorWidth = 1
 	}
-	separator := t.Renderer.NewStyle().
+	separator := lipgloss.NewStyle().
 		Foreground(t.Muted).
 		Width(h.width).
 		Render(strings.Repeat("─", separatorWidth))
@@ -1899,12 +1898,12 @@ func (h *HistoryModel) renderStatsLine() string {
 	stats := h.report.Stats
 
 	// Badge style - subtle background with contrasting text
-	badgeStyle := t.Renderer.NewStyle().
+	badgeStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary).
 		Padding(0, 1)
 
 	// Value style - highlighted
-	valueStyle := t.Renderer.NewStyle().
+	valueStyle := lipgloss.NewStyle().
 		Foreground(t.Primary).
 		Bold(true)
 
@@ -1937,7 +1936,7 @@ func (h *HistoryModel) renderStatsLine() string {
 	}
 
 	// Join with bullet separator
-	separator := t.Renderer.NewStyle().Foreground(t.Muted).Render(" • ")
+	separator := lipgloss.NewStyle().Foreground(t.Muted).Render(" • ")
 	return strings.Join(badges, separator)
 }
 
@@ -1945,12 +1944,12 @@ func (h *HistoryModel) renderStatsLine() string {
 func (h *HistoryModel) renderFilterLine() string {
 	t := h.theme
 
-	filterStyle := t.Renderer.NewStyle().
+	filterStyle := lipgloss.NewStyle().
 		Foreground(t.Muted).
 		Italic(true).
 		Padding(0, 1)
 
-	activeFilterStyle := t.Renderer.NewStyle().
+	activeFilterStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary).
 		Padding(0, 1)
 
@@ -2023,14 +2022,14 @@ func (h *HistoryModel) renderListPanel(width, height int) string {
 		borderColor = t.Primary
 	}
 
-	panelStyle := t.Renderer.NewStyle().
+	panelStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
 		Width(width - 2). // Account for border
 		Height(height - 2)
 
 	// Column header
-	headerStyle := t.Renderer.NewStyle().
+	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(t.Primary).
 		Width(width - 4)
@@ -2112,9 +2111,9 @@ func (h *HistoryModel) renderBeadLine(idx int, hist correlation.BeadHistory, wid
 	}
 
 	// Build line
-	idStyle := t.Renderer.NewStyle().Foreground(t.Secondary).Width(12)
-	titleStyle := t.Renderer.NewStyle().Width(maxTitleLen)
-	countStyle := t.Renderer.NewStyle().Foreground(t.Muted).Align(lipgloss.Right)
+	idStyle := lipgloss.NewStyle().Foreground(t.Secondary).Width(12)
+	titleStyle := lipgloss.NewStyle().Width(maxTitleLen)
+	countStyle := lipgloss.NewStyle().Foreground(t.Muted).Align(lipgloss.Right)
 
 	if selected && h.focused == historyFocusList {
 		idStyle = idStyle.Bold(true).Foreground(t.Primary)
@@ -2148,7 +2147,7 @@ func (h *HistoryModel) renderFileTreePanel(width, height int) string {
 		borderColor = t.Primary
 	}
 
-	panelStyle := t.Renderer.NewStyle().
+	panelStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
 		Width(width - 2).
@@ -2159,7 +2158,7 @@ func (h *HistoryModel) renderFileTreePanel(width, height int) string {
 	if h.fileFilter != "" {
 		headerText = fmt.Sprintf("FILES [%s]", truncate(h.fileFilter, 15))
 	}
-	headerStyle := t.Renderer.NewStyle().
+	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(t.Primary).
 		Width(width - 4)
@@ -2249,8 +2248,8 @@ func (h *HistoryModel) renderFileTreeLine(idx int, node *FileTreeNode, width int
 	}
 
 	// Styling
-	nameStyle := t.Renderer.NewStyle()
-	countStyle := t.Renderer.NewStyle().Foreground(t.Muted)
+	nameStyle := lipgloss.NewStyle()
+	countStyle := lipgloss.NewStyle().Foreground(t.Muted)
 
 	if node.IsDir {
 		nameStyle = nameStyle.Foreground(t.Secondary)
@@ -2286,7 +2285,7 @@ func (h *HistoryModel) renderDetailPanel(width, height int) string {
 		borderColor = t.Primary
 	}
 
-	panelStyle := t.Renderer.NewStyle().
+	panelStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
 		Width(width - 2).
@@ -2298,7 +2297,7 @@ func (h *HistoryModel) renderDetailPanel(width, height int) string {
 	}
 
 	// Header
-	headerStyle := t.Renderer.NewStyle().
+	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(t.Primary)
 	header := headerStyle.Render("COMMIT DETAILS")
@@ -2317,7 +2316,7 @@ func (h *HistoryModel) renderDetailPanel(width, height int) string {
 	} else if width <= 10 && len(beadInfo) > 5 {
 		beadInfo = beadInfo[:4] + "…"
 	}
-	beadInfoStyle := t.Renderer.NewStyle().Foreground(t.Secondary)
+	beadInfoStyle := lipgloss.NewStyle().Foreground(t.Secondary)
 
 	var lines []string
 	lines = append(lines, header)
@@ -2384,8 +2383,8 @@ func (h *HistoryModel) renderDetailPanel(width, height int) string {
 	lines = append(lines, strings.Repeat("─", detailSepWidth))
 
 	// Stats line
-	statsStyle := t.Renderer.NewStyle().Foreground(t.Muted)
-	confStyle := t.Renderer.NewStyle()
+	statsStyle := lipgloss.NewStyle().Foreground(t.Muted)
+	confStyle := lipgloss.NewStyle()
 	switch {
 	case avgConf >= 0.8:
 		confStyle = confStyle.Foreground(t.Open)
@@ -2399,8 +2398,8 @@ func (h *HistoryModel) renderDetailPanel(width, height int) string {
 	statsItems = append(statsItems, fmt.Sprintf("%d commits", len(hist.Commits)))
 	statsItems = append(statsItems, fmt.Sprintf("%d files", totalFiles))
 	if totalAdd > 0 || totalDel > 0 {
-		addStr := t.Renderer.NewStyle().Foreground(t.Open).Render(fmt.Sprintf("+%d", totalAdd))
-		delStr := t.Renderer.NewStyle().Foreground(t.Closed).Render(fmt.Sprintf("-%d", totalDel))
+		addStr := lipgloss.NewStyle().Foreground(t.Open).Render(fmt.Sprintf("+%d", totalAdd))
+		delStr := lipgloss.NewStyle().Foreground(t.Closed).Render(fmt.Sprintf("-%d", totalDel))
 		statsItems = append(statsItems, addStr+"/"+delStr)
 	}
 	statsItems = append(statsItems, confStyle.Render(fmt.Sprintf("%.0f%% avg", avgConf*100)))
@@ -2409,7 +2408,7 @@ func (h *HistoryModel) renderDetailPanel(width, height int) string {
 	lines = append(lines, statsLine)
 
 	// Navigation hint (bv-xf4p: added o and g keys)
-	hintStyle := t.Renderer.NewStyle().Foreground(t.Muted).Italic(true)
+	hintStyle := lipgloss.NewStyle().Foreground(t.Muted).Italic(true)
 	lines = append(lines, hintStyle.Render("J/K:nav  y:copy  o:open  g:graph"))
 
 	content := strings.Join(lines, "\n")
@@ -2434,13 +2433,13 @@ func (h *HistoryModel) renderCommitDetail(commit correlation.CorrelatedCommit, w
 		typeIcon += " "
 	}
 
-	shaStyle := t.Renderer.NewStyle().Foreground(t.Primary)
+	shaStyle := lipgloss.NewStyle().Foreground(t.Primary)
 	if selected {
 		shaStyle = shaStyle.Bold(true)
 	}
 
 	relTime := relativeTime(commit.Timestamp)
-	relTimeStyle := t.Renderer.NewStyle().Foreground(t.Muted).Italic(true)
+	relTimeStyle := lipgloss.NewStyle().Foreground(t.Muted).Italic(true)
 
 	// Header line: [indicator] [icon] SHA (relative time)
 	headerLine := fmt.Sprintf("%s%s%s %s",
@@ -2454,12 +2453,12 @@ func (h *HistoryModel) renderCommitDetail(commit correlation.CorrelatedCommit, w
 	// === AUTHOR LINE ===
 	// [Initials] Author Name • absolute date
 	initials := authorInitials(commit.Author)
-	initialsStyle := t.Renderer.NewStyle().
+	initialsStyle := lipgloss.NewStyle().
 		Foreground(t.Base.GetForeground()).
 		Background(t.Muted).
 		Padding(0, 1).
 		Bold(true)
-	authorStyle := t.Renderer.NewStyle().Foreground(t.Secondary)
+	authorStyle := lipgloss.NewStyle().Foreground(t.Secondary)
 	dateStr := commit.Timestamp.Format("2006-01-02 15:04")
 
 	authorLine := fmt.Sprintf("    %s %s • %s",
@@ -2492,7 +2491,7 @@ func (h *HistoryModel) renderCommitDetail(commit correlation.CorrelatedCommit, w
 
 	if cc.IsConventional {
 		// Show type badge + subject
-		typeBadgeStyle := t.Renderer.NewStyle().
+		typeBadgeStyle := lipgloss.NewStyle().
 			Foreground(t.Primary).
 			Bold(true)
 		var scopeStr string
@@ -2501,7 +2500,7 @@ func (h *HistoryModel) renderCommitDetail(commit correlation.CorrelatedCommit, w
 		}
 		breakingStr := ""
 		if cc.Breaking {
-			breakingStr = t.Renderer.NewStyle().Foreground(t.Closed).Bold(true).Render("!")
+			breakingStr = lipgloss.NewStyle().Foreground(t.Closed).Bold(true).Render("!")
 		}
 		typeLine := fmt.Sprintf("    %s%s%s: %s",
 			typeBadgeStyle.Render(cc.Type),
@@ -2517,7 +2516,7 @@ func (h *HistoryModel) renderCommitDetail(commit correlation.CorrelatedCommit, w
 	}
 
 	// === CONFIDENCE & METHOD ===
-	confStyle := t.Renderer.NewStyle()
+	confStyle := lipgloss.NewStyle()
 	switch {
 	case commit.Confidence >= 0.8:
 		confStyle = confStyle.Foreground(t.Open) // Green
@@ -2530,7 +2529,7 @@ func (h *HistoryModel) renderCommitDetail(commit correlation.CorrelatedCommit, w
 	methodStr := methodLabel(commit.Method)
 	confLine := fmt.Sprintf("    %s %s",
 		confStyle.Render(fmt.Sprintf("%.0f%% confidence", commit.Confidence*100)),
-		t.Renderer.NewStyle().Foreground(t.Muted).Render(methodStr),
+		lipgloss.NewStyle().Foreground(t.Muted).Render(methodStr),
 	)
 	lines = append(lines, confLine)
 
@@ -2547,8 +2546,8 @@ func (h *HistoryModel) renderCommitDetail(commit correlation.CorrelatedCommit, w
 			len(commit.Files),
 		)
 		if totalAdd > 0 || totalDel > 0 {
-			addStyle := t.Renderer.NewStyle().Foreground(t.Open)
-			delStyle := t.Renderer.NewStyle().Foreground(t.Closed)
+			addStyle := lipgloss.NewStyle().Foreground(t.Open)
+			delStyle := lipgloss.NewStyle().Foreground(t.Closed)
 			fileSummary += fmt.Sprintf(" %s %s",
 				addStyle.Render(fmt.Sprintf("+%d", totalAdd)),
 				delStyle.Render(fmt.Sprintf("-%d", totalDel)),
@@ -2564,7 +2563,7 @@ func (h *HistoryModel) renderCommitDetail(commit correlation.CorrelatedCommit, w
 		for _, group := range groups {
 			if fileCount >= maxFiles {
 				moreCount := len(commit.Files) - fileCount
-				moreStyle := t.Renderer.NewStyle().Foreground(t.Muted).Italic(true)
+				moreStyle := lipgloss.NewStyle().Foreground(t.Muted).Italic(true)
 				lines = append(lines, moreStyle.Render(fmt.Sprintf("      +%d more files...", moreCount)))
 				break
 			}
@@ -2584,13 +2583,13 @@ func (h *HistoryModel) renderCommitDetail(commit correlation.CorrelatedCommit, w
 				// Action icon and color
 				actionIcon := fileActionIcon(f.Action)
 				actionColor := fileActionColor(f.Action, t)
-				actionStyle := t.Renderer.NewStyle().Foreground(actionColor)
+				actionStyle := lipgloss.NewStyle().Foreground(actionColor)
 
 				// +/- stats if available
 				statsStr := ""
 				if f.Insertions > 0 || f.Deletions > 0 {
-					addStr := t.Renderer.NewStyle().Foreground(t.Open).Render(fmt.Sprintf("+%d", f.Insertions))
-					delStr := t.Renderer.NewStyle().Foreground(t.Closed).Render(fmt.Sprintf("-%d", f.Deletions))
+					addStr := lipgloss.NewStyle().Foreground(t.Open).Render(fmt.Sprintf("+%d", f.Insertions))
+					delStr := lipgloss.NewStyle().Foreground(t.Closed).Render(fmt.Sprintf("-%d", f.Deletions))
 					statsStr = fmt.Sprintf(" %s/%s", addStr, delStr)
 				}
 
@@ -2820,7 +2819,7 @@ func groupFilesByDirectory(files []correlation.FileChange) []fileGroup {
 }
 
 // fileActionColor returns the appropriate theme color for a file action
-func fileActionColor(action string, t Theme) lipgloss.TerminalColor {
+func fileActionColor(action string, t Theme) color.Color {
 	switch action {
 	case "A":
 		return t.Open // green for added
@@ -2872,7 +2871,7 @@ func eventTypeIcon(et correlation.EventType) string {
 }
 
 // eventTypeColor returns the appropriate theme color for an event type
-func eventTypeColor(et correlation.EventType, t Theme) lipgloss.TerminalColor {
+func eventTypeColor(et correlation.EventType, t Theme) color.Color {
 	switch et {
 	case correlation.EventCreated:
 		return t.Primary // new items get primary highlight
@@ -2918,14 +2917,14 @@ func (h *HistoryModel) renderEventsSection(events []correlation.BeadEvent, width
 	var lines []string
 
 	// Section header (takes 1 line)
-	headerStyle := t.Renderer.NewStyle().
+	headerStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary).
 		Bold(true)
 	lines = append(lines, headerStyle.Render(fmt.Sprintf("LIFECYCLE (%d)", len(events))))
 
 	// Timeline style
-	timeStyle := t.Renderer.NewStyle().Foreground(t.Muted).Width(8)
-	authorStyle := t.Renderer.NewStyle().Foreground(t.Secondary)
+	timeStyle := lipgloss.NewStyle().Foreground(t.Muted).Width(8)
+	authorStyle := lipgloss.NewStyle().Foreground(t.Secondary)
 
 	// Calculate how many events we can show:
 	// - 1 line for header
@@ -2945,7 +2944,7 @@ func (h *HistoryModel) renderEventsSection(events []correlation.BeadEvent, width
 		// Event icon with color
 		icon := eventTypeIcon(event.EventType)
 		iconColor := eventTypeColor(event.EventType, t)
-		iconStyle := t.Renderer.NewStyle().Foreground(iconColor)
+		iconStyle := lipgloss.NewStyle().Foreground(iconColor)
 		coloredIcon := iconStyle.Render(icon)
 
 		// Relative time
@@ -2988,7 +2987,7 @@ func (h *HistoryModel) renderEventsSection(events []correlation.BeadEvent, width
 	// Show "+N more" if we couldn't display all events
 	if needsMoreLine {
 		remaining := len(events) - displayed
-		moreStyle := t.Renderer.NewStyle().Foreground(t.Muted).Italic(true)
+		moreStyle := lipgloss.NewStyle().Foreground(t.Muted).Italic(true)
 		lines = append(lines, moreStyle.Render(fmt.Sprintf("  +%d more", remaining)))
 	}
 
@@ -3001,7 +3000,7 @@ func renderCompactEventBadge(eventCount int, t Theme) string {
 		return ""
 	}
 
-	badgeStyle := t.Renderer.NewStyle().
+	badgeStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary)
 
 	return badgeStyle.Render(fmt.Sprintf("⚡%d", eventCount))
@@ -3019,14 +3018,14 @@ func (h *HistoryModel) renderGitCommitListPanel(width, height int) string {
 		borderColor = t.Primary
 	}
 
-	panelStyle := t.Renderer.NewStyle().
+	panelStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
 		Width(width - 2).
 		Height(height - 2)
 
 	// Column header
-	headerStyle := t.Renderer.NewStyle().
+	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(t.Primary).
 		Width(width - 4)
@@ -3089,9 +3088,9 @@ func (h *HistoryModel) renderGitCommitLine(idx int, commit CommitListEntry, widt
 	}
 
 	// Build line
-	shaStyle := t.Renderer.NewStyle().Foreground(t.Primary)
-	msgStyle := t.Renderer.NewStyle()
-	countStyle := t.Renderer.NewStyle().Foreground(t.Secondary)
+	shaStyle := lipgloss.NewStyle().Foreground(t.Primary)
+	msgStyle := lipgloss.NewStyle()
+	countStyle := lipgloss.NewStyle().Foreground(t.Secondary)
 
 	if selected && h.focused == historyFocusList {
 		shaStyle = shaStyle.Bold(true)
@@ -3118,7 +3117,7 @@ func (h *HistoryModel) renderGitDetailPanel(width, height int) string {
 		borderColor = t.Primary
 	}
 
-	panelStyle := t.Renderer.NewStyle().
+	panelStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
 		Width(width - 2).
@@ -3132,7 +3131,7 @@ func (h *HistoryModel) renderGitDetailPanel(width, height int) string {
 	var lines []string
 
 	// Header: Related Beads
-	headerStyle := t.Renderer.NewStyle().
+	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(t.Primary)
 	lines = append(lines, headerStyle.Render("RELATED BEADS"))
@@ -3153,7 +3152,7 @@ func (h *HistoryModel) renderGitDetailPanel(width, height int) string {
 		}
 
 		// Get bead info from report
-		beadStyle := t.Renderer.NewStyle()
+		beadStyle := lipgloss.NewStyle()
 		statusIcon := "○"
 		title := beadID
 
@@ -3197,23 +3196,23 @@ func (h *HistoryModel) renderGitDetailPanel(width, height int) string {
 	if width > 10 && len(shaLine) > width-6 {
 		shaLine = shaLine[:width-7] + "…"
 	}
-	lines = append(lines, t.Renderer.NewStyle().Foreground(t.Primary).Render(shaLine))
+	lines = append(lines, lipgloss.NewStyle().Foreground(t.Primary).Render(shaLine))
 
 	authorLine := fmt.Sprintf("Author: %s", commit.Author)
 	if width > 10 && len(authorLine) > width-6 {
 		authorLine = authorLine[:width-7] + "…"
 	}
-	lines = append(lines, t.Renderer.NewStyle().Foreground(t.Secondary).Render(authorLine))
+	lines = append(lines, lipgloss.NewStyle().Foreground(t.Secondary).Render(authorLine))
 
 	dateLine := fmt.Sprintf("Date: %s", commit.Timestamp)
-	lines = append(lines, t.Renderer.NewStyle().Foreground(t.Muted).Render(dateLine))
+	lines = append(lines, lipgloss.NewStyle().Foreground(t.Muted).Render(dateLine))
 
 	filesLine := fmt.Sprintf("Files: %d changed", commit.FileCount)
-	lines = append(lines, t.Renderer.NewStyle().Foreground(t.Muted).Render(filesLine))
+	lines = append(lines, lipgloss.NewStyle().Foreground(t.Muted).Render(filesLine))
 
 	// Message
 	lines = append(lines, "")
-	msgStyle := t.Renderer.NewStyle().Foreground(t.Base.GetForeground())
+	msgStyle := lipgloss.NewStyle().Foreground(t.Base.GetForeground())
 	msgLines := strings.Split(commit.Message, "\n")
 	for _, ml := range msgLines {
 		if width > 6 && len(ml) > width-6 {
@@ -3241,7 +3240,7 @@ func (h *HistoryModel) renderGitDetailPanel(width, height int) string {
 
 	// Add footer hint (bv-xf4p)
 	lines = append(lines, strings.Repeat("─", detailSepWidth))
-	hintStyle := t.Renderer.NewStyle().Foreground(t.Muted).Italic(true)
+	hintStyle := lipgloss.NewStyle().Foreground(t.Muted).Italic(true)
 	lines = append(lines, hintStyle.Render("J/K:bead  y:copy  o:open  g:graph"))
 
 	content := strings.Join(lines, "\n")
@@ -3257,7 +3256,7 @@ func (h *HistoryModel) renderCommitMiddlePanel(width, height int) string {
 		borderColor = t.Primary
 	}
 
-	panelStyle := t.Renderer.NewStyle().
+	panelStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
 		Width(width - 2).
@@ -3269,7 +3268,7 @@ func (h *HistoryModel) renderCommitMiddlePanel(width, height int) string {
 	}
 
 	var lines []string
-	headerStyle := t.Renderer.NewStyle().Bold(true).Foreground(t.Primary).Width(width - 4)
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Width(width - 4)
 	lines = append(lines, headerStyle.Render("COMMITS"))
 
 	sepWidth := width - 4
@@ -3303,7 +3302,7 @@ func (h *HistoryModel) renderCommitMiddlePanel(width, height int) string {
 			indicator = "▸ "
 		}
 
-		shaStyle := t.Renderer.NewStyle().Foreground(t.Primary)
+		shaStyle := lipgloss.NewStyle().Foreground(t.Primary)
 		if isSelected {
 			shaStyle = shaStyle.Bold(true)
 		}
@@ -3323,7 +3322,7 @@ func (h *HistoryModel) renderCommitMiddlePanel(width, height int) string {
 
 	// Add scroll indicator if needed (bv-xrfh)
 	if totalCommits > visibleItems {
-		scrollInfo := t.Renderer.NewStyle().Foreground(t.Muted).Italic(true)
+		scrollInfo := lipgloss.NewStyle().Foreground(t.Muted).Italic(true)
 		scrollPct := 0
 		maxScroll := totalCommits - visibleItems
 		if maxScroll > 0 {
@@ -3349,7 +3348,7 @@ func (h *HistoryModel) renderGitBeadListPanel(width, height int) string {
 		borderColor = t.Primary
 	}
 
-	panelStyle := t.Renderer.NewStyle().
+	panelStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(borderColor).
 		Width(width - 2).
@@ -3361,7 +3360,7 @@ func (h *HistoryModel) renderGitBeadListPanel(width, height int) string {
 	}
 
 	var lines []string
-	headerStyle := t.Renderer.NewStyle().Bold(true).Foreground(t.Primary).Width(width - 4)
+	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Width(width - 4)
 	lines = append(lines, headerStyle.Render("RELATED BEADS"))
 
 	sepWidth := width - 4
@@ -3395,7 +3394,7 @@ func (h *HistoryModel) renderGitBeadListPanel(width, height int) string {
 			indicator = "▸ "
 		}
 
-		beadStyle := t.Renderer.NewStyle()
+		beadStyle := lipgloss.NewStyle()
 		statusIcon := "○"
 		title := beadID
 
@@ -3429,7 +3428,7 @@ func (h *HistoryModel) renderGitBeadListPanel(width, height int) string {
 
 	// Add scroll indicator if needed (bv-xrfh)
 	if totalBeads > visibleItems {
-		scrollInfo := t.Renderer.NewStyle().Foreground(t.Muted).Italic(true)
+		scrollInfo := lipgloss.NewStyle().Foreground(t.Muted).Italic(true)
 		scrollPct := 0
 		maxScroll := totalBeads - visibleItems
 		if maxScroll > 0 {

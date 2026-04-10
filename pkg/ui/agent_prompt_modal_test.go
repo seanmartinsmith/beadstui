@@ -4,12 +4,11 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestNewAgentPromptModal(t *testing.T) {
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
+	theme := DefaultTheme()
 	modal := NewAgentPromptModal("/test/AGENTS.md", "AGENTS.md", theme)
 
 	if modal.filePath != "/test/AGENTS.md" {
@@ -27,7 +26,7 @@ func TestNewAgentPromptModal(t *testing.T) {
 }
 
 func TestAgentPromptModalKeyNavigation(t *testing.T) {
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
+	theme := DefaultTheme()
 	modal := NewAgentPromptModal("/test/AGENTS.md", "AGENTS.md", theme)
 
 	// Initial selection is 0 (Yes)
@@ -36,33 +35,32 @@ func TestAgentPromptModalKeyNavigation(t *testing.T) {
 	}
 
 	// Press right
-	modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: 'l', Text: "l"})
 	if modal.selection != 1 {
 		t.Errorf("Expected selection 1 after right, got %d", modal.selection)
 	}
 
 	// Press right again
-	modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: 'l', Text: "l"})
 	if modal.selection != 2 {
 		t.Errorf("Expected selection 2 after right, got %d", modal.selection)
 	}
 
 	// Press right - should wrap to 0
-	modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: 'l', Text: "l"})
 	if modal.selection != 0 {
 		t.Errorf("Expected selection to wrap to 0, got %d", modal.selection)
 	}
 
 	// Press left - should wrap to 2
-	modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("h")})
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: 'h', Text: "h"})
 	if modal.selection != 2 {
 		t.Errorf("Expected selection to wrap to 2, got %d", modal.selection)
 	}
 }
 
 func TestAgentPromptModalEnterConfirms(t *testing.T) {
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
-
+	theme := DefaultTheme()
 	tests := []struct {
 		name           string
 		selection      int
@@ -78,7 +76,7 @@ func TestAgentPromptModalEnterConfirms(t *testing.T) {
 			modal := NewAgentPromptModal("/test/AGENTS.md", "AGENTS.md", theme)
 			modal.selection = tt.selection
 
-			modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyEnter})
+			modal, _ = modal.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 			if modal.result != tt.expectedResult {
 				t.Errorf("Expected result %d, got %d", tt.expectedResult, modal.result)
 			}
@@ -87,8 +85,7 @@ func TestAgentPromptModalEnterConfirms(t *testing.T) {
 }
 
 func TestAgentPromptModalShortcuts(t *testing.T) {
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
-
+	theme := DefaultTheme()
 	tests := []struct {
 		key            string
 		expectedResult AgentPromptResult
@@ -104,7 +101,7 @@ func TestAgentPromptModalShortcuts(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.key, func(t *testing.T) {
 			modal := NewAgentPromptModal("/test/AGENTS.md", "AGENTS.md", theme)
-			modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(tt.key)})
+			modal, _ = modal.Update(tea.KeyPressMsg{Code: rune(tt.key[0]), Text: tt.key})
 			if modal.result != tt.expectedResult {
 				t.Errorf("Key %q: expected result %d, got %d", tt.key, tt.expectedResult, modal.result)
 			}
@@ -113,10 +110,10 @@ func TestAgentPromptModalShortcuts(t *testing.T) {
 }
 
 func TestAgentPromptModalEscDismisses(t *testing.T) {
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
+	theme := DefaultTheme()
 	modal := NewAgentPromptModal("/test/AGENTS.md", "AGENTS.md", theme)
 
-	modal, _ = modal.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	modal, _ = modal.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
 	if modal.result != AgentPromptDecline {
 		t.Errorf("Escape should decline, got %d", modal.result)
 	}
@@ -124,11 +121,10 @@ func TestAgentPromptModalEscDismisses(t *testing.T) {
 
 func TestAgentPromptModalView(t *testing.T) {
 	theme := Theme{
-		Renderer:  lipgloss.DefaultRenderer(),
-		Primary:   lipgloss.AdaptiveColor{Light: "#00ff00", Dark: "#00ff00"},
-		Secondary: lipgloss.AdaptiveColor{Light: "#888888", Dark: "#888888"},
-		Subtext:   lipgloss.AdaptiveColor{Light: "#888888", Dark: "#888888"},
-		Border:    lipgloss.AdaptiveColor{Light: "#888888", Dark: "#888888"},
+		Primary:   AdaptiveColor{Light: "#00ff00", Dark: "#00ff00"},
+		Secondary: AdaptiveColor{Light: "#888888", Dark: "#888888"},
+		Subtext:   AdaptiveColor{Light: "#888888", Dark: "#888888"},
+		Border:    AdaptiveColor{Light: "#888888", Dark: "#888888"},
 	}
 	modal := NewAgentPromptModal("/test/AGENTS.md", "AGENTS.md", theme)
 
@@ -162,7 +158,7 @@ func TestAgentPromptModalView(t *testing.T) {
 }
 
 func TestAgentPromptModalResult(t *testing.T) {
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
+	theme := DefaultTheme()
 	modal := NewAgentPromptModal("/test/AGENTS.md", "AGENTS.md", theme)
 
 	if modal.Result() != AgentPromptPending {
@@ -176,7 +172,7 @@ func TestAgentPromptModalResult(t *testing.T) {
 }
 
 func TestAgentPromptModalFilePath(t *testing.T) {
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
+	theme := DefaultTheme()
 	modal := NewAgentPromptModal("/my/project/AGENTS.md", "AGENTS.md", theme)
 
 	if modal.FilePath() != "/my/project/AGENTS.md" {
@@ -185,7 +181,7 @@ func TestAgentPromptModalFilePath(t *testing.T) {
 }
 
 func TestAgentPromptModalSetSize(t *testing.T) {
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
+	theme := DefaultTheme()
 	modal := NewAgentPromptModal("/test/AGENTS.md", "AGENTS.md", theme)
 
 	modal.SetSize(80, 30)
@@ -223,11 +219,10 @@ func TestGetBlurbPreview(t *testing.T) {
 
 func TestCenterModal(t *testing.T) {
 	theme := Theme{
-		Renderer:  lipgloss.DefaultRenderer(),
-		Primary:   lipgloss.AdaptiveColor{Light: "#00ff00", Dark: "#00ff00"},
-		Secondary: lipgloss.AdaptiveColor{Light: "#888888", Dark: "#888888"},
-		Subtext:   lipgloss.AdaptiveColor{Light: "#888888", Dark: "#888888"},
-		Border:    lipgloss.AdaptiveColor{Light: "#888888", Dark: "#888888"},
+		Primary:   AdaptiveColor{Light: "#00ff00", Dark: "#00ff00"},
+		Secondary: AdaptiveColor{Light: "#888888", Dark: "#888888"},
+		Subtext:   AdaptiveColor{Light: "#888888", Dark: "#888888"},
+		Border:    AdaptiveColor{Light: "#888888", Dark: "#888888"},
 	}
 	modal := NewAgentPromptModal("/test/AGENTS.md", "AGENTS.md", theme)
 

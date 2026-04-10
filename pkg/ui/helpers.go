@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/model"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-runewidth"
 )
 
@@ -279,7 +278,7 @@ func GetAgeDays(t time.Time) int {
 
 // GetAgeColor returns a color based on staleness:
 // green (<7 days), yellow (7-30 days), red (>30 days)
-func GetAgeColor(t time.Time) lipgloss.AdaptiveColor {
+func GetAgeColor(t time.Time) AdaptiveColor {
 	days := GetAgeDays(t)
 	switch {
 	case days < 7:

@@ -7,8 +7,8 @@ import (
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // FlowMatrixModel renders an interactive dependency flow dashboard
@@ -353,7 +353,7 @@ func (m FlowMatrixModel) View() string {
 	}
 
 	var body strings.Builder
-	separator := m.theme.Renderer.NewStyle().
+	separator := lipgloss.NewStyle().
 		Foreground(m.theme.Border).
 		Render("│")
 
@@ -375,12 +375,12 @@ func (m FlowMatrixModel) View() string {
 }
 
 func (m FlowMatrixModel) renderHeader() string {
-	titleStyle := m.theme.Renderer.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(m.theme.Primary).
 		PaddingRight(2)
 
-	statsStyle := m.theme.Renderer.NewStyle().
+	statsStyle := lipgloss.NewStyle().
 		Foreground(m.theme.Subtext)
 
 	title := titleStyle.Render("DEPENDENCY FLOW")
@@ -391,7 +391,7 @@ func (m FlowMatrixModel) renderHeader() string {
 
 	headerLine := lipgloss.JoinHorizontal(lipgloss.Left, title, stats)
 
-	borderStyle := m.theme.Renderer.NewStyle().
+	borderStyle := lipgloss.NewStyle().
 		Foreground(m.theme.Border)
 
 	return lipgloss.JoinVertical(lipgloss.Left,
@@ -403,7 +403,7 @@ func (m FlowMatrixModel) renderLabelsPanel(width int) string {
 	var b strings.Builder
 
 	// Panel header
-	headerStyle := m.theme.Renderer.NewStyle().
+	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(m.theme.Secondary).
 		Width(width)
@@ -416,7 +416,7 @@ func (m FlowMatrixModel) renderLabelsPanel(width int) string {
 	b.WriteString("\n")
 
 	// Separator
-	sepStyle := m.theme.Renderer.NewStyle().Foreground(m.theme.Border)
+	sepStyle := lipgloss.NewStyle().Foreground(m.theme.Border)
 	b.WriteString(sepStyle.Render(strings.Repeat("─", width)))
 	b.WriteString("\n")
 
@@ -473,7 +473,7 @@ func (m FlowMatrixModel) renderLabelRow(stat labelFlowStats, selected bool, barW
 	}
 
 	// Color based on bottleneck status
-	var labelColor lipgloss.AdaptiveColor
+	var labelColor AdaptiveColor
 	if stat.IsBottleneck {
 		labelColor = m.theme.Blocked // Red for bottlenecks
 	} else if stat.BottleneckScore > 0.5 {
@@ -484,7 +484,7 @@ func (m FlowMatrixModel) renderLabelRow(stat labelFlowStats, selected bool, barW
 		labelColor = m.theme.Subtext // Gray for no impact
 	}
 
-	labelStyle := m.theme.Renderer.NewStyle().
+	labelStyle := lipgloss.NewStyle().
 		Foreground(labelColor).
 		Width(labelWidth)
 
@@ -504,8 +504,8 @@ func (m FlowMatrixModel) renderLabelRow(stat labelFlowStats, selected bool, barW
 	}
 	barEmpty := strings.Repeat("░", barWidth-barFilled)
 
-	barStyle := m.theme.Renderer.NewStyle().Foreground(labelColor)
-	emptyStyle := m.theme.Renderer.NewStyle().Foreground(m.theme.Border)
+	barStyle := lipgloss.NewStyle().Foreground(labelColor)
+	emptyStyle := lipgloss.NewStyle().Foreground(m.theme.Border)
 
 	// Count
 	countStr := fmt.Sprintf("%3d", stat.OutgoingCount)
@@ -519,7 +519,7 @@ func (m FlowMatrixModel) renderLabelRow(stat labelFlowStats, selected bool, barW
 
 	// Selection highlight
 	if selected {
-		selectStyle := m.theme.Renderer.NewStyle().
+		selectStyle := lipgloss.NewStyle().
 			Background(m.theme.Highlight).
 			Width(totalWidth)
 		row = selectStyle.Render(row)
@@ -538,7 +538,7 @@ func (m FlowMatrixModel) renderDetailPanel(width int) string {
 	stat := m.labelStats[m.cursor]
 
 	// Panel header
-	headerStyle := m.theme.Renderer.NewStyle().
+	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(m.theme.Primary)
 
@@ -546,12 +546,12 @@ func (m FlowMatrixModel) renderDetailPanel(width int) string {
 	b.WriteString("\n")
 
 	// Separator
-	sepStyle := m.theme.Renderer.NewStyle().Foreground(m.theme.Border)
+	sepStyle := lipgloss.NewStyle().Foreground(m.theme.Border)
 	b.WriteString(sepStyle.Render(strings.Repeat("─", width)))
 	b.WriteString("\n\n")
 
 	// Stats summary
-	summaryStyle := m.theme.Renderer.NewStyle().Foreground(m.theme.Subtext)
+	summaryStyle := lipgloss.NewStyle().Foreground(m.theme.Subtext)
 	b.WriteString(summaryStyle.Render("IMPACT SUMMARY"))
 	b.WriteString("\n")
 
@@ -566,11 +566,11 @@ func (m FlowMatrixModel) renderDetailPanel(width int) string {
 		scoreLabel = "Medium"
 		scoreColor = m.theme.Feature
 	}
-	scoreStyle := m.theme.Renderer.NewStyle().Foreground(scoreColor).Bold(true)
+	scoreStyle := lipgloss.NewStyle().Foreground(scoreColor).Bold(true)
 	b.WriteString(fmt.Sprintf("  Blocking Power: %s %s\n", scoreBar, scoreStyle.Render(scoreLabel)))
 
 	if stat.IsBottleneck {
-		bottleneckStyle := m.theme.Renderer.NewStyle().
+		bottleneckStyle := lipgloss.NewStyle().
 			Foreground(m.theme.Blocked).
 			Bold(true)
 		b.WriteString(bottleneckStyle.Render("  ⚠ BOTTLENECK"))
@@ -582,12 +582,12 @@ func (m FlowMatrixModel) renderDetailPanel(width int) string {
 	halfWidth := (width - 4) / 2
 
 	// BLOCKS section
-	blocksHeader := m.theme.Renderer.NewStyle().
+	blocksHeader := lipgloss.NewStyle().
 		Foreground(m.theme.Blocked).
 		Bold(true).
 		Render(fmt.Sprintf("BLOCKS → (%d)", stat.OutgoingCount))
 
-	blockedByHeader := m.theme.Renderer.NewStyle().
+	blockedByHeader := lipgloss.NewStyle().
 		Foreground(m.theme.InProgress).
 		Bold(true).
 		Render(fmt.Sprintf("← BLOCKED BY (%d)", stat.IncomingCount))
@@ -622,7 +622,7 @@ func (m FlowMatrixModel) renderDetailPanel(width int) string {
 	}
 
 	if len(outLabels) > maxEntries || len(inLabels) > maxEntries {
-		moreStyle := m.theme.Renderer.NewStyle().Foreground(m.theme.Subtext).Italic(true)
+		moreStyle := lipgloss.NewStyle().Foreground(m.theme.Subtext).Italic(true)
 		leftMore := ""
 		rightMore := ""
 		if len(outLabels) > maxEntries {
@@ -637,7 +637,7 @@ func (m FlowMatrixModel) renderDetailPanel(width int) string {
 	b.WriteString("\n")
 
 	// Hint
-	hintStyle := m.theme.Renderer.NewStyle().Foreground(m.theme.Subtext).Italic(true)
+	hintStyle := lipgloss.NewStyle().Foreground(m.theme.Subtext).Italic(true)
 	b.WriteString(hintStyle.Render("Press Enter to see issues"))
 
 	return b.String()
@@ -683,7 +683,7 @@ func (m FlowMatrixModel) renderScoreBar(score float64, width int) string {
 		filled = width
 	}
 
-	var color lipgloss.AdaptiveColor
+	var color AdaptiveColor
 	if score > 0.7 {
 		color = m.theme.Blocked
 	} else if score > 0.3 {
@@ -692,8 +692,8 @@ func (m FlowMatrixModel) renderScoreBar(score float64, width int) string {
 		color = m.theme.Open
 	}
 
-	barStyle := m.theme.Renderer.NewStyle().Foreground(color)
-	emptyStyle := m.theme.Renderer.NewStyle().Foreground(m.theme.Border)
+	barStyle := lipgloss.NewStyle().Foreground(color)
+	emptyStyle := lipgloss.NewStyle().Foreground(m.theme.Border)
 
 	return barStyle.Render(strings.Repeat("█", filled)) +
 		emptyStyle.Render(strings.Repeat("░", width-filled))
@@ -710,7 +710,7 @@ func (m FlowMatrixModel) miniBar(count, maxWidth int) string {
 		filled = maxWidth
 	}
 
-	var color lipgloss.AdaptiveColor
+	var color AdaptiveColor
 	if count >= 5 {
 		color = m.theme.Blocked
 	} else if count >= 2 {
@@ -719,13 +719,13 @@ func (m FlowMatrixModel) miniBar(count, maxWidth int) string {
 		color = m.theme.Task
 	}
 
-	barStyle := m.theme.Renderer.NewStyle().Foreground(color)
+	barStyle := lipgloss.NewStyle().Foreground(color)
 	return barStyle.Render(strings.Repeat("■", filled)) + strings.Repeat("·", maxWidth-filled)
 }
 
 func (m FlowMatrixModel) renderFooter() string {
-	borderStyle := m.theme.Renderer.NewStyle().Foreground(m.theme.Border)
-	helpStyle := m.theme.Renderer.NewStyle().Foreground(m.theme.Subtext)
+	borderStyle := lipgloss.NewStyle().Foreground(m.theme.Border)
+	helpStyle := lipgloss.NewStyle().Foreground(m.theme.Subtext)
 
 	help := "j/k: navigate  Enter: drill down  Tab: switch panel  Esc: close"
 
@@ -738,14 +738,14 @@ func (m FlowMatrixModel) renderDrilldown() string {
 	var b strings.Builder
 
 	// Header
-	headerStyle := m.theme.Renderer.NewStyle().
+	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(m.theme.Primary)
 
 	b.WriteString(headerStyle.Render(m.drilldownTitle))
 	b.WriteString(fmt.Sprintf(" (%d issues)\n", len(m.drilldownIssues)))
 
-	borderStyle := m.theme.Renderer.NewStyle().Foreground(m.theme.Border)
+	borderStyle := lipgloss.NewStyle().Foreground(m.theme.Border)
 	b.WriteString(borderStyle.Render(strings.Repeat("─", m.width)))
 	b.WriteString("\n\n")
 
@@ -771,12 +771,12 @@ func (m FlowMatrixModel) renderDrilldown() string {
 
 		// Status indicator
 		statusColor := m.theme.GetStatusColor(string(iss.Status))
-		statusStyle := m.theme.Renderer.NewStyle().Foreground(statusColor)
+		statusStyle := lipgloss.NewStyle().Foreground(statusColor)
 		statusIndicator := "●"
 
 		// Issue line
-		idStyle := m.theme.Renderer.NewStyle().Foreground(m.theme.Primary)
-		titleStyle := m.theme.Renderer.NewStyle().Foreground(m.theme.Base.GetForeground())
+		idStyle := lipgloss.NewStyle().Foreground(m.theme.Primary)
+		titleStyle := lipgloss.NewStyle().Foreground(m.theme.Base.GetForeground())
 
 		title := iss.Title
 		maxTitleLen := m.width - 25
@@ -794,7 +794,7 @@ func (m FlowMatrixModel) renderDrilldown() string {
 			titleStyle.Render(title))
 
 		if selected {
-			selectStyle := m.theme.Renderer.NewStyle().
+			selectStyle := lipgloss.NewStyle().
 				Background(m.theme.Highlight).
 				Width(m.width)
 			row = selectStyle.Render(row)
@@ -811,7 +811,7 @@ func (m FlowMatrixModel) renderDrilldown() string {
 	b.WriteString(borderStyle.Render(strings.Repeat("─", m.width)))
 	b.WriteString("\n")
 
-	helpStyle := m.theme.Renderer.NewStyle().Foreground(m.theme.Subtext)
+	helpStyle := lipgloss.NewStyle().Foreground(m.theme.Subtext)
 	b.WriteString(helpStyle.Render("j/k: navigate  Esc: back"))
 
 	return b.String()

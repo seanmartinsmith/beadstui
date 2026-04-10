@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/huh"
+	"charm.land/huh/v2"
 	"golang.org/x/term"
 )
 
@@ -84,7 +84,7 @@ func isTerminal() bool {
 
 // newForm creates a form with appropriate settings based on TTY detection
 func newForm(groups ...*huh.Group) *huh.Form {
-	form := huh.NewForm(groups...).WithTheme(huh.ThemeDracula())
+	form := huh.NewForm(groups...).WithTheme(huh.ThemeFunc(huh.ThemeDracula))
 	if !isTerminal() {
 		form = form.WithAccessible(true)
 	}

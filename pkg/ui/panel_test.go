@@ -4,14 +4,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/lipgloss"
 )
 
 func TestRenderTitledPanel_Basic(t *testing.T) {
-	r := lipgloss.NewRenderer(nil)
 	content := "hello"
 
-	result := RenderTitledPanel(r, content, PanelOpts{
+	result := RenderTitledPanel(content, PanelOpts{
 		Title: "Test",
 		Width: 20,
 	})
@@ -31,8 +29,7 @@ func TestRenderTitledPanel_Basic(t *testing.T) {
 }
 
 func TestRenderTitledPanel_NoTitle(t *testing.T) {
-	r := lipgloss.NewRenderer(nil)
-	result := RenderTitledPanel(r, "content", PanelOpts{
+	result := RenderTitledPanel("content", PanelOpts{
 		Width: 20,
 	})
 
@@ -46,13 +43,12 @@ func TestRenderTitledPanel_NoTitle(t *testing.T) {
 }
 
 func TestRenderTitledPanel_Focused(t *testing.T) {
-	r := lipgloss.NewRenderer(nil)
 
-	unfocused := RenderTitledPanel(r, "a", PanelOpts{
+	unfocused := RenderTitledPanel("a", PanelOpts{
 		Title: "Panel",
 		Width: 20,
 	})
-	focused := RenderTitledPanel(r, "a", PanelOpts{
+	focused := RenderTitledPanel("a", PanelOpts{
 		Title:   "Panel",
 		Width:   20,
 		Focused: true,
@@ -68,8 +64,7 @@ func TestRenderTitledPanel_Focused(t *testing.T) {
 }
 
 func TestRenderTitledPanel_Height(t *testing.T) {
-	r := lipgloss.NewRenderer(nil)
-	result := RenderTitledPanel(r, "line1\nline2", PanelOpts{
+	result := RenderTitledPanel("line1\nline2", PanelOpts{
 		Title:  "H",
 		Width:  20,
 		Height: 5, // top border + 3 content lines + bottom border
@@ -84,8 +79,7 @@ func TestRenderTitledPanel_Height(t *testing.T) {
 }
 
 func TestRenderTitledPanel_TitleTruncation(t *testing.T) {
-	r := lipgloss.NewRenderer(nil)
-	result := RenderTitledPanel(r, "x", PanelOpts{
+	result := RenderTitledPanel("x", PanelOpts{
 		Title: "This Is A Very Long Title That Should Be Truncated",
 		Width: 20,
 	})
@@ -96,9 +90,8 @@ func TestRenderTitledPanel_TitleTruncation(t *testing.T) {
 }
 
 func TestRenderTitledPanel_MinWidth(t *testing.T) {
-	r := lipgloss.NewRenderer(nil)
 	// Should not panic with very small width
-	result := RenderTitledPanel(r, "x", PanelOpts{
+	result := RenderTitledPanel("x", PanelOpts{
 		Title: "T",
 		Width: 2,
 	})
@@ -108,19 +101,18 @@ func TestRenderTitledPanel_MinWidth(t *testing.T) {
 }
 
 func TestRenderTitledPanel_Variants(t *testing.T) {
-	r := lipgloss.NewRenderer(nil)
 
-	normal := RenderTitledPanel(r, "x", PanelOpts{
+	normal := RenderTitledPanel("x", PanelOpts{
 		Title:   "N",
 		Width:   20,
 		Variant: BorderNormal,
 	})
-	thick := RenderTitledPanel(r, "x", PanelOpts{
+	thick := RenderTitledPanel("x", PanelOpts{
 		Title:   "T",
 		Width:   20,
 		Variant: BorderThick,
 	})
-	double := RenderTitledPanel(r, "x", PanelOpts{
+	double := RenderTitledPanel("x", PanelOpts{
 		Title:   "D",
 		Width:   20,
 		Variant: BorderDouble,
@@ -138,13 +130,12 @@ func TestRenderTitledPanel_Variants(t *testing.T) {
 }
 
 func TestRenderTitledPanel_ColorOverrides(t *testing.T) {
-	r := lipgloss.NewRenderer(nil)
 
-	customBorder := lipgloss.AdaptiveColor{Light: "#ff0000", Dark: "#ff0000"}
-	customTitle := lipgloss.AdaptiveColor{Light: "#00ff00", Dark: "#00ff00"}
+	customBorder := AdaptiveColor{Light: "#ff0000", Dark: "#ff0000"}
+	customTitle := AdaptiveColor{Light: "#00ff00", Dark: "#00ff00"}
 
 	// With overrides, the panel should still render correctly regardless of Focused
-	result := RenderTitledPanel(r, "content", PanelOpts{
+	result := RenderTitledPanel("content", PanelOpts{
 		Title:       "Custom",
 		Width:       20,
 		Focused:     false,
@@ -163,7 +154,7 @@ func TestRenderTitledPanel_ColorOverrides(t *testing.T) {
 	}
 
 	// Overrides should work with focused too
-	focusedResult := RenderTitledPanel(r, "x", PanelOpts{
+	focusedResult := RenderTitledPanel("x", PanelOpts{
 		Title:       "F",
 		Width:       20,
 		Focused:     true,
@@ -176,11 +167,10 @@ func TestRenderTitledPanel_ColorOverrides(t *testing.T) {
 }
 
 func TestRenderTitledPanel_PartialOverrides(t *testing.T) {
-	r := lipgloss.NewRenderer(nil)
 
 	// Only override border color, let title use default
-	customBorder := lipgloss.AdaptiveColor{Light: "#ff0000", Dark: "#ff0000"}
-	result := RenderTitledPanel(r, "x", PanelOpts{
+	customBorder := AdaptiveColor{Light: "#ff0000", Dark: "#ff0000"}
+	result := RenderTitledPanel("x", PanelOpts{
 		Title:       "Partial",
 		Width:       20,
 		BorderColor: &customBorder,
@@ -190,8 +180,8 @@ func TestRenderTitledPanel_PartialOverrides(t *testing.T) {
 	}
 
 	// Only override title color, let border use default
-	customTitle := lipgloss.AdaptiveColor{Light: "#00ff00", Dark: "#00ff00"}
-	result2 := RenderTitledPanel(r, "x", PanelOpts{
+	customTitle := AdaptiveColor{Light: "#00ff00", Dark: "#00ff00"}
+	result2 := RenderTitledPanel("x", PanelOpts{
 		Title:      "Partial2",
 		Width:      20,
 		TitleColor: &customTitle,

@@ -10,11 +10,10 @@ import (
 	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/model"
-	"github.com/charmbracelet/lipgloss"
 )
 
 func newTreeTestTheme() Theme {
-	return DefaultTheme(lipgloss.NewRenderer(nil))
+	return DefaultTheme()
 }
 
 // TestTreeBuildEmpty verifies Build() handles empty issues slice
@@ -843,7 +842,7 @@ func TestSaveState(t *testing.T) {
 			Dependencies: []*model.Dependency{{IssueID: "grandchild-1", DependsOnID: "child-1", Type: model.DepParentChild}}},
 	}
 
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	tree := NewTreeModel(theme)
 	tree.SetBeadsDir(beadsDir)
 	tree.Build(issues)
@@ -900,7 +899,7 @@ func TestSaveStateOnlyNonDefault(t *testing.T) {
 			Dependencies: []*model.Dependency{{IssueID: "d3", DependsOnID: "d2", Type: model.DepParentChild}}},
 	}
 
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	tree := NewTreeModel(theme)
 	tree.SetBeadsDir(beadsDir)
 	tree.Build(issues)
@@ -976,7 +975,7 @@ func TestSaveStateOnlyNonDefault(t *testing.T) {
 
 // TestSetBeadsDir tests the SetBeadsDir method
 func TestSetBeadsDir(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	tree := NewTreeModel(theme)
 
 	// Default should be empty
@@ -1028,7 +1027,7 @@ func TestLoadState(t *testing.T) {
 	}
 
 	// Build tree with beadsDir set
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	tree := NewTreeModel(theme)
 	tree.SetBeadsDir(beadsDir)
 	tree.Build(issues)
@@ -1072,7 +1071,7 @@ func TestLoadStateNoFile(t *testing.T) {
 			Dependencies: []*model.Dependency{{IssueID: "child", DependsOnID: "root", Type: model.DepParentChild}}},
 	}
 
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	tree := NewTreeModel(theme)
 	tree.SetBeadsDir(beadsDir)
 	tree.Build(issues)
@@ -1109,7 +1108,7 @@ func TestLoadStateCorrupted(t *testing.T) {
 		{ID: "root", Title: "Root", Status: model.StatusOpen, IssueType: model.TypeEpic},
 	}
 
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	tree := NewTreeModel(theme)
 	tree.SetBeadsDir(beadsDir)
 
@@ -1152,7 +1151,7 @@ func TestLoadStateStaleIDs(t *testing.T) {
 		{ID: "root", Title: "Root", Status: model.StatusOpen, IssueType: model.TypeEpic},
 	}
 
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	tree := NewTreeModel(theme)
 	tree.SetBeadsDir(beadsDir)
 	tree.Build(issues)

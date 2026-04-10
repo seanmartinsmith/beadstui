@@ -40,7 +40,7 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/watcher"
 	"github.com/seanmartinsmith/beadstui/pkg/workspace"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func main() {
@@ -1576,8 +1576,6 @@ func runTUIProgram(m ui.Model) error {
 
 	p := tea.NewProgram(
 		m,
-		tea.WithAltScreen(),
-		tea.WithMouseCellMotion(),
 		tea.WithoutSignalHandler(),
 	)
 

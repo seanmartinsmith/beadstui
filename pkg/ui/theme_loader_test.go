@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/charmbracelet/lipgloss"
 )
 
 func TestLoadTheme_EmbeddedDefaults(t *testing.T) {
@@ -48,8 +47,7 @@ func TestApplyThemeToGlobals_Nil(t *testing.T) {
 }
 
 func TestApplyThemeToThemeStruct(t *testing.T) {
-	r := lipgloss.NewRenderer(nil)
-	theme := DefaultTheme(r)
+	theme := DefaultTheme()
 
 	tf := &ThemeFile{
 		Colors: ThemeColors{
@@ -94,7 +92,7 @@ func TestMergeTheme_PartialOverride(t *testing.T) {
 }
 
 func TestAdaptiveHex_ToAdaptiveColor(t *testing.T) {
-	fallback := lipgloss.AdaptiveColor{Light: "#aaa", Dark: "#bbb"}
+	fallback := AdaptiveColor{Light: "#aaa", Dark: "#bbb"}
 
 	// Full override
 	hex := AdaptiveHex{Dark: "#111", Light: "#222"}

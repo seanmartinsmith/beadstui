@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"gopkg.in/yaml.v3"
 )
 
@@ -18,9 +18,9 @@ type AdaptiveHex struct {
 	Light string `yaml:"light"`
 }
 
-// toAdaptiveColor converts to lipgloss.AdaptiveColor.
+// toAdaptiveColor converts to AdaptiveColor.
 // Missing values inherit from the fallback.
-func (a AdaptiveHex) toAdaptiveColor(fallback lipgloss.AdaptiveColor) lipgloss.AdaptiveColor {
+func (a AdaptiveHex) toAdaptiveColor(fallback AdaptiveColor) AdaptiveColor {
 	result := fallback
 	if a.Dark != "" {
 		result.Dark = a.Dark
@@ -216,19 +216,16 @@ func ApplyThemeToThemeStruct(t *Theme, tf *ThemeFile) {
 	applyIf(c.Danger, &t.Danger)
 
 	// Rebuild pre-computed styles
-	r := t.Renderer
-	if r != nil {
-		t.MutedText = r.NewStyle().Foreground(ColorMuted)
-		t.InfoText = r.NewStyle().Foreground(ColorInfo)
-		t.InfoBold = r.NewStyle().Foreground(ColorInfo).Bold(true)
-		t.SecondaryText = r.NewStyle().Foreground(t.Secondary)
-		t.PrimaryBold = r.NewStyle().Foreground(t.Primary).Bold(true)
-		t.PriorityUpArrow = r.NewStyle().Foreground(ThemeFg(ColorDanger.Dark)).Bold(true)
-		t.PriorityDownArrow = r.NewStyle().Foreground(ThemeFg(ColorSuccess.Dark)).Bold(true)
-		t.TriageStar = r.NewStyle().Foreground(ThemeFg("#f0c674"))
-		t.TriageUnblocks = r.NewStyle().Foreground(ThemeFg(ColorSuccess.Dark))
-		t.TriageUnblocksAlt = r.NewStyle().Foreground(ThemeFg(ColorSecondary.Dark))
-	}
+	t.MutedText = lipgloss.NewStyle().Foreground(ColorMuted)
+	t.InfoText = lipgloss.NewStyle().Foreground(ColorInfo)
+	t.InfoBold = lipgloss.NewStyle().Foreground(ColorInfo).Bold(true)
+	t.SecondaryText = lipgloss.NewStyle().Foreground(t.Secondary)
+	t.PrimaryBold = lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
+	t.PriorityUpArrow = lipgloss.NewStyle().Foreground(ThemeFg(ColorDanger.Dark)).Bold(true)
+	t.PriorityDownArrow = lipgloss.NewStyle().Foreground(ThemeFg(ColorSuccess.Dark)).Bold(true)
+	t.TriageStar = lipgloss.NewStyle().Foreground(ThemeFg("#f0c674"))
+	t.TriageUnblocks = lipgloss.NewStyle().Foreground(ThemeFg(ColorSuccess.Dark))
+	t.TriageUnblocksAlt = lipgloss.NewStyle().Foreground(ThemeFg(ColorSecondary.Dark))
 }
 
 // --- Internal helpers ---
@@ -325,14 +322,14 @@ func mergeHexMap(base, overlay map[string]*AdaptiveHex) {
 	}
 }
 
-func applyIf(hex *AdaptiveHex, target *lipgloss.AdaptiveColor) {
+func applyIf(hex *AdaptiveHex, target *AdaptiveColor) {
 	if hex == nil {
 		return
 	}
 	*target = hex.toAdaptiveColor(*target)
 }
 
-func applyMapKey(m map[string]*AdaptiveHex, key string, target *lipgloss.AdaptiveColor) {
+func applyMapKey(m map[string]*AdaptiveHex, key string, target *AdaptiveColor) {
 	if m == nil {
 		return
 	}

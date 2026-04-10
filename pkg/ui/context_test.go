@@ -3,15 +3,13 @@ package ui
 import (
 	"testing"
 
-	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/list"
 )
 
 // newTestModel creates a minimal Model for testing context detection
 func newTestModel() Model {
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
 	return Model{
-		theme:   theme,
+		theme:   DefaultTheme(),
 		focused: focusList,
 		list:    list.New(nil, list.NewDefaultDelegate(), 80, 20),
 	}

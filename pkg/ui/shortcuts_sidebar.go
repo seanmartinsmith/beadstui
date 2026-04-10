@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 // ShortcutsSidebar provides a toggleable panel showing context-aware keyboard shortcuts
@@ -196,26 +196,26 @@ func (s *ShortcutsSidebar) View() string {
 	t := s.theme
 
 	// Styles
-	titleStyle := t.Renderer.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Foreground(t.Primary).
 		Bold(true).
 		Align(lipgloss.Center).
 		Width(s.width - 4)
 
-	sectionStyle := t.Renderer.NewStyle().
+	sectionStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary).
 		Bold(true).
 		MarginTop(1)
 
-	keyStyle := t.Renderer.NewStyle().
+	keyStyle := lipgloss.NewStyle().
 		Foreground(ColorPrimary).
 		Bold(true).
 		Width(8)
 
-	descStyle := t.Renderer.NewStyle().
+	descStyle := lipgloss.NewStyle().
 		Foreground(t.Base.GetForeground())
 
-	dimStyle := t.Renderer.NewStyle().
+	dimStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary).
 		Italic(true)
 
@@ -296,7 +296,7 @@ func (s *ShortcutsSidebar) View() string {
 	content := visibleContent + "\n" + footer
 
 	// Create the sidebar box
-	boxStyle := t.Renderer.NewStyle().
+	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(t.Secondary).
 		Padding(0, 1).

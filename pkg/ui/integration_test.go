@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/ui"
@@ -16,17 +16,17 @@ import (
 // Tests verifying state preservation and behavior across view switches
 // ═══════════════════════════════════════════════════════════════════════════════
 
-// Helper to create a KeyMsg for a string key
-func integrationKeyMsg(key string) tea.KeyMsg {
-	return tea.KeyMsg{
-		Type:  tea.KeyRunes,
-		Runes: []rune(key),
+// Helper to create a KeyPressMsg for a string key
+func integrationKeyMsg(key string) tea.KeyPressMsg {
+	if len(key) == 1 {
+		return tea.KeyPressMsg{Code: rune(key[0]), Text: key}
 	}
+	return tea.KeyPressMsg{Code: rune(key[0]), Text: key}
 }
 
 // Helper to create special key messages
-func integrationSpecialKey(k tea.KeyType) tea.KeyMsg {
-	return tea.KeyMsg{Type: k}
+func integrationSpecialKey(k rune) tea.KeyPressMsg {
+	return tea.KeyPressMsg{Code: k}
 }
 
 // createTestIssues creates a set of test issues for integration tests
@@ -388,7 +388,7 @@ func TestRapidViewSwitchingWithNavigation(t *testing.T) {
 	m := ui.NewModel(issues, nil, "", nil)
 
 	// Mix view switches with navigation
-	actions := []tea.KeyMsg{
+	actions := []tea.KeyPressMsg{
 		integrationKeyMsg("E"),            // Enter tree
 		integrationKeyMsg("j"),            // Move down
 		integrationKeyMsg("j"),            // Move down
@@ -520,7 +520,7 @@ func TestAllViewsRenderWithoutPanic(t *testing.T) {
 
 			// Render should not panic
 			output := m.View()
-			if output == "" {
+			if output.Content == "" {
 				t.Errorf("View() returned empty for %s view", v.name)
 			}
 		})
@@ -565,7 +565,7 @@ func TestViewRenderingAtDifferentSizes(t *testing.T) {
 
 				// Render should not panic
 				output := m.View()
-				if output == "" {
+				if output.Content == "" {
 					t.Errorf("View() returned empty for %s at %dx%d", name, size.width, size.height)
 				}
 			})

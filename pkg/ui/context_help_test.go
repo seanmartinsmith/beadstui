@@ -5,7 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/lipgloss"
 )
 
 func TestContextHelpContentMap(t *testing.T) {
@@ -151,7 +150,7 @@ func TestContextHelpContentQuality(t *testing.T) {
 }
 
 func TestRenderContextHelp(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	width, height := 80, 40
 
 	result := RenderContextHelp(ContextList, theme, width, height)
@@ -178,7 +177,7 @@ func TestRenderContextHelp(t *testing.T) {
 }
 
 func TestRenderContextHelpNarrowWidth(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	narrowWidth := 50
 	height := 40
 
@@ -371,7 +370,7 @@ func TestContextHelpGraphShortcutsMatchModel(t *testing.T) {
 }
 
 func TestRenderContextHelpVeryNarrow(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	veryNarrowWidth := 30
 	height := 40
 
@@ -383,7 +382,7 @@ func TestRenderContextHelpVeryNarrow(t *testing.T) {
 }
 
 func TestRenderContextHelpVeryShort(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	width := 80
 	veryShortHeight := 10
 
@@ -395,7 +394,7 @@ func TestRenderContextHelpVeryShort(t *testing.T) {
 }
 
 func TestRenderContextHelpMinimalDimensions(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 
 	// Test minimal dimensions without panicking
 	result := RenderContextHelp(ContextList, theme, 10, 5)
@@ -405,7 +404,7 @@ func TestRenderContextHelpMinimalDimensions(t *testing.T) {
 }
 
 func TestContextHelpUnicodeRendering(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	width, height := 80, 40
 
 	// Test that unicode characters in content are preserved
@@ -418,7 +417,7 @@ func TestContextHelpUnicodeRendering(t *testing.T) {
 }
 
 func TestContextHelpAllContextsRender(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	width, height := 80, 40
 
 	// Verify all contexts render without error

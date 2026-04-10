@@ -8,7 +8,7 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 // GraphModel represents the dependency graph view with visual ASCII art visualization
@@ -284,7 +284,7 @@ func (g *GraphModel) View(width, height int) string {
 	t := g.theme
 
 	if len(g.sortedIDs) == 0 {
-		return t.Renderer.NewStyle().
+		return lipgloss.NewStyle().
 			Width(width).
 			Height(height).
 			Align(lipgloss.Center, lipgloss.Center).
@@ -321,7 +321,7 @@ func (g *GraphModel) View(width, height int) string {
 	if sepHeight < 1 {
 		sepHeight = 1
 	}
-	separator := t.Renderer.NewStyle().
+	separator := lipgloss.NewStyle().
 		Foreground(t.Secondary).
 		Render(strings.Repeat("│\n", sepHeight))
 
@@ -332,7 +332,7 @@ func (g *GraphModel) View(width, height int) string {
 func (g *GraphModel) renderNodeList(width, height int, t Theme) string {
 	var lines []string
 
-	headerStyle := t.Renderer.NewStyle().
+	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(t.Primary).
 		Width(width)
@@ -372,13 +372,13 @@ func (g *GraphModel) renderNodeList(width, height int, t Theme) string {
 
 		var style lipgloss.Style
 		if isSelected {
-			style = t.Renderer.NewStyle().
+			style = lipgloss.NewStyle().
 				Bold(true).
 				Foreground(t.Primary).
 				Background(t.Highlight).
 				Width(width)
 		} else {
-			style = t.Renderer.NewStyle().
+			style = lipgloss.NewStyle().
 				Foreground(t.GetStatusColor(string(issue.Status))).
 				Width(width)
 		}
@@ -387,7 +387,7 @@ func (g *GraphModel) renderNodeList(width, height int, t Theme) string {
 
 	if len(g.sortedIDs) > visibleItems {
 		scrollInfo := fmt.Sprintf("(%d-%d of %d)", startIdx+1, endIdx, len(g.sortedIDs))
-		scrollStyle := t.Renderer.NewStyle().
+		scrollStyle := lipgloss.NewStyle().
 			Foreground(t.Secondary).
 			Italic(true).
 			Width(width).
@@ -436,7 +436,7 @@ func (g *GraphModel) renderVisualGraph(id string, issue *model.Issue, width, hei
 	sections = append(sections, g.renderMetricsPanel(id, width, t))
 
 	// Navigation hint
-	navStyle := t.Renderer.NewStyle().
+	navStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary).
 		Italic(true)
 	sections = append(sections, "")
@@ -447,7 +447,7 @@ func (g *GraphModel) renderVisualGraph(id string, issue *model.Issue, width, hei
 
 // renderBlockersVisual renders blocker nodes as boxes
 func (g *GraphModel) renderBlockersVisual(blockerIDs []string, width int, t Theme) string {
-	headerStyle := t.Renderer.NewStyle().
+	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(t.Feature).
 		Width(width).
@@ -482,7 +482,7 @@ func (g *GraphModel) renderBlockersVisual(blockerIDs []string, width int, t Them
 	for i, bid := range blockerIDs {
 		if i >= 5 {
 			remaining := len(blockerIDs) - 5
-			boxes = append(boxes, t.Renderer.NewStyle().
+			boxes = append(boxes, lipgloss.NewStyle().
 				Foreground(t.Secondary).
 				Italic(true).
 				Render(fmt.Sprintf("+%d more", remaining)))
@@ -492,7 +492,7 @@ func (g *GraphModel) renderBlockersVisual(blockerIDs []string, width int, t Them
 	}
 
 	boxRow := lipgloss.JoinHorizontal(lipgloss.Center, boxes...)
-	centered := t.Renderer.NewStyle().Width(width).Align(lipgloss.Center).Render(boxRow)
+	centered := lipgloss.NewStyle().Width(width).Align(lipgloss.Center).Render(boxRow)
 
 	return header + "\n" + centered
 }
@@ -525,7 +525,7 @@ func (g *GraphModel) renderDependentsVisual(dependentIDs []string, width int, t 
 	for i, did := range dependentIDs {
 		if i >= 5 {
 			remaining := len(dependentIDs) - 5
-			boxes = append(boxes, t.Renderer.NewStyle().
+			boxes = append(boxes, lipgloss.NewStyle().
 				Foreground(t.Secondary).
 				Italic(true).
 				Render(fmt.Sprintf("+%d more", remaining)))
@@ -535,9 +535,9 @@ func (g *GraphModel) renderDependentsVisual(dependentIDs []string, width int, t 
 	}
 
 	boxRow := lipgloss.JoinHorizontal(lipgloss.Center, boxes...)
-	centered := t.Renderer.NewStyle().Width(width).Align(lipgloss.Center).Render(boxRow)
+	centered := lipgloss.NewStyle().Width(width).Align(lipgloss.Center).Render(boxRow)
 
-	headerStyle := t.Renderer.NewStyle().
+	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(t.Feature).
 		Width(width).
@@ -553,7 +553,7 @@ func (g *GraphModel) renderNodeBox(id string, boxWidth int, t Theme, isEgo bool)
 	issue := g.issueMap[id]
 
 	var statusIcon, displayID, title string
-	var statusColor lipgloss.AdaptiveColor
+	var statusColor AdaptiveColor
 
 	if issue != nil {
 		statusIcon = getStatusIcon(issue.Status)
@@ -575,7 +575,7 @@ func (g *GraphModel) renderNodeBox(id string, boxWidth int, t Theme, isEgo bool)
 	var boxStyle lipgloss.Style
 	if isEgo {
 		// Ego node gets double-line border and highlight
-		boxStyle = t.Renderer.NewStyle().
+		boxStyle = lipgloss.NewStyle().
 			Border(lipgloss.DoubleBorder()).
 			BorderForeground(t.Primary).
 			Foreground(t.Primary).
@@ -584,7 +584,7 @@ func (g *GraphModel) renderNodeBox(id string, boxWidth int, t Theme, isEgo bool)
 			Align(lipgloss.Center).
 			Padding(0, 1)
 	} else {
-		boxStyle = t.Renderer.NewStyle().
+		boxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(statusColor).
 			Foreground(statusColor).
@@ -639,7 +639,7 @@ func (g *GraphModel) renderEgoNode(id string, issue *model.Issue, width int, t T
 	dependentCount := len(g.dependents[id])
 	content += fmt.Sprintf("\n⬆%d  ⬇%d", blockerCount, dependentCount)
 
-	egoStyle := t.Renderer.NewStyle().
+	egoStyle := lipgloss.NewStyle().
 		Border(lipgloss.DoubleBorder()).
 		BorderForeground(t.Primary).
 		Foreground(t.Primary).
@@ -651,7 +651,7 @@ func (g *GraphModel) renderEgoNode(id string, issue *model.Issue, width int, t T
 	box := egoStyle.Render(content)
 
 	// Center the ego box
-	return t.Renderer.NewStyle().Width(width).Align(lipgloss.Center).Render(box)
+	return lipgloss.NewStyle().Width(width).Align(lipgloss.Center).Render(box)
 }
 
 // renderConnectorDown renders connector lines between sections
@@ -660,7 +660,7 @@ func (g *GraphModel) renderConnectorDown(count int, width int, t Theme) string {
 		return ""
 	}
 
-	connStyle := t.Renderer.NewStyle().
+	connStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary).
 		Width(width).
 		Align(lipgloss.Center)
@@ -698,7 +698,7 @@ func (g *GraphModel) renderMetricsPanel(id string, width int, t Theme) string {
 	// ══════════════════════════════════════════════════════════════════════════
 
 	// Panel header with accent background
-	panelHeaderStyle := t.Renderer.NewStyle().
+	panelHeaderStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(ColorText).
 		Background(ColorPrimary).
@@ -708,7 +708,7 @@ func (g *GraphModel) renderMetricsPanel(id string, width int, t Theme) string {
 	panelTitle := panelHeaderStyle.Render("📊 GRAPH METRICS")
 
 	if g.insights == nil || g.insights.Stats == nil {
-		noDataStyle := t.Renderer.NewStyle().
+		noDataStyle := lipgloss.NewStyle().
 			Foreground(ColorMuted).
 			Italic(true).
 			Padding(1, 2).
@@ -767,7 +767,7 @@ func (g *GraphModel) renderMetricsPanel(id string, width int, t Theme) string {
 	// Helper to render a metric row with mini-bar visualization
 	renderMetricRow := func(name string, value float64, rank int, maxVal float64, isInt bool) string {
 		// Name with fixed width
-		nameStyle := t.Renderer.NewStyle().Foreground(ColorSecondary).Width(14)
+		nameStyle := lipgloss.NewStyle().Foreground(ColorSecondary).Width(14)
 
 		// Value formatting
 		var valStr string
@@ -778,7 +778,7 @@ func (g *GraphModel) renderMetricsPanel(id string, width int, t Theme) string {
 		} else {
 			valStr = fmt.Sprintf("%.4f", value)
 		}
-		valueStyle := t.Renderer.NewStyle().Foreground(ColorText).Bold(true).Width(8).Align(lipgloss.Right)
+		valueStyle := lipgloss.NewStyle().Foreground(ColorText).Bold(true).Width(8).Align(lipgloss.Right)
 
 		// Mini-bar for relative importance (normalize to 0-1)
 		normalized := 0.0
@@ -828,7 +828,7 @@ func (g *GraphModel) renderMetricsPanel(id string, width int, t Theme) string {
 	rows = append(rows, RenderDivider(width-4))
 
 	// Section: Importance Metrics
-	sectionStyle := t.Renderer.NewStyle().
+	sectionStyle := lipgloss.NewStyle().
 		Foreground(ColorPrimary).
 		Bold(true).
 		Padding(0, 1)
@@ -855,7 +855,7 @@ func (g *GraphModel) renderMetricsPanel(id string, width int, t Theme) string {
 	rows = append(rows, "")
 
 	// Legend
-	legendStyle := t.Renderer.NewStyle().
+	legendStyle := lipgloss.NewStyle().
 		Foreground(ColorMuted).
 		Italic(true).
 		Width(width - 4)

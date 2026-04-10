@@ -5,8 +5,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
 )
 
 // ============================================================================
@@ -14,7 +13,7 @@ import (
 // ============================================================================
 
 func TestNewUpdateModal_InitialState(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v1.0.0", "https://github.com/example/release", theme)
 
 	if m.state != UpdateStateConfirm {
@@ -42,7 +41,7 @@ func TestNewUpdateModal_InitialState(t *testing.T) {
 // ============================================================================
 
 func TestUpdateModal_IsConfirming(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v1.0.0", "", theme)
 
 	if !m.IsConfirming() {
@@ -56,7 +55,7 @@ func TestUpdateModal_IsConfirming(t *testing.T) {
 }
 
 func TestUpdateModal_IsCancelled(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v1.0.0", "", theme)
 
 	// Initially focused on Update button
@@ -78,7 +77,7 @@ func TestUpdateModal_IsCancelled(t *testing.T) {
 }
 
 func TestUpdateModal_IsComplete(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v1.0.0", "", theme)
 
 	if m.IsComplete() {
@@ -97,7 +96,7 @@ func TestUpdateModal_IsComplete(t *testing.T) {
 }
 
 func TestUpdateModal_IsInProgress(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v1.0.0", "", theme)
 
 	if m.IsInProgress() {
@@ -117,7 +116,7 @@ func TestUpdateModal_IsInProgress(t *testing.T) {
 // ============================================================================
 
 func TestUpdateModal_Update_NavigationKeys(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 
 	tests := []struct {
 		name          string
@@ -139,11 +138,14 @@ func TestUpdateModal_Update_NavigationKeys(t *testing.T) {
 				m.confirmFocus = 1 // Start on Cancel to test moving to Update
 			}
 
-			msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(tt.key)}
-			if tt.key == "left" {
-				msg = tea.KeyMsg{Type: tea.KeyLeft}
-			} else if tt.key == "right" {
-				msg = tea.KeyMsg{Type: tea.KeyRight}
+			var msg tea.Msg
+			switch tt.key {
+			case "left":
+				msg = tea.KeyPressMsg{Code: tea.KeyLeft}
+			case "right":
+				msg = tea.KeyPressMsg{Code: tea.KeyRight}
+			default:
+				msg = tea.KeyPressMsg{Code: rune(tt.key[0]), Text: tt.key}
 			}
 
 			updated, _ := m.Update(msg)
@@ -155,7 +157,7 @@ func TestUpdateModal_Update_NavigationKeys(t *testing.T) {
 }
 
 func TestUpdateModal_Update_TabCyclesFocus(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v1.0.0", "", theme)
 
 	// Start on Update (0)
@@ -164,7 +166,7 @@ func TestUpdateModal_Update_TabCyclesFocus(t *testing.T) {
 	}
 
 	// Tab to Cancel (1)
-	msg := tea.KeyMsg{Type: tea.KeyTab}
+	msg := tea.KeyPressMsg{Code: tea.KeyTab}
 	m, _ = m.Update(msg)
 	if m.confirmFocus != 1 {
 		t.Errorf("expected focus 1 after first tab, got %d", m.confirmFocus)
@@ -178,10 +180,10 @@ func TestUpdateModal_Update_TabCyclesFocus(t *testing.T) {
 }
 
 func TestUpdateModal_Update_QuickConfirmY(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v1.0.0", "", theme)
 
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")}
+	msg := tea.KeyPressMsg{Code: 'y', Text: "y"}
 	updated, cmd := m.Update(msg)
 
 	if updated.state != UpdateStateDownloading {
@@ -196,10 +198,10 @@ func TestUpdateModal_Update_QuickConfirmY(t *testing.T) {
 }
 
 func TestUpdateModal_Update_QuickConfirmUpperY(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v1.0.0", "", theme)
 
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("Y")}
+	msg := tea.KeyPressMsg{Code: 'Y', Text: "Y"}
 	updated, cmd := m.Update(msg)
 
 	if updated.state != UpdateStateDownloading {
@@ -211,10 +213,10 @@ func TestUpdateModal_Update_QuickConfirmUpperY(t *testing.T) {
 }
 
 func TestUpdateModal_Update_QuickCancelN(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v1.0.0", "", theme)
 
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")}
+	msg := tea.KeyPressMsg{Code: 'n', Text: "n"}
 	updated, cmd := m.Update(msg)
 
 	// State should remain confirm, cmd should be nil (parent handles close)
@@ -227,11 +229,11 @@ func TestUpdateModal_Update_QuickCancelN(t *testing.T) {
 }
 
 func TestUpdateModal_Update_EnterConfirmsUpdate(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v1.0.0", "", theme)
 	m.confirmFocus = 0 // Focus on Update
 
-	msg := tea.KeyMsg{Type: tea.KeyEnter}
+	msg := tea.KeyPressMsg{Code: tea.KeyEnter}
 	updated, cmd := m.Update(msg)
 
 	if updated.state != UpdateStateDownloading {
@@ -243,11 +245,11 @@ func TestUpdateModal_Update_EnterConfirmsUpdate(t *testing.T) {
 }
 
 func TestUpdateModal_Update_EnterCancels(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v1.0.0", "", theme)
 	m.confirmFocus = 1 // Focus on Cancel
 
-	msg := tea.KeyMsg{Type: tea.KeyEnter}
+	msg := tea.KeyPressMsg{Code: tea.KeyEnter}
 	updated, cmd := m.Update(msg)
 
 	// Parent handles the close, state remains confirm
@@ -260,12 +262,12 @@ func TestUpdateModal_Update_EnterCancels(t *testing.T) {
 }
 
 func TestUpdateModal_Update_IgnoresKeysWhenInProgress(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v1.0.0", "", theme)
 	m.state = UpdateStateDownloading
 
 	// Try to cancel - should be ignored
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")}
+	msg := tea.KeyPressMsg{Code: 'n', Text: "n"}
 	updated, _ := m.Update(msg)
 
 	if updated.state != UpdateStateDownloading {
@@ -274,14 +276,14 @@ func TestUpdateModal_Update_IgnoresKeysWhenInProgress(t *testing.T) {
 }
 
 func TestUpdateModal_Update_DismissOnComplete(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 
 	for _, state := range []UpdateState{UpdateStateSuccess, UpdateStateError} {
 		t.Run(state.String(), func(t *testing.T) {
 			m := NewUpdateModal("v1.0.0", "", theme)
 			m.state = state
 
-			msg := tea.KeyMsg{Type: tea.KeyEnter}
+			msg := tea.KeyPressMsg{Code: tea.KeyEnter}
 			updated, cmd := m.Update(msg)
 
 			// State remains, parent handles dismiss
@@ -300,7 +302,7 @@ func TestUpdateModal_Update_DismissOnComplete(t *testing.T) {
 // ============================================================================
 
 func TestUpdateModal_Update_ProgressMessage(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v1.0.0", "", theme)
 	m.state = UpdateStateDownloading
 
@@ -323,7 +325,7 @@ func TestUpdateModal_Update_ProgressMessage(t *testing.T) {
 }
 
 func TestUpdateModal_Update_ProgressStageTransitions(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 
 	tests := []struct {
 		stage    string
@@ -352,7 +354,7 @@ func TestUpdateModal_Update_ProgressStageTransitions(t *testing.T) {
 }
 
 func TestUpdateModal_Update_CompleteMessageSuccess(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v1.0.0", "", theme)
 	m.state = UpdateStateDownloading
 
@@ -377,7 +379,7 @@ func TestUpdateModal_Update_CompleteMessageSuccess(t *testing.T) {
 }
 
 func TestUpdateModal_Update_CompleteMessageError(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v1.0.0", "", theme)
 	m.state = UpdateStateDownloading
 
@@ -401,7 +403,7 @@ func TestUpdateModal_Update_CompleteMessageError(t *testing.T) {
 // ============================================================================
 
 func TestUpdateModal_View_ConfirmState(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v2.0.0", "", theme)
 	m.SetSize(80, 24)
 
@@ -422,7 +424,7 @@ func TestUpdateModal_View_ConfirmState(t *testing.T) {
 }
 
 func TestUpdateModal_View_DownloadingState(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v2.0.0", "", theme)
 	m.state = UpdateStateDownloading
 	m.startTime = time.Now()
@@ -439,7 +441,7 @@ func TestUpdateModal_View_DownloadingState(t *testing.T) {
 }
 
 func TestUpdateModal_View_SuccessState(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v2.0.0", "", theme)
 	m.state = UpdateStateSuccess
 	m.successMessage = "Update complete"
@@ -463,7 +465,7 @@ func TestUpdateModal_View_SuccessState(t *testing.T) {
 }
 
 func TestUpdateModal_View_ErrorState(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v2.0.0", "", theme)
 	m.state = UpdateStateError
 	m.errorMessage = "Network error"
@@ -484,7 +486,7 @@ func TestUpdateModal_View_ErrorState(t *testing.T) {
 // ============================================================================
 
 func TestUpdateModal_SetSize(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v1.0.0", "", theme)
 
 	m.SetSize(100, 40)
@@ -508,7 +510,7 @@ func TestUpdateModal_SetSize(t *testing.T) {
 // ============================================================================
 
 func TestUpdateModal_CenterModal(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v1.0.0", "", theme)
 	m.SetSize(80, 24)
 
@@ -525,7 +527,7 @@ func TestUpdateModal_CenterModal(t *testing.T) {
 // ============================================================================
 
 func TestUpdateModal_RenderSpinner(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v1.0.0", "", theme)
 	m.startTime = time.Now()
 
@@ -538,7 +540,7 @@ func TestUpdateModal_RenderSpinner(t *testing.T) {
 }
 
 func TestUpdateModal_RenderProgressBar_Indeterminate(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v1.0.0", "", theme)
 	m.progress.TotalBytes = 0
 
@@ -550,7 +552,7 @@ func TestUpdateModal_RenderProgressBar_Indeterminate(t *testing.T) {
 }
 
 func TestUpdateModal_RenderProgressBar_WithProgress(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v1.0.0", "", theme)
 	m.progress.BytesDownloaded = 500
 	m.progress.TotalBytes = 1000
@@ -566,7 +568,7 @@ func TestUpdateModal_RenderProgressBar_WithProgress(t *testing.T) {
 }
 
 func TestUpdateModal_RenderProgressBar_Complete(t *testing.T) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	m := NewUpdateModal("v1.0.0", "", theme)
 	m.progress.BytesDownloaded = 1000
 	m.progress.TotalBytes = 1000
