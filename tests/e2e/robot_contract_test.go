@@ -1,7 +1,9 @@
 package main_test
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -31,11 +33,20 @@ func runRobotJSON(t *testing.T, bt, dir string, flag string, v any) {
 	}
 }
 
-// runCommand is a tiny helper to exec the bt binary with a single flag.
+// runCommand execs the bt binary with a single flag and returns only stdout.
+// Stderr is captured separately to prevent log/slog messages from corrupting
+// the JSON stream that robot-mode commands emit on stdout.
 func runCommand(bt, dir, flag string) ([]byte, error) {
 	cmd := execCommand(bt, flag)
 	cmd.Dir = dir
-	return cmd.CombinedOutput()
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		return stdout.Bytes(), fmt.Errorf("%w\nstderr: %s", err, stderr.String())
+	}
+	return stdout.Bytes(), nil
 }
 
 // execCommand is defined in other e2e tests; redeclare wrapper to avoid imports.
