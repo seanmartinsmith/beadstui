@@ -31,6 +31,7 @@ func TestRobotPlanAndPriorityIncludeMetadata(t *testing.T) {
 	runAndCheck := func(flag string) {
 		cmd := exec.Command(exe, flag)
 		cmd.Dir = dir
+		cmd.Env = append(os.Environ(), "BT_TEST_MODE=1", "BT_NO_BROWSER=1")
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("%s failed: %v, out=%s", flag, err, string(out))

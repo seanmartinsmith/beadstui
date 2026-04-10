@@ -284,3 +284,22 @@ func (m Model) IsActionableView() bool {
 func (m Model) IsHistoryView() bool {
 	return m.isHistoryView
 }
+
+// ShowDetails returns true if the detail pane is visible.
+// Stable accessor for Phase 1 refactor - this field will move into PaneFocus state.
+func (m Model) ShowDetails() bool {
+	return m.showDetails
+}
+
+// CurrentFilter returns the active filter string (e.g. "open", "closed", "ready",
+// "label:X", "bql:..."). Stable accessor for Phase 1 refactor - this field will
+// move into FilterState.
+func (m Model) CurrentFilter() string {
+	return m.currentFilter
+}
+
+// Issues returns the full (unfiltered) issue slice. Stable accessor for Phase 1
+// refactor - this field will move into DataState.
+func (m Model) Issues() []model.Issue {
+	return m.issues
+}
