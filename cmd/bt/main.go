@@ -265,6 +265,7 @@ func main() {
 		*robotSuggest ||
 		*robotGraph ||
 		*robotSearch ||
+		*robotBQL ||
 		*robotDriftCheck ||
 		*robotHistory ||
 		*robotFileBeads != "" ||
@@ -283,6 +284,11 @@ func main() {
 		*robotByAssignee != "" ||
 		*robotCapacity ||
 		*robotDocs != "" ||
+		*robotExplainCorrelation != "" ||
+		*robotConfirmCorrelation != "" ||
+		*robotRejectCorrelation != "" ||
+		*robotCorrelationStats ||
+		*robotOrphans ||
 		// When stdout is non-TTY, --diff-since auto-enables JSON output. Mark this
 		// as robot mode early so parsers keep stdout JSON clean.
 		(*diffSince != "" && !stdoutIsTTY)
@@ -291,6 +297,15 @@ func main() {
 	if robotMode && !envRobot {
 		_ = os.Setenv("BT_ROBOT", "1")
 		envRobot = true
+	}
+
+	// Suppress log/slog output in robot mode to prevent non-JSON content from
+	// leaking into stdout when callers capture combined output. The default slog
+	// handler delegates to log.Default(), so silencing the standard logger covers
+	// both log.Print* and slog.Info/Warn calls in downstream packages (e.g.,
+	// global_dolt.go's "discovered databases" message).
+	if robotMode {
+		log.SetOutput(io.Discard)
 	}
 
 	// Structured output format for --robot-* commands.
