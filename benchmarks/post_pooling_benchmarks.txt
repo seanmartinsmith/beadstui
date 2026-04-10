@@ -1,0 +1,15 @@
+goos: linux
+goarch: amd64
+pkg: github.com/Dicklesworthstone/beads_viewer/pkg/analysis
+cpu: AMD Ryzen Threadripper PRO 5975WX 32-Cores     
+BenchmarkApproxBetweenness_500nodes_Exact-64        	      16	  69911721 ns/op	34110051 B/op	  499557 allocs/op
+BenchmarkApproxBetweenness_500nodes_Exact-64        	      16	  68956616 ns/op	34110119 B/op	  499558 allocs/op
+BenchmarkApproxBetweenness_500nodes_Exact-64        	      16	  69248340 ns/op	34110164 B/op	  499558 allocs/op
+BenchmarkApproxBetweenness_500nodes_Sample100-64    	     202	   5929813 ns/op	11919008 B/op	  149509 allocs/op
+BenchmarkApproxBetweenness_500nodes_Sample100-64    	     201	   5789741 ns/op	11886058 B/op	  149441 allocs/op
+BenchmarkApproxBetweenness_500nodes_Sample100-64    	     201	   5977261 ns/op	11895089 B/op	  149447 allocs/op
+BenchmarkApproxBetweenness_500nodes_Sample50-64     	     376	   3167050 ns/op	 5702757 B/op	   74937 allocs/op
+BenchmarkApproxBetweenness_500nodes_Sample50-64     	     380	   3176322 ns/op	 5663636 B/op	   74871 allocs/op
+BenchmarkApproxBetweenness_500nodes_Sample50-64     	     373	   3217725 ns/op	 5677960 B/op	   74896 allocs/op
+PASS
+ok  	github.com/Dicklesworthstone/beads_viewer/pkg/analysis	14.379s

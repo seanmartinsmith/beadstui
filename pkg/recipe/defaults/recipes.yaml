@@ -1,0 +1,199 @@
+# Built-in bv recipes
+# These are embedded into the binary and serve as defaults
+
+recipes:
+  default:
+    description: Default view showing all open issues sorted by priority
+    filters:
+      status:
+        - open
+        - in_progress
+        - blocked
+    sort:
+      field: priority
+      direction: asc
+    view:
+      columns:
+        - id
+        - title
+        - status
+        - priority
+      group_by: none
+
+  actionable:
+    description: Issues ready to work on (no open blockers)
+    filters:
+      status:
+        - open
+        - in_progress
+      actionable: true
+    sort:
+      field: priority
+      direction: asc
+    view:
+      columns:
+        - id
+        - title
+        - priority
+        - blockers
+      show_metrics: true
+
+  recent:
+    description: Issues updated in the last 7 days
+    filters:
+      updated_after: "7d"
+    sort:
+      field: updated
+      direction: desc
+    view:
+      columns:
+        - id
+        - title
+        - status
+        - updated
+
+  blocked:
+    description: Issues waiting on dependencies
+    filters:
+      status:
+        - open
+        - in_progress
+        - blocked
+      has_blockers: true
+    sort:
+      field: priority
+      direction: asc
+    view:
+      columns:
+        - id
+        - title
+        - priority
+        - blockers
+      show_graph: true
+
+  high-impact:
+    description: Issues with highest blocking impact (PageRank)
+    filters:
+      status:
+        - open
+        - in_progress
+    sort:
+      field: pagerank
+      direction: desc
+    view:
+      columns:
+        - id
+        - title
+        - priority
+        - pagerank
+      show_metrics: true
+      max_items: 20
+    metrics:
+      - pagerank
+      - critical_path
+
+  stale:
+    description: Open issues not updated in 30+ days
+    filters:
+      status:
+        - open
+        - in_progress
+      updated_before: "30d"
+    sort:
+      field: updated
+      direction: asc
+    view:
+      columns:
+        - id
+        - title
+        - status
+        - updated
+
+  triage:
+    description: Issues sorted by computed triage score (high impact + unblocking potential)
+    filters:
+      status:
+        - open
+        - in_progress
+      actionable: true
+    sort:
+      field: triage
+      direction: desc
+    view:
+      columns:
+        - id
+        - title
+        - priority
+        - triage
+      show_metrics: true
+      max_items: 20
+
+  closed:
+    description: Recently closed issues
+    filters:
+      status:
+        - closed
+    sort:
+      field: updated
+      direction: desc
+    view:
+      columns:
+        - id
+        - title
+        - updated
+      max_items: 25
+
+  release-cut:
+    description: Recently closed items for changelog generation
+    filters:
+      status:
+        - closed
+      updated_after: "14d"
+    sort:
+      field: updated
+      direction: desc
+    view:
+      columns:
+        - id
+        - title
+        - updated
+
+  quick-wins:
+    description: Easy items with no blockers - good for quick progress
+    filters:
+      status:
+        - open
+      priority:
+        - 2
+        - 3
+      actionable: true
+    sort:
+      field: priority
+      direction: asc
+    view:
+      columns:
+        - id
+        - title
+        - priority
+      max_items: 15
+
+  bottlenecks:
+    description: High betweenness nodes - potential project bottlenecks
+    filters:
+      status:
+        - open
+        - in_progress
+    sort:
+      field: betweenness
+      direction: desc
+    view:
+      columns:
+        - id
+        - title
+        - priority
+        - betweenness
+      show_metrics: true
+      max_items: 15
+    metrics:
+      - betweenness
+      - pagerank

@@ -1,0 +1,7 @@
+beads_reference/
+
+# Nested beads state (not code)
+pkg/ui/.beads/
+
+# Large benchmark test data (not code)
+tests/testdata/benchmark/

@@ -1,0 +1,64 @@
+=== Post-Optimization CPU Profile ===
+Date: Fri Jan  9 22:43:49 EST 2026
+
+File: analysis.test
+Build ID: 347acf7103611ba99033c3a2c1410786f7c7dde9
+Type: cpu
+Time: 2026-01-09 22:43:27 EST
+Duration: 6.71s, Total samples = 63.89s (951.50%)
+Showing nodes accounting for 54.08s, 84.65% of 63.89s total
+Dropped 365 nodes (cum <= 0.32s)
+      flat  flat%   sum%        cum   cum%
+     4.23s  6.62%  6.62%     12.58s 19.69%  runtime.mapassign_fast64
+     4.10s  6.42% 13.04%      4.10s  6.42%  internal/runtime/maps.ctrlGroup.matchH2 (inline)
+     3.10s  4.85% 17.89%     13.43s 21.02%  runtime.gcDrain
+     2.47s  3.87% 21.76%      5.41s  8.47%  runtime.mapaccess1_fast64
+     2.22s  3.47% 25.23%      2.22s  3.47%  internal/runtime/maps.h2 (inline)
+        2s  3.13% 28.36%      2.76s  4.32%  runtime.findObject
+     1.87s  2.93% 31.29%     41.32s 64.67%  github.com/Dicklesworthstone/beads_viewer/pkg/analysis.singleSourceBetweenness
+     1.85s  2.90% 34.18%      1.85s  2.90%  runtime.memclrNoHeapPointers
+     1.63s  2.55% 36.74%      1.63s  2.55%  runtime.tgkill
+     1.47s  2.30% 39.04%      1.49s  2.33%  runtime.(*gcBits).bitp (inline)
+     1.44s  2.25% 41.29%      1.44s  2.25%  runtime.memhash64
+     1.23s  1.93% 43.21%      1.23s  1.93%  runtime.(*lfstack).pop (inline)
+     1.23s  1.93% 45.14%      5.85s  9.16%  runtime.scanobject
+     1.20s  1.88% 47.02%      1.20s  1.88%  runtime.(*mspan).base (inline)
+     1.17s  1.83% 48.85%      8.97s 14.04%  runtime.mallocgcSmallScanNoHeader
+     1.16s  1.82% 50.67%      2.38s  3.73%  internal/runtime/maps.(*Iter).Next
+     1.16s  1.82% 52.48%      1.16s  1.82%  runtime.futex
+     0.96s  1.50% 53.98%      0.96s  1.50%  runtime.nextFreeFast (inline)
+     0.94s  1.47% 55.45%      0.94s  1.47%  runtime.(*mspan).divideByElemSize (inline)
+     0.88s  1.38% 56.83%      0.89s  1.39%  runtime.pageIndexOf (inline)
+     0.87s  1.36% 58.19%      9.01s 14.10%  github.com/Dicklesworthstone/beads_viewer/pkg/analysis.(*brandesBuffers).reset
+     0.86s  1.35% 59.54%      0.86s  1.35%  runtime.procyield
+     0.81s  1.27% 60.81%      1.58s  2.47%  runtime.mapaccess2_fast64
+     0.69s  1.08% 61.89%      0.69s  1.08%  internal/runtime/maps.(*groupReference).key (inline)
+     0.65s  1.02% 62.90%      0.72s  1.13%  runtime.(*mspan).writeHeapBitsSmall
+     0.60s  0.94% 63.84%      0.67s  1.05%  runtime.spanOf (inline)
+     0.59s  0.92% 64.77%      2.43s  3.80%  runtime.wbBufFlush1
+     0.56s  0.88% 65.64%      0.56s  0.88%  runtime.(*lfstack).push
+     0.53s  0.83% 66.47%     13.71s 21.46%  runtime.mallocgc
+     0.50s  0.78% 67.26%      0.50s  0.78%  runtime.getMCache (inline)
+     0.42s  0.66% 67.91%      2.51s  3.93%  gcWriteBarrier
+     0.37s  0.58% 68.49%      1.07s  1.67%  runtime.(*sweepLocked).sweep
+
+=== Post-Optimization Memory Profile ===
+File: analysis.test
+Build ID: 347acf7103611ba99033c3a2c1410786f7c7dde9
+Type: alloc_space
+Time: 2026-01-09 22:43:41 EST
+Showing nodes accounting for 12.43GB, 99.22% of 12.53GB total
+Dropped 51 nodes (cum <= 0.06GB)
+      flat  flat%   sum%        cum   cum%
+    3.21GB 25.61% 25.61%     3.21GB 25.61%  gonum.org/v1/gonum/graph/iterator.newMapIterEdges (inline)
+    2.48GB 19.76% 45.37%     2.48GB 19.76%  gonum.org/v1/gonum/graph/iterator.(*mapIter).next
+    2.37GB 18.93% 64.30%    12.42GB 99.12%  github.com/Dicklesworthstone/beads_viewer/pkg/analysis.singleSourceBetweenness
+    1.52GB 12.17% 76.48%     1.52GB 12.17%  github.com/Dicklesworthstone/beads_viewer/pkg/analysis.(*brandesBuffers).reset
+    1.20GB  9.57% 86.04%     4.41GB 35.18%  gonum.org/v1/gonum/graph/iterator.NewNodesByEdge (inline)
+    0.86GB  6.86% 92.90%     0.87GB  6.97%  gonum.org/v1/gonum/graph/iterator.(*Nodes).NodeSlice
+    0.75GB  5.95% 98.85%     0.75GB  5.95%  github.com/Dicklesworthstone/beads_viewer/pkg/analysis.init.func1
+    0.05GB  0.37% 99.22%    12.46GB 99.48%  github.com/Dicklesworthstone/beads_viewer/pkg/analysis.ApproxBetweenness.func2
+         0     0% 99.22%     0.87GB  6.97%  gonum.org/v1/gonum/graph.NodesOf
+         0     0% 99.22%     2.46GB 19.65%  gonum.org/v1/gonum/graph/iterator.(*NodesByEdge).Next
+         0     0% 99.22%     4.41GB 35.18%  gonum.org/v1/gonum/graph/simple.(*DirectedGraph).From (inline)
+         0     0% 99.22%     0.76GB  6.04%  sync.(*Pool).Get

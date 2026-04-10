@@ -1,0 +1,60 @@
+beads_reference/
+/bv
+/main
+*.test
+cmd/bv/bv
+.DS_Store
+
+# Build artifacts
+dist/
+a.out
+coverage.out
+cover*.out
+*.cov
+coverage.html
+
+# Benchmark outputs
+benchmarks/baseline.txt
+benchmarks/current.txt
+
+# Local BV state and reports
+.bv/
+beads_report_beads_viewer_*.md
+
+# Nix build artifacts
+result
+result-*
+
+# Rust/WASM build artifacts
+bv-graph-wasm/target/
+bv-graph-wasm/pkg/
+pkg/export/wasm_scorer/target/
+pkg/export/wasm_scorer/pkg/
+node_modules/
+beads_viewer_graph*.html
+test-results/
+
+# Nested beads state
+pkg/ui/.beads/
+
+# Large benchmark test data (generated)
+tests/testdata/benchmark/
+*.prof
+
+# E2E test logs
+test_results_e2e_*.log
+
+# Ephemeral/temporary files (agent workflow artifacts)
+RESEARCH_FINDINGS.md
+TOON_INTEGRATION_BRIEF.md
+cov_*.out
+rustc-ice-*.txt
+*.snap.new
+sweep_*.png
+test_screenshot.png
+a.out
+target-*/
+.playwright-mcp/
+
+# Crush tool logs (ephemeral)
+.crush/

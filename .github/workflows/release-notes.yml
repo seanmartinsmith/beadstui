@@ -1,0 +1,66 @@
+name: Auto Release Notes
+
+on:
+  release:
+    types: [created, edited]
+
+jobs:
+  notes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Generate release notes if body is empty or minimal
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+          RELEASE_ID: ${{ github.event.release.id }}
+        run: |
+          BODY=$(gh release view "$TAG" --json body -q .body)
+
+          # Skip if body has idempotency marker (already auto-generated)
+          if echo "$BODY" | grep -q '<!-- auto-generated -->'; then
+            echo "Release notes already auto-generated, skipping."
+            exit 0
+          fi
+
+          # Skip if body has meaningful content (> 50 chars)
+          if [ ${#BODY} -gt 50 ]; then
+            echo "Release body has ${#BODY} chars (> 50), skipping."
+            exit 0
+          fi
+
+          # Detect previous tag for accurate changelog diff
+          PREV_TAG=$(git tag --sort=-v:refname | grep -A1 "^${TAG}$" | tail -1)
+          if [ -z "$PREV_TAG" ] || [ "$PREV_TAG" = "$TAG" ]; then
+            PREV_TAG=""
+          fi
+
+          # Generate notes via GitHub API
+          if [ -n "$PREV_TAG" ]; then
+            NOTES=$(gh api "repos/${{ github.repository }}/releases/generate-notes" \
+              -f tag_name="$TAG" \
+              -f previous_tag_name="$PREV_TAG" \
+              --jq '.body' 2>/dev/null || echo "")
+          else
+            NOTES=$(gh api "repos/${{ github.repository }}/releases/generate-notes" \
+              -f tag_name="$TAG" \
+              --jq '.body' 2>/dev/null || echo "")
+          fi
+
+          # Fallback: use --generate-notes flag if API call failed
+          if [ -z "$NOTES" ]; then
+            gh release edit "$TAG" --generate-notes
+            echo "Used gh release edit --generate-notes fallback."
+            exit 0
+          fi
+
+          # Append idempotency marker and update release
+          MARKER="<!-- auto-generated -->"
+          NOTES=$(printf '%s\n\n%s' "$NOTES" "$MARKER")
+          gh api "repos/${{ github.repository }}/releases/${RELEASE_ID}" \
+            -X PATCH -f body="$NOTES"
+          echo "Release notes generated for $TAG (previous: ${PREV_TAG:-none})."

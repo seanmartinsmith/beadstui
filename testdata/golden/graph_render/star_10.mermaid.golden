@@ -1,0 +1,36 @@
+graph TD
+    classDef open fill:#50FA7B,stroke:#333,color:#000
+    classDef inprogress fill:#8BE9FD,stroke:#333,color:#000
+    classDef blocked fill:#FF5555,stroke:#333,color:#000
+    classDef closed fill:#6272A4,stroke:#333,color:#fff
+
+    n0["n0<br/>n0"]
+    class n0 open
+    n1["n1<br/>n1"]
+    class n1 open
+    n2["n2<br/>n2"]
+    class n2 open
+    n3["n3<br/>n3"]
+    class n3 open
+    n4["n4<br/>n4"]
+    class n4 open
+    n5["n5<br/>n5"]
+    class n5 open
+    n6["n6<br/>n6"]
+    class n6 open
+    n7["n7<br/>n7"]
+    class n7 open
+    n8["n8<br/>n8"]
+    class n8 open
+    n9["n9<br/>n9"]
+    class n9 open
+
+    n1 ==> n0
+    n2 ==> n0
+    n3 ==> n0
+    n4 ==> n0
+    n5 ==> n0
+    n6 ==> n0
+    n7 ==> n0
+    n8 ==> n0
+    n9 ==> n0

@@ -1,0 +1,159 @@
+=== BV Performance Baseline ===
+Date: Tue Jan  6 15:27:24 EST 2026
+Git commit: c0b18719571d1064bd3379fe0c82b8d115c26d1a
+Git branch: main
+Go version: go version go1.25.5 linux/amd64
+CPU:  AMD Ryzen Threadripper PRO 5975WX 32-Cores
+Memory: 499Gi
+
+=== Loader Benchmarks ===
+
+Warning: skipping malformed JSON on line 2: invalid character 't' looking for beginning of object key string
+Warning: skipping invalid sprint on line 1: sprint ID cannot be empty
+Warning: skipping malformed sprint JSON on line 2: invalid character 'i' looking for beginning of object key string
+Warning: skipping malformed JSON on line 4: unexpected end of JSON input
+Warning: skipping malformed JSON on line 5: unexpected end of JSON input
+Warning: skipping malformed JSON on line 2: invalid character 'n' looking for beginning of object key string
+Warning: skipping malformed JSON on line 2: unexpected end of JSON input
+Warning: skipping malformed JSON on line 4: invalid character 'i' looking for beginning of value
+Warning: skipping invalid issue on line 1: issue ID cannot be empty
+Warning: skipping malformed JSON on line 2: invalid character 'I' looking for beginning of object key string
+Warning: skipping malformed JSON on line 2: invalid character 't' looking for beginning of object key string
+Warning: skipping invalid sprint on line 1: sprint ID cannot be empty
+Warning: skipping malformed sprint JSON on line 2: invalid character 'i' looking for beginning of object key string
+Warning: skipping malformed JSON on line 4: unexpected end of JSON input
+Warning: skipping malformed JSON on line 5: unexpected end of JSON input
+Warning: skipping malformed JSON on line 2: invalid character 'n' looking for beginning of object key string
+Warning: skipping malformed JSON on line 2: unexpected end of JSON input
+Warning: skipping malformed JSON on line 4: invalid character 'i' looking for beginning of value
+Warning: skipping invalid issue on line 1: issue ID cannot be empty
+Warning: skipping malformed JSON on line 2: invalid character 'I' looking for beginning of object key string
+Warning: skipping malformed JSON on line 2: invalid character 't' looking for beginning of object key string
+Warning: skipping invalid sprint on line 1: sprint ID cannot be empty
+Warning: skipping malformed sprint JSON on line 2: invalid character 'i' looking for beginning of object key string
+Warning: skipping malformed JSON on line 4: unexpected end of JSON input
+Warning: skipping malformed JSON on line 5: unexpected end of JSON input
+Warning: skipping malformed JSON on line 2: invalid character 'n' looking for beginning of object key string
+Warning: skipping malformed JSON on line 2: unexpected end of JSON input
+Warning: skipping malformed JSON on line 4: invalid character 'i' looking for beginning of value
+Warning: skipping invalid issue on line 1: issue ID cannot be empty
+Warning: skipping malformed JSON on line 2: invalid character 'I' looking for beginning of object key string
+goos: linux
+goarch: amd64
+pkg: github.com/Dicklesworthstone/beads_viewer/pkg/loader
+cpu: AMD Ryzen Threadripper PRO 5975WX 32-Cores     
+BenchmarkLoadLargeFile-64    	     231	   5355429 ns/op	10723187 B/op	    2504 allocs/op
+BenchmarkLoadLargeFile-64    	     562	   2010254 ns/op	10723188 B/op	    2504 allocs/op
+BenchmarkLoadLargeFile-64    	     530	   2014636 ns/op	10723188 B/op	    2504 allocs/op
+PASS
+ok  	github.com/Dicklesworthstone/beads_viewer/pkg/loader	60.932s
+=== Analysis Benchmarks ===
+
+goos: linux
+goarch: amd64
+pkg: github.com/Dicklesworthstone/beads_viewer/pkg/analysis
+cpu: AMD Ryzen Threadripper PRO 5975WX 32-Cores     
+BenchmarkApproxBetweenness_500nodes_Exact-64        	      15	  70551059 ns/op	34109987 B/op	  499556 allocs/op
+BenchmarkApproxBetweenness_500nodes_Exact-64        	      16	  70955826 ns/op	34110146 B/op	  499558 allocs/op
+BenchmarkApproxBetweenness_500nodes_Exact-64        	      15	  73322748 ns/op	34110251 B/op	  499559 allocs/op
+BenchmarkApproxBetweenness_500nodes_Sample100-64    	      80	  18086777 ns/op	29576857 B/op	  199556 allocs/op
+BenchmarkApproxBetweenness_500nodes_Sample100-64    	      16	  72121150 ns/op	29570949 B/op	  199527 allocs/op
+BenchmarkApproxBetweenness_500nodes_Sample100-64    	      14	  72915766 ns/op	29570938 B/op	  199531 allocs/op
+BenchmarkApproxBetweenness_500nodes_Sample50-64     	      22	  49017383 ns/op	14841496 B/op	  100754 allocs/op
+BenchmarkApproxBetweenness_500nodes_Sample50-64     	      28	  44807271 ns/op	14841485 B/op	  100754 allocs/op
+BenchmarkApproxBetweenness_500nodes_Sample50-64     	      31	  44249133 ns/op	14841428 B/op	  100753 allocs/op
+BenchmarkDetectCycleWarnings_Small-64               	    1827	    761748 ns/op	   36483 B/op	     493 allocs/op
+BenchmarkDetectCycleWarnings_Small-64               	    2113	    731743 ns/op	   36461 B/op	     493 allocs/op
+BenchmarkDetectCycleWarnings_Small-64               	    2179	    473236 ns/op	   36399 B/op	     493 allocs/op
+BenchmarkDetectCycleWarnings_Medium-64              	     816	   2062418 ns/op	  140401 B/op	    1435 allocs/op
+BenchmarkDetectCycleWarnings_Medium-64              	     654	   2027190 ns/op	  140329 B/op	    1435 allocs/op
+BenchmarkDetectCycleWarnings_Medium-64              	     660	   2013872 ns/op	  140305 B/op	    1435 allocs/op
+BenchmarkWouldCreateCycle_Chain-64                  	   28333	     54947 ns/op	    5720 B/op	      58 allocs/op
+BenchmarkWouldCreateCycle_Chain-64                  	   24714	     55237 ns/op	    5720 B/op	      58 allocs/op
+BenchmarkWouldCreateCycle_Chain-64                  	   23158	     54240 ns/op	    5720 B/op	      58 allocs/op
+BenchmarkCheckDependencyAddition-64                 	   62559	     18793 ns/op	    2536 B/op	      27 allocs/op
+BenchmarkCheckDependencyAddition-64                 	   40639	     25053 ns/op	    2536 B/op	      27 allocs/op
+BenchmarkCheckDependencyAddition-64                 	   65888	     19839 ns/op	    2536 B/op	      27 allocs/op
+BenchmarkDetectMissingDependencies_Small-64         	   49662	     41870 ns/op	    4997 B/op	     109 allocs/op
+BenchmarkDetectMissingDependencies_Small-64         	   24987	     53881 ns/op	    5009 B/op	     109 allocs/op
+BenchmarkDetectMissingDependencies_Small-64         	   21544	     55906 ns/op	    5030 B/op	     109 allocs/op
+BenchmarkDetectMissingDependencies_Medium-64        	    3787	    549711 ns/op	   71348 B/op	     768 allocs/op
+BenchmarkDetectMissingDependencies_Medium-64        	    1346	    812927 ns/op	   71281 B/op	     768 allocs/op
+BenchmarkDetectMissingDependencies_Medium-64        	    2379	    734342 ns/op	   70739 B/op	     768 allocs/op
+BenchmarkDetectMissingDependencies_Large-64         	     615	   2336836 ns/op	  289359 B/op	    1787 allocs/op
+BenchmarkDetectMissingDependencies_Large-64         	     516	   2652398 ns/op	  288640 B/op	    1787 allocs/op
+BenchmarkDetectMissingDependencies_Large-64         	     622	   2520444 ns/op	  290250 B/op	    1787 allocs/op
+BenchmarkFindCyclesSafe_Small-64                    	   24236	     54233 ns/op	    3520 B/op	      64 allocs/op
+BenchmarkFindCyclesSafe_Small-64                    	   29708	     35778 ns/op	    3520 B/op	      64 allocs/op
+BenchmarkFindCyclesSafe_Small-64                    	   36260	     40472 ns/op	    3520 B/op	      64 allocs/op
+BenchmarkFindCyclesSafe_Medium-64                   	    2676	    398413 ns/op	   53368 B/op	     626 allocs/op
+BenchmarkFindCyclesSafe_Medium-64                   	    2173	    508314 ns/op	   53368 B/op	     626 allocs/op
+BenchmarkFindCyclesSafe_Medium-64                   	    2542	    575922 ns/op	   53368 B/op	     626 allocs/op
+BenchmarkFindCyclesSafe_Large-64                    	    1006	   1358698 ns/op	  103872 B/op	    1417 allocs/op
+BenchmarkFindCyclesSafe_Large-64                    	     715	   1543065 ns/op	  103872 B/op	    1417 allocs/op
+BenchmarkFindCyclesSafe_Large-64                    	    1118	   1483251 ns/op	  103872 B/op	    1417 allocs/op
+BenchmarkFindOneCycleInSCC-64                       	   10000	    126027 ns/op	   13248 B/op	     151 allocs/op
+BenchmarkFindOneCycleInSCC-64                       	   10000	    110856 ns/op	   13248 B/op	     151 allocs/op
+BenchmarkFindOneCycleInSCC-64                       	   10000	    110783 ns/op	   13248 B/op	     151 allocs/op
+BenchmarkSuggestLabels_SmallSet-64                  	    1437	    834685 ns/op	   73425 B/op	    1293 allocs/op
+BenchmarkSuggestLabels_SmallSet-64                  	    1966	    979922 ns/op	   73348 B/op	    1293 allocs/op
+BenchmarkSuggestLabels_SmallSet-64                  	    1110	    904631 ns/op	   73191 B/op	    1293 allocs/op
+BenchmarkSuggestLabels_LargeSet-64                  	     188	   8079453 ns/op	  599174 B/op	   11340 allocs/op
+BenchmarkSuggestLabels_LargeSet-64                  	     159	   6968797 ns/op	  592009 B/op	   11338 allocs/op
+BenchmarkSuggestLabels_LargeSet-64                  	     100	  10890042 ns/op	  599247 B/op	   11340 allocs/op
+BenchmarkLearnLabelMappings-64                      	    1032	   1245445 ns/op	   63955 B/op	    1610 allocs/op
+BenchmarkLearnLabelMappings-64                      	    1059	   1076324 ns/op	   63609 B/op	    1610 allocs/op
+BenchmarkLearnLabelMappings-64                      	    1201	   1221651 ns/op	   63009 B/op	    1610 allocs/op
+BenchmarkSortLabelMatchesByConfidence-64            	   36999	     41030 ns/op	    8344 B/op	       4 allocs/op
+BenchmarkSortLabelMatchesByConfidence-64            	   23337	     50775 ns/op	    8344 B/op	       4 allocs/op
+BenchmarkSortLabelMatchesByConfidence-64            	   41426	     29326 ns/op	    8344 B/op	       4 allocs/op
+BenchmarkGenerateAllSuggestions_Small-64            	     564	   1970429 ns/op	  190187 B/op	    2604 allocs/op
+BenchmarkGenerateAllSuggestions_Small-64            	     444	   2269801 ns/op	  191983 B/op	    2604 allocs/op
+BenchmarkGenerateAllSuggestions_Small-64            	     698	   1923674 ns/op	  190658 B/op	    2604 allocs/op
+BenchmarkGenerateAllSuggestions_Medium-64           	      40	  32635292 ns/op	 3844348 B/op	   49275 allocs/op
+BenchmarkGenerateAllSuggestions_Medium-64           	      30	  38080334 ns/op	 3871115 B/op	   49280 allocs/op
+BenchmarkGenerateAllSuggestions_Medium-64           	      39	  34773870 ns/op	 3854282 B/op	   49277 allocs/op
+BenchmarkGenerateAllSuggestions_OnlyLabels-64       	    1352	  10930879 ns/op	   85155 B/op	    1303 allocs/op
+BenchmarkGenerateAllSuggestions_OnlyLabels-64       	     100	  23250690 ns/op	   86986 B/op	    1303 allocs/op
+BenchmarkGenerateAllSuggestions_OnlyLabels-64       	      88	  12095737 ns/op	   84268 B/op	    1303 allocs/op
+BenchmarkNewSuggestion-64                           	17840690	        58.62 ns/op	       0 B/op	       0 allocs/op
+BenchmarkNewSuggestion-64                           	23811948	        67.58 ns/op	       0 B/op	       0 allocs/op
+BenchmarkNewSuggestion-64                           	20462530	        77.76 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSuggestion_GetConfidenceLevel-64           	1000000000	         0.7267 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSuggestion_GetConfidenceLevel-64           	1000000000	         0.5237 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSuggestion_GetConfidenceLevel-64           	1000000000	         0.6137 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSuggestion_WithMetadata-64                 	35487212	        40.16 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSuggestion_WithMetadata-64                 	32110698	        39.20 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSuggestion_WithMetadata-64                 	32224890	        48.45 ns/op	       0 B/op	       0 allocs/op
+BenchmarkNewSuggestionSet_100-64                    	   18332	     72534 ns/op	     512 B/op	       4 allocs/op
+BenchmarkNewSuggestionSet_100-64                    	   18230	     74068 ns/op	     512 B/op	       4 allocs/op
+BenchmarkNewSuggestionSet_100-64                    	   26014	     91633 ns/op	     512 B/op	       4 allocs/op
+BenchmarkSuggestionSet_FilterByType-64              	     100	  11086233 ns/op	  162416 B/op	      10 allocs/op
+BenchmarkSuggestionSet_FilterByType-64              	     128	  12246826 ns/op	  162416 B/op	      10 allocs/op
+BenchmarkSuggestionSet_FilterByType-64              	      99	  14225092 ns/op	  162416 B/op	      10 allocs/op
+BenchmarkSuggestionSet_FilterByMinConfidence-64     	     100	  12658408 ns/op	  162416 B/op	      10 allocs/op
+BenchmarkSuggestionSet_FilterByMinConfidence-64     	     313	   5507298 ns/op	  162416 B/op	      10 allocs/op
+BenchmarkSuggestionSet_FilterByMinConfidence-64     	     247	  10878587 ns/op	  162416 B/op	      10 allocs/op
+BenchmarkCycles_ManyCycles20-64                     	       2	 502658856 ns/op	 9202272 B/op	   25324 allocs/op
+BenchmarkCycles_ManyCycles20-64                     	       2	 506709772 ns/op	27289168 B/op	   69015 allocs/op
+BenchmarkCycles_ManyCycles20-64                     	       2	 501630239 ns/op	26717424 B/op	   65391 allocs/op
+BenchmarkCycles_ManyCycles30-64                     	       2	 501995046 ns/op	47678576 B/op	   85065 allocs/op
+BenchmarkCycles_ManyCycles30-64                     	       2	 501009264 ns/op	41912104 B/op	   72876 allocs/op
+BenchmarkCycles_ManyCycles30-64                     	       2	 502765738 ns/op	45365000 B/op	   83823 allocs/op
+BenchmarkCycles_SingleCycle100-64                   	      51	  22871835 ns/op	 2932621 B/op	    6414 allocs/op
+BenchmarkCycles_SingleCycle100-64                   	      22	  46340054 ns/op	 4390310 B/op	    9098 allocs/op
+BenchmarkCycles_SingleCycle100-64                   	     322	   4293906 ns/op	 2888774 B/op	    7590 allocs/op
+BenchmarkComplete_Betweenness15-64                  	     578	   1732662 ns/op	 1714284 B/op	    3388 allocs/op
+BenchmarkComplete_Betweenness15-64                  	     609	   2413200 ns/op	 1358507 B/op	    3596 allocs/op
+BenchmarkComplete_Betweenness15-64                  	     860	   2288644 ns/op	 1547235 B/op	    3515 allocs/op
+BenchmarkComplete_PageRank20-64                     	    7101	    215797 ns/op	  222150 B/op	     532 allocs/op
+BenchmarkComplete_PageRank20-64                     	    4234	   1275670 ns/op	  222343 B/op	     505 allocs/op
+BenchmarkComplete_PageRank20-64                     	    7898	    340491 ns/op	  213512 B/op	     628 allocs/op
+BenchmarkComplete_HITS15-64                         	    4384	    740629 ns/op	  314973 B/op	     844 allocs/op
+BenchmarkComplete_HITS15-64                         	   19106	    145199 ns/op	  219869 B/op	     683 allocs/op
+BenchmarkComplete_HITS15-64                         	   43525	    102033 ns/op	  236863 B/op	     689 allocs/op
+BenchmarkLongChain_Betweenness500-64                	      16	 172305944 ns/op	447371060 B/op	 1608317 allocs/op
+BenchmarkLongChain_Betweenness500-64                	      12	 280048317 ns/op	626088197 B/op	 1410489 allocs/op
+BenchmarkLongChain_Betweenness500-64                	      10	 126819294 ns/op	404027220 B/op	 1441375 allocs/op
+BenchmarkLongChain_TopoSort2000-64                  	     613	  15171630 ns/op	11883972 B/op	   40053 allocs/op
+BenchmarkLongChain_TopoSort2000-64                  	

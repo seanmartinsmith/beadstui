@@ -1,0 +1,155 @@
+name: Nightly Fuzz Testing
+
+on:
+  schedule:
+    # Run at 3 AM UTC every night
+    - cron: '0 3 * * *'
+  workflow_dispatch:  # Allow manual triggering
+    inputs:
+      fuzz_time:
+        description: 'Fuzz duration (e.g., 10m, 1h)'
+        required: false
+        default: '10m'
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120  # 2 hour max to prevent runaway jobs
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v6
+      with:
+        go-version: '1.25.5'
+
+    - name: Determine Fuzz Time
+      id: fuzz-config
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "fuzz_time=${{ github.event.inputs.fuzz_time }}" >> $GITHUB_OUTPUT
+        else
+          # Nightly runs: 10 minutes per fuzz target
+          echo "fuzz_time=10m" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Create Fuzz Results Directory
+      run: mkdir -p fuzz-results
+
+    - name: Fuzz ParseIssues (JSONL Parser)
+      run: |
+        echo "Fuzzing ParseIssues for ${{ steps.fuzz-config.outputs.fuzz_time }}..."
+        go test -fuzz=FuzzParseIssues \
+          -fuzztime=${{ steps.fuzz-config.outputs.fuzz_time }} \
+          ./pkg/loader/... 2>&1 | tee fuzz-results/parse-issues.log || true
+        # Copy any crashers found
+        if [ -d "pkg/loader/testdata/fuzz" ]; then
+          cp -r pkg/loader/testdata/fuzz fuzz-results/ 2>/dev/null || true
+        fi
+
+    - name: Fuzz UnmarshalIssue (JSON Deserialization)
+      run: |
+        echo "Fuzzing UnmarshalIssue for ${{ steps.fuzz-config.outputs.fuzz_time }}..."
+        go test -fuzz=FuzzUnmarshalIssue \
+          -fuzztime=${{ steps.fuzz-config.outputs.fuzz_time }} \
+          ./pkg/loader/... 2>&1 | tee fuzz-results/unmarshal-issue.log || true
+
+    - name: Fuzz Validate (Issue Validation)
+      run: |
+        echo "Fuzzing Validate for ${{ steps.fuzz-config.outputs.fuzz_time }}..."
+        go test -fuzz='^FuzzValidate$' \
+          -fuzztime=${{ steps.fuzz-config.outputs.fuzz_time }} \
+          ./pkg/loader/... 2>&1 | tee fuzz-results/validate.log || true
+
+    - name: Fuzz ValidateTimestamps (Timestamp Edge Cases)
+      run: |
+        echo "Fuzzing ValidateTimestamps for ${{ steps.fuzz-config.outputs.fuzz_time }}..."
+        go test -fuzz=FuzzValidateTimestamps \
+          -fuzztime=${{ steps.fuzz-config.outputs.fuzz_time }} \
+          ./pkg/loader/... 2>&1 | tee fuzz-results/validate-timestamps.log || true
+
+    - name: Fuzz DependencyParsing
+      run: |
+        echo "Fuzzing DependencyParsing for ${{ steps.fuzz-config.outputs.fuzz_time }}..."
+        go test -fuzz=FuzzDependencyParsing \
+          -fuzztime=${{ steps.fuzz-config.outputs.fuzz_time }} \
+          ./pkg/loader/... 2>&1 | tee fuzz-results/dependency-parsing.log || true
+
+    - name: Fuzz CommentParsing
+      run: |
+        echo "Fuzzing CommentParsing for ${{ steps.fuzz-config.outputs.fuzz_time }}..."
+        go test -fuzz=FuzzCommentParsing \
+          -fuzztime=${{ steps.fuzz-config.outputs.fuzz_time }} \
+          ./pkg/loader/... 2>&1 | tee fuzz-results/comment-parsing.log || true
+
+    - name: Fuzz LargeLine (Buffer Overflow Protection)
+      run: |
+        echo "Fuzzing LargeLine for ${{ steps.fuzz-config.outputs.fuzz_time }}..."
+        go test -fuzz=FuzzLargeLine \
+          -fuzztime=${{ steps.fuzz-config.outputs.fuzz_time }} \
+          ./pkg/loader/... 2>&1 | tee fuzz-results/large-line.log || true
+
+    - name: Check for Crashers
+      id: crasher-check
+      run: |
+        # Look for any crashers in the fuzz cache
+        crashers=$(find . -path '*/testdata/fuzz/*/corpus/*' -type f 2>/dev/null | wc -l || echo 0)
+        echo "Found $crashers potential crasher inputs in corpus"
+
+        # Check logs for actual failures (not timeouts)
+        if grep -l "panic:" fuzz-results/*.log 2>/dev/null; then
+          echo "has_crashers=true" >> $GITHUB_OUTPUT
+          echo "PANIC DETECTED IN FUZZ TESTS!"
+          exit 1
+        fi
+        echo "has_crashers=false" >> $GITHUB_OUTPUT
+
+    - name: Generate Fuzz Report
+      if: always()
+      run: |
+        echo "# Fuzz Testing Report" > fuzz-results/REPORT.md
+        echo "" >> fuzz-results/REPORT.md
+        echo "**Run Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> fuzz-results/REPORT.md
+        echo "**Fuzz Duration:** ${{ steps.fuzz-config.outputs.fuzz_time }} per target" >> fuzz-results/REPORT.md
+        echo "**Commit:** ${{ github.sha }}" >> fuzz-results/REPORT.md
+        echo "" >> fuzz-results/REPORT.md
+
+        echo "## Results Summary" >> fuzz-results/REPORT.md
+        echo "" >> fuzz-results/REPORT.md
+
+        for log in fuzz-results/*.log; do
+          if [ -f "$log" ]; then
+            name=$(basename "$log" .log)
+            echo "### $name" >> fuzz-results/REPORT.md
+            echo '```' >> fuzz-results/REPORT.md
+            tail -5 "$log" >> fuzz-results/REPORT.md
+            echo '```' >> fuzz-results/REPORT.md
+            echo "" >> fuzz-results/REPORT.md
+          fi
+        done
+
+        if grep -l "PASS" fuzz-results/*.log >/dev/null 2>&1; then
+          echo "## Status: PASSED" >> fuzz-results/REPORT.md
+        elif grep -l "panic:" fuzz-results/*.log >/dev/null 2>&1; then
+          echo "## Status: FAILED (Crashers Found)" >> fuzz-results/REPORT.md
+        else
+          echo "## Status: COMPLETED" >> fuzz-results/REPORT.md
+        fi
+
+    - name: Upload Fuzz Results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: fuzz-results-${{ github.run_number }}
+        path: fuzz-results/
+        retention-days: 30
+
+    - name: Upload Crashers (if any)
+      uses: actions/upload-artifact@v4
+      if: steps.crasher-check.outputs.has_crashers == 'true'
+      with:
+        name: fuzz-crashers-${{ github.run_number }}
+        path: |
+          pkg/loader/testdata/fuzz/
+        retention-days: 90

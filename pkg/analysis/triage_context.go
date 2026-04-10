@@ -1,0 +1,311 @@
+package analysis
+
+import (
+	"sync"
+
+	"github.com/Dicklesworthstone/beads_viewer/pkg/model"
+)
+
+// TriageContext provides unified caching for triage-related computations.
+//
+// It wraps an Analyzer and provides lazy-computed, cached accessors for
+// expensive operations that are called multiple times during triage analysis.
+//
+// Lifecycle:
+//  1. Create with NewTriageContext(analyzer)
+//  2. Use accessors (ActionableIssues, BlockerDepth, etc.) - all cached
+//  3. Discard when triage is complete (caches are not persisted)
+//
+// Thread Safety:
+//   - Single-request use: No locking needed
+//   - Concurrent use: Use NewTriageContextThreadSafe() for synchronized access
+//
+// Performance:
+//   - First access to each method computes and caches the result
+//   - Subsequent accesses return cached values in O(1)
+//   - Memory: O(n) where n is the number of issues
+type TriageContext struct {
+	// Input
+	analyzer *Analyzer
+
+	// Computed caches
+	actionable         []model.Issue
+	actionableSet      map[string]bool
+	actionableComputed bool
+
+	blockerDepth     map[string]int
+	openBlockers     map[string][]string
+	unblocksMap      map[string][]string
+	unblocksComputed bool
+
+	// Thread safety (nil for single-threaded mode)
+	mu *sync.Mutex
+}
+
+// NewTriageContext creates a new TriageContext for single-threaded use.
+//
+// The context shares the Analyzer's underlying data structures but maintains
+// its own caches for derived computations.
+func NewTriageContext(analyzer *Analyzer) *TriageContext {
+	return &TriageContext{
+		analyzer:     analyzer,
+		blockerDepth: make(map[string]int),
+		openBlockers: make(map[string][]string),
+	}
+}
+
+// NewTriageContextThreadSafe creates a thread-safe TriageContext.
+//
+// Use this when the context may be accessed concurrently from multiple goroutines.
+// The thread-safe version uses a simple mutex to avoid deadlocks from nested calls.
+func NewTriageContextThreadSafe(analyzer *Analyzer) *TriageContext {
+	ctx := NewTriageContext(analyzer)
+	ctx.mu = &sync.Mutex{}
+	return ctx
+}
+
+// lock acquires the mutex if present (for thread-safe mode)
+func (ctx *TriageContext) lock() {
+	if ctx.mu != nil {
+		ctx.mu.Lock()
+	}
+}
+
+// unlock releases the mutex if present
+func (ctx *TriageContext) unlock() {
+	if ctx.mu != nil {
+		ctx.mu.Unlock()
+	}
+}
+
+// Analyzer returns the underlying Analyzer.
+//
+// Use this when you need direct access to Analyzer methods that aren't cached.
+func (ctx *TriageContext) Analyzer() *Analyzer {
+	return ctx.analyzer
+}
+
+// ActionableIssues returns all open issues that are not blocked.
+//
+// The result is computed once and cached. Subsequent calls return the cached value.
+// Time complexity: O(n) on first call, O(1) thereafter.
+func (ctx *TriageContext) ActionableIssues() []model.Issue {
+	ctx.lock()
+	defer ctx.unlock()
+
+	if ctx.actionableComputed {
+		return ctx.actionable
+	}
+
+	// Compute actionable issues
+	ctx.actionable = ctx.analyzer.GetActionableIssues()
+	ctx.actionableSet = make(map[string]bool, len(ctx.actionable))
+	for _, issue := range ctx.actionable {
+		ctx.actionableSet[issue.ID] = true
+	}
+	ctx.actionableComputed = true
+	return ctx.actionable
+}
+
+// IsActionable returns true if the issue is actionable (open and not blocked).
+//
+// This ensures ActionableIssues is computed first, then does O(1) lookup.
+func (ctx *TriageContext) IsActionable(id string) bool {
+	ctx.lock()
+	defer ctx.unlock()
+
+	// Ensure computed (inline to avoid nested lock)
+	if !ctx.actionableComputed {
+		ctx.actionable = ctx.analyzer.GetActionableIssues()
+		ctx.actionableSet = make(map[string]bool, len(ctx.actionable))
+		for _, issue := range ctx.actionable {
+			ctx.actionableSet[issue.ID] = true
+		}
+		ctx.actionableComputed = true
+	}
+
+	return ctx.actionableSet[id]
+}
+
+// ActionableCount returns the number of actionable issues.
+func (ctx *TriageContext) ActionableCount() int {
+	return len(ctx.ActionableIssues())
+}
+
+// BlockerDepth returns the depth of the blocker chain for an issue.
+//
+// Returns:
+//   - 0 if the issue has no open blockers
+//   - 1 if blocked by issues that have no blockers themselves
+//   - n if the longest chain of blockers has n levels
+//   - -1 if the issue is part of a dependency cycle
+//
+// Time complexity: O(d) on first call where d is depth, O(1) thereafter.
+func (ctx *TriageContext) BlockerDepth(id string) int {
+	ctx.lock()
+	defer ctx.unlock()
+
+	if depth, ok := ctx.blockerDepth[id]; ok {
+		return depth
+	}
+
+	// Compute depth with cycle detection (no nested locking)
+	depth := ctx.computeBlockerDepthInternal(id, make(map[string]bool))
+	ctx.blockerDepth[id] = depth
+	return depth
+}
+
+// computeBlockerDepthInternal recursively computes the blocker depth.
+// MUST be called while holding the lock.
+func (ctx *TriageContext) computeBlockerDepthInternal(id string, visiting map[string]bool) int {
+	// Check cache first
+	if depth, ok := ctx.blockerDepth[id]; ok {
+		return depth
+	}
+
+	// Cycle detection
+	if visiting[id] {
+		return -1
+	}
+	visiting[id] = true
+	defer func() { visiting[id] = false }()
+
+	// Get open blockers directly (no locking)
+	blockers := ctx.getOpenBlockersInternal(id)
+	if len(blockers) == 0 {
+		ctx.blockerDepth[id] = 0
+		return 0
+	}
+
+	maxDepth := 0
+	for _, blockerID := range blockers {
+		depth := ctx.computeBlockerDepthInternal(blockerID, visiting)
+		if depth == -1 {
+			ctx.blockerDepth[id] = -1
+			return -1
+		}
+		if depth+1 > maxDepth {
+			maxDepth = depth + 1
+		}
+	}
+
+	ctx.blockerDepth[id] = maxDepth
+	return maxDepth
+}
+
+// getOpenBlockersInternal returns open blockers without locking.
+// MUST be called while holding the lock.
+func (ctx *TriageContext) getOpenBlockersInternal(id string) []string {
+	if blockers, ok := ctx.openBlockers[id]; ok {
+		return blockers
+	}
+
+	// Compute open blockers
+	blockers := ctx.analyzer.GetOpenBlockers(id)
+	ctx.openBlockers[id] = blockers
+	return blockers
+}
+
+// OpenBlockers returns the IDs of open issues that block the given issue.
+//
+// Returns nil if the issue doesn't exist or has no open blockers.
+// Time complexity: O(d) on first call where d is dependency count, O(1) thereafter.
+func (ctx *TriageContext) OpenBlockers(id string) []string {
+	ctx.lock()
+	defer ctx.unlock()
+
+	return ctx.getOpenBlockersInternal(id)
+}
+
+// UnblocksMap returns a map of issue ID -> IDs of issues that would be unblocked
+// if this issue were completed.
+//
+// An issue A unblocks issue B if:
+//  1. B has a blocking dependency on A
+//  2. A is the ONLY remaining open blocker for B
+//
+// Time complexity: O(n*d) on first call, O(1) thereafter.
+func (ctx *TriageContext) UnblocksMap() map[string][]string {
+	ctx.lock()
+	defer ctx.unlock()
+
+	if ctx.unblocksComputed {
+		return ctx.unblocksMap
+	}
+
+	// Compute unblocks using the same logic as buildUnblocksMap
+	ctx.unblocksMap = buildUnblocksMap(ctx.analyzer)
+	ctx.unblocksComputed = true
+	return ctx.unblocksMap
+}
+
+// Unblocks returns the IDs of issues that would be unblocked if this issue
+// were completed.
+func (ctx *TriageContext) Unblocks(id string) []string {
+	return ctx.UnblocksMap()[id]
+}
+
+// UnblocksCount returns how many issues would be unblocked by completing this issue.
+func (ctx *TriageContext) UnblocksCount(id string) int {
+	return len(ctx.Unblocks(id))
+}
+
+// AllBlockerDepths returns all computed blocker depths.
+// Forces computation for all issues in the analyzer.
+//
+// This is useful when you need blocker depths for all issues (e.g., triage scoring).
+func (ctx *TriageContext) AllBlockerDepths() map[string]int {
+	ctx.lock()
+	defer ctx.unlock()
+
+	// Compute for all issues (while holding lock)
+	visiting := make(map[string]bool)
+	for id := range ctx.analyzer.issueMap {
+		if _, ok := ctx.blockerDepth[id]; !ok {
+			ctx.computeBlockerDepthInternal(id, visiting)
+		}
+	}
+
+	// Return a copy to prevent external modification
+	result := make(map[string]int, len(ctx.blockerDepth))
+	for k, v := range ctx.blockerDepth {
+		result[k] = v
+	}
+	return result
+}
+
+// Reset clears all caches for reuse with fresh data.
+//
+// Call this if the underlying Analyzer data changes and you want to recompute.
+func (ctx *TriageContext) Reset() {
+	ctx.lock()
+	defer ctx.unlock()
+
+	ctx.actionable = nil
+	ctx.actionableSet = nil
+	ctx.actionableComputed = false
+	ctx.blockerDepth = make(map[string]int)
+	ctx.openBlockers = make(map[string][]string)
+	ctx.unblocksMap = nil
+	ctx.unblocksComputed = false
+}
+
+// GetIssue returns an issue by ID from the underlying Analyzer.
+// This is a convenience passthrough that doesn't require caching.
+func (ctx *TriageContext) GetIssue(id string) *model.Issue {
+	return ctx.analyzer.GetIssue(id)
+}
+
+// IssueCount returns the total number of issues.
+func (ctx *TriageContext) IssueCount() int {
+	return len(ctx.analyzer.issueMap)
+}
+
+// Issues returns all issues from the underlying Analyzer.
+func (ctx *TriageContext) Issues() []model.Issue {
+	issues := make([]model.Issue, 0, len(ctx.analyzer.issueMap))
+	for _, issue := range ctx.analyzer.issueMap {
+		issues = append(issues, issue)
+	}
+	return issues
+}

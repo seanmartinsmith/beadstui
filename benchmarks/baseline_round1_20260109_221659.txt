@@ -1,0 +1,168 @@
+=== Pre-Optimization Baseline ===
+Date: Fri Jan  9 22:16:59 EST 2026
+Git SHA: 7be6cbd79877bea394961b2d4ac4ea7ef41ba1f0
+
+goos: linux
+goarch: amd64
+pkg: github.com/Dicklesworthstone/beads_viewer/pkg/analysis
+cpu: AMD Ryzen Threadripper PRO 5975WX 32-Cores     
+BenchmarkApproxBetweenness_500nodes_Exact-64        	      16	  68866948 ns/op	34110015 B/op	  499556 allocs/op
+BenchmarkApproxBetweenness_500nodes_Exact-64        	      16	  68943786 ns/op	34110086 B/op	  499557 allocs/op
+BenchmarkApproxBetweenness_500nodes_Exact-64        	      16	  69527631 ns/op	34110159 B/op	  499558 allocs/op
+BenchmarkApproxBetweenness_500nodes_Sample100-64    	      74	  13669357 ns/op	29578354 B/op	  199560 allocs/op
+BenchmarkApproxBetweenness_500nodes_Sample100-64    	      87	  13420876 ns/op	29573844 B/op	  199546 allocs/op
+BenchmarkApproxBetweenness_500nodes_Sample100-64    	      87	  13287242 ns/op	29572442 B/op	  199540 allocs/op
+BenchmarkApproxBetweenness_500nodes_Sample50-64     	     154	   7287764 ns/op	14842128 B/op	  100758 allocs/op
+BenchmarkApproxBetweenness_500nodes_Sample50-64     	     217	   5347954 ns/op	14842193 B/op	  100757 allocs/op
+BenchmarkApproxBetweenness_500nodes_Sample50-64     	     220	   5512771 ns/op	14841995 B/op	  100756 allocs/op
+BenchmarkDetectCycleWarnings_Small-64               	   18867	     62511 ns/op	   36493 B/op	     493 allocs/op
+BenchmarkDetectCycleWarnings_Small-64               	   18878	     62733 ns/op	   36493 B/op	     493 allocs/op
+BenchmarkDetectCycleWarnings_Small-64               	   19467	     62580 ns/op	   36494 B/op	     493 allocs/op
+BenchmarkDetectCycleWarnings_Medium-64              	    5745	    211145 ns/op	  140574 B/op	    1435 allocs/op
+BenchmarkDetectCycleWarnings_Medium-64              	    5706	    208375 ns/op	  140577 B/op	    1435 allocs/op
+BenchmarkDetectCycleWarnings_Medium-64              	    6097	    208458 ns/op	  140586 B/op	    1435 allocs/op
+BenchmarkWouldCreateCycle_Chain-64                  	  158724	      7610 ns/op	    5720 B/op	      58 allocs/op
+BenchmarkWouldCreateCycle_Chain-64                  	  165148	      7608 ns/op	    5720 B/op	      58 allocs/op
+BenchmarkWouldCreateCycle_Chain-64                  	  154837	      7576 ns/op	    5720 B/op	      58 allocs/op
+BenchmarkCheckDependencyAddition-64                 	  364106	      3355 ns/op	    2536 B/op	      27 allocs/op
+BenchmarkCheckDependencyAddition-64                 	  355957	      3318 ns/op	    2536 B/op	      27 allocs/op
+BenchmarkCheckDependencyAddition-64                 	  352598	      3326 ns/op	    2536 B/op	      27 allocs/op
+BenchmarkDetectMissingDependencies_Small-64         	  140719	      8500 ns/op	    5098 B/op	     109 allocs/op
+BenchmarkDetectMissingDependencies_Small-64         	  138799	      8535 ns/op	    5097 B/op	     109 allocs/op
+BenchmarkDetectMissingDependencies_Small-64         	  138542	      8472 ns/op	    5111 B/op	     109 allocs/op
+BenchmarkDetectMissingDependencies_Medium-64        	   10000	    116757 ns/op	   72160 B/op	     768 allocs/op
+BenchmarkDetectMissingDependencies_Medium-64        	   10000	    118222 ns/op	   72262 B/op	     768 allocs/op
+BenchmarkDetectMissingDependencies_Medium-64        	   10000	    120303 ns/op	   72458 B/op	     768 allocs/op
+BenchmarkDetectMissingDependencies_Large-64         	    2680	    453448 ns/op	  291406 B/op	    1788 allocs/op
+BenchmarkDetectMissingDependencies_Large-64         	    2599	    451384 ns/op	  291362 B/op	    1787 allocs/op
+BenchmarkDetectMissingDependencies_Large-64         	    2667	    450924 ns/op	  291289 B/op	    1787 allocs/op
+BenchmarkFindCyclesSafe_Small-64                    	  281299	      4338 ns/op	    3520 B/op	      64 allocs/op
+BenchmarkFindCyclesSafe_Small-64                    	  273144	      4362 ns/op	    3520 B/op	      64 allocs/op
+BenchmarkFindCyclesSafe_Small-64                    	  292970	      4304 ns/op	    3520 B/op	      64 allocs/op
+BenchmarkFindCyclesSafe_Medium-64                   	   17132	     71311 ns/op	   53368 B/op	     626 allocs/op
+BenchmarkFindCyclesSafe_Medium-64                   	   17067	     69810 ns/op	   53368 B/op	     626 allocs/op
+BenchmarkFindCyclesSafe_Medium-64                   	   16791	     69166 ns/op	   53368 B/op	     626 allocs/op
+BenchmarkFindCyclesSafe_Large-64                    	    8491	    138001 ns/op	  103872 B/op	    1417 allocs/op
+BenchmarkFindCyclesSafe_Large-64                    	    8931	    140450 ns/op	  103872 B/op	    1417 allocs/op
+BenchmarkFindCyclesSafe_Large-64                    	    8139	    136379 ns/op	  103873 B/op	    1417 allocs/op
+BenchmarkFindOneCycleInSCC-64                       	   79287	     14942 ns/op	   13248 B/op	     151 allocs/op
+BenchmarkFindOneCycleInSCC-64                       	   78783	     14991 ns/op	   13248 B/op	     151 allocs/op
+BenchmarkFindOneCycleInSCC-64                       	   79612	     15231 ns/op	   13248 B/op	     151 allocs/op
+BenchmarkSuggestLabels_SmallSet-64                  	    8023	    152286 ns/op	   74428 B/op	    1293 allocs/op
+BenchmarkSuggestLabels_SmallSet-64                  	    8006	    148570 ns/op	   74477 B/op	    1293 allocs/op
+BenchmarkSuggestLabels_SmallSet-64                  	    8301	    150708 ns/op	   74447 B/op	    1293 allocs/op
+BenchmarkSuggestLabels_LargeSet-64                  	     746	   1577424 ns/op	  602355 B/op	   11341 allocs/op
+BenchmarkSuggestLabels_LargeSet-64                  	     746	   1588769 ns/op	  600848 B/op	   11341 allocs/op
+BenchmarkSuggestLabels_LargeSet-64                  	     756	   1596843 ns/op	  601543 B/op	   11341 allocs/op
+BenchmarkLearnLabelMappings-64                      	    4318	    265904 ns/op	   64206 B/op	    1610 allocs/op
+BenchmarkLearnLabelMappings-64                      	    4514	    266365 ns/op	   64075 B/op	    1610 allocs/op
+BenchmarkLearnLabelMappings-64                      	    4500	    263992 ns/op	   64081 B/op	    1610 allocs/op
+BenchmarkSortLabelMatchesByConfidence-64            	  248809	      4893 ns/op	    8344 B/op	       4 allocs/op
+BenchmarkSortLabelMatchesByConfidence-64            	  233386	      4748 ns/op	    8344 B/op	       4 allocs/op
+BenchmarkSortLabelMatchesByConfidence-64            	  251919	      4849 ns/op	    8344 B/op	       4 allocs/op
+BenchmarkGenerateAllSuggestions_Small-64            	    3246	    351416 ns/op	  191726 B/op	    2604 allocs/op
+BenchmarkGenerateAllSuggestions_Small-64            	    3426	    357153 ns/op	  192147 B/op	    2604 allocs/op
+BenchmarkGenerateAllSuggestions_Small-64            	    3468	    349263 ns/op	  191259 B/op	    2604 allocs/op
+BenchmarkGenerateAllSuggestions_Medium-64           	     178	   6655484 ns/op	 3853246 B/op	   49278 allocs/op
+BenchmarkGenerateAllSuggestions_Medium-64           	     178	   6630534 ns/op	 3851864 B/op	   49278 allocs/op
+BenchmarkGenerateAllSuggestions_Medium-64           	     178	   6767151 ns/op	 3850886 B/op	   49278 allocs/op
+BenchmarkGenerateAllSuggestions_OnlyLabels-64       	    7004	    157739 ns/op	   83516 B/op	    1302 allocs/op
+BenchmarkGenerateAllSuggestions_OnlyLabels-64       	    7698	    155897 ns/op	   83516 B/op	    1302 allocs/op
+BenchmarkGenerateAllSuggestions_OnlyLabels-64       	    8008	    158935 ns/op	   83521 B/op	    1302 allocs/op
+BenchmarkNewSuggestion-64                           	27863145	        42.62 ns/op	       0 B/op	       0 allocs/op
+BenchmarkNewSuggestion-64                           	28166396	        42.71 ns/op	       0 B/op	       0 allocs/op
+BenchmarkNewSuggestion-64                           	28222910	        42.73 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSuggestion_GetConfidenceLevel-64           	1000000000	         0.2416 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSuggestion_GetConfidenceLevel-64           	1000000000	         0.2424 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSuggestion_GetConfidenceLevel-64           	1000000000	         0.2414 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSuggestion_WithMetadata-64                 	65704040	        18.45 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSuggestion_WithMetadata-64                 	67358470	        18.35 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSuggestion_WithMetadata-64                 	67093364	        17.99 ns/op	       0 B/op	       0 allocs/op
+BenchmarkNewSuggestionSet_100-64                    	  352460	      3360 ns/op	     512 B/op	       4 allocs/op
+BenchmarkNewSuggestionSet_100-64                    	  340346	      3376 ns/op	     512 B/op	       4 allocs/op
+BenchmarkNewSuggestionSet_100-64                    	  339021	      3374 ns/op	     512 B/op	       4 allocs/op
+BenchmarkSuggestionSet_FilterByType-64              	   15627	     78623 ns/op	  162417 B/op	      10 allocs/op
+BenchmarkSuggestionSet_FilterByType-64              	   15349	     76756 ns/op	  162417 B/op	      10 allocs/op
+BenchmarkSuggestionSet_FilterByType-64              	   15720	     74998 ns/op	  162417 B/op	      10 allocs/op
+BenchmarkSuggestionSet_FilterByMinConfidence-64     	   15368	     77366 ns/op	  162418 B/op	      10 allocs/op
+BenchmarkSuggestionSet_FilterByMinConfidence-64     	   15874	     75591 ns/op	  162417 B/op	      10 allocs/op
+BenchmarkSuggestionSet_FilterByMinConfidence-64     	   15734	     74098 ns/op	  162417 B/op	      10 allocs/op
+BenchmarkCycles_ManyCycles20-64                     	       7	 150491397 ns/op	120982752 B/op	  294829 allocs/op
+BenchmarkCycles_ManyCycles20-64                     	       7	 149800147 ns/op	120979566 B/op	  294825 allocs/op
+BenchmarkCycles_ManyCycles20-64                     	       7	 150931452 ns/op	120979685 B/op	  294826 allocs/op
+BenchmarkCycles_ManyCycles30-64                     	       2	 500629198 ns/op	991200448 B/op	 1933680 allocs/op
+BenchmarkCycles_ManyCycles30-64                     	       2	 500628241 ns/op	1556215248 B/op	 2935031 allocs/op
+BenchmarkCycles_ManyCycles30-64                     	       2	 500614650 ns/op	2938027000 B/op	 5430339 allocs/op
+BenchmarkCycles_SingleCycle100-64                   	    3904	    413923 ns/op	 2666288 B/op	    6439 allocs/op
+BenchmarkCycles_SingleCycle100-64                   	    3762	    416342 ns/op	 2685074 B/op	    6304 allocs/op
+BenchmarkCycles_SingleCycle100-64                   	    3018	    411491 ns/op	 2664917 B/op	    6438 allocs/op
+BenchmarkComplete_Betweenness15-64                  	    4899	    259969 ns/op	 1632681 B/op	    4170 allocs/op
+BenchmarkComplete_Betweenness15-64                  	    5388	    256100 ns/op	 1729319 B/op	    4384 allocs/op
+BenchmarkComplete_Betweenness15-64                  	    4956	    266579 ns/op	 1847302 B/op	    4829 allocs/op
+BenchmarkComplete_PageRank20-64                     	   36828	     32240 ns/op	  250988 B/op	     539 allocs/op
+BenchmarkComplete_PageRank20-64                     	   35821	     32377 ns/op	  234912 B/op	     487 allocs/op
+BenchmarkComplete_PageRank20-64                     	   36655	     32207 ns/op	  270641 B/op	     516 allocs/op
+BenchmarkComplete_HITS15-64                         	   32883	     48023 ns/op	  267884 B/op	     758 allocs/op
+BenchmarkComplete_HITS15-64                         	signal: killed
+FAIL	github.com/Dicklesworthstone/beads_viewer/pkg/analysis	332.248s
+FAIL
+
+=== CPU Profile Top Functions ===
+File: analysis.test
+Build ID: e3c5228965e22a8a38d417bd50c8b3cb752a3e77
+Type: cpu
+Time: 2026-01-09 22:22:58 EST
+Duration: 4.83s, Total samples = 43.52s (900.41%)
+Showing nodes accounting for 37.61s, 86.42% of 43.52s total
+Dropped 316 nodes (cum <= 0.22s)
+      flat  flat%   sum%        cum   cum%
+     3.51s  8.07%  8.07%     15.84s 36.40%  runtime.gcDrain
+     2.52s  5.79% 13.86%      2.52s  5.79%  runtime.memclrNoHeapPointers
+     2.30s  5.28% 19.14%      2.30s  5.28%  runtime.(*lfstack).pop (inline)
+     1.80s  4.14% 23.28%      1.81s  4.16%  runtime.(*gcBits).bitp (inline)
+     1.74s  4.00% 27.27%      1.74s  4.00%  runtime.tgkill
+     1.53s  3.52% 30.79%      2.03s  4.66%  runtime.findObject
+     1.32s  3.03% 33.82%      6.46s 14.84%  runtime.scanobject
+     1.23s  2.83% 36.65%     11.51s 26.45%  runtime.mapassign_fast64
+     1.22s  2.80% 39.45%      1.22s  2.80%  internal/runtime/maps.ctrlGroup.matchH2 (inline)
+     1.05s  2.41% 41.87%      1.05s  2.41%  runtime.memhash64
+        1s  2.30% 44.16%         1s  2.30%  runtime.(*mspan).base (inline)
+     0.98s  2.25% 46.42%      0.98s  2.25%  runtime.futex
+     0.81s  1.86% 48.28%      0.81s  1.86%  internal/runtime/maps.h2 (inline)
+     0.69s  1.59% 49.86%      1.96s  4.50%  runtime.mapaccess1_fast64
+     0.64s  1.47% 51.33%     21.78s 50.05%  github.com/Dicklesworthstone/beads_viewer/pkg/analysis.singleSourceBetweenness
+     0.60s  1.38% 52.71%      0.61s  1.40%  runtime.(*lfstack).push
+     0.59s  1.36% 54.07%      2.66s  6.11%  internal/runtime/maps.(*table).uncheckedPutSlot
+     0.57s  1.31% 55.38%      0.57s  1.31%  runtime.procyield
+     0.55s  1.26% 56.64%      0.55s  1.26%  runtime.madvise
+     0.54s  1.24% 57.88%      0.55s  1.26%  runtime.pageIndexOf (inline)
+     0.50s  1.15% 59.03%      0.50s  1.15%  runtime.nextFreeFast (inline)
+     0.41s  0.94% 59.97%      7.80s 17.92%  internal/runtime/maps.(*table).grow
+     0.41s  0.94% 60.91%      0.41s  0.94%  runtime.memmove
+     0.41s  0.94% 61.86%      0.48s  1.10%  runtime.spanOf (inline)
+     0.39s   0.9% 62.75%      0.92s  2.11%  internal/runtime/maps.(*Iter).Next
+     0.38s  0.87% 63.63%      0.49s  1.13%  runtime.typePointers.next
+     0.36s  0.83% 64.45%      0.36s  0.83%  runtime.typePointers.nextFast (inline)
+     0.35s   0.8% 65.26%      0.35s   0.8%  internal/runtime/atomic.(*Uint32).CompareAndSwap (inline)
+     0.35s   0.8% 66.06%      0.35s   0.8%  internal/runtime/maps.ctrlGroup.matchEmptyOrDeleted (inline)
+     0.34s  0.78% 66.84%      0.84s  1.93%  runtime.(*sweepLocked).sweep
+     0.33s  0.76% 67.60%      0.33s  0.76%  internal/runtime/maps.(*groupReference).key (inline)
+     0.33s  0.76% 68.36%      9.15s 21.02%  runtime.mallocgc
+
+=== Memory Profile Top Allocators ===
+File: analysis.test
+Build ID: e3c5228965e22a8a38d417bd50c8b3cb752a3e77
+Type: alloc_space
+Time: 2026-01-09 22:23:17 EST
+Showing nodes accounting for 9.83GB, 99.66% of 9.86GB total
+Dropped 57 nodes (cum <= 0.05GB)
+      flat  flat%   sum%        cum   cum%
+    7.38GB 74.80% 74.80%     9.82GB 99.54%  github.com/Dicklesworthstone/beads_viewer/pkg/analysis.singleSourceBetweenness
+    1.02GB 10.32% 85.12%     1.02GB 10.32%  gonum.org/v1/gonum/graph/iterator.newMapIterEdges (inline)
+    0.76GB  7.67% 92.80%     0.76GB  7.67%  gonum.org/v1/gonum/graph/iterator.(*mapIter).next
+    0.40GB  4.01% 96.81%     1.41GB 14.33%  gonum.org/v1/gonum/graph/iterator.NewNodesByEdge (inline)
+    0.27GB  2.73% 99.54%     0.27GB  2.76%  gonum.org/v1/gonum/graph/iterator.(*Nodes).NodeSlice
+    0.01GB  0.13% 99.66%     9.83GB 99.66%  github.com/Dicklesworthstone/beads_viewer/pkg/analysis.ApproxBetweenness.func2
+         0     0% 99.66%     0.27GB  2.76%  gonum.org/v1/gonum/graph.NodesOf
+         0     0% 99.66%     0.75GB  7.64%  gonum.org/v1/gonum/graph/iterator.(*NodesByEdge).Next
+         0     0% 99.66%     1.41GB 14.33%  gonum.org/v1/gonum/graph/simple.(*DirectedGraph).From (inline)
