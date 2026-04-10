@@ -210,6 +210,49 @@ bt robot insights     # robot insights output
 
 ---
 
+## Phase 0.5: Test Foundation
+
+**Goal:** Get the test suite to a 27/27 green baseline and document the blast radius before Phase 1 restructures the Model struct.
+
+**Effort:** 1 agent session, low risk. Added 2026-04-10 after gap analysis revealed 2 pre-existing test failures and undocumented blast radius.
+
+**Origin:** [docs/brainstorms/2026-04-10-phase-0.5-test-foundation-brainstorm.md](../brainstorms/2026-04-10-phase-0.5-test-foundation-brainstorm.md)
+
+### Context
+
+Phase 0 (Charm v2) landed successfully but 2 packages fail: `cmd/bt` (4 board tests) and `tests/e2e` (robot contract tests). Both fail because bt's datasource auto-discovery finds the shared Dolt server at `~/.beads/shared-server/dolt-server.port` (priority 110) and uses global mode instead of the JSONL fixtures the tests create in temp dirs (priority 50).
+
+Blast radius analysis shows Phase 1's Model struct changes only affect ~6 test files directly. The other ~45 test files use `NewModel()` factory or public accessor methods and will work unchanged if those APIs are preserved.
+
+### Steps
+
+0.5.1. **Fix e2e Dolt isolation (bt-hpq6)**: Make datasource `DiscoverSources()` skip shared Dolt server probe when `BT_TEST_MODE=1` is set. E2e tests already set this env var. Change in `internal/datasource/global_dolt.go` `DiscoverSharedServer()` - return early if `BT_TEST_MODE=1`. Also check `internal/datasource/source.go` `DiscoverSources()` for the same guard.
+
+0.5.2. **Document test baseline**: Add a test baseline section to this plan (or as a separate doc) recording: all 27 packages green, timing per package, the 6 files Phase 1 will affect, the specific fields accessed in each.
+
+0.5.3. **Verify public accessor methods**: Check that public getter methods exist for every Model field that Phase 1 will move into sub-structs. The critical fields from the blast radius analysis:
+- `m.isBoardView` -> needs `IsBoardView()` (may already exist)
+- `m.isGraphView` -> needs `IsGraphView()` (may already exist)
+- `m.showDetails` -> needs `ShowDetails()` or similar
+- `m.currentFilter` -> needs `CurrentFilter()` (may already exist)
+- `m.issues` -> needs `Issues()` or `FilteredIssues()` (may already exist)
+
+Add any missing accessors. These are the stable API that keeps 40+ test files working through the refactor.
+
+### What This Does NOT Touch
+- Test rewrites or restructuring (post-Phase 1 audit)
+- Dolt e2e test infrastructure (bt-kvk0, separate workstream)
+- Test suite consolidation or optimization (post-refactor)
+
+### Acceptance Criteria
+- [ ] `go test ./...` passes 27/27 packages (excluding known e2e data scale test)
+- [ ] cmd/bt tests pass (board robot tests no longer hit global server)
+- [ ] tests/e2e robot contract tests pass
+- [ ] Blast radius documented (which 6 files, which fields)
+- [ ] Public accessor methods verified for all Phase 1 target fields
+
+---
+
 ## Phase 1: Model Decomposition
 
 **Goal:** Break the 200-field Model struct and 2,396-line Update() into focused sub-structures with a state machine routing pattern.
@@ -652,16 +695,19 @@ See: `security/260409-2034-stride-owasp-full-audit/overview.md` for full audit.
 
 ## Execution Strategy
 
-**Phase 0 is strictly first** (need v2 compiling before restructuring). After Phase 0, Phases 1, 2, and 3 can overlap:
-- Phase 1 (Model decomposition) and Phase 2 (Theme/AdaptiveColor) touch different files and can run in parallel
-- Phase 3 (Cobra CLI) touches `cmd/bt/`, independent of `pkg/ui/` changes in Phases 1-2
-- Phase 4 (cleanup) runs last after everything else lands
+**Sequential through Phase 1, then parallel:**
+- Phase 0 (Charm v2 mechanical) - **DONE** (2026-04-10, commit 4348e829)
+- Phase 0.5 (test foundation) - next, establishes 27/27 green baseline
+- Phase 1 (Model decomposition) - sequential after 0.5, core refactor
+- **Post-Phase 1 test audit** - optimize test suite for the new structure
+- Phase 2 (Theme/AdaptiveColor) + Phase 3 (Cobra CLI) - can run in parallel after Phase 1
+- Phase 4 (cleanup) - last, after everything lands
 
 **Each phase is a git branch + PR.** Don't accumulate all four phases into one giant changeset.
 
-**Each phase ends with green tests.** No "we'll fix the tests later."
+**Each phase ends with green tests.** No "we'll fix the tests later." Phase 0.5 establishes the green baseline; subsequent phases maintain it.
 
-**Agent parallelism:** Phase 3 (cobra) can run in parallel with Phase 2 (theme) since they touch different files. Phases 0 and 1 are sequential.
+**Agent parallelism:** Phase 3 (cobra, touches `cmd/bt/`) can run in parallel with Phase 2 (theme, touches `pkg/ui/` styles). Phases 0 -> 0.5 -> 1 are strictly sequential.
 
 ## Sources & References
 
