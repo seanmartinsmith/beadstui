@@ -462,10 +462,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 ### Step 1.6: Test Migration
 
-The Model struct decomposition will break every test that constructs a Model with field initialization. With 50 test files, this is non-trivial. Strategy:
+Blast radius analysis (Phase 0.5) found only ~6 test files need explicit updates. The other ~45 use `NewModel()` factory or public accessor methods and will work unchanged.
+
+**Files that need updates** (direct field access or struct literals):
+- `sprint_view_keys_test.go` - 17 `Model{}` struct literals (must use NewModel or builder)
+- `coverage_extra_test.go` - 29 `NewModel()` + ~12 direct field assignments (`m.currentFilter`, `m.isGraphView`, etc.)
+- `context_test.go` - 7 uses of custom `newTestModel()` helper + 5 direct field accesses
+- `snapshot_test.go` - 3 direct field reads (`m.currentFilter`, `m.issues`)
+- `tree_bench_test.go` - 1 direct `m.issues` read
+- `triage_preservation_test.go` - 2 direct `m.issues` reads
+
+**Strategy:**
 - Extract incrementally (one sub-struct at a time), running tests after each
-- Use a helper function `testModel(opts ...func(*Model))` to reduce test construction churn
-- Phase 0 will already break Theme constructor tests (Renderer removal changes `DefaultTheme` signature)
+- `NewModel()` is the test factory (91 calls across 10 files) - keep its signature stable
+- Public accessor methods added in Phase 0.5: `ShowDetails()`, `CurrentFilter()`, `Issues()` plus pre-existing `IsBoardView()`, `IsGraphView()`, `FilteredIssues()`
+- For the 6 affected files: update direct field access to use accessors, or add setter methods where tests need to set up state
+- No separate `testModel()` helper needed - `NewModel()` already serves this role
+
+See: `docs/audit/test-baseline-2026-04-10.md` and `docs/brainstorms/2026-04-10-phase-0.5-test-foundation-brainstorm.md`
 
 ### Acceptance Criteria
 - [ ] Model struct has ViewMode enum (no boolean view flags)
