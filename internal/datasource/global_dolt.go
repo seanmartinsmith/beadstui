@@ -35,7 +35,14 @@ type GlobalDoltReader struct {
 
 // DiscoverSharedServer locates the shared Dolt server's host and port.
 // Priority: BT_GLOBAL_DOLT_PORT env var > ~/.beads/shared-server/dolt-server.port file.
+// Returns an error immediately when BT_TEST_MODE=1, preventing e2e tests from
+// accidentally connecting to the developer's shared Dolt server instead of their
+// JSONL fixtures.
 func DiscoverSharedServer() (host string, port int, err error) {
+	if os.Getenv("BT_TEST_MODE") == "1" {
+		return "", 0, fmt.Errorf("shared Dolt server discovery disabled in test mode (BT_TEST_MODE=1)")
+	}
+
 	host = "127.0.0.1"
 
 	// Env var override takes highest priority

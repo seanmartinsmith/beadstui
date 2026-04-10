@@ -71,6 +71,7 @@ func TestRobotFlagsOutputJSON(t *testing.T) {
 		t.Helper()
 		cmd := exec.Command(bin, args...)
 		cmd.Dir = tmpDir
+		cmd.Env = append(os.Environ(), "BT_TEST_MODE=1", "BT_NO_BROWSER=1")
 		out, err := cmd.Output()
 		if err != nil {
 			t.Fatalf("command %v failed: %v\n%s", args, err, out)
