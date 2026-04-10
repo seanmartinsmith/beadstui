@@ -6,11 +6,10 @@ import (
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 
-	"github.com/charmbracelet/lipgloss"
 )
 
 func newTestTheme() Theme {
-	return DefaultTheme(lipgloss.NewRenderer(nil))
+	return DefaultTheme()
 }
 
 func TestActionableRenderEmpty(t *testing.T) {

@@ -10,7 +10,7 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/drift"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -122,11 +122,11 @@ func (m Model) renderAlertsPanel() string {
 	var sb strings.Builder
 
 	if len(visibleAlerts) == 0 {
-		sb.WriteString(t.Renderer.NewStyle().Foreground(ColorSuccess).Render(" No active alerts"))
+		sb.WriteString(lipgloss.NewStyle().Foreground(ColorSuccess).Render(" No active alerts"))
 		sb.WriteString("\n")
 	} else {
 		// Summary line
-		summaryStyle := t.Renderer.NewStyle().Foreground(t.Secondary)
+		summaryStyle := lipgloss.NewStyle().Foreground(t.Secondary)
 		summary := fmt.Sprintf("%d total", len(visibleAlerts))
 		if m.alertsCritical > 0 {
 			summary += fmt.Sprintf(" • %d critical", m.alertsCritical)
@@ -160,7 +160,7 @@ func (m Model) renderAlertsPanel() string {
 
 		// Scroll indicator: above
 		if scrollOffset > 0 {
-			hint := t.Renderer.NewStyle().Foreground(t.Muted).Render(
+			hint := lipgloss.NewStyle().Foreground(t.Muted).Render(
 				fmt.Sprintf(" ▴ %d more above", scrollOffset))
 			sb.WriteString(hint)
 			sb.WriteString("\n")
@@ -178,13 +178,13 @@ func (m Model) renderAlertsPanel() string {
 			var severityIcon string
 			switch a.Severity {
 			case drift.SeverityCritical:
-				severityStyle = t.Renderer.NewStyle().Foreground(t.Blocked).Bold(true)
+				severityStyle = lipgloss.NewStyle().Foreground(t.Blocked).Bold(true)
 				severityIcon = "▲"
 			case drift.SeverityWarning:
-				severityStyle = t.Renderer.NewStyle().Foreground(t.Feature)
+				severityStyle = lipgloss.NewStyle().Foreground(t.Feature)
 				severityIcon = "△"
 			default:
-				severityStyle = t.Renderer.NewStyle().Foreground(t.Secondary)
+				severityStyle = lipgloss.NewStyle().Foreground(t.Secondary)
 				severityIcon = "○"
 			}
 
@@ -200,7 +200,7 @@ func (m Model) renderAlertsPanel() string {
 				line = truncateRunesHelper(line, innerWidth, "…")
 			}
 			if selected {
-				line = t.Renderer.NewStyle().Bold(true).Render(line)
+				line = lipgloss.NewStyle().Bold(true).Render(line)
 			}
 			rendered := severityStyle.Render(line)
 
@@ -217,7 +217,7 @@ func (m Model) renderAlertsPanel() string {
 			// Detail for selected alert: issue title (wraps to ~2 lines max)
 			if selected && a.IssueID != "" {
 				if title, ok := issueTitles[a.IssueID]; ok && title != "" {
-					titleStyle := t.Renderer.NewStyle().Foreground(t.Muted).Italic(true)
+					titleStyle := lipgloss.NewStyle().Foreground(t.Muted).Italic(true)
 					detailMaxWidth := innerWidth - 8 // indent on each side
 					wrappedStr := wrapText(title, detailMaxWidth)
 					for _, wline := range strings.Split(wrappedStr, "\n") {
@@ -238,14 +238,14 @@ func (m Model) renderAlertsPanel() string {
 		// Scroll indicator: below
 		remaining := len(visibleAlerts) - endIdx
 		if remaining > 0 {
-			hint := t.Renderer.NewStyle().Foreground(t.Muted).Render(
+			hint := lipgloss.NewStyle().Foreground(t.Muted).Render(
 				fmt.Sprintf(" ▾ %d more below", remaining))
 			sb.WriteString(hint)
 		}
 	}
 
 	sb.WriteString("\n")
-	sb.WriteString(t.Renderer.NewStyle().Foreground(t.Muted).Italic(true).Render(
+	sb.WriteString(lipgloss.NewStyle().Foreground(t.Muted).Italic(true).Render(
 		" enter: open • c: clear • C: clear all • esc: close"))
 
 	// Pad each content line for inner padding
@@ -254,7 +254,7 @@ func (m Model) renderAlertsPanel() string {
 	// Use blocked/red color to match alert severity
 	alertColor := t.Blocked
 
-	panel := RenderTitledPanel(t.Renderer, paddedContent, PanelOpts{
+	panel := RenderTitledPanel(paddedContent, PanelOpts{
 		Title:       "Alerts!",
 		Width:       panelWidth,
 		BorderColor: &alertColor,

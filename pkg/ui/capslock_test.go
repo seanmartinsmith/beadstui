@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestNewCapsLockTracker(t *testing.T) {
@@ -172,27 +172,27 @@ func TestTutorialTrigger_String(t *testing.T) {
 
 func TestIsCapsLock(t *testing.T) {
 	// CapsLock is not reliably detectable, so function should be conservative
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}}
+	msg := tea.KeyPressMsg{Code: 'a', Text: string('a')}
 	if IsCapsLock(msg) {
 		t.Error("Regular key should not be detected as CapsLock")
 	}
 
-	// Empty runes case
-	msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{}}
+	// Empty text case - in v2, this is just a key with no text
+	msg = tea.KeyPressMsg{Code: 0}
 	if IsCapsLock(msg) {
-		t.Error("Empty runes should not be detected as CapsLock (too ambiguous)")
+		t.Error("Empty key should not be detected as CapsLock (too ambiguous)")
 	}
 }
 
 func TestIsTutorialTrigger(t *testing.T) {
 	// Backtick should be the trigger
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'`'}}
+	msg := tea.KeyPressMsg{Code: '`', Text: string('`')}
 	if !IsTutorialTrigger(msg) {
 		t.Error("Backtick should be tutorial trigger")
 	}
 
 	// Other keys should not
-	msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}}
+	msg = tea.KeyPressMsg{Code: 'a', Text: string('a')}
 	if IsTutorialTrigger(msg) {
 		t.Error("'a' should not be tutorial trigger")
 	}
@@ -200,13 +200,13 @@ func TestIsTutorialTrigger(t *testing.T) {
 
 func TestIsContextHelpTrigger(t *testing.T) {
 	// Tilde should be the trigger
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'~'}}
+	msg := tea.KeyPressMsg{Code: '~', Text: string('~')}
 	if !IsContextHelpTrigger(msg) {
 		t.Error("Tilde should be context help trigger")
 	}
 
 	// Other keys should not
-	msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}}
+	msg = tea.KeyPressMsg{Code: 'a', Text: string('a')}
 	if IsContextHelpTrigger(msg) {
 		t.Error("'a' should not be context help trigger")
 	}
@@ -245,12 +245,12 @@ func TestDefaultTutorialKeyBindings(t *testing.T) {
 func TestTutorialKeyBindings_IsDirectTutorial(t *testing.T) {
 	bindings := DefaultTutorialKeyBindings()
 
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'`'}}
+	msg := tea.KeyPressMsg{Code: '`', Text: string('`')}
 	if !bindings.IsDirectTutorial(msg) {
 		t.Error("Backtick should match direct tutorial binding")
 	}
 
-	msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}}
+	msg = tea.KeyPressMsg{Code: 'x', Text: string('x')}
 	if bindings.IsDirectTutorial(msg) {
 		t.Error("'x' should not match direct tutorial binding")
 	}
@@ -259,12 +259,12 @@ func TestTutorialKeyBindings_IsDirectTutorial(t *testing.T) {
 func TestTutorialKeyBindings_IsContextHelp(t *testing.T) {
 	bindings := DefaultTutorialKeyBindings()
 
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'~'}}
+	msg := tea.KeyPressMsg{Code: '~', Text: string('~')}
 	if !bindings.IsContextHelp(msg) {
 		t.Error("Tilde should match context help binding")
 	}
 
-	msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}}
+	msg = tea.KeyPressMsg{Code: 'x', Text: string('x')}
 	if bindings.IsContextHelp(msg) {
 		t.Error("'x' should not match context help binding")
 	}
@@ -276,12 +276,12 @@ func TestTutorialKeyBindings_CustomBinding(t *testing.T) {
 		ContextHelp:    "T",
 	}
 
-	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}}
+	msg := tea.KeyPressMsg{Code: 't', Text: string('t')}
 	if !bindings.IsDirectTutorial(msg) {
 		t.Error("Custom 't' binding should work")
 	}
 
-	msg = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'T'}}
+	msg = tea.KeyPressMsg{Code: 'T', Text: string('T')}
 	if !bindings.IsContextHelp(msg) {
 		t.Error("Custom 'T' binding should work")
 	}

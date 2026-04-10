@@ -4,16 +4,12 @@ import (
 	"testing"
 
 	"github.com/charmbracelet/colorprofile"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 func TestDefaultTheme(t *testing.T) {
-	renderer := lipgloss.NewRenderer(nil)
-	theme := DefaultTheme(renderer)
+	theme := DefaultTheme()
 
-	if theme.Renderer != renderer {
-		t.Error("DefaultTheme renderer mismatch")
-	}
 	// Check a few known colors are set (not zero value)
 	if isColorEmpty(theme.Primary) {
 		t.Error("DefaultTheme Primary color is empty")
@@ -23,17 +19,16 @@ func TestDefaultTheme(t *testing.T) {
 	}
 }
 
-func isColorEmpty(c lipgloss.AdaptiveColor) bool {
+func isColorEmpty(c AdaptiveColor) bool {
 	return c.Light == "" && c.Dark == ""
 }
 
 func TestGetStatusColor(t *testing.T) {
-	renderer := lipgloss.NewRenderer(nil)
-	theme := DefaultTheme(renderer)
+	theme := DefaultTheme()
 
 	tests := []struct {
 		status string
-		want   lipgloss.AdaptiveColor
+		want   AdaptiveColor
 	}{
 		{"open", theme.Open},
 		{"in_progress", theme.InProgress},
@@ -52,13 +47,12 @@ func TestGetStatusColor(t *testing.T) {
 }
 
 func TestGetTypeIcon(t *testing.T) {
-	renderer := lipgloss.NewRenderer(nil)
-	theme := DefaultTheme(renderer)
+	theme := DefaultTheme()
 
 	tests := []struct {
 		typ      string
 		wantIcon string
-		wantCol  lipgloss.AdaptiveColor
+		wantCol  AdaptiveColor
 	}{
 		{"bug", "🐛", theme.Bug},
 		{"feature", "✨", theme.Feature},

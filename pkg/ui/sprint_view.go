@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/model"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // renderSprintDashboard renders the sprint view with progress, burndown, and at-risk items (bv-161)
@@ -26,14 +26,14 @@ func (m Model) renderSprintDashboard() string {
 	var sb strings.Builder
 
 	// Title
-	titleStyle := t.Renderer.NewStyle().Bold(true).Foreground(t.Primary)
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(t.Primary)
 	sb.WriteString(titleStyle.Render(fmt.Sprintf("📅 Sprint: %s", sprint.Name)))
 	sb.WriteString("\n\n")
 
 	// Date range and days remaining
 	now := time.Now()
-	labelStyle := t.Renderer.NewStyle().Foreground(t.Secondary).Bold(true)
-	valStyle := t.Renderer.NewStyle().Foreground(t.Base.GetForeground())
+	labelStyle := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+	valStyle := lipgloss.NewStyle().Foreground(t.Base.GetForeground())
 
 	// Calculate days remaining
 	var daysRemaining int
@@ -67,9 +67,9 @@ func (m Model) renderSprintDashboard() string {
 	// Days remaining with visual indicator
 	daysStyle := valStyle
 	if daysRemaining <= 2 && daysRemaining > 0 {
-		daysStyle = t.Renderer.NewStyle().Foreground(t.Feature) // Warning
+		daysStyle = lipgloss.NewStyle().Foreground(t.Feature) // Warning
 	} else if daysRemaining == 0 {
-		daysStyle = t.Renderer.NewStyle().Foreground(t.Blocked) // Critical
+		daysStyle = lipgloss.NewStyle().Foreground(t.Blocked) // Critical
 	}
 	sb.WriteString(labelStyle.Render("Remaining:"))
 	sb.WriteString(daysStyle.Render(fmt.Sprintf(" %d days", daysRemaining)))
@@ -114,17 +114,17 @@ func (m Model) renderSprintDashboard() string {
 	if filled > barWidth {
 		filled = barWidth
 	}
-	barStyle := t.Renderer.NewStyle().Foreground(t.Open)
-	emptyStyle := t.Renderer.NewStyle().Foreground(t.Muted)
+	barStyle := lipgloss.NewStyle().Foreground(t.Open)
+	emptyStyle := lipgloss.NewStyle().Foreground(t.Muted)
 	sb.WriteString(barStyle.Render(strings.Repeat("█", filled)))
 	sb.WriteString(emptyStyle.Render(strings.Repeat("░", barWidth-filled)))
 	sb.WriteString(fmt.Sprintf(" %d/%d (%.0f%%)\n", closedBeads, totalBeads, progressPct*100))
 
 	// Status breakdown
 	sb.WriteString(labelStyle.Render("Status:   "))
-	sb.WriteString(t.Renderer.NewStyle().Foreground(t.Open).Render(fmt.Sprintf("✓%d ", closedBeads)))
-	sb.WriteString(t.Renderer.NewStyle().Foreground(t.Feature).Render(fmt.Sprintf("⏳%d ", inProgressBeads)))
-	sb.WriteString(t.Renderer.NewStyle().Foreground(t.Blocked).Render(fmt.Sprintf("⛔%d ", blockedBeads)))
+	sb.WriteString(lipgloss.NewStyle().Foreground(t.Open).Render(fmt.Sprintf("✓%d ", closedBeads)))
+	sb.WriteString(lipgloss.NewStyle().Foreground(t.Feature).Render(fmt.Sprintf("⏳%d ", inProgressBeads)))
+	sb.WriteString(lipgloss.NewStyle().Foreground(t.Blocked).Render(fmt.Sprintf("⛔%d ", blockedBeads)))
 	sb.WriteString(valStyle.Render(fmt.Sprintf("○%d", openBeads-inProgressBeads-blockedBeads)))
 	sb.WriteString("\n\n")
 
@@ -150,10 +150,10 @@ func (m Model) renderSprintDashboard() string {
 
 				if idealVal >= threshold-0.5 && idealVal < threshold+float64(totalBeads)/float64(chartHeight) {
 					// Ideal line
-					line.WriteString(t.Renderer.NewStyle().Foreground(t.Secondary).Render("·"))
+					line.WriteString(lipgloss.NewStyle().Foreground(t.Secondary).Render("·"))
 				} else if col <= int(float64(chartWidth)*passedFrac) && actualRemaining >= threshold-0.5 && actualRemaining < threshold+float64(totalBeads)/float64(chartHeight) {
 					// Actual current point
-					line.WriteString(t.Renderer.NewStyle().Foreground(t.Primary).Bold(true).Render("●"))
+					line.WriteString(lipgloss.NewStyle().Foreground(t.Primary).Bold(true).Render("●"))
 				} else {
 					line.WriteString(" ")
 				}
@@ -164,7 +164,7 @@ func (m Model) renderSprintDashboard() string {
 		sb.WriteString("  ")
 		sb.WriteString(strings.Repeat("─", chartWidth+1))
 		sb.WriteString("\n")
-		sb.WriteString(t.Renderer.NewStyle().Foreground(t.Muted).Italic(true).Render("  · ideal  ● actual"))
+		sb.WriteString(lipgloss.NewStyle().Foreground(t.Muted).Italic(true).Render("  · ideal  ● actual"))
 		sb.WriteString("\n\n")
 	} else {
 		sb.WriteString(valStyle.Render("  (insufficient data)"))
@@ -185,7 +185,7 @@ func (m Model) renderSprintDashboard() string {
 		}
 	}
 	if len(atRisk) == 0 {
-		sb.WriteString(t.Renderer.NewStyle().Foreground(t.Open).Render("  ✓ No at-risk items"))
+		sb.WriteString(lipgloss.NewStyle().Foreground(t.Open).Render("  ✓ No at-risk items"))
 		sb.WriteString("\n")
 	} else {
 		for i, iss := range atRisk {
@@ -195,7 +195,7 @@ func (m Model) renderSprintDashboard() string {
 				break
 			}
 			daysSinceUpdate := int(now.Sub(iss.UpdatedAt).Hours() / 24)
-			sb.WriteString(t.Renderer.NewStyle().Foreground(t.Feature).Render(
+			sb.WriteString(lipgloss.NewStyle().Foreground(t.Feature).Render(
 				fmt.Sprintf("  ⚠ %s - %s (%dd stale)\n", iss.ID, truncateString(iss.Title, 30), daysSinceUpdate)))
 		}
 	}
@@ -211,15 +211,15 @@ func (m Model) renderSprintDashboard() string {
 		statusStyle := valStyle
 		if isClosedLikeStatus(iss.Status) {
 			statusIcon = "✓"
-			statusStyle = t.Renderer.NewStyle().Foreground(t.Open)
+			statusStyle = lipgloss.NewStyle().Foreground(t.Open)
 		} else {
 			switch iss.Status {
 			case model.StatusInProgress:
 				statusIcon = "⏳"
-				statusStyle = t.Renderer.NewStyle().Foreground(t.Feature)
+				statusStyle = lipgloss.NewStyle().Foreground(t.Feature)
 			case model.StatusBlocked:
 				statusIcon = "⛔"
-				statusStyle = t.Renderer.NewStyle().Foreground(t.Blocked)
+				statusStyle = lipgloss.NewStyle().Foreground(t.Blocked)
 			}
 		}
 		sb.WriteString(statusStyle.Render(fmt.Sprintf("  %s %s - %s\n", statusIcon, iss.ID, truncateString(iss.Title, 40))))
@@ -231,11 +231,11 @@ func (m Model) renderSprintDashboard() string {
 
 	// Footer
 	sb.WriteString("\n")
-	sb.WriteString(t.Renderer.NewStyle().Foreground(t.Muted).Italic(true).Render(
+	sb.WriteString(lipgloss.NewStyle().Foreground(t.Muted).Italic(true).Render(
 		"P: close sprint view • j/k: navigate sprints"))
 
 	// Wrap in a box
-	boxStyle := t.Renderer.NewStyle().
+	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(t.Primary).
 		Padding(1, 2).

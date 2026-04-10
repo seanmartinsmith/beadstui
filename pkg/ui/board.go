@@ -2,15 +2,16 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 
-	"github.com/charmbracelet/bubbles/viewport"
-	"github.com/charmbracelet/glamour"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/viewport"
+	"charm.land/glamour/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // BoardModel represents the Kanban board view with adaptive columns
@@ -398,7 +399,7 @@ func NewBoardModel(issues []model.Issue, theme Theme) BoardModel {
 	// Initialize markdown renderer for detail panel (bv-r6kh)
 	var mdRenderer *glamour.TermRenderer
 	mdRenderer, _ = glamour.NewTermRenderer(
-		glamour.WithAutoStyle(),
+		glamour.WithStandardStyle("dark"),
 		glamour.WithWordWrap(60),
 	)
 
@@ -416,7 +417,7 @@ func NewBoardModel(issues []model.Issue, theme Theme) BoardModel {
 		allIssues:    issues,       // Store for regrouping (bv-wjs0)
 		blocksIndex:  buildBlocksIndex(issues),
 		issueMap:     issueMap,
-		detailVP:     viewport.New(40, 20),
+		detailVP:     viewport.New(viewport.WithWidth(40), viewport.WithHeight(20)),
 		mdRenderer:   mdRenderer,
 	}
 	b.updateActiveColumns()
@@ -800,12 +801,12 @@ func (b *BoardModel) IsDetailShown() bool {
 
 // DetailScrollDown scrolls the detail panel down
 func (b *BoardModel) DetailScrollDown(lines int) {
-	b.detailVP.LineDown(lines)
+	b.detailVP.ScrollDown(lines)
 }
 
 // DetailScrollUp scrolls the detail panel up
 func (b *BoardModel) DetailScrollUp(lines int) {
-	b.detailVP.LineUp(lines)
+	b.detailVP.ScrollUp(lines)
 }
 
 // SelectedIssue returns the currently selected issue, or nil if none
@@ -915,7 +916,7 @@ func (b BoardModel) View(width, height int) string {
 	// Calculate how many columns we're showing
 	numCols := len(b.activeColIdx)
 	if numCols == 0 {
-		return t.Renderer.NewStyle().
+		return lipgloss.NewStyle().
 			Width(width).
 			Height(height).
 			Align(lipgloss.Center, lipgloss.Center).
@@ -980,24 +981,24 @@ func (b BoardModel) View(width, height int) string {
 	columnTitles, columnEmoji := b.getColumnHeaders()
 
 	// Column colors - use appropriate colors based on mode
-	var columnColors []lipgloss.AdaptiveColor
+	var columnColors []AdaptiveColor
 	switch b.swimLaneMode {
 	case SwimByPriority:
-		columnColors = []lipgloss.AdaptiveColor{
+		columnColors = []AdaptiveColor{
 			ColorPrioCritical, // P0
 			ColorPrioHigh,     // P1
 			ColorPrioMedium,   // P2
 			ColorSecondary,    // P3+
 		}
 	case SwimByType:
-		columnColors = []lipgloss.AdaptiveColor{
+		columnColors = []AdaptiveColor{
 			ColorTypeBug,     // Bug
 			ColorTypeFeature, // Feature
 			ColorTypeTask,    // Task
 			ColorTypeEpic,    // Epic
 		}
 	default: // SwimByStatus
-		columnColors = []lipgloss.AdaptiveColor{t.Open, t.InProgress, t.Blocked, t.Closed}
+		columnColors = []AdaptiveColor{t.Open, t.InProgress, t.Blocked, t.Closed}
 	}
 
 	var renderedCols []string
@@ -1118,7 +1119,7 @@ func (b BoardModel) View(width, height int) string {
 
 		// Empty column placeholder
 		if issueCount == 0 {
-			emptyStyle := t.Renderer.NewStyle().
+			emptyStyle := lipgloss.NewStyle().
 				Width(cardWidth).
 				Height(colHeight-2).
 				Align(lipgloss.Center, lipgloss.Center).
@@ -1130,7 +1131,7 @@ func (b BoardModel) View(width, height int) string {
 		// Scroll indicator
 		if issueCount > visibleCards {
 			scrollInfo := fmt.Sprintf("↕ %d/%d", sel+1, issueCount)
-			scrollStyle := t.Renderer.NewStyle().
+			scrollStyle := lipgloss.NewStyle().
 				Width(cardWidth).
 				Align(lipgloss.Center).
 				Foreground(t.Secondary).
@@ -1142,7 +1143,7 @@ func (b BoardModel) View(width, height int) string {
 		content := lipgloss.JoinVertical(lipgloss.Left, cards...)
 
 		// Titled panel with header in border
-		column := RenderTitledPanel(t.Renderer, content, PanelOpts{
+		column := RenderTitledPanel(content, PanelOpts{
 			Title:       headerText,
 			Width:       baseWidth + borderOverhead,
 			Height:      colHeight + 2,
@@ -1192,7 +1193,7 @@ func (b BoardModel) renderTitleBar(width int, t Theme) string {
 	}
 
 	// Style the title bar
-	titleStyle := t.Renderer.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Width(width).
 		Align(lipgloss.Center).
 		Foreground(t.Primary).
@@ -1204,7 +1205,7 @@ func (b BoardModel) renderTitleBar(width int, t Theme) string {
 
 // getAgeColor returns a color based on issue age (bv-1daf)
 // green (<7d), yellow (7-30d), red (>30d stale)
-func getAgeColor(t time.Time) lipgloss.TerminalColor {
+func getAgeColor(t time.Time) color.Color {
 	if t.IsZero() {
 		return ColorMuted
 	}
@@ -1255,7 +1256,7 @@ func (b BoardModel) renderCard(issue model.Issue, width int, selected bool, colI
 	// ══════════════════════════════════════════════════════════════════════════
 	// CARD STYLING - Fixed 4-line height (bv-1daf) with blocking colors (bv-kklp)
 	// ══════════════════════════════════════════════════════════════════════════
-	cardStyle := t.Renderer.NewStyle().
+	cardStyle := lipgloss.NewStyle().
 		Width(width).
 		Padding(0, 1).
 		MarginBottom(1)
@@ -1266,7 +1267,7 @@ func (b BoardModel) renderCard(issue model.Issue, width int, selected bool, colI
 	// - Green: Ready to work (open, no blockers)
 	// - Default: Normal border
 	// Search matches override border color (bv-yg39)
-	var borderColor lipgloss.TerminalColor
+	var borderColor color.Color
 	if selected {
 		borderColor = t.Primary // Selected always uses primary
 	} else if isCurrentMatch {
@@ -1289,7 +1290,7 @@ func (b BoardModel) renderCard(issue model.Issue, width int, selected bool, colI
 			BorderForeground(borderColor)
 	} else if isCurrentMatch {
 		cardStyle = cardStyle.
-			Background(lipgloss.AdaptiveColor{Light: "#e4dce8", Dark: "#2a1e30"}).
+			Background(AdaptiveColor{Light: "#e4dce8", Dark: "#2a1e30"}).
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(borderColor)
 	} else {
@@ -1305,7 +1306,7 @@ func (b BoardModel) renderCard(issue model.Issue, width int, selected bool, colI
 
 	// Priority as P0/P1/P2 text (clearer than emoji flame levels)
 	prioText := formatPriority(issue.Priority)
-	prioStyle := t.Renderer.NewStyle().Bold(true)
+	prioStyle := lipgloss.NewStyle().Bold(true)
 	if issue.Priority <= 1 {
 		prioStyle = prioStyle.Foreground(ColorDanger)
 	} else {
@@ -1325,12 +1326,12 @@ func (b BoardModel) renderCard(issue model.Issue, width int, selected bool, colI
 		ageText = truncateRunesHelper(ageText, 6, "")
 	}
 	ageColor := getAgeColor(issue.UpdatedAt)
-	ageStyled := t.Renderer.NewStyle().Foreground(ageColor).Render(ageText)
+	ageStyled := lipgloss.NewStyle().Foreground(ageColor).Render(ageText)
 
 	line1 := fmt.Sprintf("%s %s %s %s",
-		t.Renderer.NewStyle().Foreground(iconColor).Render(icon),
+		lipgloss.NewStyle().Foreground(iconColor).Render(icon),
 		prioStyle.Render(prioText),
-		t.Renderer.NewStyle().Bold(true).Foreground(t.Secondary).Render(displayID),
+		lipgloss.NewStyle().Bold(true).Foreground(t.Secondary).Render(displayID),
 		ageStyled,
 	)
 
@@ -1343,7 +1344,7 @@ func (b BoardModel) renderCard(issue model.Issue, width int, selected bool, colI
 	}
 	truncatedTitle := truncateRunesHelper(issue.Title, titleWidth, "…")
 
-	titleStyle := t.Renderer.NewStyle()
+	titleStyle := lipgloss.NewStyle()
 	if selected {
 		titleStyle = titleStyle.Foreground(t.Primary).Bold(true)
 	} else {
@@ -1361,7 +1362,7 @@ func (b BoardModel) renderCard(issue model.Issue, width int, selected bool, colI
 	for _, dep := range issue.Dependencies {
 		if dep != nil && dep.Type.IsBlocking() {
 			blockerID := truncateRunesHelper(dep.DependsOnID, 10, "…")
-			blockedStyle := t.Renderer.NewStyle().Foreground(t.Blocked)
+			blockedStyle := lipgloss.NewStyle().Foreground(t.Blocked)
 			// Try to get blocker title for better context
 			blockerBadge := "🚫←" + blockerID
 			if blocker, ok := b.issueMap[dep.DependsOnID]; ok && blocker != nil {
@@ -1375,7 +1376,7 @@ func (b BoardModel) renderCard(issue model.Issue, width int, selected bool, colI
 
 	// Blocks count: ⚡→N (this card blocks N others) - from reverse index
 	if blockedIDs, ok := b.blocksIndex[issue.ID]; ok && len(blockedIDs) > 0 {
-		blocksStyle := t.Renderer.NewStyle().Foreground(t.Feature)
+		blocksStyle := lipgloss.NewStyle().Foreground(t.Feature)
 		meta = append(meta, blocksStyle.Render(fmt.Sprintf("⚡→%d", len(blockedIDs))))
 	}
 
@@ -1390,7 +1391,7 @@ func (b BoardModel) renderCard(issue model.Issue, width int, selected bool, colI
 			labelParts = append(labelParts, truncateRunesHelper(issue.Labels[i], 8, ""))
 		}
 		labelText := strings.Join(labelParts, ",")
-		labelStyle := t.Renderer.NewStyle().Foreground(t.InProgress)
+		labelStyle := lipgloss.NewStyle().Foreground(t.InProgress)
 		meta = append(meta, labelStyle.Render(labelText))
 	}
 
@@ -1425,13 +1426,13 @@ func (b BoardModel) renderExpandedCard(issue model.Issue, width int, _, _ int) s
 	// ══════════════════════════════════════════════════════════════════════════
 	// CARD STYLING - Expanded card is always selected (since we expand selected)
 	// ══════════════════════════════════════════════════════════════════════════
-	cardStyle := t.Renderer.NewStyle().
+	cardStyle := lipgloss.NewStyle().
 		Width(width).
 		Padding(0, 1).
 		MarginBottom(1)
 
 	// Border color based on blocking status
-	var borderColor lipgloss.TerminalColor
+	var borderColor color.Color
 	if hasBlockingDeps {
 		borderColor = ColorDanger // Red - blocked
 	} else if blocksOthers {
@@ -1452,7 +1453,7 @@ func (b BoardModel) renderExpandedCard(issue model.Issue, width int, _, _ int) s
 	// ══════════════════════════════════════════════════════════════════════════
 	icon, iconColor := t.GetTypeIcon(string(issue.IssueType))
 	prioText := formatPriority(issue.Priority)
-	prioStyle := t.Renderer.NewStyle().Bold(true)
+	prioStyle := lipgloss.NewStyle().Bold(true)
 	if issue.Priority <= 1 {
 		prioStyle = prioStyle.Foreground(ColorDanger)
 	} else {
@@ -1460,21 +1461,21 @@ func (b BoardModel) renderExpandedCard(issue model.Issue, width int, _, _ int) s
 	}
 
 	header := fmt.Sprintf("%s %s %s ▼",
-		t.Renderer.NewStyle().Foreground(iconColor).Render(icon),
+		lipgloss.NewStyle().Foreground(iconColor).Render(icon),
 		prioStyle.Render(prioText),
-		t.Renderer.NewStyle().Bold(true).Foreground(t.Primary).Render(issue.ID),
+		lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Render(issue.ID),
 	)
 
 	// ══════════════════════════════════════════════════════════════════════════
 	// TITLE: Full title (not truncated)
 	// ══════════════════════════════════════════════════════════════════════════
-	titleStyle := t.Renderer.NewStyle().Foreground(t.Primary).Bold(true)
+	titleStyle := lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
 	title := titleStyle.Render(issue.Title)
 
 	// ══════════════════════════════════════════════════════════════════════════
 	// SEPARATOR
 	// ══════════════════════════════════════════════════════════════════════════
-	sepStyle := t.Renderer.NewStyle().Foreground(t.Secondary)
+	sepStyle := lipgloss.NewStyle().Foreground(t.Secondary)
 	separator := sepStyle.Render(strings.Repeat("─", width-4))
 
 	// ══════════════════════════════════════════════════════════════════════════
@@ -1512,25 +1513,25 @@ func (b BoardModel) renderExpandedCard(issue model.Issue, width int, _, _ int) s
 		}
 	}
 	if len(blockingDeps) > 0 {
-		depLines = append(depLines, t.Renderer.NewStyle().Bold(true).Foreground(t.Blocked).Render("Blocked by:"))
+		depLines = append(depLines, lipgloss.NewStyle().Bold(true).Foreground(t.Blocked).Render("Blocked by:"))
 		for _, dep := range blockingDeps {
 			blockerText := fmt.Sprintf("  • %s", dep.DependsOnID)
 			if blocker, ok := b.issueMap[dep.DependsOnID]; ok && blocker != nil {
 				blockerText = fmt.Sprintf("  • %s: %s (%s)", dep.DependsOnID, blocker.Title, blocker.Status)
 			}
-			depLines = append(depLines, t.Renderer.NewStyle().Foreground(t.Blocked).Render(blockerText))
+			depLines = append(depLines, lipgloss.NewStyle().Foreground(t.Blocked).Render(blockerText))
 		}
 	}
 
 	// Show what this blocks
 	if blockedIDs, ok := b.blocksIndex[issue.ID]; ok && len(blockedIDs) > 0 {
-		depLines = append(depLines, t.Renderer.NewStyle().Bold(true).Foreground(t.Feature).Render("Blocks:"))
+		depLines = append(depLines, lipgloss.NewStyle().Bold(true).Foreground(t.Feature).Render("Blocks:"))
 		for _, blockedID := range blockedIDs {
 			blockedText := fmt.Sprintf("  • %s", blockedID)
 			if blocked, ok := b.issueMap[blockedID]; ok && blocked != nil {
 				blockedText = fmt.Sprintf("  • %s: %s", blockedID, blocked.Title)
 			}
-			depLines = append(depLines, t.Renderer.NewStyle().Foreground(t.Feature).Render(blockedText))
+			depLines = append(depLines, lipgloss.NewStyle().Foreground(t.Feature).Render(blockedText))
 		}
 	}
 
@@ -1539,14 +1540,14 @@ func (b BoardModel) renderExpandedCard(issue model.Issue, width int, _, _ int) s
 	// ══════════════════════════════════════════════════════════════════════════
 	var labelLine string
 	if len(issue.Labels) > 0 {
-		labelStyle := t.Renderer.NewStyle().Foreground(t.InProgress)
+		labelStyle := lipgloss.NewStyle().Foreground(t.InProgress)
 		labelLine = labelStyle.Render("🏷 " + strings.Join(issue.Labels, ", "))
 	}
 
 	// ══════════════════════════════════════════════════════════════════════════
 	// TIMESTAMPS
 	// ══════════════════════════════════════════════════════════════════════════
-	timeStyle := t.Renderer.NewStyle().Foreground(t.Secondary).Italic(true)
+	timeStyle := lipgloss.NewStyle().Foreground(t.Secondary).Italic(true)
 	timestamps := timeStyle.Render(fmt.Sprintf("Created: %s (%s) | Updated: %s (%s)",
 		FormatTimeAbs(issue.CreatedAt), FormatTimeRel(issue.CreatedAt),
 		FormatTimeAbs(issue.UpdatedAt), FormatTimeRel(issue.UpdatedAt)))
@@ -1586,8 +1587,8 @@ func (b *BoardModel) renderDetailPanel(width, height int) string {
 	if vpHeight < 5 {
 		vpHeight = 5
 	}
-	b.detailVP.Width = vpWidth
-	b.detailVP.Height = vpHeight
+	b.detailVP.SetWidth(vpWidth)
+	b.detailVP.SetHeight(vpHeight)
 
 	// Build content based on selection state
 	if issue == nil {
@@ -1705,8 +1706,8 @@ func (b *BoardModel) renderDetailPanel(width, height int) string {
 	sb.WriteString(b.detailVP.View())
 
 	scrollPercent := b.detailVP.ScrollPercent()
-	if scrollPercent < 1.0 || b.detailVP.YOffset > 0 {
-		scrollHint := t.Renderer.NewStyle().
+	if scrollPercent < 1.0 || b.detailVP.YOffset() > 0 {
+		scrollHint := lipgloss.NewStyle().
 			Foreground(t.Secondary).
 			Italic(true).
 			Render(fmt.Sprintf("─ %d%% ─ ctrl+j/k", int(scrollPercent*100)))
@@ -1715,7 +1716,7 @@ func (b *BoardModel) renderDetailPanel(width, height int) string {
 	}
 
 	bc := t.Primary
-	return RenderTitledPanel(t.Renderer, sb.String(), PanelOpts{
+	return RenderTitledPanel(sb.String(), PanelOpts{
 		Title:       "Details",
 		Width:       width + 2,
 		Height:      height + 2,

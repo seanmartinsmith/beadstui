@@ -2,7 +2,6 @@ package ui
 
 import (
 	"encoding/json"
-	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,7 +9,6 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/testutil"
-	"github.com/charmbracelet/lipgloss"
 )
 
 type testGraphFile struct {
@@ -104,10 +102,9 @@ func TestGraphView_GoldenASCII(t *testing.T) {
 			stats := analyzer.AnalyzeWithConfig(analysis.FullAnalysisConfig())
 			insights := (&stats).GenerateInsights(len(issues))
 
-			// Use deterministic renderer with forced settings
-			renderer := lipgloss.NewRenderer(io.Discard)
-			renderer.SetHasDarkBackground(true) // Force dark mode for consistency
-			theme := DefaultTheme(renderer)
+			// Force dark mode for deterministic golden file output
+			isDarkBackground = true
+			theme := DefaultTheme()
 
 			g := NewGraphModel(issues, &insights, theme)
 			selectGraphID(t, &g, tc.selectedID)

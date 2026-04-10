@@ -4,12 +4,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/lipgloss"
 )
 
 func TestRepoPickerSelectionAndToggle(t *testing.T) {
 	repos := []string{"api", "web", "lib"}
-	m := NewRepoPickerModel(repos, DefaultTheme(lipgloss.NewRenderer(nil)))
+	m := NewRepoPickerModel(repos, DefaultTheme())
 	m.SetSize(80, 24)
 
 	// Default is all selected
@@ -32,7 +31,7 @@ func TestRepoPickerSelectionAndToggle(t *testing.T) {
 
 func TestRepoPickerViewContainsRepos(t *testing.T) {
 	repos := []string{"api"}
-	m := NewRepoPickerModel(repos, DefaultTheme(lipgloss.NewRenderer(nil)))
+	m := NewRepoPickerModel(repos, DefaultTheme())
 	m.SetSize(60, 20)
 
 	out := m.View()

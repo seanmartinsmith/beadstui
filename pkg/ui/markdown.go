@@ -1,9 +1,8 @@
 package ui
 
 import (
-	"github.com/charmbracelet/glamour"
-	"github.com/charmbracelet/glamour/ansi"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/glamour/v2"
+	"charm.land/glamour/v2/ansi"
 )
 
 // MarkdownRenderer provides theme-aware markdown rendering using glamour.
@@ -20,7 +19,7 @@ type MarkdownRenderer struct {
 // It uses Dracula style for dark terminals and a light style for light terminals.
 // Prefer NewMarkdownRendererWithTheme for consistent styling with the bv Theme.
 func NewMarkdownRenderer(width int) *MarkdownRenderer {
-	isDark := lipgloss.HasDarkBackground()
+	isDark := isDarkBackground
 
 	var styleName string
 	if isDark {
@@ -46,7 +45,7 @@ func NewMarkdownRenderer(width int) *MarkdownRenderer {
 // NewMarkdownRendererWithTheme creates a markdown renderer using custom colors
 // that match the provided Theme for visual consistency.
 func NewMarkdownRendererWithTheme(width int, theme Theme) *MarkdownRenderer {
-	isDark := lipgloss.HasDarkBackground()
+	isDark := isDarkBackground
 	styleConfig := buildStyleFromTheme(theme, isDark)
 
 	renderer, err := glamour.NewTermRenderer(
@@ -438,7 +437,7 @@ func buildStyleFromTheme(theme Theme, isDark bool) ansi.StyleConfig {
 }
 
 // extractHex gets the hex color string from an AdaptiveColor.
-func extractHex(ac lipgloss.AdaptiveColor, isDark bool) string {
+func extractHex(ac AdaptiveColor, isDark bool) string {
 	if isDark {
 		return ac.Dark
 	}

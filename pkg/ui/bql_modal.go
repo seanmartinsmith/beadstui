@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textinput"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // BQLQueryModal is the modal overlay for entering BQL queries.
@@ -26,7 +26,7 @@ func NewBQLQueryModal(theme Theme) BQLQueryModal {
 	ti := textinput.New()
 	ti.Placeholder = "status:open priority<P2 label:bug"
 	ti.CharLimit = 256
-	ti.Width = 60
+	ti.SetWidth(60)
 
 	return BQLQueryModal{
 		input:   ti,
@@ -39,10 +39,11 @@ func NewBQLQueryModal(theme Theme) BQLQueryModal {
 func (m *BQLQueryModal) SetSize(w, h int) {
 	m.width = w
 	m.height = h
-	m.input.Width = w - 10 // padding for panel border
-	if m.input.Width < 20 {
-		m.input.Width = 20
+	inputWidth := w - 10 // padding for panel border
+	if inputWidth < 20 {
+		inputWidth = 20
 	}
+	m.input.SetWidth(inputWidth)
 }
 
 // Value returns the current input value.
@@ -156,7 +157,7 @@ func (m BQLQueryModal) View() string {
 		panelWidth = 30
 	}
 
-	panel := RenderTitledPanel(m.theme.Renderer, content, PanelOpts{
+	panel := RenderTitledPanel(content, PanelOpts{
 		Title: "BQL Query",
 		Width: panelWidth,
 	})

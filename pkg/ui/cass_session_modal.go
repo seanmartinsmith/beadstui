@@ -9,8 +9,8 @@ import (
 
 	"github.com/seanmartinsmith/beadstui/pkg/cass"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // CassSessionModal displays correlated cass sessions for a bead.
@@ -60,7 +60,7 @@ func (m CassSessionModal) Update(msg tea.Msg) (CassSessionModal, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "j", "down":
 			if displayCount > 1 && m.selected < displayCount-1 {
@@ -83,46 +83,45 @@ func (m CassSessionModal) Update(msg tea.Msg) (CassSessionModal, tea.Cmd) {
 
 // View renders the modal.
 func (m CassSessionModal) View() string {
-	r := m.theme.Renderer
 
 	// Check if copy flash should be shown (within 2 seconds of copy)
 	showCopied := m.copied && time.Since(m.copiedAt) <= 2*time.Second
 
 	// Modal container style
-	modalStyle := r.NewStyle().
+	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(m.theme.Primary).
 		Padding(1, 2).
 		Width(m.width)
 
 	// Header style
-	headerStyle := r.NewStyle().
+	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(m.theme.Primary)
 
-	beadIDStyle := r.NewStyle().
+	beadIDStyle := lipgloss.NewStyle().
 		Foreground(m.theme.Subtext)
 
 	// Session card styles
-	sessionHeaderStyle := r.NewStyle().
+	sessionHeaderStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(ColorText)
 
-	selectedSessionStyle := r.NewStyle().
+	selectedSessionStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(m.theme.Primary)
 
-	matchReasonStyle := r.NewStyle().
+	matchReasonStyle := lipgloss.NewStyle().
 		Foreground(m.theme.Subtext).
 		Italic(true)
 
-	snippetBoxStyle := r.NewStyle().
+	snippetBoxStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(m.theme.Border).
 		Padding(0, 1).
 		Width(m.width - 10)
 
-	footerStyle := r.NewStyle().
+	footerStyle := lipgloss.NewStyle().
 		Foreground(m.theme.Subtext).
 		Italic(true)
 
@@ -334,10 +333,9 @@ func (m CassSessionModal) CenterModal(termWidth, termHeight int) string {
 		padLeft = 0
 	}
 
-	r := m.theme.Renderer
 
 	// Create centered version
-	centered := r.NewStyle().
+	centered := lipgloss.NewStyle().
 		MarginTop(padTop).
 		MarginLeft(padLeft).
 		Render(modal)

@@ -7,7 +7,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/charmbracelet/lipgloss"
 )
 
 func TestTutorialProgressPath(t *testing.T) {
@@ -339,10 +338,10 @@ func resetProgressSingleton(configHome string) {
 // Tests for TutorialModel integration methods (bv-j4og)
 
 func TestTutorialModel_SaveProgress(t *testing.T) {
+	theme := DefaultTheme()
 	tmpDir := t.TempDir()
 	resetProgressSingleton(tmpDir)
 
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
 	m := NewTutorialModel(theme)
 
 	// Navigate to a page (page 1)
@@ -367,6 +366,7 @@ func TestTutorialModel_SaveProgress(t *testing.T) {
 }
 
 func TestTutorialModel_LoadProgress(t *testing.T) {
+	theme := DefaultTheme()
 	tmpDir := t.TempDir()
 	resetProgressSingleton(tmpDir)
 
@@ -382,7 +382,6 @@ func TestTutorialModel_LoadProgress(t *testing.T) {
 	resetProgressSingleton(tmpDir)
 
 	// Create new tutorial model and load progress
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
 	m := NewTutorialModel(theme)
 	m.LoadProgress()
 
@@ -396,10 +395,10 @@ func TestTutorialModel_LoadProgress(t *testing.T) {
 }
 
 func TestTutorialModel_HasViewedPage(t *testing.T) {
+	theme := DefaultTheme()
 	tmpDir := t.TempDir()
 	resetProgressSingleton(tmpDir)
 
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
 	m := NewTutorialModel(theme)
 
 	// Not viewed initially
@@ -436,10 +435,10 @@ func TestGetTutorialProgressManager_Singleton(t *testing.T) {
 }
 
 func TestTutorialModel_SaveProgress_AllViewed(t *testing.T) {
+	theme := DefaultTheme()
 	tmpDir := t.TempDir()
 	resetProgressSingleton(tmpDir)
 
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
 	m := NewTutorialModel(theme)
 
 	// Mark all pages as viewed

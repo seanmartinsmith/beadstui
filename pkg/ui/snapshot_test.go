@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
@@ -646,7 +646,7 @@ func TestSnapshotSwap_PreservesBoardSelectionByID(t *testing.T) {
 	}
 
 	m := NewModel(issues, nil, "", nil)
-	newM, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("b")})
+	newM, _ := m.Update(tea.KeyPressMsg{Code: 'b', Text: "b"})
 	m = newM.(Model)
 
 	if m.focused != focusBoard {
@@ -773,7 +773,7 @@ func TestSnapshotSwap_PreservesInsightsNavigationState(t *testing.T) {
 	}
 
 	m := NewModel(issues, nil, "", nil)
-	newM, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("i")})
+	newM, _ := m.Update(tea.KeyPressMsg{Code: 'i', Text: "i"})
 	m = newM.(Model)
 
 	if m.focused != focusInsights {
@@ -832,7 +832,7 @@ func TestSnapshotSwap_RebuildsTreeWhenFocusedAndPreservesSelection(t *testing.T)
 	m.tree.SetBeadsDir(beadsDir)
 
 	// Enter tree view and select the child.
-	newM, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("E")})
+	newM, _ := m.Update(tea.KeyPressMsg{Code: 'E', Text: "E"})
 	m = newM.(Model)
 	if m.focused != focusTree {
 		t.Fatalf("expected focusTree, got %v", m.focused)

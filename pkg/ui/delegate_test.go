@@ -2,7 +2,6 @@ package ui
 
 import (
 	"bytes"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -10,8 +9,7 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 
-	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/list"
 )
 
 // Build a minimal issue item used across delegate tests.
@@ -40,7 +38,7 @@ func TestIssueDelegate_RenderWorkspaceWithPriorityHints(t *testing.T) {
 	item := newTestIssueItem("api-123")
 	item.RepoPrefix = "api"         // exercise workspace badge branch
 	item.DiffStatus = DiffStatusNew // exercise diff badge branch
-	theme := DefaultTheme(lipgloss.NewRenderer(os.Stdout))
+	theme := DefaultTheme()
 
 	delegate := IssueDelegate{
 		Theme:             theme,
@@ -78,7 +76,7 @@ func TestIssueDelegate_RenderWorkspaceWithPriorityHints(t *testing.T) {
 
 func TestIssueDelegate_RenderFallsBackWidthAndNoPanic(t *testing.T) {
 	item := newTestIssueItem("TASK-1")
-	theme := DefaultTheme(lipgloss.NewRenderer(os.Stdout))
+	theme := DefaultTheme()
 	delegate := IssueDelegate{Theme: theme}
 
 	l := list.New([]list.Item{item}, delegate, 0, 0) // width defaults to 0 → delegate fallback
@@ -98,7 +96,7 @@ func TestIssueDelegate_RenderFallsBackWidthAndNoPanic(t *testing.T) {
 func TestIssueDelegate_RenderUltraWide(t *testing.T) {
 	item := newTestIssueItem("WIDE-1")
 	// Assignee and Labels require width thresholds >100 and >140
-	theme := DefaultTheme(lipgloss.NewRenderer(os.Stdout))
+	theme := DefaultTheme()
 	delegate := IssueDelegate{Theme: theme}
 
 	l := list.New([]list.Item{item}, delegate, 0, 0)
@@ -118,7 +116,7 @@ func TestIssueDelegate_RenderUltraWide(t *testing.T) {
 
 func TestIssueDelegate_RenderNarrow(t *testing.T) {
 	item := newTestIssueItem("NARROW-1")
-	theme := DefaultTheme(lipgloss.NewRenderer(os.Stdout))
+	theme := DefaultTheme()
 	delegate := IssueDelegate{Theme: theme}
 
 	l := list.New([]list.Item{item}, delegate, 0, 0)

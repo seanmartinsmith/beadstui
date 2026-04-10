@@ -6,7 +6,6 @@ import (
 
 	"github.com/seanmartinsmith/beadstui/pkg/recipe"
 
-	"github.com/charmbracelet/lipgloss"
 )
 
 func TestRecipePickerSelection(t *testing.T) {
@@ -16,7 +15,7 @@ func TestRecipePickerSelection(t *testing.T) {
 		{Name: "Cleanup", Description: "Debt sweep"},
 	}
 
-	m := NewRecipePickerModel(recipes, DefaultTheme(lipgloss.NewRenderer(nil)))
+	m := NewRecipePickerModel(recipes, DefaultTheme())
 	m.SetSize(80, 24)
 
 	if sel := m.SelectedRecipe(); sel == nil || sel.Name != "Triage" {
@@ -38,7 +37,7 @@ func TestRecipePickerViewContainsNames(t *testing.T) {
 	recipes := []recipe.Recipe{
 		{Name: "Alpha", Description: "First"},
 	}
-	m := NewRecipePickerModel(recipes, DefaultTheme(lipgloss.NewRenderer(nil)))
+	m := NewRecipePickerModel(recipes, DefaultTheme())
 	m.SetSize(60, 20)
 
 	out := m.View()

@@ -6,7 +6,7 @@ import (
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 // ActionableModel represents the actionable items view grouped by tracks
@@ -167,7 +167,7 @@ func (m *ActionableModel) Render() string {
 		totalItems += len(track.Items)
 	}
 
-	headerStyle := t.Renderer.NewStyle().
+	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(t.Base.GetForeground()).
 		Background(t.Primary).
@@ -179,7 +179,7 @@ func (m *ActionableModel) Render() string {
 	lines = append(lines, "")
 
 	if len(m.plan.Tracks) == 0 {
-		emptyStyle := t.Renderer.NewStyle().
+		emptyStyle := lipgloss.NewStyle().
 			Foreground(t.Subtext).
 			Italic(true).
 			Padding(2, 4).
@@ -193,7 +193,7 @@ func (m *ActionableModel) Render() string {
 	// IMPACT SUMMARY - Highlighted recommendation
 	// ══════════════════════════════════════════════════════════════════════════
 	if m.plan.Summary.HighestImpact != "" && m.plan.Summary.UnblocksCount > 0 {
-		summaryStyle := t.Renderer.NewStyle().
+		summaryStyle := lipgloss.NewStyle().
 			Foreground(t.Open).
 			Background(t.Highlight).
 			Bold(true).
@@ -212,13 +212,13 @@ func (m *ActionableModel) Render() string {
 	// ══════════════════════════════════════════════════════════════════════════
 	for trackIdx, track := range m.plan.Tracks {
 		// Track header with pill-style badge
-		trackBadgeStyle := t.Renderer.NewStyle().
+		trackBadgeStyle := lipgloss.NewStyle().
 			Foreground(t.Base.GetForeground()).
 			Background(t.Secondary).
 			Bold(true).
 			Padding(0, 1)
 
-		trackReasonStyle := t.Renderer.NewStyle().
+		trackReasonStyle := lipgloss.NewStyle().
 			Foreground(t.Secondary).
 			Italic(true)
 
@@ -236,7 +236,7 @@ func (m *ActionableModel) Render() string {
 		if divWidth < 0 {
 			divWidth = 0
 		}
-		lines = append(lines, t.Renderer.NewStyle().Foreground(t.Highlight).Render(strings.Repeat("·", divWidth)))
+		lines = append(lines, lipgloss.NewStyle().Foreground(t.Highlight).Render(strings.Repeat("·", divWidth)))
 
 		// Track items as mini-cards
 		for itemIdx, item := range track.Items {
@@ -247,13 +247,13 @@ func (m *ActionableModel) Render() string {
 
 			// Selection indicator
 			if isSelected {
-				itemLine.WriteString(t.Renderer.NewStyle().Foreground(t.Primary).Bold(true).Render("▸ "))
+				itemLine.WriteString(lipgloss.NewStyle().Foreground(t.Primary).Bold(true).Render("▸ "))
 			} else {
 				itemLine.WriteString("  ")
 			}
 
 			// Tree connector with better styling
-			connectorStyle := t.Renderer.NewStyle().Foreground(t.Subtext)
+			connectorStyle := lipgloss.NewStyle().Foreground(t.Subtext)
 			if itemIdx < len(track.Items)-1 {
 				itemLine.WriteString(connectorStyle.Render("├─ "))
 			} else {
@@ -265,7 +265,7 @@ func (m *ActionableModel) Render() string {
 			itemLine.WriteString(" ")
 
 			// ID with secondary styling
-			idStyle := t.Renderer.NewStyle().Foreground(t.Secondary)
+			idStyle := lipgloss.NewStyle().Foreground(t.Secondary)
 			if isSelected {
 				idStyle = idStyle.Bold(true)
 			}
@@ -279,7 +279,7 @@ func (m *ActionableModel) Render() string {
 			}
 			title := truncateRunesHelper(item.Title, maxTitleLen, "…")
 
-			titleStyle := t.Renderer.NewStyle()
+			titleStyle := lipgloss.NewStyle()
 			if isSelected {
 				titleStyle = titleStyle.Foreground(t.Primary).Bold(true)
 			} else {
@@ -289,7 +289,7 @@ func (m *ActionableModel) Render() string {
 
 			// Unblocks count badge
 			if len(item.UnblocksIDs) > 0 {
-				unblockBadge := t.Renderer.NewStyle().
+				unblockBadge := lipgloss.NewStyle().
 					Foreground(t.Open).
 					Bold(true).
 					Render(fmt.Sprintf(" →%d", len(item.UnblocksIDs)))
@@ -297,7 +297,7 @@ func (m *ActionableModel) Render() string {
 			}
 
 			// Style the line with background if selected
-			lineStyle := t.Renderer.NewStyle().Width(m.width - 2)
+			lineStyle := lipgloss.NewStyle().Width(m.width - 2)
 			if isSelected {
 				lineStyle = lineStyle.Background(t.Highlight)
 			}
@@ -306,7 +306,7 @@ func (m *ActionableModel) Render() string {
 
 			// Show unblocks detail for selected item
 			if isSelected && len(item.UnblocksIDs) > 0 {
-				unblocksStyle := t.Renderer.NewStyle().
+				unblocksStyle := lipgloss.NewStyle().
 					Foreground(t.Feature).
 					Italic(true).
 					PaddingLeft(8)

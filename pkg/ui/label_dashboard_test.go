@@ -1,17 +1,15 @@
 package ui
 
 import (
-	"os"
 	"testing"
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
 )
 
 // createTheme creates a theme for testing
 func createTheme() Theme {
-	return DefaultTheme(lipgloss.NewRenderer(os.Stdout))
+	return DefaultTheme()
 }
 
 func TestLabelDashboardModel_ScrollAndHomeEnd(t *testing.T) {
@@ -27,29 +25,29 @@ func TestLabelDashboardModel_ScrollAndHomeEnd(t *testing.T) {
 	})
 
 	// Move cursor down within visible range; no scroll yet.
-	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	m.Update(tea.KeyPressMsg{Code: 'j', Text: "j"})
 	if m.cursor != 1 || m.scrollOffset != 0 {
 		t.Fatalf("after j: cursor=%d scroll=%d; want cursor=1 scroll=0", m.cursor, m.scrollOffset)
 	}
 
 	// Move down past bottom; should scroll.
-	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	m.Update(tea.KeyPressMsg{Code: 'j', Text: "j"})
 	if m.cursor != 2 || m.scrollOffset != 1 {
 		t.Fatalf("after j,j: cursor=%d scroll=%d; want cursor=2 scroll=1", m.cursor, m.scrollOffset)
 	}
 
 	// Move back up past top; should scroll up.
-	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	m.Update(tea.KeyPressMsg{Code: 'k', Text: "k"})
 	if m.cursor != 1 || m.scrollOffset != 1 {
 		t.Fatalf("after k: cursor=%d scroll=%d; want cursor=1 scroll=1", m.cursor, m.scrollOffset)
 	}
-	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	m.Update(tea.KeyPressMsg{Code: 'k', Text: "k"})
 	if m.cursor != 0 || m.scrollOffset != 0 {
 		t.Fatalf("after k,k: cursor=%d scroll=%d; want cursor=0 scroll=0", m.cursor, m.scrollOffset)
 	}
 
 	// End should jump to last item and scroll to bottom.
-	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("G")})
+	m.Update(tea.KeyPressMsg{Code: 'G', Text: "G"})
 	if m.cursor != 4 {
 		t.Fatalf("after G: cursor=%d; want 4", m.cursor)
 	}
@@ -58,7 +56,7 @@ func TestLabelDashboardModel_ScrollAndHomeEnd(t *testing.T) {
 	}
 
 	// Home should reset.
-	m.Update(tea.KeyMsg{Type: tea.KeyHome})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyHome})
 	if m.cursor != 0 || m.scrollOffset != 0 {
 		t.Fatalf("after home: cursor=%d scroll=%d; want cursor=0 scroll=0", m.cursor, m.scrollOffset)
 	}
@@ -72,8 +70,8 @@ func TestLabelDashboardModel_EnterReturnsSelectedLabel(t *testing.T) {
 		{Label: "frontend", HealthLevel: analysis.HealthLevelHealthy, Blocked: 0, Health: 90},
 	})
 
-	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
-	label, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m.Update(tea.KeyPressMsg{Code: 'j', Text: "j"})
+	label, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if label != "frontend" {
 		t.Fatalf("enter label=%q; want %q", label, "frontend")
 	}
@@ -236,7 +234,7 @@ func TestLabelDashboardModel_ViewScrolling(t *testing.T) {
 	}
 
 	// Scroll down to bottom
-	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("G")})
+	m.Update(tea.KeyPressMsg{Code: 'G', Text: "G"})
 	view = m.View()
 
 	// After scrolling to end, 'eee' (last alphabetically) should be visible
@@ -259,7 +257,7 @@ func TestLabelDashboardModel_SetDataSortsCriticalFirst(t *testing.T) {
 	})
 
 	// Move cursor to first position and select
-	label, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	label, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if label != "critical" {
 		t.Errorf("First label should be 'critical' (sorted by health level), got %q", label)
 	}
@@ -274,7 +272,7 @@ func TestLabelDashboardModel_SetDataSortsByBlockedCount(t *testing.T) {
 	})
 
 	// First should be more-blocked (higher blocked count)
-	label, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	label, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if label != "more-blocked" {
 		t.Errorf("First label should be 'more-blocked', got %q", label)
 	}
@@ -289,7 +287,7 @@ func TestLabelDashboardModel_SetDataSortsByHealth(t *testing.T) {
 	})
 
 	// First should be worse (lower health, more urgent)
-	label, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	label, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if label != "worse" {
 		t.Errorf("First label should be 'worse' (lower health), got %q", label)
 	}
@@ -304,7 +302,7 @@ func TestLabelDashboardModel_SetDataSortsByNameTiebreaker(t *testing.T) {
 	})
 
 	// First should be alpha (alphabetical)
-	label, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	label, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if label != "alpha" {
 		t.Errorf("First label should be 'alpha' (alphabetical), got %q", label)
 	}
@@ -320,7 +318,7 @@ func TestLabelDashboardModel_SetDataCursorBoundsCheck(t *testing.T) {
 	})
 
 	// Move cursor to position 4
-	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("G")}) // Go to end
+	m.Update(tea.KeyPressMsg{Code: 'G', Text: "G"}) // Go to end
 
 	// Now set data with only 2 labels - cursor should be clamped
 	m.SetData([]analysis.LabelHealth{
@@ -328,7 +326,7 @@ func TestLabelDashboardModel_SetDataCursorBoundsCheck(t *testing.T) {
 	})
 
 	// Cursor should be at position 1 (last valid position)
-	label, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	label, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	// Due to sorting, we just check it's one of the valid labels
 	if label != "x" && label != "y" {
 		t.Errorf("Label should be 'x' or 'y', got %q", label)
@@ -360,10 +358,10 @@ func TestLabelDashboardModel_UpdateDownKeyAtEnd(t *testing.T) {
 	})
 
 	// Try to move down when already at end
-	m.Update(tea.KeyMsg{Type: tea.KeyDown})
-	m.Update(tea.KeyMsg{Type: tea.KeyDown})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
 
-	label, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	label, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if label != "only" {
 		t.Errorf("Cursor should stay at 'only', got %q", label)
 	}
@@ -378,9 +376,9 @@ func TestLabelDashboardModel_UpdateUpKeyAtStart(t *testing.T) {
 	})
 
 	// Try to move up when at start
-	m.Update(tea.KeyMsg{Type: tea.KeyUp})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyUp})
 
-	label, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	label, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if label != "first" {
 		t.Errorf("Cursor should stay at 'first', got %q", label)
 	}
@@ -393,8 +391,8 @@ func TestLabelDashboardModel_UpdateEndKeySmallList(t *testing.T) {
 		{Label: "a"}, {Label: "b"},
 	})
 
-	m.Update(tea.KeyMsg{Type: tea.KeyEnd})
-	label, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyEnd})
+	label, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if label != "b" {
 		t.Errorf("After End on small list, should be at 'b', got %q", label)
 	}
@@ -405,7 +403,7 @@ func TestLabelDashboardModel_UpdateEnterEmptyList(t *testing.T) {
 	m.SetSize(80, 20)
 	m.SetData([]analysis.LabelHealth{})
 
-	label, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	label, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if label != "" {
 		t.Errorf("Enter on empty list should return empty string, got %q", label)
 	}
@@ -419,8 +417,8 @@ func TestLabelDashboardModel_UpdateVisibleRowsMinimum(t *testing.T) {
 	})
 
 	// Navigation should still work
-	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
-	label, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m.Update(tea.KeyPressMsg{Code: 'j', Text: "j"})
+	label, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 	if label != "b" {
 		t.Errorf("Should navigate to 'b', got %q", label)
 	}
@@ -563,12 +561,12 @@ func TestLabelDashboardModel_FullWorkflow(t *testing.T) {
 	}
 
 	// Navigate down and select
-	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
-	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	m.Update(tea.KeyPressMsg{Code: 'j', Text: "j"})
+	m.Update(tea.KeyPressMsg{Code: 'j', Text: "j"})
 
 	// Home should return to start
-	m.Update(tea.KeyMsg{Type: tea.KeyHome})
-	label, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m.Update(tea.KeyPressMsg{Code: tea.KeyHome})
+	label, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
 
 	// First label should be critical (sorted first)
 	if label != "critical-bug" {

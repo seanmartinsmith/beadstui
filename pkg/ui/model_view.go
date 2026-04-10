@@ -8,7 +8,8 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 func (m Model) renderLoadingScreen() string {
@@ -34,9 +35,9 @@ func (m Model) renderLoadingScreen() string {
 	return lipgloss.Place(m.width, m.height-1, lipgloss.Center, lipgloss.Center, content)
 }
 
-func (m Model) View() string {
+func (m Model) View() tea.View {
 	if !m.ready {
-		return "Initializing..."
+		return tea.NewView("Initializing...")
 	}
 
 	var body string
@@ -132,26 +133,29 @@ func (m Model) View() string {
 		Height(m.height).
 		MaxHeight(m.height)
 
-	return finalStyle.Render(lipgloss.JoinVertical(lipgloss.Left, body, footer))
+	v := tea.NewView(finalStyle.Render(lipgloss.JoinVertical(lipgloss.Left, body, footer)))
+	v.AltScreen = true
+	v.MouseMode = tea.MouseModeCellMotion
+	return v
 }
 
 func (m Model) renderQuitConfirm() string {
 	t := m.theme
 
-	boxStyle := t.Renderer.NewStyle().
+	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(t.Blocked).
 		Padding(1, 3).
 		Align(lipgloss.Center)
 
-	titleStyle := t.Renderer.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Foreground(t.Blocked).
 		Bold(true)
 
-	textStyle := t.Renderer.NewStyle().
+	textStyle := lipgloss.NewStyle().
 		Foreground(t.Base.GetForeground())
 
-	keyStyle := t.Renderer.NewStyle().
+	keyStyle := lipgloss.NewStyle().
 		Foreground(t.Primary).
 		Bold(true)
 
@@ -180,7 +184,7 @@ func (m Model) renderListWithHeader() string {
 	}
 
 	// Render column header
-	headerStyle := t.Renderer.NewStyle().
+	headerStyle := lipgloss.NewStyle().
 		Background(t.Primary).
 		Foreground(ColorBgContrast).
 		Bold(true).
@@ -216,7 +220,7 @@ func (m Model) renderListWithHeader() string {
 	}
 
 	pageInfo := fmt.Sprintf(" Page %d of %d (items %d-%d of %d) ", currentPage, totalPages, startItem, endItem, totalItems)
-	pageStyle := t.Renderer.NewStyle().
+	pageStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary).
 		Align(lipgloss.Right).
 		Width(m.width - 2)
@@ -259,7 +263,7 @@ func (m Model) renderSplitView() string {
 	panelHeight := m.height - 2 // leave room for footer
 
 	// Create header row for list
-	headerStyle := t.Renderer.NewStyle().
+	headerStyle := lipgloss.NewStyle().
 		Background(t.Primary).
 		Foreground(ColorBgContrast).
 		Bold(true).
@@ -293,7 +297,7 @@ func (m Model) renderSplitView() string {
 	}
 
 	pageInfo := fmt.Sprintf("Page %d/%d (%d-%d of %d) ", currentPage, totalPages, startItem, endItem, totalItems)
-	pageStyle := t.Renderer.NewStyle().
+	pageStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary).
 		Width(listInnerWidth).
 		Align(lipgloss.Center)
@@ -305,16 +309,16 @@ func (m Model) renderSplitView() string {
 
 	// Titled panel dimensions: outer width includes the 2 border chars
 	listOuterWidth := listInnerWidth + 4 // content + padding + borders
-	detailOuterWidth := m.viewport.Width + 4
+	detailOuterWidth := m.viewport.Width() + 4
 
-	listView := RenderTitledPanel(t.Renderer, listContent, PanelOpts{
+	listView := RenderTitledPanel(listContent, PanelOpts{
 		Title:   "Issues",
 		Width:   listOuterWidth,
 		Height:  panelHeight,
 		Focused: m.focused == focusList,
 	})
 
-	detailView := RenderTitledPanel(t.Renderer, m.viewport.View(), PanelOpts{
+	detailView := RenderTitledPanel(m.viewport.View(), PanelOpts{
 		Title:   "Details",
 		Width:   detailOuterWidth,
 		Height:  panelHeight,
@@ -330,7 +334,7 @@ func (m *Model) renderHelpOverlay() string {
 	gapWidth := 3 // gap between panels in river layout
 
 	// Tomorrow Night gradient for help overlay sections
-	colors := []lipgloss.AdaptiveColor{
+	colors := []AdaptiveColor{
 		{Light: "#3e999f", Dark: "#8abeb7"}, // Teal (primary)
 		{Light: "#4271ae", Dark: "#81a2be"}, // Blue
 		{Light: "#718c00", Dark: "#b5bd68"}, // Green
@@ -344,11 +348,11 @@ func (m *Model) renderHelpOverlay() string {
 	renderPanel := func(title string, icon string, colorIdx int, shortcuts []struct{ key, desc string }) string {
 		color := colors[colorIdx%len(colors)]
 
-		keyStyle := t.Renderer.NewStyle().
+		keyStyle := lipgloss.NewStyle().
 			Foreground(color).
 			Bold(true)
 
-		descStyle := t.Renderer.NewStyle().
+		descStyle := lipgloss.NewStyle().
 			Foreground(t.Base.GetForeground())
 
 		// Find widest key and widest desc for alignment
@@ -389,7 +393,7 @@ func (m *Model) renderHelpOverlay() string {
 		}
 
 		content := lipgloss.JoinVertical(lipgloss.Left, lines...)
-		return RenderTitledPanel(t.Renderer, content, PanelOpts{
+		return RenderTitledPanel(content, PanelOpts{
 			Title:       icon + " " + title,
 			Width:       panelWidth,
 			CenterTitle: true,
@@ -551,10 +555,10 @@ func (m *Model) renderHelpOverlay() string {
 	}
 
 	// Title and subtitle as plain centered text (no outer border)
-	titleStyle := t.Renderer.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Foreground(t.Primary).
 		Bold(true)
-	subtitleStyle := t.Renderer.NewStyle().
+	subtitleStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary).
 		Italic(true)
 
@@ -582,13 +586,13 @@ func (m Model) renderLabelHealthDetail(lh analysis.LabelHealth) string {
 	}
 
 	// 1. Define styles first so closures can capture them
-	boxStyle := t.Renderer.NewStyle().
+	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(t.Primary).
 		Padding(1, 2)
 
-	labelStyle := t.Renderer.NewStyle().Foreground(t.Secondary).Bold(true)
-	valStyle := t.Renderer.NewStyle().Foreground(t.Base.GetForeground())
+	labelStyle := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+	valStyle := lipgloss.NewStyle().Foreground(t.Base.GetForeground())
 
 	// 2. Define helper functions
 	bar := func(score int) string {
@@ -640,7 +644,7 @@ func (m Model) renderLabelHealthDetail(lh analysis.LabelHealth) string {
 
 	// 3. Build content
 	var sb strings.Builder
-	sb.WriteString(t.Renderer.NewStyle().Foreground(t.Primary).Bold(true).MarginBottom(1).
+	sb.WriteString(lipgloss.NewStyle().Foreground(t.Primary).Bold(true).MarginBottom(1).
 		Render(fmt.Sprintf("Label Health: %s", lh.Label)))
 	sb.WriteString("\n")
 
@@ -695,7 +699,7 @@ func (m Model) renderLabelHealthDetail(lh analysis.LabelHealth) string {
 		}
 	}
 
-	sb.WriteString(t.Renderer.NewStyle().Foreground(t.Secondary).Italic(true).Render("Press Esc to close"))
+	sb.WriteString(lipgloss.NewStyle().Foreground(t.Secondary).Italic(true).Render("Press Esc to close"))
 
 	content := boxStyle.Render(sb.String())
 
@@ -712,21 +716,21 @@ func (m Model) renderLabelHealthDetail(lh analysis.LabelHealth) string {
 func (m Model) renderLabelDrilldown() string {
 	t := m.theme
 
-	boxStyle := t.Renderer.NewStyle().
+	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(t.Primary).
 		Padding(1, 2).
 		Align(lipgloss.Left)
 
-	titleStyle := t.Renderer.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Foreground(t.Primary).
 		Bold(true)
 
-	labelStyle := t.Renderer.NewStyle().
+	labelStyle := lipgloss.NewStyle().
 		Foreground(t.Base.GetForeground()).
 		Bold(true)
 
-	valStyle := t.Renderer.NewStyle().
+	valStyle := lipgloss.NewStyle().
 		Foreground(t.Base.GetForeground())
 
 	// Locate cached health for this label (if available)
@@ -862,7 +866,7 @@ func (m Model) renderLabelDrilldown() string {
 		sb.WriteString("\n")
 	}
 
-	sb.WriteString(t.Renderer.NewStyle().Foreground(t.Secondary).Italic(true).Render("Press Esc to close • g for graph analysis"))
+	sb.WriteString(lipgloss.NewStyle().Foreground(t.Secondary).Italic(true).Render("Press Esc to close • g for graph analysis"))
 
 	content := boxStyle.Render(sb.String())
 
@@ -880,24 +884,24 @@ func (m Model) renderLabelGraphAnalysis() string {
 	t := m.theme
 	r := m.labelGraphAnalysisResult
 
-	boxStyle := t.Renderer.NewStyle().
+	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(t.Primary).
 		Padding(1, 2).
 		Align(lipgloss.Left)
 
-	titleStyle := t.Renderer.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Foreground(t.Primary).
 		Bold(true)
 
-	labelStyle := t.Renderer.NewStyle().
+	labelStyle := lipgloss.NewStyle().
 		Foreground(t.Base.GetForeground()).
 		Bold(true)
 
-	valStyle := t.Renderer.NewStyle().
+	valStyle := lipgloss.NewStyle().
 		Foreground(t.Base.GetForeground())
 
-	subtextStyle := t.Renderer.NewStyle().
+	subtextStyle := lipgloss.NewStyle().
 		Foreground(t.Subtext).
 		Italic(true)
 
@@ -1018,7 +1022,7 @@ func (m Model) renderLabelGraphAnalysis() string {
 	}
 
 	sb.WriteString("\n")
-	sb.WriteString(t.Renderer.NewStyle().Foreground(t.Secondary).Italic(true).Render("Press Esc/q/g to close"))
+	sb.WriteString(lipgloss.NewStyle().Foreground(t.Secondary).Italic(true).Render("Press Esc/q/g to close"))
 
 	content := boxStyle.Render(sb.String())
 
@@ -1035,28 +1039,28 @@ func (m Model) renderLabelGraphAnalysis() string {
 func (m Model) renderTimeTravelPrompt() string {
 	t := m.theme
 
-	boxStyle := t.Renderer.NewStyle().
+	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(t.Primary).
 		Padding(1, 3).
 		Align(lipgloss.Center)
 
-	titleStyle := t.Renderer.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Foreground(t.Primary).
 		Bold(true)
 
-	subtitleStyle := t.Renderer.NewStyle().
+	subtitleStyle := lipgloss.NewStyle().
 		Foreground(t.Subtext).
 		Italic(true)
 
-	exampleStyle := t.Renderer.NewStyle().
+	exampleStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary)
 
-	keyStyle := t.Renderer.NewStyle().
+	keyStyle := lipgloss.NewStyle().
 		Foreground(t.Primary).
 		Bold(true)
 
-	textStyle := t.Renderer.NewStyle().
+	textStyle := lipgloss.NewStyle().
 		Foreground(t.Base.GetForeground())
 
 	// Build content

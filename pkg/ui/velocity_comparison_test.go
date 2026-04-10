@@ -5,11 +5,12 @@ import (
 	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/model"
-	"github.com/charmbracelet/lipgloss"
+
+	"charm.land/lipgloss/v2"
 )
 
 func TestNewVelocityComparisonModel(t *testing.T) {
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
+	theme := DefaultTheme()
 	m := NewVelocityComparisonModel(theme)
 
 	if m.cursor != 0 {
@@ -21,7 +22,7 @@ func TestNewVelocityComparisonModel(t *testing.T) {
 }
 
 func TestVelocityComparisonSetData(t *testing.T) {
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
+	theme := DefaultTheme()
 	m := NewVelocityComparisonModel(theme)
 
 	now := time.Now().UTC()
@@ -42,7 +43,7 @@ func TestVelocityComparisonSetData(t *testing.T) {
 }
 
 func TestVelocityComparisonNavigation(t *testing.T) {
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
+	theme := DefaultTheme()
 	m := NewVelocityComparisonModel(theme)
 
 	now := time.Now().UTC()
@@ -76,7 +77,7 @@ func TestVelocityComparisonNavigation(t *testing.T) {
 }
 
 func TestVelocityComparisonSelectedLabel(t *testing.T) {
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
+	theme := DefaultTheme()
 	m := NewVelocityComparisonModel(theme)
 
 	// Empty data
@@ -98,9 +99,8 @@ func TestVelocityComparisonSelectedLabel(t *testing.T) {
 
 func TestVelocityComparisonView(t *testing.T) {
 	theme := Theme{
-		Renderer:  lipgloss.DefaultRenderer(),
-		Primary:   lipgloss.AdaptiveColor{Light: "#00ff00", Dark: "#00ff00"},
-		Secondary: lipgloss.AdaptiveColor{Light: "#888888", Dark: "#888888"},
+		Primary:   AdaptiveColor{Light: "#00ff00", Dark: "#00ff00"},
+		Secondary: AdaptiveColor{Light: "#888888", Dark: "#888888"},
 		Base:      lipgloss.NewStyle(),
 	}
 	m := NewVelocityComparisonModel(theme)
@@ -124,9 +124,8 @@ func TestVelocityComparisonView(t *testing.T) {
 
 func TestVelocityComparisonWithData(t *testing.T) {
 	theme := Theme{
-		Renderer:  lipgloss.DefaultRenderer(),
-		Primary:   lipgloss.AdaptiveColor{Light: "#00ff00", Dark: "#00ff00"},
-		Secondary: lipgloss.AdaptiveColor{Light: "#888888", Dark: "#888888"},
+		Primary:   AdaptiveColor{Light: "#00ff00", Dark: "#00ff00"},
+		Secondary: AdaptiveColor{Light: "#888888", Dark: "#888888"},
 		Base:      lipgloss.NewStyle(),
 	}
 	m := NewVelocityComparisonModel(theme)
@@ -190,7 +189,7 @@ func TestBuildSparkline(t *testing.T) {
 }
 
 func TestVelocityComparisonDataCount(t *testing.T) {
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
+	theme := DefaultTheme()
 	m := NewVelocityComparisonModel(theme)
 
 	if count := m.DataCount(); count != 0 {

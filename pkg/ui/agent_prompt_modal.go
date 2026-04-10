@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"github.com/seanmartinsmith/beadstui/pkg/agents"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // AgentPromptResult represents the user's choice on the AGENTS.md prompt.
@@ -45,7 +45,7 @@ func NewAgentPromptModal(filePath, fileType string, theme Theme) AgentPromptModa
 // Update handles input for the modal.
 func (m AgentPromptModal) Update(msg tea.Msg) (AgentPromptModal, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch msg.String() {
 		case "left", "h", "shift+tab":
 			m.selection--
@@ -57,7 +57,7 @@ func (m AgentPromptModal) Update(msg tea.Msg) (AgentPromptModal, tea.Cmd) {
 			if m.selection > 2 {
 				m.selection = 0
 			}
-		case "enter", " ":
+		case "enter", "space":
 			switch m.selection {
 			case 0:
 				m.result = AgentPromptAccept
@@ -81,39 +81,38 @@ func (m AgentPromptModal) Update(msg tea.Msg) (AgentPromptModal, tea.Cmd) {
 
 // View renders the modal.
 func (m AgentPromptModal) View() string {
-	r := m.theme.Renderer
 
 	// Modal container style
-	modalStyle := r.NewStyle().
+	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(m.theme.Primary).
 		Padding(1, 2).
 		Width(m.width)
 
 	// Title
-	titleStyle := r.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(m.theme.Primary).
 		MarginBottom(1)
 
 	// Body text
-	bodyStyle := r.NewStyle().
+	bodyStyle := lipgloss.NewStyle().
 		Foreground(ColorText)
 
 	// Preview box
-	previewBoxStyle := r.NewStyle().
+	previewBoxStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(m.theme.Border).
 		Padding(0, 1).
 		Width(m.width - 8).
 		MaxHeight(8)
 
-	previewHeaderStyle := r.NewStyle().
+	previewHeaderStyle := lipgloss.NewStyle().
 		Foreground(m.theme.Subtext).
 		Italic(true)
 
 	// Buttons
-	buttonBase := r.NewStyle().
+	buttonBase := lipgloss.NewStyle().
 		Padding(0, 2).
 		MarginRight(1)
 
@@ -184,7 +183,7 @@ func (m AgentPromptModal) View() string {
 	b.WriteString(lipgloss.JoinHorizontal(lipgloss.Center, buttons...))
 
 	// Footer hint
-	hintStyle := r.NewStyle().
+	hintStyle := lipgloss.NewStyle().
 		Foreground(m.theme.Subtext).
 		Italic(true).
 		MarginTop(1)
@@ -259,10 +258,9 @@ func (m AgentPromptModal) CenterModal(termWidth, termHeight int) string {
 		padLeft = 0
 	}
 
-	r := m.theme.Renderer
 
 	// Create centered version
-	centered := r.NewStyle().
+	centered := lipgloss.NewStyle().
 		MarginTop(padTop).
 		MarginLeft(padLeft).
 		Render(modal)

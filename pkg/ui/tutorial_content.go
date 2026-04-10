@@ -1,6 +1,5 @@
 package ui
 
-import "github.com/charmbracelet/lipgloss"
 
 // StructuredTutorialPage represents a tutorial page with typed elements
 type StructuredTutorialPage struct {
@@ -18,12 +17,12 @@ func RenderStructuredPage(page StructuredTutorialPage, theme Theme, width int) s
 
 // Theme colors for status flow diagrams
 var (
-	colorOpen       = lipgloss.AdaptiveColor{Light: "#718c00", Dark: "#b5bd68"}
-	colorInProgress = lipgloss.AdaptiveColor{Light: "#4271ae", Dark: "#81a2be"}
-	colorBlocked    = lipgloss.AdaptiveColor{Light: "#c82829", Dark: "#cc6666"}
-	colorClosed     = lipgloss.AdaptiveColor{Light: "#8e908c", Dark: "#969896"}
-	colorPrimary    = lipgloss.AdaptiveColor{Light: "#3e999f", Dark: "#8abeb7"}
-	colorFeature    = lipgloss.AdaptiveColor{Light: "#f5871f", Dark: "#de935f"}
+	colorOpen       = AdaptiveColor{Light: "#718c00", Dark: "#b5bd68"}
+	colorInProgress = AdaptiveColor{Light: "#4271ae", Dark: "#81a2be"}
+	colorBlocked    = AdaptiveColor{Light: "#c82829", Dark: "#cc6666"}
+	colorClosed     = AdaptiveColor{Light: "#8e908c", Dark: "#969896"}
+	colorPrimary    = AdaptiveColor{Light: "#3e999f", Dark: "#8abeb7"}
+	colorFeature    = AdaptiveColor{Light: "#f5871f", Dark: "#de935f"}
 )
 
 // structuredTutorialPages returns tutorial content using the component system

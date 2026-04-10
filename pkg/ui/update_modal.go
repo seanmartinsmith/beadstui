@@ -8,8 +8,8 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/updater"
 	"github.com/seanmartinsmith/beadstui/pkg/version"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // UpdateState represents the current state of the update process
@@ -117,7 +117,7 @@ func PerformUpdateCmd() tea.Cmd {
 // Update handles input for the modal.
 func (m UpdateModal) Update(msg tea.Msg) (UpdateModal, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		switch m.state {
 		case UpdateStateConfirm:
 			switch msg.String() {
@@ -182,35 +182,34 @@ func (m UpdateModal) Update(msg tea.Msg) (UpdateModal, tea.Cmd) {
 
 // View renders the modal.
 func (m UpdateModal) View() string {
-	r := m.theme.Renderer
 
 	// Modal container style
-	modalStyle := r.NewStyle().
+	modalStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(m.theme.Primary).
 		Padding(1, 2).
 		Width(m.width)
 
 	// Header style
-	headerStyle := r.NewStyle().
+	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(m.theme.Primary)
 
 	// Version styles
-	currentVersionStyle := r.NewStyle().
+	currentVersionStyle := lipgloss.NewStyle().
 		Foreground(m.theme.Subtext)
 
-	newVersionStyle := r.NewStyle().
+	newVersionStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(ColorStatusOpen)
 
 	// Button styles
-	buttonStyle := r.NewStyle().
+	buttonStyle := lipgloss.NewStyle().
 		Padding(0, 2).
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(m.theme.Border)
 
-	selectedButtonStyle := r.NewStyle().
+	selectedButtonStyle := lipgloss.NewStyle().
 		Padding(0, 2).
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(m.theme.Primary).
@@ -218,15 +217,15 @@ func (m UpdateModal) View() string {
 		Foreground(ColorBg).
 		Bold(true)
 
-	successStyle := r.NewStyle().
+	successStyle := lipgloss.NewStyle().
 		Foreground(ColorStatusOpen).
 		Bold(true)
 
-	errorStyle := r.NewStyle().
+	errorStyle := lipgloss.NewStyle().
 		Foreground(ColorStatusBlocked).
 		Bold(true)
 
-	subtextStyle := r.NewStyle().
+	subtextStyle := lipgloss.NewStyle().
 		Foreground(m.theme.Subtext).
 		Italic(true)
 
@@ -393,10 +392,9 @@ func (m UpdateModal) CenterModal(termWidth, termHeight int) string {
 		padLeft = 0
 	}
 
-	r := m.theme.Renderer
 
 	// Create centered version
-	centered := r.NewStyle().
+	centered := lipgloss.NewStyle().
 		MarginTop(padTop).
 		MarginLeft(padLeft).
 		Render(modal)

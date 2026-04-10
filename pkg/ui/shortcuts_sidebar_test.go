@@ -4,11 +4,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 )
 
 func TestNewShortcutsSidebar(t *testing.T) {
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
+	theme := DefaultTheme()
 	sidebar := NewShortcutsSidebar(theme)
 
 	if sidebar.width != 34 {
@@ -20,7 +20,7 @@ func TestNewShortcutsSidebar(t *testing.T) {
 }
 
 func TestShortcutsSidebarSetContext(t *testing.T) {
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
+	theme := DefaultTheme()
 	sidebar := NewShortcutsSidebar(theme)
 
 	sidebar.SetContext("graph")
@@ -35,7 +35,7 @@ func TestShortcutsSidebarSetContext(t *testing.T) {
 }
 
 func TestShortcutsSidebarScrolling(t *testing.T) {
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
+	theme := DefaultTheme()
 	sidebar := NewShortcutsSidebar(theme)
 
 	// Initial scroll offset should be 0
@@ -83,9 +83,8 @@ func TestShortcutsSidebarScrolling(t *testing.T) {
 
 func TestShortcutsSidebarView(t *testing.T) {
 	theme := Theme{
-		Renderer:  lipgloss.DefaultRenderer(),
-		Primary:   lipgloss.AdaptiveColor{Light: "#00ff00", Dark: "#00ff00"},
-		Secondary: lipgloss.AdaptiveColor{Light: "#888888", Dark: "#888888"},
+		Primary:   AdaptiveColor{Light: "#00ff00", Dark: "#00ff00"},
+		Secondary: AdaptiveColor{Light: "#888888", Dark: "#888888"},
 		Base:      lipgloss.NewStyle(),
 	}
 	sidebar := NewShortcutsSidebar(theme)
@@ -109,9 +108,8 @@ func TestShortcutsSidebarView(t *testing.T) {
 
 func TestShortcutsSidebarContextFiltering(t *testing.T) {
 	theme := Theme{
-		Renderer:  lipgloss.DefaultRenderer(),
-		Primary:   lipgloss.AdaptiveColor{Light: "#00ff00", Dark: "#00ff00"},
-		Secondary: lipgloss.AdaptiveColor{Light: "#888888", Dark: "#888888"},
+		Primary:   AdaptiveColor{Light: "#00ff00", Dark: "#00ff00"},
+		Secondary: AdaptiveColor{Light: "#888888", Dark: "#888888"},
 		Base:      lipgloss.NewStyle(),
 	}
 
@@ -159,7 +157,7 @@ func TestContextFromFocus(t *testing.T) {
 }
 
 func TestShortcutsSidebarWidth(t *testing.T) {
-	theme := Theme{Renderer: lipgloss.DefaultRenderer()}
+	theme := DefaultTheme()
 	sidebar := NewShortcutsSidebar(theme)
 
 	if sidebar.Width() != 34 {

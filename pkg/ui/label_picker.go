@@ -5,8 +5,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/textinput"
+	"charm.land/lipgloss/v2"
 )
 
 // LabelPickerModel provides a fuzzy search popup for quick label filtering
@@ -30,7 +30,7 @@ func NewLabelPickerModel(labels []string, counts map[string]int, theme Theme) La
 	ti := textinput.New()
 	ti.Placeholder = "type to filter..."
 	ti.CharLimit = 50
-	ti.Width = 30
+	ti.SetWidth(30)
 	ti.Focus()
 
 	return LabelPickerModel{
@@ -237,7 +237,7 @@ func (m *LabelPickerModel) View() string {
 	var lines []string
 
 	// Title
-	titleStyle := t.Renderer.NewStyle().
+	titleStyle := lipgloss.NewStyle().
 		Foreground(t.Primary).
 		Bold(true).
 		MarginBottom(1)
@@ -245,7 +245,7 @@ func (m *LabelPickerModel) View() string {
 	lines = append(lines, "")
 
 	// Search input
-	inputStyle := t.Renderer.NewStyle().
+	inputStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(t.Secondary).
 		Padding(0, 1).
@@ -255,7 +255,7 @@ func (m *LabelPickerModel) View() string {
 
 	// Label list with scroll
 	if len(m.filtered) == 0 {
-		dimStyle := t.Renderer.NewStyle().
+		dimStyle := lipgloss.NewStyle().
 			Foreground(t.Secondary).
 			Italic(true)
 		lines = append(lines, dimStyle.Render("  No matching labels"))
@@ -274,8 +274,8 @@ func (m *LabelPickerModel) View() string {
 			label := m.filtered[i]
 			isSelected := i == m.selectedIndex
 
-			itemStyle := t.Renderer.NewStyle()
-			countStyle := t.Renderer.NewStyle().Foreground(t.Secondary)
+			itemStyle := lipgloss.NewStyle()
+			countStyle := lipgloss.NewStyle().Foreground(t.Secondary)
 			if isSelected {
 				itemStyle = itemStyle.Foreground(t.Primary).Bold(true)
 				countStyle = countStyle.Foreground(t.Primary)
@@ -302,7 +302,7 @@ func (m *LabelPickerModel) View() string {
 
 		// Show count if scrolling
 		if len(m.filtered) > maxVisible {
-			countStyle := t.Renderer.NewStyle().
+			countStyle := lipgloss.NewStyle().
 				Foreground(t.Secondary).
 				Italic(true)
 			lines = append(lines, "")
@@ -315,7 +315,7 @@ func (m *LabelPickerModel) View() string {
 
 	// Footer with keybindings
 	lines = append(lines, "")
-	footerStyle := t.Renderer.NewStyle().
+	footerStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary).
 		Italic(true)
 	lines = append(lines, footerStyle.Render("j/k: navigate | enter: apply | esc: cancel"))
@@ -323,7 +323,7 @@ func (m *LabelPickerModel) View() string {
 	content := strings.Join(lines, "\n")
 
 	// Box style
-	boxStyle := t.Renderer.NewStyle().
+	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
 		BorderForeground(t.Primary).
 		Padding(1, 2).

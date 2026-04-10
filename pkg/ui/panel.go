@@ -3,7 +3,7 @@ package ui
 import (
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/lipgloss/v2"
 	"github.com/mattn/go-runewidth"
 )
 
@@ -32,8 +32,8 @@ type PanelOpts struct {
 	// over the default focus-based colors, letting callers supply
 	// custom border/title colors (e.g. per-column board colors,
 	// dimmed "skipped" panels).
-	BorderColor *lipgloss.AdaptiveColor
-	TitleColor  *lipgloss.AdaptiveColor
+	BorderColor *AdaptiveColor
+	TitleColor  *AdaptiveColor
 }
 
 // borderChars returns the box-drawing characters for a variant.
@@ -54,7 +54,7 @@ func borderChars(v BorderVariant) (tl, tr, bl, br, h, vert string) {
 //	╭─ Title ──────────────────╮
 //	│ content                  │
 //	╰──────────────────────────╯
-func RenderTitledPanel(r *lipgloss.Renderer, content string, opts PanelOpts) string {
+func RenderTitledPanel(content string, opts PanelOpts) string {
 	if opts.Width < 4 {
 		opts.Width = 4
 	}
@@ -62,7 +62,7 @@ func RenderTitledPanel(r *lipgloss.Renderer, content string, opts PanelOpts) str
 	tl, tr, bl, br, h, vert := borderChars(opts.Variant)
 
 	// Colors: use overrides when provided, otherwise derive from focus state
-	var borderColor, titleColor lipgloss.AdaptiveColor
+	var borderColor, titleColor AdaptiveColor
 	if opts.BorderColor != nil {
 		borderColor = *opts.BorderColor
 	} else if opts.Focused {
@@ -79,8 +79,8 @@ func RenderTitledPanel(r *lipgloss.Renderer, content string, opts PanelOpts) str
 		titleColor = ColorMuted
 	}
 
-	borderStyle := r.NewStyle().Foreground(borderColor)
-	titleStyle := r.NewStyle().Foreground(titleColor)
+	borderStyle := lipgloss.NewStyle().Foreground(borderColor)
+	titleStyle := lipgloss.NewStyle().Foreground(titleColor)
 	if opts.Focused {
 		titleStyle = titleStyle.Bold(true)
 	}

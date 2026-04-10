@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/model"
-	"github.com/charmbracelet/lipgloss"
 )
 
 // generateHierarchyIssues creates a set of issues with parent-child relationships.
@@ -104,7 +103,7 @@ func BenchmarkTreeBuild(b *testing.B) {
 		{"1000_hierarchy_depth5", generateHierarchyIssues(10, 3, 5)},
 	}
 
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 
 	for _, bm := range benchmarks {
 		b.Run(bm.name, func(b *testing.B) {
@@ -120,7 +119,7 @@ func BenchmarkTreeBuild(b *testing.B) {
 // BenchmarkTreeBuild1000 specifically tests the 1000 issue target.
 func BenchmarkTreeBuild1000(b *testing.B) {
 	issues := generateHierarchyIssues(20, 4, 4) // Creates ~1000 issues
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -134,7 +133,7 @@ func BenchmarkTreeBuild1000(b *testing.B) {
 // BenchmarkTreeRender measures rendering performance.
 // Target: < 5ms for 100 visible nodes, Max acceptable: 20ms
 func BenchmarkTreeRender(b *testing.B) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 
 	benchmarks := []struct {
 		name    string
@@ -169,7 +168,7 @@ func BenchmarkTreeRender(b *testing.B) {
 
 // BenchmarkTreeRender100 specifically tests the 100 visible nodes target.
 func BenchmarkTreeRender100(b *testing.B) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	issues := generateHierarchyIssues(20, 3, 3)
 
 	tree := NewTreeModel(theme)
@@ -193,7 +192,7 @@ func BenchmarkTreeRender100(b *testing.B) {
 // BenchmarkFlatListRebuild measures flat list rebuild performance.
 // Target: < 2ms, Max acceptable: 10ms
 func BenchmarkFlatListRebuild(b *testing.B) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 
 	benchmarks := []struct {
 		name  string
@@ -223,7 +222,7 @@ func BenchmarkFlatListRebuild(b *testing.B) {
 
 // BenchmarkTreeNavigation measures cursor movement operations.
 func BenchmarkTreeNavigation(b *testing.B) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	issues := generateHierarchyIssues(20, 3, 4)
 
 	tree := NewTreeModel(theme)
@@ -279,7 +278,7 @@ func BenchmarkTreeNavigation(b *testing.B) {
 
 // BenchmarkTreeExpandCollapse measures expand/collapse all operations.
 func BenchmarkTreeExpandCollapse(b *testing.B) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	issues := generateHierarchyIssues(20, 4, 4)
 
 	tree := NewTreeModel(theme)
@@ -304,7 +303,7 @@ func BenchmarkTreeExpandCollapse(b *testing.B) {
 
 // BenchmarkSelectByID measures ID-based selection performance.
 func BenchmarkSelectByID(b *testing.B) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	issues := generateHierarchyIssues(20, 4, 4)
 
 	tree := NewTreeModel(theme)
@@ -332,7 +331,7 @@ func BenchmarkSelectByID(b *testing.B) {
 
 // BenchmarkBuildTreePrefix measures prefix building performance.
 func BenchmarkBuildTreePrefix(b *testing.B) {
-	theme := DefaultTheme(lipgloss.NewRenderer(nil))
+	theme := DefaultTheme()
 	issues := generateHierarchyIssues(10, 4, 5) // Deep tree
 
 	tree := NewTreeModel(theme)

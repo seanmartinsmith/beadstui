@@ -3,14 +3,12 @@ package ui_test
 import (
 	"context"
 	"fmt"
-	"io"
 	"runtime"
 	"testing"
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/ui"
-	"github.com/charmbracelet/lipgloss"
 )
 
 func generateLayeredIssues(levels, perLevel, fanIn int) []model.Issue {
@@ -82,7 +80,7 @@ func prepareGraphBench(levels, perLevel int) ([]model.Issue, *analysis.Insights,
 	stats.WaitForPhase2()
 	insights := stats.GenerateInsights(len(issues))
 
-	theme := ui.DefaultTheme(lipgloss.NewRenderer(io.Discard))
+	theme := ui.DefaultTheme()
 	return issues, &insights, theme
 }
 

@@ -4,7 +4,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/charmbracelet/lipgloss"
 )
 
 func TestNewMarkdownRenderer(t *testing.T) {
@@ -24,7 +23,7 @@ func TestNewMarkdownRenderer(t *testing.T) {
 }
 
 func TestNewMarkdownRendererWithTheme(t *testing.T) {
-	theme := DefaultTheme(lipgloss.DefaultRenderer())
+	theme := DefaultTheme()
 	mr := NewMarkdownRendererWithTheme(80, theme)
 	if mr == nil {
 		t.Fatal("NewMarkdownRendererWithTheme returned nil")
@@ -97,7 +96,7 @@ func TestMarkdownRenderer_SetWidth(t *testing.T) {
 }
 
 func TestMarkdownRenderer_SetWidthPreservesTheme(t *testing.T) {
-	theme := DefaultTheme(lipgloss.DefaultRenderer())
+	theme := DefaultTheme()
 	mr := NewMarkdownRendererWithTheme(80, theme)
 
 	if !mr.useTheme {
@@ -124,7 +123,7 @@ func TestMarkdownRenderer_SetWidthWithTheme(t *testing.T) {
 		t.Fatal("expected useTheme to be false initially")
 	}
 
-	theme := DefaultTheme(lipgloss.DefaultRenderer())
+	theme := DefaultTheme()
 	mr.SetWidthWithTheme(100, theme)
 
 	if mr.width != 100 {
@@ -140,7 +139,7 @@ func TestMarkdownRenderer_SetWidthWithTheme(t *testing.T) {
 
 func TestMarkdownRenderer_SetWidthWithThemeSameWidth(t *testing.T) {
 	// SetWidthWithTheme should allow updating theme even with same width
-	theme := DefaultTheme(lipgloss.DefaultRenderer())
+	theme := DefaultTheme()
 	mr := NewMarkdownRendererWithTheme(80, theme)
 
 	originalRenderer := mr.renderer
@@ -161,7 +160,7 @@ func TestMarkdownRenderer_SetWidthWithThemeInvalidWidth(t *testing.T) {
 	mr := NewMarkdownRenderer(80)
 	originalRenderer := mr.renderer
 
-	mr.SetWidthWithTheme(0, DefaultTheme(lipgloss.DefaultRenderer()))
+	mr.SetWidthWithTheme(0, DefaultTheme())
 	if mr.width != 80 {
 		t.Error("SetWidthWithTheme with width 0 should not change width")
 	}
@@ -169,7 +168,7 @@ func TestMarkdownRenderer_SetWidthWithThemeInvalidWidth(t *testing.T) {
 		t.Error("SetWidthWithTheme with width 0 should not change renderer")
 	}
 
-	mr.SetWidthWithTheme(-1, DefaultTheme(lipgloss.DefaultRenderer()))
+	mr.SetWidthWithTheme(-1, DefaultTheme())
 	if mr.width != 80 {
 		t.Error("SetWidthWithTheme with negative width should not change width")
 	}
@@ -182,7 +181,7 @@ func TestMarkdownRenderer_IsDarkMode(t *testing.T) {
 }
 
 func TestExtractHex(t *testing.T) {
-	ac := lipgloss.AdaptiveColor{Light: "#ffffff", Dark: "#000000"}
+	ac := AdaptiveColor{Light: "#ffffff", Dark: "#000000"}
 
 	lightHex := extractHex(ac, false)
 	if lightHex != "#ffffff" {
@@ -196,7 +195,7 @@ func TestExtractHex(t *testing.T) {
 }
 
 func TestBuildStyleFromTheme(t *testing.T) {
-	theme := DefaultTheme(lipgloss.DefaultRenderer())
+	theme := DefaultTheme()
 
 	// Test dark mode
 	darkConfig := buildStyleFromTheme(theme, true)

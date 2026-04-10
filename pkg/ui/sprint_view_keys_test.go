@@ -5,19 +5,18 @@ import (
 	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/model"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	tea "charm.land/bubbletea/v2"
 )
 
 func TestHandleSprintKeys_Exit(t *testing.T) {
 	m := Model{
 		isSprintView: true,
 		focused:      focusDetail,
-		theme:        DefaultTheme(lipgloss.NewRenderer(nil)),
+		theme:        DefaultTheme(),
 		width:        100,
 		height:       40,
 	}
-	m = m.handleSprintKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("P")})
+	m = m.handleSprintKeys(tea.KeyPressMsg{Code: 'P', Text: "P"})
 	if m.isSprintView {
 		t.Fatalf("expected sprint view to exit")
 	}
@@ -35,7 +34,7 @@ func TestHandleSprintKeys_NextPrevSprint(t *testing.T) {
 
 	m := Model{
 		isSprintView:   true,
-		theme:          DefaultTheme(lipgloss.NewRenderer(nil)),
+		theme:          DefaultTheme(),
 		width:          100,
 		height:         40,
 		issues:         []model.Issue{{ID: "A", Title: "Issue A", Status: model.StatusOpen, Priority: 1, IssueType: model.TypeTask}},
@@ -43,7 +42,7 @@ func TestHandleSprintKeys_NextPrevSprint(t *testing.T) {
 		selectedSprint: &sprints[0],
 	}
 
-	m = m.handleSprintKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	m = m.handleSprintKeys(tea.KeyPressMsg{Code: 'j', Text: "j"})
 	if m.selectedSprint == nil || m.selectedSprint.ID != "s2" {
 		t.Fatalf("after j: selected=%v; want s2", m.selectedSprint)
 	}
@@ -51,7 +50,7 @@ func TestHandleSprintKeys_NextPrevSprint(t *testing.T) {
 		t.Fatalf("expected sprintViewText to be populated after navigation")
 	}
 
-	m = m.handleSprintKeys(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	m = m.handleSprintKeys(tea.KeyPressMsg{Code: 'k', Text: "k"})
 	if m.selectedSprint == nil || m.selectedSprint.ID != "s1" {
 		t.Fatalf("after k: selected=%v; want s1", m.selectedSprint)
 	}
@@ -146,7 +145,7 @@ func TestTruncateString_SprintView(t *testing.T) {
 
 func TestRenderSprintDashboard_NoSprintSelected(t *testing.T) {
 	m := Model{
-		theme:          DefaultTheme(lipgloss.NewRenderer(nil)),
+		theme:          DefaultTheme(),
 		width:          100,
 		height:         40,
 		selectedSprint: nil,
@@ -169,7 +168,7 @@ func TestRenderSprintDashboard_BasicSprint(t *testing.T) {
 	}
 
 	m := Model{
-		theme:          DefaultTheme(lipgloss.NewRenderer(nil)),
+		theme:          DefaultTheme(),
 		width:          100,
 		height:         40,
 		selectedSprint: &sprint,
@@ -208,7 +207,7 @@ func TestRenderSprintDashboard_AllStatusTypes(t *testing.T) {
 	}
 
 	m := Model{
-		theme:          DefaultTheme(lipgloss.NewRenderer(nil)),
+		theme:          DefaultTheme(),
 		width:          100,
 		height:         50,
 		selectedSprint: &sprint,
@@ -244,7 +243,7 @@ func TestRenderSprintDashboard_AtRiskItems(t *testing.T) {
 	}
 
 	m := Model{
-		theme:          DefaultTheme(lipgloss.NewRenderer(nil)),
+		theme:          DefaultTheme(),
 		width:          100,
 		height:         50,
 		selectedSprint: &sprint,
@@ -278,7 +277,7 @@ func TestRenderSprintDashboard_NoAtRiskItems(t *testing.T) {
 	}
 
 	m := Model{
-		theme:          DefaultTheme(lipgloss.NewRenderer(nil)),
+		theme:          DefaultTheme(),
 		width:          100,
 		height:         50,
 		selectedSprint: &sprint,
@@ -306,7 +305,7 @@ func TestRenderSprintDashboard_NarrowWidth(t *testing.T) {
 	}
 
 	m := Model{
-		theme:          DefaultTheme(lipgloss.NewRenderer(nil)),
+		theme:          DefaultTheme(),
 		width:          30, // Very narrow
 		height:         40,
 		selectedSprint: &sprint,
@@ -333,7 +332,7 @@ func TestRenderSprintDashboard_ZeroDaysRemaining(t *testing.T) {
 	}
 
 	m := Model{
-		theme:          DefaultTheme(lipgloss.NewRenderer(nil)),
+		theme:          DefaultTheme(),
 		width:          100,
 		height:         40,
 		selectedSprint: &sprint,
@@ -374,7 +373,7 @@ func TestRenderSprintDashboard_ManyBeads(t *testing.T) {
 	}
 
 	m := Model{
-		theme:          DefaultTheme(lipgloss.NewRenderer(nil)),
+		theme:          DefaultTheme(),
 		width:          100,
 		height:         50,
 		selectedSprint: &sprint,
@@ -399,7 +398,7 @@ func TestRenderSprintDashboard_InsufficientData(t *testing.T) {
 	}
 
 	m := Model{
-		theme:          DefaultTheme(lipgloss.NewRenderer(nil)),
+		theme:          DefaultTheme(),
 		width:          100,
 		height:         40,
 		selectedSprint: &sprint,
@@ -419,12 +418,12 @@ func TestHandleSprintKeys_EscExit(t *testing.T) {
 	m := Model{
 		isSprintView: true,
 		focused:      focusDetail,
-		theme:        DefaultTheme(lipgloss.NewRenderer(nil)),
+		theme:        DefaultTheme(),
 		width:        100,
 		height:       40,
 	}
 
-	m = m.handleSprintKeys(tea.KeyMsg{Type: tea.KeyEsc})
+	m = m.handleSprintKeys(tea.KeyPressMsg{Code: tea.KeyEsc})
 	if m.isSprintView {
 		t.Error("Esc should exit sprint view")
 	}
@@ -442,7 +441,7 @@ func TestHandleSprintKeys_DownArrow(t *testing.T) {
 
 	m := Model{
 		isSprintView:   true,
-		theme:          DefaultTheme(lipgloss.NewRenderer(nil)),
+		theme:          DefaultTheme(),
 		width:          100,
 		height:         40,
 		issues:         []model.Issue{{ID: "A", Title: "Issue A", Status: model.StatusOpen, Priority: 1, IssueType: model.TypeTask}},
@@ -450,7 +449,7 @@ func TestHandleSprintKeys_DownArrow(t *testing.T) {
 		selectedSprint: &sprints[0],
 	}
 
-	m = m.handleSprintKeys(tea.KeyMsg{Type: tea.KeyDown})
+	m = m.handleSprintKeys(tea.KeyPressMsg{Code: tea.KeyDown})
 	if m.selectedSprint == nil || m.selectedSprint.ID != "s2" {
 		t.Errorf("after down: selected=%v; want s2", m.selectedSprint)
 	}
@@ -465,7 +464,7 @@ func TestHandleSprintKeys_UpArrow(t *testing.T) {
 
 	m := Model{
 		isSprintView:   true,
-		theme:          DefaultTheme(lipgloss.NewRenderer(nil)),
+		theme:          DefaultTheme(),
 		width:          100,
 		height:         40,
 		issues:         []model.Issue{{ID: "A", Title: "Issue A", Status: model.StatusOpen, Priority: 1, IssueType: model.TypeTask}},
@@ -473,7 +472,7 @@ func TestHandleSprintKeys_UpArrow(t *testing.T) {
 		selectedSprint: &sprints[1],
 	}
 
-	m = m.handleSprintKeys(tea.KeyMsg{Type: tea.KeyUp})
+	m = m.handleSprintKeys(tea.KeyPressMsg{Code: tea.KeyUp})
 	if m.selectedSprint == nil || m.selectedSprint.ID != "s1" {
 		t.Errorf("after up: selected=%v; want s1", m.selectedSprint)
 	}
@@ -487,7 +486,7 @@ func TestHandleSprintKeys_BoundaryAtFirst(t *testing.T) {
 
 	m := Model{
 		isSprintView:   true,
-		theme:          DefaultTheme(lipgloss.NewRenderer(nil)),
+		theme:          DefaultTheme(),
 		width:          100,
 		height:         40,
 		issues:         []model.Issue{{ID: "A", Title: "Issue A", Status: model.StatusOpen, Priority: 1, IssueType: model.TypeTask}},
@@ -496,7 +495,7 @@ func TestHandleSprintKeys_BoundaryAtFirst(t *testing.T) {
 	}
 
 	// Try to go up when already at first
-	m = m.handleSprintKeys(tea.KeyMsg{Type: tea.KeyUp})
+	m = m.handleSprintKeys(tea.KeyPressMsg{Code: tea.KeyUp})
 	if m.selectedSprint == nil || m.selectedSprint.ID != "s1" {
 		t.Errorf("Should stay at s1 when at boundary")
 	}
@@ -510,7 +509,7 @@ func TestHandleSprintKeys_BoundaryAtLast(t *testing.T) {
 
 	m := Model{
 		isSprintView:   true,
-		theme:          DefaultTheme(lipgloss.NewRenderer(nil)),
+		theme:          DefaultTheme(),
 		width:          100,
 		height:         40,
 		issues:         []model.Issue{{ID: "A", Title: "Issue A", Status: model.StatusOpen, Priority: 1, IssueType: model.TypeTask}},
@@ -519,7 +518,7 @@ func TestHandleSprintKeys_BoundaryAtLast(t *testing.T) {
 	}
 
 	// Try to go down when already at last
-	m = m.handleSprintKeys(tea.KeyMsg{Type: tea.KeyDown})
+	m = m.handleSprintKeys(tea.KeyPressMsg{Code: tea.KeyDown})
 	if m.selectedSprint == nil || m.selectedSprint.ID != "s1" {
 		t.Errorf("Should stay at s1 when at boundary")
 	}
@@ -533,7 +532,7 @@ func TestHandleSprintKeys_NilSelectedSprint(t *testing.T) {
 
 	m := Model{
 		isSprintView:   true,
-		theme:          DefaultTheme(lipgloss.NewRenderer(nil)),
+		theme:          DefaultTheme(),
 		width:          100,
 		height:         40,
 		sprints:        sprints,
@@ -541,7 +540,7 @@ func TestHandleSprintKeys_NilSelectedSprint(t *testing.T) {
 	}
 
 	// Should not panic
-	m = m.handleSprintKeys(tea.KeyMsg{Type: tea.KeyDown})
+	m = m.handleSprintKeys(tea.KeyPressMsg{Code: tea.KeyDown})
 	if m.selectedSprint != nil {
 		t.Errorf("Should remain nil when no sprint selected")
 	}

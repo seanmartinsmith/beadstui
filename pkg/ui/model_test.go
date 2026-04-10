@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	tea "github.com/charmbracelet/bubbletea"
+	tea "charm.land/bubbletea/v2"
 
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/ui"
@@ -545,10 +545,10 @@ func TestFocusStateString(t *testing.T) {
 	}
 }
 
-// Helper to create a KeyMsg
-func keyMsg(key string) tea.KeyMsg {
-	return tea.KeyMsg{
-		Type:  tea.KeyRunes,
-		Runes: []rune(key),
+// Helper to create a KeyPressMsg
+func keyMsg(key string) tea.KeyPressMsg {
+	if len(key) == 1 {
+		return tea.KeyPressMsg{Code: rune(key[0]), Text: key}
 	}
+	return tea.KeyPressMsg{Code: rune(key[0]), Text: key}
 }

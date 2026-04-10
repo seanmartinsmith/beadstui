@@ -26,11 +26,11 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/updater"
 	"github.com/seanmartinsmith/beadstui/pkg/watcher"
 
-	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/textinput"
-	"github.com/charmbracelet/bubbles/viewport"
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+	"charm.land/bubbles/v2/list"
+	"charm.land/bubbles/v2/textinput"
+	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 // DoltServerStopper is implemented by doltctl.ServerState. Keeps ui decoupled
@@ -707,7 +707,7 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 	// Theme: load YAML overrides, apply to globals and theme struct
 	themeConfig := LoadTheme()
 	ApplyThemeToGlobals(themeConfig)
-	theme := DefaultTheme(lipgloss.NewRenderer(os.Stdout))
+	theme := DefaultTheme()
 	ApplyThemeToThemeStruct(&theme, themeConfig)
 
 	// Default dimensions for immediate ready state (updated when WindowSizeMsg arrives)
@@ -729,8 +729,8 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 	// Clear all default styles that might add extra lines
 	l.Styles.Title = lipgloss.NewStyle()
 	l.Styles.TitleBar = lipgloss.NewStyle()
-	l.Styles.FilterPrompt = lipgloss.NewStyle().Foreground(theme.Primary)
-	l.Styles.FilterCursor = lipgloss.NewStyle().Foreground(theme.Primary)
+	l.Styles.Filter.Focused.Prompt = lipgloss.NewStyle().Foreground(theme.Primary)
+	l.Styles.Filter.Focused.Text = lipgloss.NewStyle().Foreground(theme.Primary)
 	l.Styles.StatusBar = lipgloss.NewStyle()
 	l.Styles.StatusEmpty = lipgloss.NewStyle()
 	l.Styles.StatusBarActiveFilter = lipgloss.NewStyle()
@@ -743,7 +743,7 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 	renderer := NewMarkdownRendererWithTheme(80, theme)
 
 	// Initialize viewport with default dimensions
-	vp := viewport.New(defaultWidth, defaultHeight-2)
+	vp := viewport.New(viewport.WithWidth(defaultWidth), viewport.WithHeight(defaultHeight-2))
 
 	// Initialize sub-components
 	board := NewBoardModel(issues, theme)
@@ -819,10 +819,12 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 	ti := textinput.New()
 	ti.Placeholder = "HEAD~5, main, v1.0.0, 2024-01-01..."
 	ti.CharLimit = 100
-	ti.Width = 40
+	ti.SetWidth(40)
 	ti.Prompt = "⏱️  Revision: "
-	ti.PromptStyle = lipgloss.NewStyle().Foreground(theme.Primary).Bold(true)
-	ti.TextStyle = lipgloss.NewStyle().Foreground(theme.Base.GetForeground())
+	tiStyles := ti.Styles()
+	tiStyles.Focused.Prompt = lipgloss.NewStyle().Foreground(theme.Primary).Bold(true)
+	tiStyles.Focused.Text = lipgloss.NewStyle().Foreground(theme.Base.GetForeground())
+	ti.SetStyles(tiStyles)
 
 	// Initialize file watcher for live reload
 	var fileWatcher *watcher.Watcher
@@ -2299,7 +2301,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, WaitForPhase2Cmd(m.analysis))
 		return m, tea.Batch(cmds...)
 
-	case tea.KeyMsg:
+	case tea.KeyPressMsg:
 		// Clear status message on any keypress
 		m.statusMsg = ""
 		m.statusIsError = false
@@ -3353,7 +3355,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-	case tea.MouseMsg:
+	case tea.MouseWheelMsg:
 		// Intercept mouse wheel when alerts panel is open
 		if m.showAlertsPanel {
 			var activeAlerts []drift.Alert
@@ -3363,14 +3365,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			switch msg.Button {
-			case tea.MouseButtonWheelUp:
+			case tea.MouseWheelUp:
 				if m.alertsCursor > 0 {
 					m.alertsCursor--
 					if m.alertsCursor < m.alertsScrollOffset {
 						m.alertsScrollOffset = m.alertsCursor
 					}
 				}
-			case tea.MouseButtonWheelDown:
+			case tea.MouseWheelDown:
 				if m.alertsCursor < len(activeAlerts)-1 {
 					m.alertsCursor++
 					visLines := m.alertsVisibleLines()
@@ -3384,7 +3386,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Handle mouse wheel scrolling
 		switch msg.Button {
-		case tea.MouseButtonWheelUp:
+		case tea.MouseWheelUp:
 			// Scroll up based on current focus
 			switch m.focused {
 			case focusList:
@@ -3413,7 +3415,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.flowMatrix.MoveUp()
 			}
 			return m, nil
-		case tea.MouseButtonWheelDown:
+		case tea.MouseWheelDown:
 			// Scroll down based on current focus
 			switch m.focused {
 			case focusList:
@@ -3473,7 +3475,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			m.list.SetSize(listInnerWidth, listHeight)
-			m.viewport = viewport.New(detailInnerWidth, bodyHeight-2) // Account for border
+			m.viewport = viewport.New(viewport.WithWidth(detailInnerWidth), viewport.WithHeight(bodyHeight-2)) // Account for border
 
 			m.renderer.SetWidthWithTheme(detailInnerWidth, m.theme)
 		} else {
@@ -3482,7 +3484,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				listHeight = 3
 			}
 			m.list.SetSize(msg.Width, listHeight)
-			m.viewport = viewport.New(msg.Width, bodyHeight-1)
+			m.viewport = viewport.New(viewport.WithWidth(msg.Width), viewport.WithHeight(bodyHeight-1))
 
 			// Update renderer for full width
 			m.renderer.SetWidthWithTheme(msg.Width, m.theme)
