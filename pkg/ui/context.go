@@ -111,50 +111,28 @@ func (m Model) CurrentContext() Context {
 		return ContextRepoPicker
 	}
 
-	// === Views (based on focus or view flags) ===
-
-	// Insights panel
-	if m.focused == focusInsights {
-		// Check if in attention sub-view
-		if m.showAttentionView {
-			return ContextAttention
-		}
+	// === Views (based on ViewMode enum) ===
+	switch m.mode {
+	case ViewInsights:
 		return ContextInsights
-	}
-
-	// Flow matrix view
-	if m.focused == focusFlowMatrix {
+	case ViewAttention:
+		return ContextAttention
+	case ViewFlowMatrix:
 		return ContextFlowMatrix
-	}
-
-	// Label dashboard
-	if m.focused == focusLabelDashboard {
+	case ViewLabelDashboard:
 		return ContextLabelDashboard
-	}
-
-	// Graph view
-	if m.isGraphView {
+	case ViewGraph:
 		return ContextGraph
-	}
-
-	// Board view
-	if m.isBoardView {
+	case ViewBoard:
 		return ContextBoard
-	}
-
-	// Actionable view
-	if m.isActionableView {
+	case ViewActionable:
 		return ContextActionable
-	}
-
-	// History view
-	if m.isHistoryView {
+	case ViewHistory:
 		return ContextHistory
-	}
-
-	// Sprint view
-	if m.isSprintView {
+	case ViewSprint:
 		return ContextSprint
+	case ViewTree:
+		return ContextInsights // Tree reuses insights context for now
 	}
 
 	// === Detail states ===

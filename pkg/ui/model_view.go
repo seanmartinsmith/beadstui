@@ -79,39 +79,41 @@ func (m Model) View() tea.View {
 		body = m.tutorialModel.View()
 	} else if m.snapshotInitPending && m.snapshot == nil {
 		body = m.renderLoadingScreen()
-	} else if m.focused == focusInsights {
-		m.insightsPanel.SetSize(m.width, m.height-1)
-		body = m.insightsPanel.View()
-	} else if m.focused == focusFlowMatrix {
-		m.flowMatrix.SetSize(m.width, m.height-1)
-		body = m.flowMatrix.View()
-	} else if m.focused == focusTree {
-		// Hierarchical tree view (bv-gllx)
-		m.tree.SetSize(m.width, m.height-1)
-		body = m.tree.View()
-	} else if m.isGraphView {
-		body = m.graphView.View(m.width, m.height-1)
-	} else if m.isBoardView {
-		body = m.board.View(m.width, m.height-1)
-	} else if m.isActionableView {
-		m.actionableView.SetSize(m.width, m.height-2)
-		body = m.actionableView.Render()
-	} else if m.isHistoryView {
-		m.historyView.SetSize(m.width, m.height-1)
-		body = m.historyView.View()
-	} else if m.isSprintView {
-		body = m.sprintViewText
-	} else if m.isSplitView {
-		body = m.renderSplitView()
-	} else if m.focused == focusLabelDashboard {
-		m.labelDashboard.SetSize(m.width, m.height-1)
-		body = m.labelDashboard.View()
 	} else {
-		// Mobile view
-		if m.showDetails {
-			body = m.viewport.View()
-		} else {
-			body = m.renderListWithHeader()
+		// Route by ViewMode enum
+		switch m.mode {
+		case ViewInsights, ViewAttention:
+			m.insightsPanel.SetSize(m.width, m.height-1)
+			body = m.insightsPanel.View()
+		case ViewFlowMatrix:
+			m.flowMatrix.SetSize(m.width, m.height-1)
+			body = m.flowMatrix.View()
+		case ViewTree:
+			m.tree.SetSize(m.width, m.height-1)
+			body = m.tree.View()
+		case ViewGraph:
+			body = m.graphView.View(m.width, m.height-1)
+		case ViewBoard:
+			body = m.board.View(m.width, m.height-1)
+		case ViewActionable:
+			m.actionableView.SetSize(m.width, m.height-2)
+			body = m.actionableView.Render()
+		case ViewHistory:
+			m.historyView.SetSize(m.width, m.height-1)
+			body = m.historyView.View()
+		case ViewSprint:
+			body = m.sprintViewText
+		case ViewLabelDashboard:
+			m.labelDashboard.SetSize(m.width, m.height-1)
+			body = m.labelDashboard.View()
+		default: // ViewList
+			if m.isSplitView {
+				body = m.renderSplitView()
+			} else if m.showDetails {
+				body = m.viewport.View()
+			} else {
+				body = m.renderListWithHeader()
+			}
 		}
 	}
 

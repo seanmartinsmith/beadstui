@@ -104,47 +104,47 @@ func TestCurrentContext_Views(t *testing.T) {
 	}{
 		{
 			name:     "insights panel",
-			setup:    func(m *Model) { m.focused = focusInsights },
+			setup:    func(m *Model) { m.mode = ViewInsights; m.focused = focusInsights },
 			expected: ContextInsights,
 		},
 		{
 			name:     "attention view",
-			setup:    func(m *Model) { m.focused = focusInsights; m.showAttentionView = true },
+			setup:    func(m *Model) { m.mode = ViewAttention; m.focused = focusInsights },
 			expected: ContextAttention,
 		},
 		{
 			name:     "flow matrix",
-			setup:    func(m *Model) { m.focused = focusFlowMatrix },
+			setup:    func(m *Model) { m.mode = ViewFlowMatrix; m.focused = focusFlowMatrix },
 			expected: ContextFlowMatrix,
 		},
 		{
 			name:     "label dashboard",
-			setup:    func(m *Model) { m.focused = focusLabelDashboard },
+			setup:    func(m *Model) { m.mode = ViewLabelDashboard; m.focused = focusLabelDashboard },
 			expected: ContextLabelDashboard,
 		},
 		{
 			name:     "graph view",
-			setup:    func(m *Model) { m.isGraphView = true },
+			setup:    func(m *Model) { m.mode = ViewGraph },
 			expected: ContextGraph,
 		},
 		{
 			name:     "board view",
-			setup:    func(m *Model) { m.isBoardView = true },
+			setup:    func(m *Model) { m.mode = ViewBoard },
 			expected: ContextBoard,
 		},
 		{
 			name:     "actionable view",
-			setup:    func(m *Model) { m.isActionableView = true },
+			setup:    func(m *Model) { m.mode = ViewActionable },
 			expected: ContextActionable,
 		},
 		{
 			name:     "history view",
-			setup:    func(m *Model) { m.isHistoryView = true },
+			setup:    func(m *Model) { m.mode = ViewHistory },
 			expected: ContextHistory,
 		},
 		{
 			name:     "sprint view",
-			setup:    func(m *Model) { m.isSprintView = true },
+			setup:    func(m *Model) { m.mode = ViewSprint },
 			expected: ContextSprint,
 		},
 	}
@@ -208,7 +208,7 @@ func TestCurrentContext_Priority(t *testing.T) {
 	// Test that overlays take priority over views
 	m := newTestModel()
 	m.showHelp = true       // Overlay
-	m.isGraphView = true    // View
+	m.mode = ViewGraph      // View
 	m.timeTravelMode = true // Detail state
 
 	// Overlay should win
@@ -223,7 +223,7 @@ func TestCurrentContext_Priority(t *testing.T) {
 	}
 
 	// Remove view, detail state should win
-	m.isGraphView = false
+	m.mode = ViewList
 	if ctx := m.CurrentContext(); ctx != ContextTimeTravel {
 		t.Errorf("Detail state should take priority over default, got %q", ctx)
 	}

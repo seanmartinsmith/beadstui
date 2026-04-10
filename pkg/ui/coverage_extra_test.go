@@ -308,28 +308,28 @@ func TestViewTogglesGraphBoardInsightsActionable(t *testing.T) {
 	// Graph toggle
 	modelAny, _ := m.Update(tea.KeyPressMsg{Code: 'g', Text: "g"})
 	m = modelAny.(Model)
-	if !m.isGraphView || m.focused != focusGraph {
+	if m.mode != ViewGraph || m.focused != focusGraph {
 		t.Fatalf("graph view not activated")
 	}
 
 	// Board toggle
 	modelAny, _ = m.Update(tea.KeyPressMsg{Code: 'b', Text: "b"})
 	m = modelAny.(Model)
-	if !m.isBoardView || m.focused != focusBoard {
+	if m.mode != ViewBoard || m.focused != focusBoard {
 		t.Fatalf("board view not activated")
 	}
 
 	// Insights toggle
 	modelAny, _ = m.Update(tea.KeyPressMsg{Code: 'i', Text: "i"})
 	m = modelAny.(Model)
-	if m.focused != focusInsights {
+	if m.mode != ViewInsights || m.focused != focusInsights {
 		t.Fatalf("insights not focused after toggle")
 	}
 
 	// Actionable toggle
 	modelAny, _ = m.Update(tea.KeyPressMsg{Code: 'a', Text: "a"})
 	m = modelAny.(Model)
-	if !m.isActionableView || m.focused != focusActionable {
+	if m.mode != ViewActionable || m.focused != focusActionable {
 		t.Fatalf("actionable view not activated")
 	}
 
@@ -357,17 +357,17 @@ func TestHandleGraphBoardActionableKeys(t *testing.T) {
 	m.width, m.height = 120, 30
 
 	// Focus graph and exercise navigation + enter selection logic
-	m.isGraphView = true
+	m.mode = ViewGraph
 	m.focused = focusGraph
 	// force select first node then enter to sync list
 	m.graphView.MoveDown()
 	m = m.handleGraphKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
-	if m.isGraphView {
+	if m.mode == ViewGraph {
 		t.Fatalf("enter should exit graph view")
 	}
 
 	// Focus board navigation paths
-	m.isBoardView = true
+	m.mode = ViewBoard
 	m.focused = focusBoard
 	m = m.handleBoardKeys(tea.KeyPressMsg{Code: 'h', Text: "h"})
 	m = m.handleBoardKeys(tea.KeyPressMsg{Code: 'l', Text: "l"})
@@ -378,7 +378,7 @@ func TestHandleGraphBoardActionableKeys(t *testing.T) {
 	// Enter should exit board when selection exists
 	m.board.MoveToTop()
 	m = m.handleBoardKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
-	if m.isBoardView {
+	if m.mode == ViewBoard {
 		t.Fatalf("enter should exit board view")
 	}
 
@@ -390,11 +390,11 @@ func TestHandleGraphBoardActionableKeys(t *testing.T) {
 		}},
 		TotalActionable: 1,
 	}
-	m.isActionableView = true
+	m.mode = ViewActionable
 	m.focused = focusActionable
 	m.actionableView = NewActionableModel(plan, m.theme)
 	m = m.handleActionableKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
-	if m.isActionableView {
+	if m.mode == ViewActionable {
 		t.Fatalf("enter should exit actionable view")
 	}
 }
@@ -894,7 +894,7 @@ func TestBoardAndInsightsExtraKeys(t *testing.T) {
 	m.width, m.height = 120, 30
 
 	// Board page up/down coverage
-	m.isBoardView = true
+	m.mode = ViewBoard
 	m.focused = focusBoard
 	m = m.handleBoardKeys(tea.KeyPressMsg{Code: 'd', Mod: tea.ModCtrl})
 	m = m.handleBoardKeys(tea.KeyPressMsg{Code: 'u', Mod: tea.ModCtrl})
@@ -1124,26 +1124,25 @@ func TestViewVariantsCoverBranches(t *testing.T) {
 
 	// Insights view
 	m.showHelp = false
+	m.mode = ViewInsights
 	m.focused = focusInsights
 	_ = m.View()
 
 	// Graph view
+	m.mode = ViewGraph
 	m.focused = focusGraph
-	m.isGraphView = true
 	_ = m.View()
 
 	// Board view
-	m.isGraphView = false
-	m.isBoardView = true
+	m.mode = ViewBoard
 	_ = m.View()
 
 	// Actionable view
-	m.isBoardView = false
-	m.isActionableView = true
+	m.mode = ViewActionable
 	_ = m.View()
 
 	// Split view
-	m.isActionableView = false
+	m.mode = ViewList
 	m.isSplitView = true
 	_ = m.View()
 }

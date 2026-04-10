@@ -101,7 +101,7 @@ func (m *Model) enterHistoryView() {
 	// Initialize or update history view
 	m.historyView = NewHistoryModel(report, m.theme)
 	m.historyView.SetSize(m.width, m.height-1)
-	m.isHistoryView = true
+	m.mode = ViewHistory
 	m.focused = focusHistory
 
 	m.statusMsg = fmt.Sprintf("Loaded history: %d beads with commits", report.Stats.BeadsWithCommits)
@@ -267,22 +267,32 @@ func (m Model) FocusState() string {
 
 // IsBoardView returns true if the board view is active (bv-5e5q).
 func (m Model) IsBoardView() bool {
-	return m.isBoardView
+	return m.mode == ViewBoard
 }
 
 // IsGraphView returns true if the graph view is active (bv-5e5q).
 func (m Model) IsGraphView() bool {
-	return m.isGraphView
+	return m.mode == ViewGraph
 }
 
 // IsActionableView returns true if the actionable view is active (bv-5e5q).
 func (m Model) IsActionableView() bool {
-	return m.isActionableView
+	return m.mode == ViewActionable
 }
 
 // IsHistoryView returns true if the history view is active (bv-5e5q).
 func (m Model) IsHistoryView() bool {
-	return m.isHistoryView
+	return m.mode == ViewHistory
+}
+
+// IsSprintView returns true if the sprint view is active.
+func (m Model) IsSprintView() bool {
+	return m.mode == ViewSprint
+}
+
+// IsAttentionView returns true if the attention view is active.
+func (m Model) IsAttentionView() bool {
+	return m.mode == ViewAttention
 }
 
 // ShowDetails returns true if the detail pane is visible.

@@ -139,13 +139,13 @@ func (m *Model) filteredIssuesForActiveView() []model.Issue {
 }
 
 func (m *Model) refreshBoardAndGraphForCurrentFilter() {
-	if !m.isBoardView && !m.isGraphView {
+	if m.mode != ViewBoard && m.mode != ViewGraph {
 		return
 	}
 
 	filteredIssues := m.filteredIssuesForActiveView()
 	recipeFilterActive := m.activeRecipe != nil && strings.HasPrefix(m.currentFilter, "recipe:")
-	if m.isBoardView {
+	if m.mode == ViewBoard {
 		useSnapshot := m.snapshot != nil && m.snapshot.BoardState != nil && (!m.workspaceMode || m.activeRepos == nil) && len(filteredIssues) == len(m.snapshot.Issues)
 		if useSnapshot {
 			if recipeFilterActive {
@@ -161,7 +161,7 @@ func (m *Model) refreshBoardAndGraphForCurrentFilter() {
 		}
 	}
 
-	if m.isGraphView {
+	if m.mode == ViewGraph {
 		useSnapshot := m.snapshot != nil && m.snapshot.GraphLayout != nil && len(filteredIssues) == len(m.snapshot.Issues)
 		if useSnapshot {
 			if recipeFilterActive {

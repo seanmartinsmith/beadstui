@@ -77,14 +77,14 @@ func TestHistoryViewToggle(t *testing.T) {
 	m = updated.(Model)
 
 	// h should toggle history view on
-	if m.isHistoryView {
+	if m.mode == ViewHistory {
 		t.Fatalf("history view should be off initially")
 	}
 
 	updated, _ = m.Update(tea.KeyPressMsg{Code: 'h', Text: "h"})
 	m = updated.(Model)
 
-	if !m.isHistoryView {
+	if m.mode != ViewHistory {
 		t.Fatalf("expected history view to be on after h key")
 	}
 	if m.focused != focusHistory {
@@ -95,7 +95,7 @@ func TestHistoryViewToggle(t *testing.T) {
 	updated, _ = m.Update(tea.KeyPressMsg{Code: 'h', Text: "h"})
 	m = updated.(Model)
 
-	if m.isHistoryView {
+	if m.mode == ViewHistory {
 		t.Fatalf("expected history view to be off after second h key")
 	}
 	if m.focused != focusList {
@@ -121,7 +121,7 @@ func TestHistoryViewKeys(t *testing.T) {
 	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
 	m = updated.(Model)
 
-	if m.isHistoryView {
+	if m.mode == ViewHistory {
 		t.Fatalf("expected history view to be closed after Esc")
 	}
 

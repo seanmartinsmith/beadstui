@@ -256,7 +256,7 @@ func (m Model) handleSprintKeys(msg tea.KeyMsg) Model {
 	switch msg.String() {
 	case "P", "esc":
 		// Exit sprint view
-		m.isSprintView = false
+		m.mode = ViewList
 		m.focused = focusList
 	case "j", "down":
 		// Next sprint

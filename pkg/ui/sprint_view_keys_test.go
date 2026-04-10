@@ -10,14 +10,14 @@ import (
 
 func TestHandleSprintKeys_Exit(t *testing.T) {
 	m := Model{
-		isSprintView: true,
-		focused:      focusDetail,
-		theme:        DefaultTheme(),
-		width:        100,
-		height:       40,
+		mode:    ViewSprint,
+		focused: focusDetail,
+		theme:   DefaultTheme(),
+		width:   100,
+		height:  40,
 	}
 	m = m.handleSprintKeys(tea.KeyPressMsg{Code: 'P', Text: "P"})
-	if m.isSprintView {
+	if m.mode == ViewSprint {
 		t.Fatalf("expected sprint view to exit")
 	}
 	if m.focused != focusList {
@@ -33,7 +33,7 @@ func TestHandleSprintKeys_NextPrevSprint(t *testing.T) {
 	}
 
 	m := Model{
-		isSprintView:   true,
+		mode:           ViewSprint,
 		theme:          DefaultTheme(),
 		width:          100,
 		height:         40,
@@ -416,15 +416,15 @@ func TestRenderSprintDashboard_InsufficientData(t *testing.T) {
 
 func TestHandleSprintKeys_EscExit(t *testing.T) {
 	m := Model{
-		isSprintView: true,
-		focused:      focusDetail,
+		mode:    ViewSprint,
+		focused: focusDetail,
 		theme:        DefaultTheme(),
 		width:        100,
 		height:       40,
 	}
 
 	m = m.handleSprintKeys(tea.KeyPressMsg{Code: tea.KeyEsc})
-	if m.isSprintView {
+	if m.mode == ViewSprint {
 		t.Error("Esc should exit sprint view")
 	}
 	if m.focused != focusList {
@@ -440,7 +440,7 @@ func TestHandleSprintKeys_DownArrow(t *testing.T) {
 	}
 
 	m := Model{
-		isSprintView:   true,
+		mode:           ViewSprint,
 		theme:          DefaultTheme(),
 		width:          100,
 		height:         40,
@@ -463,7 +463,7 @@ func TestHandleSprintKeys_UpArrow(t *testing.T) {
 	}
 
 	m := Model{
-		isSprintView:   true,
+		mode:           ViewSprint,
 		theme:          DefaultTheme(),
 		width:          100,
 		height:         40,
@@ -485,7 +485,7 @@ func TestHandleSprintKeys_BoundaryAtFirst(t *testing.T) {
 	}
 
 	m := Model{
-		isSprintView:   true,
+		mode:           ViewSprint,
 		theme:          DefaultTheme(),
 		width:          100,
 		height:         40,
@@ -508,7 +508,7 @@ func TestHandleSprintKeys_BoundaryAtLast(t *testing.T) {
 	}
 
 	m := Model{
-		isSprintView:   true,
+		mode:           ViewSprint,
 		theme:          DefaultTheme(),
 		width:          100,
 		height:         40,
@@ -531,7 +531,7 @@ func TestHandleSprintKeys_NilSelectedSprint(t *testing.T) {
 	}
 
 	m := Model{
-		isSprintView:   true,
+		mode:           ViewSprint,
 		theme:          DefaultTheme(),
 		width:          100,
 		height:         40,

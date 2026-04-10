@@ -75,6 +75,25 @@ const (
 	focusBQLQuery    // BQL composable search modal
 )
 
+// ViewMode represents which primary view is active. Only one view mode
+// can be active at a time. Layout concerns (isSplitView, showDetails)
+// are orthogonal and tracked separately.
+type ViewMode int
+
+const (
+	ViewList           ViewMode = iota // Default list view
+	ViewBoard                         // Kanban board
+	ViewGraph                         // Dependency graph
+	ViewTree                          // Hierarchical tree view
+	ViewActionable                    // Actionable/execution plan
+	ViewHistory                       // Git history correlation
+	ViewSprint                        // Sprint dashboard
+	ViewInsights                      // Insights panel
+	ViewFlowMatrix                    // Cross-label flow matrix
+	ViewLabelDashboard                // Label health dashboard
+	ViewAttention                     // Attention scores view
+)
+
 // SortMode represents the current list sorting mode (bv-3ita)
 type SortMode int
 
@@ -357,14 +376,11 @@ type Model struct {
 	updateURL       string
 
 	// Focus and View State
+	mode                     ViewMode // Active view mode (ViewList, ViewBoard, ViewGraph, etc.)
 	focused                  focus
 	focusBeforeHelp          focus // Stores focus before opening help overlay
 	isSplitView              bool
 	splitPaneRatio           float64 // Ratio of list pane width (0.2-0.8), default 0.4
-	isBoardView              bool
-	isGraphView              bool
-	isActionableView         bool
-	isHistoryView            bool
 	showDetails              bool
 	showHelp                 bool
 	helpScroll               int // Scroll offset for help overlay
@@ -381,7 +397,6 @@ type Model struct {
 	labelDrilldownCache      map[string][]model.Issue
 	showLabelGraphAnalysis   bool
 	labelGraphAnalysisResult *LabelGraphAnalysisResult
-	showAttentionView        bool
 	showShortcutsSidebar     bool // bv-3qi5 toggleable shortcuts sidebar
 	labelHealthCached        bool
 	labelHealthCache         analysis.LabelAnalysisResult
@@ -488,7 +503,6 @@ type Model struct {
 	// Sprint view (bv-161)
 	sprints        []model.Sprint
 	selectedSprint *model.Sprint
-	isSprintView   bool
 	sprintViewText string
 
 	// Project identity
@@ -2104,8 +2118,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Regenerate sub-views (with Phase 1 data; Phase 2 will update via Phase2ReadyMsg)
 		// Preserve triage data already computed to avoid UI flicker.
-		needsInsights := m.focused == focusInsights && !m.showAttentionView
-		needsGraph := m.isGraphView
+		needsInsights := m.mode == ViewInsights
+		needsGraph := m.mode == ViewGraph
 		var ins analysis.Insights
 		if needsInsights || needsGraph {
 			var insightsStart time.Time
@@ -2134,7 +2148,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.insightsPanel.SetSize(m.width, bodyHeight)
 		}
-		if m.showAttentionView {
+		if m.mode == ViewAttention {
 			var attentionStart time.Time
 			if profileRefresh {
 				attentionStart = time.Now()
@@ -2155,7 +2169,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				recordTiming("attention_view", time.Since(attentionStart))
 			}
 		}
-		if needsGraph || m.isBoardView {
+		if needsGraph || m.mode == ViewBoard {
 			var graphStart time.Time
 			if profileRefresh {
 				graphStart = time.Now()
@@ -2460,11 +2474,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Handle attention view quick jumps (bv-117)
-		if m.showAttentionView {
+		if m.mode == ViewAttention {
 			s := msg.String()
 			switch {
 			case s == "esc" || s == "q" || s == "d":
-				m.showAttentionView = false
+				m.mode = ViewList
+				m.focused = focusList
 				m.insightsPanel.extraText = ""
 				return m, nil
 			case len(s) == 1 && s[0] >= '1' && s[0] <= '9':
@@ -2852,13 +2867,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.focused = focusList
 					return m, nil
 				}
-				if m.isGraphView {
-					m.isGraphView = false
+				if m.mode == ViewGraph {
+					m.mode = ViewList
 					m.focused = focusList
 					return m, nil
 				}
-				if m.isBoardView {
-					m.isBoardView = false
+				if m.mode == ViewBoard {
+					m.mode = ViewList
 					m.focused = focusList
 					return m, nil
 				}
@@ -2871,35 +2886,37 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.focused = focusList
 					return m, nil
 				}
-				if m.focused == focusInsights {
+				if m.mode == ViewInsights || m.mode == ViewAttention {
+					m.mode = ViewList
 					m.focused = focusList
 					return m, nil
 				}
-				if m.focused == focusFlowMatrix {
+				if m.mode == ViewFlowMatrix {
 					if m.flowMatrix.showDrilldown {
 						m.flowMatrix.showDrilldown = false
 						return m, nil
 					}
+					m.mode = ViewList
 					m.focused = focusList
 					return m, nil
 				}
-				if m.isGraphView {
-					m.isGraphView = false
+				if m.mode == ViewGraph {
+					m.mode = ViewList
 					m.focused = focusList
 					return m, nil
 				}
-				if m.isBoardView {
-					m.isBoardView = false
+				if m.mode == ViewBoard {
+					m.mode = ViewList
 					m.focused = focusList
 					return m, nil
 				}
-				if m.isActionableView {
-					m.isActionableView = false
+				if m.mode == ViewActionable {
+					m.mode = ViewList
 					m.focused = focusList
 					return m, nil
 				}
-				if m.isHistoryView {
-					m.isHistoryView = false
+				if m.mode == ViewHistory {
+					m.mode = ViewList
 					m.focused = focusList
 					return m, nil
 				}
@@ -2910,7 +2927,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 				// Close label dashboard if open
-				if m.focused == focusLabelDashboard {
+				if m.mode == ViewLabelDashboard {
+					m.mode = ViewList
 					m.focused = focusList
 					return m, nil
 				}
@@ -2925,7 +2943,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 
 			case "tab":
-				if m.isSplitView && !m.isBoardView {
+				if m.isSplitView && m.mode == ViewList {
 					if m.focused == focusList {
 						m.focused = focusDetail
 					} else {
@@ -2955,62 +2973,54 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			case "b":
 				m.clearAttentionOverlay()
-				m.isBoardView = !m.isBoardView
-				m.isGraphView = false
-				m.isActionableView = false
-				m.isHistoryView = false
-				if m.isBoardView {
+				if m.mode == ViewBoard {
+					m.mode = ViewList
+					m.focused = focusList
+				} else {
+					m.mode = ViewBoard
 					m.focused = focusBoard
 					m.refreshBoardAndGraphForCurrentFilter()
-				} else {
-					m.focused = focusList
 				}
 				return m, nil
 
 			case "g":
 				// Toggle graph view
 				m.clearAttentionOverlay()
-				m.isGraphView = !m.isGraphView
-				m.isBoardView = false
-				m.isActionableView = false
-				m.isHistoryView = false
-				if m.isGraphView {
+				if m.mode == ViewGraph {
+					m.mode = ViewList
+					m.focused = focusList
+				} else {
+					m.mode = ViewGraph
 					m.focused = focusGraph
 					m.refreshBoardAndGraphForCurrentFilter()
-				} else {
-					m.focused = focusList
 				}
 				return m, nil
 
 			case "a":
 				// Toggle actionable view
 				m.clearAttentionOverlay()
-				m.isActionableView = !m.isActionableView
-				m.isGraphView = false
-				m.isBoardView = false
-				m.isHistoryView = false
-				if m.isActionableView {
+				if m.mode == ViewActionable {
+					m.mode = ViewList
+					m.focused = focusList
+				} else {
+					m.mode = ViewActionable
 					// Build execution plan
 					analyzer := analysis.NewAnalyzer(m.issues)
 					plan := analyzer.GetExecutionPlan()
 					m.actionableView = NewActionableModel(plan, m.theme)
 					m.actionableView.SetSize(m.width, m.height-2)
 					m.focused = focusActionable
-				} else {
-					m.focused = focusList
 				}
 				return m, nil
 
 			case "E":
 				// Toggle hierarchical tree view (bv-gllx)
 				m.clearAttentionOverlay()
-				if m.focused == focusTree {
+				if m.mode == ViewTree {
+					m.mode = ViewList
 					m.focused = focusList
 				} else {
-					m.isGraphView = false
-					m.isBoardView = false
-					m.isActionableView = false
-					m.isHistoryView = false
+					m.mode = ViewTree
 					// Build tree from snapshot when available (bv-t435)
 					if m.snapshot != nil {
 						m.tree.BuildFromSnapshot(m.snapshot)
@@ -3024,13 +3034,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			case "i":
 				m.clearAttentionOverlay()
-				if m.focused == focusInsights {
+				if m.mode == ViewInsights {
+					m.mode = ViewList
 					m.focused = focusList
 				} else {
-					m.isGraphView = false
-					m.isBoardView = false
-					m.isActionableView = false
-					m.isHistoryView = false
+					m.mode = ViewInsights
 					m.focused = focusInsights
 					// Refresh insights using the current snapshot when available (bv-mpqz).
 					var ins analysis.Insights
@@ -3080,11 +3088,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "h":
 				// Toggle history view
 				m.clearAttentionOverlay()
-				m.isHistoryView = !m.isHistoryView
-				m.isGraphView = false
-				m.isBoardView = false
-				m.isActionableView = false
-				if m.isHistoryView {
+				if m.mode == ViewHistory {
+					m.mode = ViewList
+					m.focused = focusList
+				} else {
+					m.mode = ViewHistory
 					// Ensure history model has latest sizing
 					bodyHeight := m.height - 1
 					if bodyHeight < 5 {
@@ -3092,18 +3100,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					m.historyView.SetSize(m.width, bodyHeight)
 					m.focused = focusHistory
-				} else {
-					m.focused = focusList
 				}
 				return m, nil
 
 			case "[", "f3":
 				// Open label dashboard (phase 1: table view)
 				m.clearAttentionOverlay()
-				m.isGraphView = false
-				m.isBoardView = false
-				m.isActionableView = false
-				m.isHistoryView = false
+				m.mode = ViewLabelDashboard
 				m.isSplitView = false
 				m.focused = focusLabelDashboard
 				// Compute label health (fast; phase1 metrics only needed) with caching
@@ -3126,12 +3129,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.attentionCached = true
 				}
 				attText, _ := ComputeAttentionView(m.issues, max(40, m.width-4))
-				m.isGraphView = false
-				m.isBoardView = false
-				m.isActionableView = false
-				m.isHistoryView = false
+				m.mode = ViewAttention
 				m.focused = focusInsights
-				m.showAttentionView = true
 				m.insightsPanel = NewInsightsModel(analysis.Insights{}, m.issueMap, m.theme)
 				m.insightsPanel.labelAttention = m.attentionCache.Labels
 				m.insightsPanel.extraText = attText
@@ -3147,10 +3146,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.clearAttentionOverlay()
 				cfg := analysis.DefaultLabelHealthConfig()
 				flow := analysis.ComputeCrossLabelFlow(m.issues, cfg)
-				m.isGraphView = false
-				m.isBoardView = false
-				m.isActionableView = false
-				m.isHistoryView = false
+				m.mode = ViewFlowMatrix
 				m.focused = focusFlowMatrix
 				m.flowMatrix = NewFlowMatrixModel(m.theme)
 				m.flowMatrix.SetData(&flow, m.issues)
@@ -3590,8 +3586,8 @@ func (m *Model) DoltShutdownMsg() string {
 
 // clearAttentionOverlay hides the attention overlay and clears its rendered text.
 func (m *Model) clearAttentionOverlay() {
-	if m.showAttentionView {
-		m.showAttentionView = false
+	if m.mode == ViewAttention {
+		m.mode = ViewList
 		m.insightsPanel.extraText = ""
 	}
 }

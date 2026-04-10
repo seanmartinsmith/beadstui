@@ -191,7 +191,7 @@ func (m Model) handleBoardKeys(msg tea.KeyMsg) Model {
 					break
 				}
 			}
-			m.isBoardView = false
+			m.mode = ViewList
 			m.focused = focusList
 			if m.isSplitView {
 				m.focused = focusDetail
@@ -230,7 +230,7 @@ func (m Model) handleGraphKeys(msg tea.KeyMsg) Model {
 					break
 				}
 			}
-			m.isGraphView = false
+			m.mode = ViewList
 			m.focused = focusList
 			if m.isSplitView {
 				m.focused = focusDetail
@@ -310,7 +310,7 @@ func (m Model) handleActionableKeys(msg tea.KeyMsg) Model {
 					break
 				}
 			}
-			m.isActionableView = false
+			m.mode = ViewList
 			m.focused = focusList
 			if m.isSplitView {
 				m.focused = focusDetail
@@ -470,7 +470,7 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 					break
 				}
 			}
-			m.isHistoryView = false
+			m.mode = ViewList
 			m.focused = focusList
 			if m.isSplitView {
 				m.focused = focusDetail
@@ -580,7 +580,7 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 				}
 			}
 			// Switch to graph view focused on this bead
-			m.isHistoryView = false
+			m.mode = ViewGraph
 			m.graphView.SelectByID(selectedID)
 			m.focused = focusGraph
 			m.statusMsg = fmt.Sprintf("📊 Graph view: %s", selectedID)
@@ -591,7 +591,7 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 		}
 	case "h", "esc":
 		// Exit history view
-		m.isHistoryView = false
+		m.mode = ViewList
 		m.focused = focusList
 	}
 	return m
@@ -921,7 +921,7 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 		m.openInEditor()
 	case "h":
 		// Toggle history view
-		if !m.isHistoryView {
+		if m.mode != ViewHistory {
 			m.enterHistoryView()
 		}
 	case "S":
@@ -991,36 +991,29 @@ func (m Model) restoreFocusFromHelp() focus {
 	if m.showDetails && !m.isSplitView {
 		return focusDetail
 	}
-	// Specialized views take precedence
-	if m.isGraphView {
+	// Map ViewMode to the correct focus state
+	switch m.mode {
+	case ViewGraph:
 		return focusGraph
-	}
-	if m.isBoardView {
+	case ViewBoard:
 		return focusBoard
-	}
-	if m.isActionableView {
+	case ViewActionable:
 		return focusActionable
-	}
-	if m.isHistoryView {
+	case ViewHistory:
 		return focusHistory
+	case ViewInsights, ViewAttention:
+		return focusInsights
+	case ViewLabelDashboard:
+		return focusLabelDashboard
+	case ViewSprint:
+		return focusSprint
+	case ViewFlowMatrix:
+		return focusFlowMatrix
+	case ViewTree:
+		return focusTree
 	}
 	// Check for other focus states using stored focusBeforeHelp
 	// (m.focused is focusHelp while help is open, so we use the saved value)
-	if m.focusBeforeHelp == focusInsights {
-		return focusInsights
-	}
-	if m.focusBeforeHelp == focusLabelDashboard {
-		return focusLabelDashboard
-	}
-	if m.focusBeforeHelp == focusSprint {
-		return focusSprint
-	}
-	if m.focusBeforeHelp == focusFlowMatrix {
-		return focusFlowMatrix
-	}
-	if m.focusBeforeHelp == focusAttention {
-		return focusAttention
-	}
 	if m.focusBeforeHelp == focusLabelPicker {
 		return focusLabelPicker
 	}

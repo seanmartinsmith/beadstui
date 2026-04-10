@@ -164,7 +164,7 @@ func (m *Model) renderFooter() string {
 		Render("L:labels • h:detail")
 
 	// Board-specific hints (bv-yg39, bv-naov)
-	if m.isBoardView {
+	if m.mode == ViewBoard {
 		if m.board.IsSearchMode() {
 			// Search mode active - show search hints
 			matchInfo := ""
@@ -188,7 +188,7 @@ func (m *Model) renderFooter() string {
 				Padding(0, 1).
 				Render(fmt.Sprintf("%s1-4:col • o/c/r:filter • L:labels • /:search • ?:help", filterInfo))
 		}
-	} else if m.showAttentionView {
+	} else if m.mode == ViewAttention {
 		labelHint = lipgloss.NewStyle().
 			Foreground(ColorMuted).
 			Padding(0, 1).
@@ -541,18 +541,18 @@ func (m *Model) renderFooter() string {
 		keyHints = append(keyHints, keyStyle.Render("j/k")+" nav", keyStyle.Render("space")+" toggle", keyStyle.Render("⏎")+" apply", keyStyle.Render("esc")+" cancel")
 	} else if m.showLabelPicker {
 		keyHints = append(keyHints, "type to filter", keyStyle.Render("j/k")+" nav", keyStyle.Render("⏎")+" apply", keyStyle.Render("esc")+" cancel")
-	} else if m.focused == focusInsights {
+	} else if m.mode == ViewInsights {
 		keyHints = append(keyHints, keyStyle.Render("h/l")+" panels", keyStyle.Render("e")+" explain", keyStyle.Render("⏎")+" jump", keyStyle.Render("?")+" help")
 		keyHints = append(keyHints, keyStyle.Render("A")+" attention", keyStyle.Render("F")+" flow")
-	} else if m.focused == focusFlowMatrix {
+	} else if m.mode == ViewFlowMatrix {
 		keyHints = append(keyHints, keyStyle.Render("j/k")+" nav", keyStyle.Render("tab")+" panel", keyStyle.Render("⏎")+" drill", keyStyle.Render("esc")+" back", keyStyle.Render("f")+" close")
-	} else if m.isGraphView {
+	} else if m.mode == ViewGraph {
 		keyHints = append(keyHints, keyStyle.Render("hjkl")+" nav", keyStyle.Render("H/L")+" scroll", keyStyle.Render("⏎")+" view", keyStyle.Render("g")+" list")
-	} else if m.isBoardView {
+	} else if m.mode == ViewBoard {
 		keyHints = append(keyHints, keyStyle.Render("hjkl")+" nav", keyStyle.Render("G")+" bottom", keyStyle.Render("⏎")+" view", keyStyle.Render("b")+" list")
-	} else if m.isActionableView {
+	} else if m.mode == ViewActionable {
 		keyHints = append(keyHints, keyStyle.Render("j/k")+" nav", keyStyle.Render("⏎")+" view", keyStyle.Render("a")+" list", keyStyle.Render("?")+" help")
-	} else if m.isHistoryView {
+	} else if m.mode == ViewHistory {
 		keyHints = append(keyHints, keyStyle.Render("j/k")+" nav", keyStyle.Render("tab")+" focus", keyStyle.Render("⏎")+" jump", keyStyle.Render("h")+" close")
 	} else if m.list.FilterState() == list.Filtering {
 		mode := "fuzzy"
