@@ -6,6 +6,34 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-10c - Phase 2 + Phase 3: Theme redesign + Cobra CLI (bt-k5zs, bt-oim6, bt-zt9q)
+
+**Two parallel refactors shipped**: Phase 2 (theme/color system) and Phase 3 (CLI structure) executed as parallel worktree agents since they touch disjoint file sets (pkg/ui/ vs cmd/bt/).
+
+### Phase 2: AdaptiveColor kill + resolved color system (bt-k5zs)
+- **174 `AdaptiveColor` occurrences eliminated** across 25 files. All color fields now use `color.Color` (resolved at load time based on `isDarkBackground`).
+- **Dark mode detection**: `tea.BackgroundColorMsg` in Init()/Update() - the canonical Charm v2 pattern. Replaces the Phase 0 shim that defaulted to dark.
+- **Theme struct redesigned**: All color fields changed from `AdaptiveColor` to `color.Color`. `resolveColor(light, dark)` helper resolves based on `isDarkBackground`.
+- **styles.go**: All 52 package-level `Color*` vars changed to `color.Color`. New `resolveColors()` function rebuilds everything when dark/light changes.
+- **theme_loader.go**: `AdaptiveHex.toColor()` resolves at load time. Fallback maps provide light/dark defaults for partial YAML overrides.
+- **Glamour**: Style selection now dynamic (`"dark"`/`"light"`) based on `isDarkBackground`.
+- **`adaptive_color.go` deleted**. The Phase 0 compatibility shim is gone.
+
+### Phase 3: Cobra CLI migration (bt-zt9q)
+- **main.go: 1,708 -> 13 lines**. Just `rootCmd.Execute()`.
+- **Cobra subcommand tree**: `bt robot triage`, `bt robot graph`, `bt export pages`, `bt agents add`, `bt baseline check`, `bt version`, etc.
+- **35+ robot subcommands** migrated from `--robot-*` flags to `bt robot *` subcommands.
+- **Bare `bt` launches TUI** (not help). Uses `rootCmd.Run` + `SilenceUsage: true`.
+- **Data loading deferred**: Only commands that need data call `loadIssues()`. `bt version`, `bt robot recipes`, `bt robot schema` skip it entirely.
+- **Clean break**: No backward compat for old `--robot-*` flags (pre-alpha, one consumer).
+- **Tests updated** for new subcommand syntax.
+
+**Steps deferred to Phase 4 (bt-t82t)**: Pre-compute hot-path styles (optimization, needs profiling), footer extraction as FooterData (Phase 1.5, bt-oim6 - separate decomposition concern).
+
+**All tests green. Build clean. 26 packages pass.**
+
+---
+
 ## 2026-04-10b - Phase 1: Model decomposition (bt-98v9)
 
 **Core refactor shipped**: 4 commits, 21 files, 3,235 insertions / 3,030 deletions.
