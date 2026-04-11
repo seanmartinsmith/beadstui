@@ -78,7 +78,7 @@ func (m *Model) renderFooter() string {
 		filterTxt = fmt.Sprintf("LABEL %s: enter filter • g graph • esc/q/d close", m.labelDrilldownLabel)
 		filterIcon = "🏷️"
 	} else {
-		switch m.currentFilter {
+		switch m.filter.currentFilter {
 		case "all":
 			filterTxt = "ALL"
 			filterIcon = "📋"
@@ -92,18 +92,18 @@ func (m *Model) renderFooter() string {
 			filterTxt = "READY"
 			filterIcon = "🚀"
 		default:
-			if strings.HasPrefix(m.currentFilter, "bql:") {
-				bqlStr := m.currentFilter[4:]
+			if strings.HasPrefix(m.filter.currentFilter, "bql:") {
+				bqlStr := m.filter.currentFilter[4:]
 				if len(bqlStr) > 30 {
 					bqlStr = bqlStr[:27] + "..."
 				}
 				filterTxt = "BQL: " + bqlStr
 				filterIcon = "🔍"
-			} else if strings.HasPrefix(m.currentFilter, "recipe:") {
-				filterTxt = strings.ToUpper(m.currentFilter[7:])
+			} else if strings.HasPrefix(m.filter.currentFilter, "recipe:") {
+				filterTxt = strings.ToUpper(m.filter.currentFilter[7:])
 				filterIcon = "📑"
 			} else {
-				filterTxt = m.currentFilter
+				filterTxt = m.filter.currentFilter
 				filterIcon = "🔍"
 			}
 		}
@@ -150,12 +150,12 @@ func (m *Model) renderFooter() string {
 
 	// Sort badge - only show when not default (bv-3ita)
 	sortBadge := ""
-	if m.sortMode != SortDefault {
+	if m.filter.sortMode != SortDefault {
 		sortBadge = lipgloss.NewStyle().
 			Background(ColorBgHighlight).
 			Foreground(ColorSecondary).
 			Padding(0, 1).
-			Render(fmt.Sprintf("↕ %s", m.sortMode.String()))
+			Render(fmt.Sprintf("↕ %s", m.filter.sortMode.String()))
 	}
 
 	labelHint := lipgloss.NewStyle().
@@ -178,10 +178,10 @@ func (m *Model) renderFooter() string {
 		} else {
 			// Normal board mode - show navigation hints with filter indicator (bv-naov)
 			filterInfo := ""
-			if m.currentFilter != "all" && m.currentFilter != "" {
+			if m.filter.currentFilter != "all" && m.filter.currentFilter != "" {
 				shown := m.board.TotalCount()
-				total := len(m.issues)
-				filterInfo = fmt.Sprintf("[%s:%d/%d] ", m.currentFilter, shown, total)
+				total := len(m.data.issues)
+				filterInfo = fmt.Sprintf("[%s:%d/%d] ", m.filter.currentFilter, shown, total)
 			}
 			labelHint = lipgloss.NewStyle().
 				Foreground(ColorMuted).
@@ -221,13 +221,13 @@ func (m *Model) renderFooter() string {
 
 		statsContent := fmt.Sprintf("%s%d %s%d %s%d %s%d",
 			openStyle.Render("○"),
-			m.countOpen,
+			m.ac.countOpen,
 			readyStyle.Render("◉"),
-			m.countReady,
+			m.ac.countReady,
 			blockedStyle.Render("◈"),
-			m.countBlocked,
+			m.ac.countBlocked,
 			closedStyle.Render("●"),
-			m.countClosed)
+			m.ac.countClosed)
 		statsSection = statsStyle.Render(statsContent)
 	}
 
@@ -235,7 +235,7 @@ func (m *Model) renderFooter() string {
 	// FRESHNESS / WORKER BADGE - Staleness + errors + background worker activity (bv-h305)
 	// ─────────────────────────────────────────────────────────────────────────
 	workerSection := ""
-	if m.backgroundWorker != nil {
+	if m.data.backgroundWorker != nil {
 		formatAge := func(d time.Duration) string {
 			switch {
 			case d < time.Second:
@@ -260,14 +260,14 @@ func (m *Model) renderFooter() string {
 		if !m.lastDoltVerified.IsZero() {
 			freshnessAge = time.Since(m.lastDoltVerified)
 			hasFreshnessAge = true
-		} else if m.snapshot != nil && !m.snapshot.CreatedAt.IsZero() {
-			freshnessAge = time.Since(m.snapshot.CreatedAt)
+		} else if m.data.snapshot != nil && !m.data.snapshot.CreatedAt.IsZero() {
+			freshnessAge = time.Since(m.data.snapshot.CreatedAt)
 			hasFreshnessAge = true
 		}
 
-		state := m.backgroundWorker.State()
-		health := m.backgroundWorker.Health()
-		lastErr := m.backgroundWorker.LastError()
+		state := m.data.backgroundWorker.State()
+		health := m.data.backgroundWorker.Health()
+		lastErr := m.data.backgroundWorker.LastError()
 
 		var style lipgloss.Style
 		var text string
@@ -280,14 +280,14 @@ func (m *Model) renderFooter() string {
 				Padding(0, 1)
 			text = "⚠ worker unresponsive"
 
-		case state == WorkerProcessing && m.backgroundWorker.ProcessingDuration() >= 250*time.Millisecond:
+		case state == WorkerProcessing && m.data.backgroundWorker.ProcessingDuration() >= 250*time.Millisecond:
 			// Only show spinner after grace period to avoid flicker for quick dedup operations
 			style = lipgloss.NewStyle().
 				Background(ColorBgHighlight).
 				Foreground(ColorInfo).
 				Bold(true).
 				Padding(0, 1)
-			frame := workerSpinnerFrames[m.workerSpinnerIdx%len(workerSpinnerFrames)]
+			frame := workerSpinnerFrames[m.data.workerSpinnerIdx%len(workerSpinnerFrames)]
 			text = fmt.Sprintf("%s refreshing", frame)
 
 		case lastErr != nil && lastErr.Retries >= freshnessErrorRetries:
@@ -343,7 +343,7 @@ func (m *Model) renderFooter() string {
 	// PHASE 2 PROGRESS - show while metrics are still computing (bv-tspo)
 	// ─────────────────────────────────────────────────────────────────────────
 	phase2Section := ""
-	if m.snapshot != nil && !m.snapshot.Phase2Ready {
+	if m.data.snapshot != nil && !m.data.snapshot.Phase2Ready {
 		phase2Style := lipgloss.NewStyle().
 			Background(ColorBgHighlight).
 			Foreground(ColorInfo).
@@ -363,12 +363,12 @@ func (m *Model) renderFooter() string {
 		)
 
 		switch {
-		case m.backgroundWorker != nil:
-			polling, fsType, pollInterval = m.backgroundWorker.WatcherInfo()
-		case m.watcher != nil:
-			polling = m.watcher.IsPolling()
-			fsType = m.watcher.FilesystemType()
-			pollInterval = m.watcher.PollInterval()
+		case m.data.backgroundWorker != nil:
+			polling, fsType, pollInterval = m.data.backgroundWorker.WatcherInfo()
+		case m.data.watcher != nil:
+			polling = m.data.watcher.IsPolling()
+			fsType = m.data.watcher.FilesystemType()
+			pollInterval = m.data.watcher.PollInterval()
 		}
 
 		if polling {
@@ -404,10 +404,10 @@ func (m *Model) renderFooter() string {
 	// LARGE DATASET WARNING - Tiered performance mode (bv-9thm)
 	// ─────────────────────────────────────────────────────────────────────────
 	datasetSection := ""
-	if m.snapshot != nil && m.snapshot.LargeDatasetWarning != "" {
+	if m.data.snapshot != nil && m.data.snapshot.LargeDatasetWarning != "" {
 		bg := ColorPrioHighBg
 		fg := ColorWarning
-		if m.snapshot.DatasetTier == datasetTierHuge {
+		if m.data.snapshot.DatasetTier == datasetTierHuge {
 			bg = ColorPrioCriticalBg
 			fg = ColorPrioCritical
 		}
@@ -416,7 +416,7 @@ func (m *Model) renderFooter() string {
 			Foreground(fg).
 			Bold(true).
 			Padding(0, 1)
-		datasetSection = datasetStyle.Render(m.snapshot.LargeDatasetWarning)
+		datasetSection = datasetStyle.Render(m.data.snapshot.LargeDatasetWarning)
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────
@@ -469,13 +469,13 @@ func (m *Model) renderFooter() string {
 	// INSTANCE WARNING - Secondary instance indicator (bv-vrvn)
 	// ─────────────────────────────────────────────────────────────────────────
 	instanceSection := ""
-	if m.instanceLock != nil && !m.instanceLock.IsFirstInstance() {
+	if m.data.instanceLock != nil && !m.data.instanceLock.IsFirstInstance() {
 		instanceStyle := lipgloss.NewStyle().
 			Background(ColorPrioHighBg).
 			Foreground(ColorWarning).
 			Bold(true).
 			Padding(0, 1)
-		instanceSection = instanceStyle.Render(fmt.Sprintf("⚠ PID %d", m.instanceLock.HolderPID()))
+		instanceSection = instanceStyle.Render(fmt.Sprintf("⚠ PID %d", m.data.instanceLock.HolderPID()))
 	}
 
 	// ─────────────────────────────────────────────────────────────────────────

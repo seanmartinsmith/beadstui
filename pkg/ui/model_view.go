@@ -14,8 +14,8 @@ import (
 
 func (m Model) renderLoadingScreen() string {
 	frame := workerSpinnerFrames[0]
-	if m.backgroundWorker != nil && m.backgroundWorker.State() == WorkerProcessing {
-		frame = workerSpinnerFrames[m.workerSpinnerIdx%len(workerSpinnerFrames)]
+	if m.data.backgroundWorker != nil && m.data.backgroundWorker.State() == WorkerProcessing {
+		frame = workerSpinnerFrames[m.data.workerSpinnerIdx%len(workerSpinnerFrames)]
 	}
 
 	spinnerStyle := lipgloss.NewStyle().Foreground(ColorInfo).Bold(true)
@@ -27,8 +27,8 @@ func (m Model) renderLoadingScreen() string {
 		"",
 		titleStyle.Render("Loading beads..."),
 	}
-	if m.beadsPath != "" {
-		lines = append(lines, "", subStyle.Render(m.beadsPath))
+	if m.data.beadsPath != "" {
+		lines = append(lines, "", subStyle.Render(m.data.beadsPath))
 	}
 
 	content := lipgloss.JoinVertical(lipgloss.Center, lines...)
@@ -77,7 +77,7 @@ func (m Model) View() tea.View {
 	} else if m.showTutorial {
 		// Interactive tutorial (bv-8y31) - full screen overlay
 		body = m.tutorialModel.View()
-	} else if m.snapshotInitPending && m.snapshot == nil {
+	} else if m.data.snapshotInitPending && m.data.snapshot == nil {
 		body = m.renderLoadingScreen()
 	} else {
 		// Route by ViewMode enum
@@ -769,7 +769,7 @@ func (m Model) renderLabelDrilldown() string {
 	}
 	var scoredIssues []scored
 	for _, is := range issues {
-		scoredIssues = append(scoredIssues, scored{issue: is, score: m.analysis.GetPageRankScore(is.ID)})
+		scoredIssues = append(scoredIssues, scored{issue: is, score: m.data.analysis.GetPageRankScore(is.ID)})
 	}
 	sort.Slice(scoredIssues, func(i, j int) bool {
 		if scoredIssues[i].score == scoredIssues[j].score {

@@ -17,13 +17,13 @@ func TestModelUpdatePhase2AndFileChanged(t *testing.T) {
 	m.width, m.height = 120, 40
 
 	// Phase2ReadyMsg should rebuild insights/graph without error
-	ins := m.analysis.GenerateInsights(len(issues))
-	updated, _ := m.Update(Phase2ReadyMsg{Stats: m.analysis, Insights: ins})
+	ins := m.data.analysis.GenerateInsights(len(issues))
+	updated, _ := m.Update(Phase2ReadyMsg{Stats: m.data.analysis, Insights: ins})
 	m2 := updated.(Model)
 	if m2.insightsPanel.insights.Stats == nil {
 		t.Fatalf("expected insights to be regenerated")
 	}
-	if len(m2.priorityHints) == 0 {
+	if len(m2.ac.priorityHints) == 0 {
 		t.Fatalf("expected priority hints populated after Phase2Ready")
 	}
 

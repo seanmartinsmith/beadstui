@@ -301,10 +301,10 @@ func startAllowlistedGUIEditor(kind allowlistedGUIEditorKind, targetFile string)
 }
 
 // openInEditor opens the beads file in the user's preferred editor
-// Uses m.beadsPath which respects issues.jsonl (canonical per beads upstream)
+// Uses m.data.beadsPath which respects issues.jsonl (canonical per beads upstream)
 func (m *Model) openInEditor() {
 	// Use the configured beadsPath instead of hardcoded path
-	beadsFile := m.beadsPath
+	beadsFile := m.data.beadsPath
 	if beadsFile == "" {
 		cwd, _ := os.Getwd()
 		if found, err := loader.FindJSONLPath(filepath.Join(cwd, ".beads")); err == nil {

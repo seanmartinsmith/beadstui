@@ -45,13 +45,13 @@ func TestFileChangedPreservesTriageData(t *testing.T) {
 	m := NewModel([]model.Issue{issue}, nil, beadsPath, nil)
 	defer m.Stop()
 
-	m.triageScores = map[string]float64{issue.ID: 0.9}
-	m.triageReasons = map[string]analysis.TriageReasons{
+	m.ac.triageScores = map[string]float64{issue.ID: 0.9}
+	m.ac.triageReasons = map[string]analysis.TriageReasons{
 		issue.ID: {Primary: "Keep", All: []string{"Keep"}},
 	}
-	m.quickWinSet = map[string]bool{issue.ID: true}
-	m.blockerSet = map[string]bool{issue.ID: true}
-	m.unblocksMap = map[string][]string{issue.ID: {"B-2"}}
+	m.ac.quickWinSet = map[string]bool{issue.ID: true}
+	m.ac.blockerSet = map[string]bool{issue.ID: true}
+	m.ac.unblocksMap = map[string][]string{issue.ID: {"B-2"}}
 
 	rec := analysis.Recommendation{ID: issue.ID, Title: issue.Title, Score: 0.9}
 	m.insightsPanel.topPicks = []analysis.TopPick{{ID: issue.ID, Title: issue.Title, Score: 0.9}}
@@ -104,11 +104,11 @@ func TestDataSnapshotPreservesTriageWhenPhase1(t *testing.T) {
 	}
 	m := NewModel([]model.Issue{issue}, nil, "", nil)
 
-	m.triageScores = map[string]float64{issue.ID: 0.75}
-	m.triageReasons = map[string]analysis.TriageReasons{
+	m.ac.triageScores = map[string]float64{issue.ID: 0.75}
+	m.ac.triageReasons = map[string]analysis.TriageReasons{
 		issue.ID: {Primary: "Stay", All: []string{"Stay"}},
 	}
-	m.quickWinSet = map[string]bool{issue.ID: true}
+	m.ac.quickWinSet = map[string]bool{issue.ID: true}
 
 	var listItems []IssueItem
 	for _, it := range m.list.Items() {
@@ -116,15 +116,15 @@ func TestDataSnapshotPreservesTriageWhenPhase1(t *testing.T) {
 	}
 
 	snapshot := &DataSnapshot{
-		Issues:       m.issues,
-		IssueMap:     m.issueMap,
-		Analyzer:     m.analyzer,
-		Analysis:     m.analysis,
-		Insights:     m.analysis.GenerateInsights(len(m.issues)),
-		CountOpen:    m.countOpen,
-		CountReady:   m.countReady,
-		CountBlocked: m.countBlocked,
-		CountClosed:  m.countClosed,
+		Issues:       m.data.issues,
+		IssueMap:     m.data.issueMap,
+		Analyzer:     m.data.analyzer,
+		Analysis:     m.data.analysis,
+		Insights:     m.data.analysis.GenerateInsights(len(m.data.issues)),
+		CountOpen:    m.ac.countOpen,
+		CountReady:   m.ac.countReady,
+		CountBlocked: m.ac.countBlocked,
+		CountClosed:  m.ac.countClosed,
 		ListItems:    listItems,
 		// Phase 1 snapshot: no triage data yet.
 		TriageScores:  map[string]float64{},
@@ -138,13 +138,13 @@ func TestDataSnapshotPreservesTriageWhenPhase1(t *testing.T) {
 	nextModel, _ := m.Update(SnapshotReadyMsg{Snapshot: snapshot})
 	updated := nextModel.(Model)
 
-	if updated.triageScores[issue.ID] != 0.75 {
-		t.Errorf("triage score should be preserved: got %v, want 0.75", updated.triageScores[issue.ID])
+	if updated.ac.triageScores[issue.ID] != 0.75 {
+		t.Errorf("triage score should be preserved: got %v, want 0.75", updated.ac.triageScores[issue.ID])
 	}
-	if updated.triageReasons[issue.ID].Primary != "Stay" {
-		t.Errorf("triage reason should be preserved: got %q", updated.triageReasons[issue.ID].Primary)
+	if updated.ac.triageReasons[issue.ID].Primary != "Stay" {
+		t.Errorf("triage reason should be preserved: got %q", updated.ac.triageReasons[issue.ID].Primary)
 	}
-	if !updated.quickWinSet[issue.ID] {
+	if !updated.ac.quickWinSet[issue.ID] {
 		t.Error("quick win flag should be preserved")
 	}
 }

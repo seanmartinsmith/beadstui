@@ -89,14 +89,14 @@ func (m *Model) exportToMarkdown() {
 	filename := m.generateExportFilename()
 
 	// Export the issues
-	err := export.SaveMarkdownToFile(m.issues, filename)
+	err := export.SaveMarkdownToFile(m.data.issues, filename)
 	if err != nil {
 		m.statusMsg = fmt.Sprintf("❌ Export failed: %v", err)
 		m.statusIsError = true
 		return
 	}
 
-	m.statusMsg = fmt.Sprintf("✅ Exported %d issues to %s", len(m.issues), filename)
+	m.statusMsg = fmt.Sprintf("✅ Exported %d issues to %s", len(m.data.issues), filename)
 	m.statusIsError = false
 }
 

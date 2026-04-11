@@ -35,7 +35,7 @@ func (m Model) getDiffStatus(id string) DiffStatus {
 // (status filter, label filter, recipe filter, or fuzzy search)
 func (m *Model) hasActiveFilters() bool {
 	// Check status/label/recipe filter
-	if m.currentFilter != "all" {
+	if m.filter.currentFilter != "all" {
 		return true
 	}
 	// Check if fuzzy search filter is active
@@ -47,18 +47,18 @@ func (m *Model) hasActiveFilters() bool {
 
 // clearAllFilters resets all filters to their default state
 func (m *Model) clearAllFilters() {
-	m.currentFilter = "all"
+	m.filter.currentFilter = "all"
 	m.setActiveRecipe(nil) // Clear any active recipe filter
-	m.activeBQLExpr = nil  // Clear BQL state
+	m.filter.activeBQLExpr = nil  // Clear BQL state
 	// Reset the fuzzy search filter by resetting the filter state
 	m.list.ResetFilter()
 	m.applyFilter()
 }
 
 func (m *Model) setActiveRecipe(r *recipe.Recipe) {
-	m.activeRecipe = r
-	if m.backgroundWorker != nil {
-		m.backgroundWorker.SetRecipe(r)
+	m.filter.activeRecipe = r
+	if m.data.backgroundWorker != nil {
+		m.data.backgroundWorker.SetRecipe(r)
 	}
 }
 
@@ -71,7 +71,7 @@ func (m *Model) matchesCurrentFilter(issue model.Issue) bool {
 		}
 	}
 
-	switch m.currentFilter {
+	switch m.filter.currentFilter {
 	case "all":
 		return true
 	case "open":
@@ -87,14 +87,14 @@ func (m *Model) matchesCurrentFilter(issue model.Issue) bool {
 			if dep == nil || !dep.Type.IsBlocking() {
 				continue
 			}
-			if blocker, exists := m.issueMap[dep.DependsOnID]; exists && !isClosedLikeStatus(blocker.Status) {
+			if blocker, exists := m.data.issueMap[dep.DependsOnID]; exists && !isClosedLikeStatus(blocker.Status) {
 				return false
 			}
 		}
 		return true
 	default:
-		if strings.HasPrefix(m.currentFilter, "label:") {
-			label := strings.TrimPrefix(m.currentFilter, "label:")
+		if strings.HasPrefix(m.filter.currentFilter, "label:") {
+			label := strings.TrimPrefix(m.filter.currentFilter, "label:")
 			for _, l := range issue.Labels {
 				if l == label {
 					return true
@@ -107,30 +107,30 @@ func (m *Model) matchesCurrentFilter(issue model.Issue) bool {
 
 func (m *Model) filteredIssuesForActiveView() []model.Issue {
 	// BQL filter active? Use BQL executor (set-level operations: ORDER BY, EXPAND)
-	if m.activeBQLExpr != nil && strings.HasPrefix(m.currentFilter, "bql:") {
-		issues := m.workspacePrefilter(m.issues)
-		opts := bql.ExecuteOpts{IssueMap: m.issueMap}
-		return m.bqlEngine.Execute(m.activeBQLExpr, issues, opts)
+	if m.filter.activeBQLExpr != nil && strings.HasPrefix(m.filter.currentFilter, "bql:") {
+		issues := m.workspacePrefilter(m.data.issues)
+		opts := bql.ExecuteOpts{IssueMap: m.data.issueMap}
+		return m.filter.bqlEngine.Execute(m.filter.activeBQLExpr, issues, opts)
 	}
 
-	filtered := make([]model.Issue, 0, len(m.issues))
-	recipeFilterActive := m.activeRecipe != nil && strings.HasPrefix(m.currentFilter, "recipe:")
+	filtered := make([]model.Issue, 0, len(m.data.issues))
+	recipeFilterActive := m.filter.activeRecipe != nil && strings.HasPrefix(m.filter.currentFilter, "recipe:")
 	if recipeFilterActive {
-		for _, issue := range m.issues {
+		for _, issue := range m.data.issues {
 			if m.workspaceMode && m.activeRepos != nil {
 				repoKey := strings.ToLower(ExtractRepoPrefix(issue.ID))
 				if repoKey != "" && !m.activeRepos[repoKey] {
 					continue
 				}
 			}
-			if issueMatchesRecipe(issue, m.issueMap, m.activeRecipe) {
+			if issueMatchesRecipe(issue, m.data.issueMap, m.filter.activeRecipe) {
 				filtered = append(filtered, issue)
 			}
 		}
-		sortIssuesByRecipe(filtered, m.analysis, m.activeRecipe)
+		sortIssuesByRecipe(filtered, m.data.analysis, m.filter.activeRecipe)
 		return filtered
 	}
-	for _, issue := range m.issues {
+	for _, issue := range m.data.issues {
 		if m.matchesCurrentFilter(issue) {
 			filtered = append(filtered, issue)
 		}
@@ -144,36 +144,36 @@ func (m *Model) refreshBoardAndGraphForCurrentFilter() {
 	}
 
 	filteredIssues := m.filteredIssuesForActiveView()
-	recipeFilterActive := m.activeRecipe != nil && strings.HasPrefix(m.currentFilter, "recipe:")
+	recipeFilterActive := m.filter.activeRecipe != nil && strings.HasPrefix(m.filter.currentFilter, "recipe:")
 	if m.mode == ViewBoard {
-		useSnapshot := m.snapshot != nil && m.snapshot.BoardState != nil && (!m.workspaceMode || m.activeRepos == nil) && len(filteredIssues) == len(m.snapshot.Issues)
+		useSnapshot := m.data.snapshot != nil && m.data.snapshot.BoardState != nil && (!m.workspaceMode || m.activeRepos == nil) && len(filteredIssues) == len(m.data.snapshot.Issues)
 		if useSnapshot {
 			if recipeFilterActive {
-				useSnapshot = m.snapshot.RecipeName == m.activeRecipe.Name && m.snapshot.RecipeHash == recipeFingerprint(m.activeRecipe)
+				useSnapshot = m.data.snapshot.RecipeName == m.filter.activeRecipe.Name && m.data.snapshot.RecipeHash == recipeFingerprint(m.filter.activeRecipe)
 			} else {
-				useSnapshot = m.currentFilter == "all"
+				useSnapshot = m.filter.currentFilter == "all"
 			}
 		}
 		if useSnapshot {
-			m.board.SetSnapshot(m.snapshot)
+			m.board.SetSnapshot(m.data.snapshot)
 		} else {
 			m.board.SetIssues(filteredIssues)
 		}
 	}
 
 	if m.mode == ViewGraph {
-		useSnapshot := m.snapshot != nil && m.snapshot.GraphLayout != nil && len(filteredIssues) == len(m.snapshot.Issues)
+		useSnapshot := m.data.snapshot != nil && m.data.snapshot.GraphLayout != nil && len(filteredIssues) == len(m.data.snapshot.Issues)
 		if useSnapshot {
 			if recipeFilterActive {
-				useSnapshot = m.snapshot.RecipeName == m.activeRecipe.Name && m.snapshot.RecipeHash == recipeFingerprint(m.activeRecipe)
+				useSnapshot = m.data.snapshot.RecipeName == m.filter.activeRecipe.Name && m.data.snapshot.RecipeHash == recipeFingerprint(m.filter.activeRecipe)
 			} else {
-				useSnapshot = m.currentFilter == "all"
+				useSnapshot = m.filter.currentFilter == "all"
 			}
 		}
 		if useSnapshot {
-			m.graphView.SetSnapshot(m.snapshot)
+			m.graphView.SetSnapshot(m.data.snapshot)
 		} else {
-			filterIns := m.analysis.GenerateInsights(len(filteredIssues))
+			filterIns := m.data.analysis.GenerateInsights(len(filteredIssues))
 			m.graphView.SetIssues(filteredIssues, &filterIns)
 		}
 	}
@@ -183,25 +183,25 @@ func (m *Model) applyFilter() {
 	var filteredItems []list.Item
 	var filteredIssues []model.Issue
 
-	for _, issue := range m.issues {
+	for _, issue := range m.data.issues {
 		if m.matchesCurrentFilter(issue) {
 			// Use pre-computed graph scores (avoid redundant calculation)
 			item := IssueItem{
 				Issue:      issue,
-				GraphScore: m.analysis.GetPageRankScore(issue.ID),
-				Impact:     m.analysis.GetCriticalPathScore(issue.ID),
+				GraphScore: m.data.analysis.GetPageRankScore(issue.ID),
+				Impact:     m.data.analysis.GetCriticalPathScore(issue.ID),
 				DiffStatus: m.getDiffStatus(issue.ID),
 				RepoPrefix: ExtractRepoPrefix(issue.ID),
 			}
 			// Add triage data (bv-151)
-			item.TriageScore = m.triageScores[issue.ID]
-			if reasons, exists := m.triageReasons[issue.ID]; exists {
+			item.TriageScore = m.ac.triageScores[issue.ID]
+			if reasons, exists := m.ac.triageReasons[issue.ID]; exists {
 				item.TriageReason = reasons.Primary
 				item.TriageReasons = reasons.All
 			}
-			item.IsQuickWin = m.quickWinSet[issue.ID]
-			item.IsBlocker = m.blockerSet[issue.ID]
-			item.UnblocksCount = len(m.unblocksMap[issue.ID])
+			item.IsQuickWin = m.ac.quickWinSet[issue.ID]
+			item.IsBlocker = m.ac.blockerSet[issue.ID]
+			item.UnblocksCount = len(m.ac.unblocksMap[issue.ID])
 			filteredItems = append(filteredItems, item)
 			filteredIssues = append(filteredIssues, issue)
 		}
@@ -212,16 +212,16 @@ func (m *Model) applyFilter() {
 
 	m.list.SetItems(filteredItems)
 	m.updateSemanticIDs(filteredItems)
-	if m.snapshot != nil && m.snapshot.BoardState != nil && m.currentFilter == "all" && (!m.workspaceMode || m.activeRepos == nil) && len(filteredIssues) == len(m.snapshot.Issues) {
-		m.board.SetSnapshot(m.snapshot)
+	if m.data.snapshot != nil && m.data.snapshot.BoardState != nil && m.filter.currentFilter == "all" && (!m.workspaceMode || m.activeRepos == nil) && len(filteredIssues) == len(m.data.snapshot.Issues) {
+		m.board.SetSnapshot(m.data.snapshot)
 	} else {
 		m.board.SetIssues(filteredIssues)
 	}
-	if m.snapshot != nil && m.snapshot.GraphLayout != nil && m.currentFilter == "all" && len(filteredIssues) == len(m.snapshot.Issues) {
-		m.graphView.SetSnapshot(m.snapshot)
+	if m.data.snapshot != nil && m.data.snapshot.GraphLayout != nil && m.filter.currentFilter == "all" && len(filteredIssues) == len(m.data.snapshot.Issues) {
+		m.graphView.SetSnapshot(m.data.snapshot)
 	} else {
 		// Generate insights for graph view (for metric rankings and sorting)
-		filterIns := m.analysis.GenerateInsights(len(filteredIssues))
+		filterIns := m.data.analysis.GenerateInsights(len(filteredIssues))
 		m.graphView.SetIssues(filteredIssues, &filterIns)
 	}
 
@@ -247,21 +247,21 @@ func (m *Model) refreshListItemsPhase2() {
 			continue
 		}
 		issueID := item.Issue.ID
-		if m.analysis != nil {
-			item.GraphScore = m.analysis.GetPageRankScore(issueID)
-			item.Impact = m.analysis.GetCriticalPathScore(issueID)
+		if m.data.analysis != nil {
+			item.GraphScore = m.data.analysis.GetPageRankScore(issueID)
+			item.Impact = m.data.analysis.GetCriticalPathScore(issueID)
 		}
-		item.TriageScore = m.triageScores[issueID]
-		if reasons, exists := m.triageReasons[issueID]; exists {
+		item.TriageScore = m.ac.triageScores[issueID]
+		if reasons, exists := m.ac.triageReasons[issueID]; exists {
 			item.TriageReason = reasons.Primary
 			item.TriageReasons = reasons.All
 		} else {
 			item.TriageReason = ""
 			item.TriageReasons = nil
 		}
-		item.IsQuickWin = m.quickWinSet[issueID]
-		item.IsBlocker = m.blockerSet[issueID]
-		item.UnblocksCount = len(m.unblocksMap[issueID])
+		item.IsQuickWin = m.ac.quickWinSet[issueID]
+		item.IsBlocker = m.ac.blockerSet[issueID]
+		item.UnblocksCount = len(m.ac.unblocksMap[issueID])
 		items[i] = item
 	}
 
@@ -274,7 +274,7 @@ func (m *Model) refreshListItemsPhase2() {
 
 // cycleSortMode cycles through available sort modes (bv-3ita)
 func (m *Model) cycleSortMode() {
-	m.sortMode = (m.sortMode + 1) % numSortModes
+	m.filter.sortMode = (m.filter.sortMode + 1) % numSortModes
 	m.applyFilter() // Re-apply filter with new sort
 }
 
@@ -294,7 +294,7 @@ func (m *Model) sortFilteredItems(items []list.Item, issues []model.Issue) {
 		iItem := items[indices[i]].(IssueItem)
 		jItem := items[indices[j]].(IssueItem)
 
-		switch m.sortMode {
+		switch m.filter.sortMode {
 		case SortCreatedAsc:
 			// Oldest first
 			return iItem.Issue.CreatedAt.Before(jItem.Issue.CreatedAt)
@@ -360,7 +360,7 @@ func (m *Model) applyRecipe(r *recipe.Recipe) {
 	var filteredItems []list.Item
 	var filteredIssues []model.Issue
 
-	for _, issue := range m.issues {
+	for _, issue := range m.data.issues {
 		include := true
 
 		// Workspace repo filter (nil = all repos)
@@ -417,7 +417,7 @@ func (m *Model) applyRecipe(r *recipe.Recipe) {
 				if dep == nil || !dep.Type.IsBlocking() {
 					continue
 				}
-				if blocker, exists := m.issueMap[dep.DependsOnID]; exists && !isClosedLikeStatus(blocker.Status) {
+				if blocker, exists := m.data.issueMap[dep.DependsOnID]; exists && !isClosedLikeStatus(blocker.Status) {
 					isBlocked = true
 					break
 				}
@@ -428,20 +428,20 @@ func (m *Model) applyRecipe(r *recipe.Recipe) {
 		if include {
 			item := IssueItem{
 				Issue:      issue,
-				GraphScore: m.analysis.GetPageRankScore(issue.ID),
-				Impact:     m.analysis.GetCriticalPathScore(issue.ID),
+				GraphScore: m.data.analysis.GetPageRankScore(issue.ID),
+				Impact:     m.data.analysis.GetCriticalPathScore(issue.ID),
 				DiffStatus: m.getDiffStatus(issue.ID),
 				RepoPrefix: ExtractRepoPrefix(issue.ID),
 			}
 			// Add triage data (bv-151)
-			item.TriageScore = m.triageScores[issue.ID]
-			if reasons, exists := m.triageReasons[issue.ID]; exists {
+			item.TriageScore = m.ac.triageScores[issue.ID]
+			if reasons, exists := m.ac.triageReasons[issue.ID]; exists {
 				item.TriageReason = reasons.Primary
 				item.TriageReasons = reasons.All
 			}
-			item.IsQuickWin = m.quickWinSet[issue.ID]
-			item.IsBlocker = m.blockerSet[issue.ID]
-			item.UnblocksCount = len(m.unblocksMap[issue.ID])
+			item.IsQuickWin = m.ac.quickWinSet[issue.ID]
+			item.IsBlocker = m.ac.blockerSet[issue.ID]
+			item.UnblocksCount = len(m.ac.unblocksMap[issue.ID])
 			filteredItems = append(filteredItems, item)
 			filteredIssues = append(filteredIssues, issue)
 		}
@@ -481,7 +481,7 @@ func (m *Model) applyRecipe(r *recipe.Recipe) {
 					return 0
 				}
 			case "impact":
-				if m.analysis == nil {
+				if m.data.analysis == nil {
 					switch {
 					case a.Priority < b.Priority:
 						return -1
@@ -491,8 +491,8 @@ func (m *Model) applyRecipe(r *recipe.Recipe) {
 						return 0
 					}
 				}
-				aScore := m.analysis.GetCriticalPathScore(a.ID)
-				bScore := m.analysis.GetCriticalPathScore(b.ID)
+				aScore := m.data.analysis.GetCriticalPathScore(a.ID)
+				bScore := m.data.analysis.GetCriticalPathScore(b.ID)
 				switch {
 				case aScore < bScore:
 					return -1
@@ -502,7 +502,7 @@ func (m *Model) applyRecipe(r *recipe.Recipe) {
 					return 0
 				}
 			case "pagerank":
-				if m.analysis == nil {
+				if m.data.analysis == nil {
 					switch {
 					case a.Priority < b.Priority:
 						return -1
@@ -512,8 +512,8 @@ func (m *Model) applyRecipe(r *recipe.Recipe) {
 						return 0
 					}
 				}
-				aScore := m.analysis.GetPageRankScore(a.ID)
-				bScore := m.analysis.GetPageRankScore(b.ID)
+				aScore := m.data.analysis.GetPageRankScore(a.ID)
+				bScore := m.data.analysis.GetPageRankScore(b.ID)
 				switch {
 				case aScore < bScore:
 					return -1
@@ -568,11 +568,11 @@ func (m *Model) applyRecipe(r *recipe.Recipe) {
 	m.updateSemanticIDs(filteredItems)
 	m.board.SetIssues(filteredIssues)
 	// Generate insights for graph view (for metric rankings and sorting)
-	recipeIns := m.analysis.GenerateInsights(len(filteredIssues))
+	recipeIns := m.data.analysis.GenerateInsights(len(filteredIssues))
 	m.graphView.SetIssues(filteredIssues, &recipeIns)
 
 	// Update filter indicator
-	m.currentFilter = "recipe:" + r.Name
+	m.filter.currentFilter = "recipe:" + r.Name
 
 	// Keep selection in bounds
 	if len(filteredItems) > 0 && m.list.Index() >= len(filteredItems) {
@@ -711,12 +711,12 @@ func (m *Model) updateViewportContent() {
 	}
 
 	// Graph Analysis (using thread-safe accessors)
-	pr := m.analysis.GetPageRankScore(item.ID)
-	bt := m.analysis.GetBetweennessScore(item.ID)
-	imp := m.analysis.GetCriticalPathScore(item.ID)
-	ev := m.analysis.GetEigenvectorScore(item.ID)
-	hub := m.analysis.GetHubScore(item.ID)
-	auth := m.analysis.GetAuthorityScore(item.ID)
+	pr := m.data.analysis.GetPageRankScore(item.ID)
+	bt := m.data.analysis.GetBetweennessScore(item.ID)
+	imp := m.data.analysis.GetCriticalPathScore(item.ID)
+	ev := m.data.analysis.GetEigenvectorScore(item.ID)
+	hub := m.data.analysis.GetHubScore(item.ID)
+	auth := m.data.analysis.GetAuthorityScore(item.ID)
 
 	sb.WriteString("### Graph Analysis\n")
 	sb.WriteString(fmt.Sprintf("- **Impact Depth**: %.0f (downstream chain length)\n", imp))
@@ -755,7 +755,7 @@ func (m *Model) updateViewportContent() {
 
 	// Dependency Graph (Tree)
 	if len(item.Dependencies) > 0 {
-		rootNode := BuildDependencyTree(item.ID, m.issueMap, 3) // Max depth 3
+		rootNode := BuildDependencyTree(item.ID, m.data.issueMap, 3) // Max depth 3
 		treeStr := RenderDependencyTree(rootNode)
 		sb.WriteString("```\n" + treeStr + "```\n\n")
 	}
@@ -915,36 +915,36 @@ func (m *Model) workspacePrefilter(issues []model.Issue) []model.Issue {
 // This bypasses matchesCurrentFilter() because BQL has set-level operations
 // (ORDER BY, EXPAND) that can't work per-issue.
 func (m *Model) applyBQL(query *bql.Query, queryStr string) {
-	issues := m.workspacePrefilter(m.issues)
-	opts := bql.ExecuteOpts{IssueMap: m.issueMap}
-	filtered := m.bqlEngine.Execute(query, issues, opts)
+	issues := m.workspacePrefilter(m.data.issues)
+	opts := bql.ExecuteOpts{IssueMap: m.data.issueMap}
+	filtered := m.filter.bqlEngine.Execute(query, issues, opts)
 
 	var filteredItems []list.Item
 	for _, issue := range filtered {
 		item := IssueItem{
 			Issue:      issue,
-			GraphScore: m.analysis.GetPageRankScore(issue.ID),
-			Impact:     m.analysis.GetCriticalPathScore(issue.ID),
+			GraphScore: m.data.analysis.GetPageRankScore(issue.ID),
+			Impact:     m.data.analysis.GetCriticalPathScore(issue.ID),
 			DiffStatus: m.getDiffStatus(issue.ID),
 			RepoPrefix: ExtractRepoPrefix(issue.ID),
 		}
-		item.TriageScore = m.triageScores[issue.ID]
-		if reasons, exists := m.triageReasons[issue.ID]; exists {
+		item.TriageScore = m.ac.triageScores[issue.ID]
+		if reasons, exists := m.ac.triageReasons[issue.ID]; exists {
 			item.TriageReason = reasons.Primary
 			item.TriageReasons = reasons.All
 		}
-		item.IsQuickWin = m.quickWinSet[issue.ID]
-		item.IsBlocker = m.blockerSet[issue.ID]
-		item.UnblocksCount = len(m.unblocksMap[issue.ID])
+		item.IsQuickWin = m.ac.quickWinSet[issue.ID]
+		item.IsBlocker = m.ac.blockerSet[issue.ID]
+		item.UnblocksCount = len(m.ac.unblocksMap[issue.ID])
 		filteredItems = append(filteredItems, item)
 	}
 
 	m.list.SetItems(filteredItems)
 	m.updateSemanticIDs(filteredItems)
-	m.currentFilter = "bql:" + queryStr
+	m.filter.currentFilter = "bql:" + queryStr
 
 	m.board.SetIssues(filtered)
-	filterIns := m.analysis.GenerateInsights(len(filtered))
+	filterIns := m.data.analysis.GenerateInsights(len(filtered))
 	m.graphView.SetIssues(filtered, &filterIns)
 
 	if len(filteredItems) > 0 && m.list.Index() >= len(filteredItems) {

@@ -17,7 +17,7 @@ func (m *Model) SetProjectName(name string) {
 
 // SetFilter sets the current filter and applies it (exposed for testing)
 func (m *Model) SetFilter(f string) {
-	m.currentFilter = f
+	m.filter.currentFilter = f
 	m.applyFilter()
 }
 
@@ -76,8 +76,8 @@ func (m *Model) enterHistoryView() {
 	}
 
 	// Convert model.Issue to correlation.BeadInfo
-	beads := make([]correlation.BeadInfo, len(m.issues))
-	for i, issue := range m.issues {
+	beads := make([]correlation.BeadInfo, len(m.data.issues))
+	for i, issue := range m.data.issues {
 		beads[i] = correlation.BeadInfo{
 			ID:     issue.ID,
 			Title:  issue.Title,
@@ -86,7 +86,7 @@ func (m *Model) enterHistoryView() {
 	}
 
 	// Load correlation data
-	correlator := correlation.NewCorrelator(cwd, m.beadsPath)
+	correlator := correlation.NewCorrelator(cwd, m.data.beadsPath)
 	opts := correlation.CorrelatorOptions{
 		Limit: 500, // Reasonable limit for TUI performance
 	}
@@ -144,7 +144,7 @@ func (m *Model) enterTimeTravelMode(revision string) {
 
 	// Create snapshots and compute diff
 	fromSnapshot := analysis.NewSnapshot(historicalIssues)
-	toSnapshot := analysis.NewSnapshot(m.issues)
+	toSnapshot := analysis.NewSnapshot(m.data.issues)
 	diff := analysis.CompareSnapshots(fromSnapshot, toSnapshot)
 
 	// Build lookup sets for badges
@@ -195,8 +195,8 @@ func (m *Model) exitTimeTravelMode() {
 
 // rebuildListWithDiffInfo recreates list items with current diff state
 func (m *Model) rebuildListWithDiffInfo() {
-	if m.activeRecipe != nil {
-		m.applyRecipe(m.activeRecipe)
+	if m.filter.activeRecipe != nil {
+		m.applyRecipe(m.filter.activeRecipe)
 	} else {
 		m.applyFilter()
 	}
@@ -305,11 +305,11 @@ func (m Model) ShowDetails() bool {
 // "label:X", "bql:..."). Stable accessor for Phase 1 refactor - this field will
 // move into FilterState.
 func (m Model) CurrentFilter() string {
-	return m.currentFilter
+	return m.filter.currentFilter
 }
 
 // Issues returns the full (unfiltered) issue slice. Stable accessor for Phase 1
 // refactor - this field will move into DataState.
 func (m Model) Issues() []model.Issue {
-	return m.issues
+	return m.data.issues
 }

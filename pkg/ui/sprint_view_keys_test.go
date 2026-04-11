@@ -37,7 +37,7 @@ func TestHandleSprintKeys_NextPrevSprint(t *testing.T) {
 		theme:          DefaultTheme(),
 		width:          100,
 		height:         40,
-		issues:         []model.Issue{{ID: "A", Title: "Issue A", Status: model.StatusOpen, Priority: 1, IssueType: model.TypeTask}},
+		data:           &DataState{issues: []model.Issue{{ID: "A", Title: "Issue A", Status: model.StatusOpen, Priority: 1, IssueType: model.TypeTask}}},
 		sprints:        sprints,
 		selectedSprint: &sprints[0],
 	}
@@ -172,10 +172,10 @@ func TestRenderSprintDashboard_BasicSprint(t *testing.T) {
 		width:          100,
 		height:         40,
 		selectedSprint: &sprint,
-		issues: []model.Issue{
+		data: &DataState{issues: []model.Issue{
 			{ID: "A", Title: "Issue A", Status: model.StatusClosed, Priority: 1, IssueType: model.TypeTask},
 			{ID: "B", Title: "Issue B", Status: model.StatusOpen, Priority: 1, IssueType: model.TypeTask},
-		},
+		}},
 	}
 
 	result := m.renderSprintDashboard()
@@ -211,12 +211,12 @@ func TestRenderSprintDashboard_AllStatusTypes(t *testing.T) {
 		width:          100,
 		height:         50,
 		selectedSprint: &sprint,
-		issues: []model.Issue{
+		data: &DataState{issues: []model.Issue{
 			{ID: "A", Title: "Closed Issue", Status: model.StatusClosed, Priority: 1, IssueType: model.TypeTask},
 			{ID: "B", Title: "Open Issue", Status: model.StatusOpen, Priority: 1, IssueType: model.TypeTask},
 			{ID: "C", Title: "In Progress", Status: model.StatusInProgress, Priority: 1, IssueType: model.TypeTask, UpdatedAt: now},
 			{ID: "D", Title: "Blocked Issue", Status: model.StatusBlocked, Priority: 1, IssueType: model.TypeTask},
-		},
+		}},
 	}
 
 	result := m.renderSprintDashboard()
@@ -247,10 +247,10 @@ func TestRenderSprintDashboard_AtRiskItems(t *testing.T) {
 		width:          100,
 		height:         50,
 		selectedSprint: &sprint,
-		issues: []model.Issue{
+		data: &DataState{issues: []model.Issue{
 			{ID: "A", Title: "Fresh In Progress", Status: model.StatusInProgress, Priority: 1, IssueType: model.TypeTask, UpdatedAt: now},
 			{ID: "B", Title: "Stale In Progress", Status: model.StatusInProgress, Priority: 1, IssueType: model.TypeTask, UpdatedAt: now.AddDate(0, 0, -5)},
-		},
+		}},
 	}
 
 	result := m.renderSprintDashboard()
@@ -281,9 +281,9 @@ func TestRenderSprintDashboard_NoAtRiskItems(t *testing.T) {
 		width:          100,
 		height:         50,
 		selectedSprint: &sprint,
-		issues: []model.Issue{
+		data: &DataState{issues: []model.Issue{
 			{ID: "A", Title: "Fresh Item", Status: model.StatusInProgress, Priority: 1, IssueType: model.TypeTask, UpdatedAt: now},
-		},
+		}},
 	}
 
 	result := m.renderSprintDashboard()
@@ -309,9 +309,9 @@ func TestRenderSprintDashboard_NarrowWidth(t *testing.T) {
 		width:          30, // Very narrow
 		height:         40,
 		selectedSprint: &sprint,
-		issues: []model.Issue{
+		data: &DataState{issues: []model.Issue{
 			{ID: "A", Title: "Test Issue", Status: model.StatusOpen, Priority: 1, IssueType: model.TypeTask},
-		},
+		}},
 	}
 
 	// Should not panic with narrow width
@@ -336,9 +336,9 @@ func TestRenderSprintDashboard_ZeroDaysRemaining(t *testing.T) {
 		width:          100,
 		height:         40,
 		selectedSprint: &sprint,
-		issues: []model.Issue{
+		data: &DataState{issues: []model.Issue{
 			{ID: "A", Title: "Test Issue", Status: model.StatusOpen, Priority: 1, IssueType: model.TypeTask},
-		},
+		}},
 	}
 
 	result := m.renderSprintDashboard()
@@ -377,7 +377,7 @@ func TestRenderSprintDashboard_ManyBeads(t *testing.T) {
 		width:          100,
 		height:         50,
 		selectedSprint: &sprint,
-		issues:         issues,
+		data:           &DataState{issues: issues},
 	}
 
 	result := m.renderSprintDashboard()
@@ -402,7 +402,7 @@ func TestRenderSprintDashboard_InsufficientData(t *testing.T) {
 		width:          100,
 		height:         40,
 		selectedSprint: &sprint,
-		issues:         []model.Issue{},
+		data:           &DataState{issues: []model.Issue{}},
 	}
 	_ = now // unused but kept for consistency
 
@@ -444,7 +444,7 @@ func TestHandleSprintKeys_DownArrow(t *testing.T) {
 		theme:          DefaultTheme(),
 		width:          100,
 		height:         40,
-		issues:         []model.Issue{{ID: "A", Title: "Issue A", Status: model.StatusOpen, Priority: 1, IssueType: model.TypeTask}},
+		data:           &DataState{issues: []model.Issue{{ID: "A", Title: "Issue A", Status: model.StatusOpen, Priority: 1, IssueType: model.TypeTask}}},
 		sprints:        sprints,
 		selectedSprint: &sprints[0],
 	}
@@ -467,7 +467,7 @@ func TestHandleSprintKeys_UpArrow(t *testing.T) {
 		theme:          DefaultTheme(),
 		width:          100,
 		height:         40,
-		issues:         []model.Issue{{ID: "A", Title: "Issue A", Status: model.StatusOpen, Priority: 1, IssueType: model.TypeTask}},
+		data:           &DataState{issues: []model.Issue{{ID: "A", Title: "Issue A", Status: model.StatusOpen, Priority: 1, IssueType: model.TypeTask}}},
 		sprints:        sprints,
 		selectedSprint: &sprints[1],
 	}
@@ -489,7 +489,7 @@ func TestHandleSprintKeys_BoundaryAtFirst(t *testing.T) {
 		theme:          DefaultTheme(),
 		width:          100,
 		height:         40,
-		issues:         []model.Issue{{ID: "A", Title: "Issue A", Status: model.StatusOpen, Priority: 1, IssueType: model.TypeTask}},
+		data:           &DataState{issues: []model.Issue{{ID: "A", Title: "Issue A", Status: model.StatusOpen, Priority: 1, IssueType: model.TypeTask}}},
 		sprints:        sprints,
 		selectedSprint: &sprints[0],
 	}
@@ -512,7 +512,7 @@ func TestHandleSprintKeys_BoundaryAtLast(t *testing.T) {
 		theme:          DefaultTheme(),
 		width:          100,
 		height:         40,
-		issues:         []model.Issue{{ID: "A", Title: "Issue A", Status: model.StatusOpen, Priority: 1, IssueType: model.TypeTask}},
+		data:           &DataState{issues: []model.Issue{{ID: "A", Title: "Issue A", Status: model.StatusOpen, Priority: 1, IssueType: model.TypeTask}}},
 		sprints:        sprints,
 		selectedSprint: &sprints[0],
 	}

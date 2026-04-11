@@ -710,7 +710,7 @@ func TestSnapshotSwap_UsesSnapshotGraphLayoutWhenUnfiltered(t *testing.T) {
 	}
 
 	m := NewModel(issues, nil, "", nil)
-	m.currentFilter = "all"
+	m.filter.currentFilter = "all"
 
 	snapshot := NewSnapshotBuilder(issues).Build()
 	if snapshot.GraphLayout == nil {
@@ -747,7 +747,7 @@ func TestPhase2ReadyMsg_DoesNotRebuildGraphViewWhenSnapshotHasLayout(t *testing.
 	}
 
 	m := NewModel(issues, nil, "", nil)
-	m.currentFilter = "all"
+	m.filter.currentFilter = "all"
 
 	snapshot := NewSnapshotBuilder(issues).Build()
 	snapshot.GraphLayout.Blockers["A"] = []string{"SENTINEL"}
@@ -755,9 +755,9 @@ func TestPhase2ReadyMsg_DoesNotRebuildGraphViewWhenSnapshotHasLayout(t *testing.
 	newM, _ := m.Update(SnapshotReadyMsg{Snapshot: snapshot})
 	m = newM.(Model)
 
-	// Simulate Phase 2 completion message; Stats identity must match m.analysis.
-	ins := m.analysis.GenerateInsights(len(m.issues))
-	newM, _ = m.Update(Phase2ReadyMsg{Stats: m.analysis, Insights: ins})
+	// Simulate Phase 2 completion message; Stats identity must match m.data.analysis.
+	ins := m.data.analysis.GenerateInsights(len(m.data.issues))
+	newM, _ = m.Update(Phase2ReadyMsg{Stats: m.data.analysis, Insights: ins})
 	m = newM.(Model)
 
 	if got := m.graphView.blockers["A"]; len(got) != 1 || got[0] != "SENTINEL" {

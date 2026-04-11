@@ -82,7 +82,7 @@ func (m Model) renderSprintDashboard() string {
 	for _, id := range sprint.BeadIDs {
 		beadIDSet[id] = true
 	}
-	for _, iss := range m.issues {
+	for _, iss := range m.data.issues {
 		if beadIDSet[iss.ID] {
 			totalBeads++
 			sprintIssues = append(sprintIssues, iss)

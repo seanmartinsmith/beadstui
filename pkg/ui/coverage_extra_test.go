@@ -172,16 +172,16 @@ func TestHandleListKeysFiltersAndTimeTravelPrompt(t *testing.T) {
 	m.isSplitView = false
 
 	m = m.handleListKeys(tea.KeyPressMsg{Code: 'o', Text: "o"})
-	if m.currentFilter != "open" {
-		t.Fatalf("expected filter 'open', got %s", m.currentFilter)
+	if m.filter.currentFilter != "open" {
+		t.Fatalf("expected filter 'open', got %s", m.filter.currentFilter)
 	}
 	m = m.handleListKeys(tea.KeyPressMsg{Code: 'c', Text: "c"})
-	if m.currentFilter != "closed" {
-		t.Fatalf("expected filter 'closed', got %s", m.currentFilter)
+	if m.filter.currentFilter != "closed" {
+		t.Fatalf("expected filter 'closed', got %s", m.filter.currentFilter)
 	}
 	m = m.handleListKeys(tea.KeyPressMsg{Code: 'r', Text: "r"})
-	if m.currentFilter != "ready" {
-		t.Fatalf("expected filter 'ready', got %s", m.currentFilter)
+	if m.filter.currentFilter != "ready" {
+		t.Fatalf("expected filter 'ready', got %s", m.filter.currentFilter)
 	}
 
 	// Paging up/down
@@ -336,7 +336,7 @@ func TestViewTogglesGraphBoardInsightsActionable(t *testing.T) {
 	// Priority hints toggle
 	modelAny, _ = m.Update(tea.KeyPressMsg{Code: 'p', Text: "p"})
 	m = modelAny.(Model)
-	if !m.showPriorityHints {
+	if !m.ac.showPriorityHints {
 		t.Fatalf("priority hints should toggle on with 'p'")
 	}
 
@@ -409,9 +409,9 @@ func TestHandleRecipePickerAndInsightsKeys(t *testing.T) {
 	// Seed insights with a selected item
 	ins := analysis.Insights{
 		Bottlenecks: []analysis.InsightItem{{ID: "1", Value: 1}},
-		Stats:       m.analysis,
+		Stats:       m.data.analysis,
 	}
-	m.insightsPanel = NewInsightsModel(ins, m.issueMap, m.theme)
+	m.insightsPanel = NewInsightsModel(ins, m.data.issueMap, m.theme)
 	m.focused = focusInsights
 	m = m.handleInsightsKeys(tea.KeyPressMsg{Code: 'l', Text: "l"})
 	m = m.handleInsightsKeys(tea.KeyPressMsg{Code: 'e', Text: "e"})
@@ -432,7 +432,7 @@ func TestHandleRecipePickerAndInsightsKeys(t *testing.T) {
 	m.showRecipePicker = true
 	m.focused = focusRecipePicker
 	m = m.handleRecipePickerKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
-	if m.activeRecipe == nil || m.showRecipePicker {
+	if m.filter.activeRecipe == nil || m.showRecipePicker {
 		t.Fatalf("enter should apply recipe and close picker")
 	}
 }
@@ -504,8 +504,8 @@ func TestRenderFooterStatusAndBadges(t *testing.T) {
 
 	// badges branch
 	m.statusMsg = ""
-	m.currentFilter = "ready"
-	m.countOpen, m.countReady, m.countBlocked, m.countClosed = 1, 2, 3, 4
+	m.filter.currentFilter = "ready"
+	m.ac.countOpen, m.ac.countReady, m.ac.countBlocked, m.ac.countClosed = 1, 2, 3, 4
 	m.updateAvailable = true
 	m.updateTag = "v9.9.9"
 	m.workspaceMode = true
@@ -521,10 +521,10 @@ func TestRenderFooterStatusAndBadges(t *testing.T) {
 func TestRenderFooter_FreshnessIndicatorLevels(t *testing.T) {
 	m := NewModel(nil, nil, "", nil)
 	m.width = 140
-	m.currentFilter = "all"
+	m.filter.currentFilter = "all"
 
-	m.backgroundWorker = &BackgroundWorker{}
-	m.snapshot = &DataSnapshot{CreatedAt: time.Now()}
+	m.data.backgroundWorker = &BackgroundWorker{}
+	m.data.snapshot = &DataSnapshot{CreatedAt: time.Now()}
 
 	// Fresh (<30s): no indicator
 	out := m.renderFooter()
@@ -533,21 +533,21 @@ func TestRenderFooter_FreshnessIndicatorLevels(t *testing.T) {
 	}
 
 	// Warn (>=30s)
-	m.snapshot.CreatedAt = time.Now().Add(-45 * time.Second)
+	m.data.snapshot.CreatedAt = time.Now().Add(-45 * time.Second)
 	out = m.renderFooter()
 	if !strings.Contains(out, "⚠") || strings.Contains(out, "STALE") {
 		t.Fatalf("expected warning freshness indicator, got: %q", out)
 	}
 
 	// Stale (>=2m)
-	m.snapshot.CreatedAt = time.Now().Add(-3 * time.Minute)
+	m.data.snapshot.CreatedAt = time.Now().Add(-3 * time.Minute)
 	out = m.renderFooter()
 	if !strings.Contains(out, "STALE") {
 		t.Fatalf("expected stale freshness indicator, got: %q", out)
 	}
 
 	// Error (>=3 consecutive errors)
-	m.backgroundWorker.lastError = &WorkerError{
+	m.data.backgroundWorker.lastError = &WorkerError{
 		Phase:   "load",
 		Time:    time.Now().Add(-5 * time.Second),
 		Retries: 3,
@@ -561,11 +561,11 @@ func TestRenderFooter_FreshnessIndicatorLevels(t *testing.T) {
 func TestRenderFooter_DoltVerifiedPreventsStale(t *testing.T) {
 	m := NewModel(nil, nil, "", nil)
 	m.width = 140
-	m.currentFilter = "all"
+	m.filter.currentFilter = "all"
 
-	m.backgroundWorker = &BackgroundWorker{}
+	m.data.backgroundWorker = &BackgroundWorker{}
 	// Snapshot was built 5 minutes ago (would normally show STALE)
-	m.snapshot = &DataSnapshot{CreatedAt: time.Now().Add(-5 * time.Minute)}
+	m.data.snapshot = &DataSnapshot{CreatedAt: time.Now().Add(-5 * time.Minute)}
 
 	// Without Dolt verification, this should show STALE
 	out := m.renderFooter()
@@ -600,9 +600,9 @@ func TestView_LoadingScreen_TransitionsOnFirstSnapshotOrError(t *testing.T) {
 
 	m := NewModel(issues, nil, "", nil)
 	m.width, m.height = 120, 30
-	m.backgroundWorker = &BackgroundWorker{state: WorkerProcessing}
-	m.snapshot = nil
-	m.snapshotInitPending = true
+	m.data.backgroundWorker = &BackgroundWorker{state: WorkerProcessing}
+	m.data.snapshot = nil
+	m.data.snapshotInitPending = true
 
 	if out := m.View().Content; !strings.Contains(out, "Loading beads") {
 		t.Fatalf("expected loading screen before first snapshot, got: %q", out)
@@ -616,7 +616,7 @@ func TestView_LoadingScreen_TransitionsOnFirstSnapshotOrError(t *testing.T) {
 	}
 
 	// Snapshot should exit the loading screen.
-	m.snapshotInitPending = true
+	m.data.snapshotInitPending = true
 	snap := NewSnapshotBuilder(issues).Build()
 	modelAny, _ = m.Update(SnapshotReadyMsg{Snapshot: snap})
 	mOK := modelAny.(Model)
@@ -628,7 +628,7 @@ func TestView_LoadingScreen_TransitionsOnFirstSnapshotOrError(t *testing.T) {
 func TestRenderFooter_ShowsPhase2ProgressBadge(t *testing.T) {
 	m := NewModel(nil, nil, "", nil)
 	m.width = 80
-	m.snapshot = &DataSnapshot{Phase2Ready: false}
+	m.data.snapshot = &DataSnapshot{Phase2Ready: false}
 
 	out := m.renderFooter()
 	if !strings.Contains(out, "metrics") {
@@ -639,10 +639,10 @@ func TestRenderFooter_ShowsPhase2ProgressBadge(t *testing.T) {
 func TestRenderFooter_ShowsWorkerHealthIndicators(t *testing.T) {
 	m := NewModel(nil, nil, "", nil)
 	m.width = 140
-	m.currentFilter = "all"
-	m.snapshot = &DataSnapshot{CreatedAt: time.Now()}
+	m.filter.currentFilter = "all"
+	m.data.snapshot = &DataSnapshot{CreatedAt: time.Now()}
 
-	m.backgroundWorker = &BackgroundWorker{
+	m.data.backgroundWorker = &BackgroundWorker{
 		started:          true,
 		heartbeatTimeout: time.Second,
 		lastHeartbeat:    time.Now().Add(-2 * time.Second),
@@ -652,7 +652,7 @@ func TestRenderFooter_ShowsWorkerHealthIndicators(t *testing.T) {
 		t.Fatalf("expected worker unresponsive indicator, got: %q", out)
 	}
 
-	m.backgroundWorker = &BackgroundWorker{
+	m.data.backgroundWorker = &BackgroundWorker{
 		started:          true,
 		heartbeatTimeout: time.Second,
 		lastHeartbeat:    time.Now(),
@@ -814,12 +814,12 @@ func TestRenderFooter_CombinedIndicators(t *testing.T) {
 
 	m := NewModel(nil, nil, "", nil)
 	m.width = 160
-	m.currentFilter = "ready"
-	m.countOpen, m.countReady, m.countBlocked, m.countClosed = 1, 2, 3, 4
+	m.filter.currentFilter = "ready"
+	m.ac.countOpen, m.ac.countReady, m.ac.countBlocked, m.ac.countClosed = 1, 2, 3, 4
 	m.updateAvailable = true
 	m.updateTag = "v9.9.9"
-	m.snapshot = &DataSnapshot{CreatedAt: time.Now(), Phase2Ready: false}
-	m.backgroundWorker = &BackgroundWorker{
+	m.data.snapshot = &DataSnapshot{CreatedAt: time.Now(), Phase2Ready: false}
+	m.data.backgroundWorker = &BackgroundWorker{
 		started:          true,
 		state:            WorkerIdle,
 		lastHeartbeat:    time.Now(),
@@ -881,7 +881,7 @@ func TestInitAndStopNoWatcher(t *testing.T) {
 		t.Fatalf("watcher create: %v", err)
 	}
 	_ = w.Start()
-	m.watcher = w
+	m.data.watcher = w
 	m.Stop()
 	if w.IsStarted() {
 		t.Fatalf("watcher should be stopped")
@@ -1041,10 +1041,10 @@ func TestRenderFooterVariantsAndDiffStatus(t *testing.T) {
 	m.updateTag = "v9.9.9"
 	m.workspaceMode = true
 	m.workspaceSummary = "2 projects"
-	m.countOpen = 1
-	m.countReady = 1
-	m.countBlocked = 0
-	m.countClosed = 1
+	m.ac.countOpen = 1
+	m.ac.countReady = 1
+	m.ac.countBlocked = 0
+	m.ac.countClosed = 1
 
 	out = m.renderFooter()
 	for _, want := range []string{"⏱", "v9.9.9", "2 projects"} {

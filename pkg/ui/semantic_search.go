@@ -613,8 +613,8 @@ func (m *Model) shouldShowSearchScores() bool {
 func (m *Model) updateListDelegate() {
 	m.list.SetDelegate(IssueDelegate{
 		Theme:             m.theme,
-		ShowPriorityHints: m.showPriorityHints,
-		PriorityHints:     m.priorityHints,
+		ShowPriorityHints: m.ac.showPriorityHints,
+		PriorityHints:     m.ac.priorityHints,
 		WorkspaceMode:     m.workspaceMode,
 		ShowSearchScores:  m.shouldShowSearchScores(),
 	})
@@ -682,8 +682,8 @@ func (m *Model) issuesForAsync() []model.Issue {
 	if m == nil {
 		return nil
 	}
-	if (m.snapshot != nil && len(m.snapshot.pooledIssues) > 0) || len(m.pooledIssues) > 0 {
-		return cloneIssuesForAsync(m.issues)
+	if (m.data.snapshot != nil && len(m.data.snapshot.pooledIssues) > 0) || len(m.data.pooledIssues) > 0 {
+		return cloneIssuesForAsync(m.data.issues)
 	}
-	return m.issues
+	return m.data.issues
 }

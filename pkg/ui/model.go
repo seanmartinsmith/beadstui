@@ -330,31 +330,76 @@ func LoadHistoryCmd(issues []model.Issue, beadsPath string) tea.Cmd {
 	}
 }
 
+// DoltState holds Dolt connection lifecycle state. Embedded in Model
+// so field access (m.doltConnected) stays unchanged.
+type DoltState struct {
+	lastDoltVerified time.Time         // Last successful Dolt poll (even if no data changed)
+	doltConnected    bool              // True when Dolt poll loop is healthy
+	doltServer       DoltServerStopper // Dolt server lifecycle handle (bt-07jp); nil if not managed
+	doltShutdownMsg  string            // Message to print after TUI exits (bt-llek)
+}
+
+// WorkspaceState holds multi-project workspace state. Embedded in Model
+// so field access (m.workspaceMode) stays unchanged.
+type WorkspaceState struct {
+	workspaceMode    bool            // True when viewing multiple repos
+	availableRepos   []string        // List of repo prefixes available
+	activeRepos      map[string]bool // Which repos are currently shown (nil = all)
+	workspaceSummary string          // Summary text for footer (e.g., "3 projects")
+	currentProjectDB string          // Auto-detected project DB name for W toggle (empty = no home project)
+}
+
+// FilterState holds filter, sort, search, recipe, and BQL state.
+// Pointer on Model to keep Model copies cheap.
+type FilterState struct {
+	currentFilter string
+	sortMode      SortMode // bv-3ita: current sort mode
+	activeRecipe  *recipe.Recipe
+	recipeLoader  *recipe.Loader
+	bqlEngine     *bql.MemoryExecutor
+	activeBQLExpr *bql.Query // Parsed BQL expression (nil = no BQL filter active)
+}
+
+// AnalysisCache holds derived data computed from graph analysis. Not filter state -
+// this is cached analysis output that gets recomputed when issues change.
+// Pointer on Model to keep Model copies cheap.
+type AnalysisCache struct {
+	countOpen         int
+	countReady        int
+	countBlocked      int
+	countClosed       int
+	triageScores      map[string]float64                // issueID -> triage score
+	triageReasons     map[string]analysis.TriageReasons  // issueID -> reasons
+	unblocksMap       map[string][]string                // issueID -> IDs that would be unblocked
+	quickWinSet       map[string]bool                    // issueID -> true if quick win
+	blockerSet        map[string]bool                    // issueID -> true if significant blocker
+	priorityHints     map[string]*analysis.PriorityRecommendation // issueID -> recommendation
+	showPriorityHints bool
+}
+
+// DataState holds the core issue data, analysis engine, and data loading infrastructure.
+// Pointer on Model to keep Model copies cheap (largest sub-struct).
+type DataState struct {
+	issues              []model.Issue
+	pooledIssues        []*model.Issue // Issue pool refs for sync reloads (return to pool on replace)
+	issueMap            map[string]*model.Issue
+	analyzer            *analysis.Analyzer
+	analysis            *analysis.GraphStats
+	beadsPath           string                 // Path to beads.jsonl for reloading
+	dataSource          *datasource.DataSource // Selected data source for refresh routing
+	watcher             *watcher.Watcher       // File watcher for live reload
+	instanceLock        *instance.Lock         // Multi-instance coordination lock
+	snapshot            *DataSnapshot
+	snapshotInitPending bool             // true until first BackgroundWorker snapshot received
+	backgroundWorker    *BackgroundWorker // manages async data loading (nil if background mode disabled)
+	workerSpinnerIdx    int              // Spinner frame for background worker activity
+	lastForceRefresh    time.Time
+}
+
 // Model is the main Bubble Tea model for the beads viewer
 type Model struct {
-	// Data
-	issues       []model.Issue
-	pooledIssues []*model.Issue // Issue pool refs for sync reloads (return to pool on replace)
-	issueMap     map[string]*model.Issue
-	analyzer     *analysis.Analyzer
-	analysis     *analysis.GraphStats
-	beadsPath  string                  // Path to beads.jsonl for reloading
-	dataSource *datasource.DataSource // Selected data source for refresh routing
-	watcher    *watcher.Watcher       // File watcher for live reload
-	instanceLock *instance.Lock   // Multi-instance coordination lock
-
-	// Background Worker (Phase 2 architecture - bv-m7v8)
-	// snapshot is the current immutable data snapshot from BackgroundWorker.
-	// Access is safe without locks because Bubble Tea ensures Update() and View()
-	// don't run concurrently. When nil, the UI uses legacy m.issues/m.issueMap fields.
-	snapshot *DataSnapshot
-	// snapshotInitPending is true until we receive the first BackgroundWorker snapshot
-	// (or an error), allowing a polished cold-start loading screen (bv-tspo).
-	snapshotInitPending bool
-	// backgroundWorker manages async data loading (nil if background mode disabled)
-	backgroundWorker *BackgroundWorker
-	workerSpinnerIdx int // Spinner frame for background worker activity (bv-9nfy)
-	lastForceRefresh time.Time
+	// Core data, analysis engine, and data loading infrastructure.
+	data *DataState
 
 	// UI Components
 	list               list.Model
@@ -411,9 +456,10 @@ type Model struct {
 	historyLoading    bool // True while history is being loaded in background
 	historyLoadFailed bool // True if history loading failed
 
-	// Filter and sort state
-	currentFilter          string
-	sortMode               SortMode // bv-3ita: current sort mode
+	// Filter, sort, search, recipe, BQL state
+	filter *FilterState
+
+	// Semantic search state (stays flat - tightly coupled to list component)
 	semanticSearchEnabled  bool
 	semanticIndexBuilding  bool
 	semanticSearch         *SemanticSearch
@@ -423,34 +469,16 @@ type Model struct {
 	semanticHybridReady    bool
 	lastSearchTerm         string
 
-	// Stats (cached)
-	countOpen    int
-	countReady   int
-	countBlocked int
-	countClosed  int
+	// Derived analysis data (cached, recomputed when issues change)
+	ac *AnalysisCache
 
-	// Priority hints
-	showPriorityHints bool
-	priorityHints     map[string]*analysis.PriorityRecommendation // issueID -> recommendation
-
-	// Triage insights (bv-151)
-	triageScores  map[string]float64                // issueID -> triage score
-	triageReasons map[string]analysis.TriageReasons // issueID -> reasons
-	unblocksMap   map[string][]string               // issueID -> IDs that would be unblocked
-	quickWinSet   map[string]bool                   // issueID -> true if quick win
-	blockerSet    map[string]bool                   // issueID -> true if significant blocker
-
-	// Recipe picker
+	// Recipe picker (modal UI stays on Model, filter state in FilterState)
 	showRecipePicker bool
 	recipePicker     RecipePickerModel
-	activeRecipe     *recipe.Recipe
-	recipeLoader     *recipe.Loader
 
-	// BQL query modal
-	showBQLQuery  bool
-	bqlQuery      BQLQueryModal
-	bqlEngine     *bql.MemoryExecutor
-	activeBQLExpr *bql.Query // Parsed BQL expression (nil = no BQL filter active)
+	// BQL query modal (modal UI stays on Model, filter state in FilterState)
+	showBQLQuery bool
+	bqlQuery     BQLQueryModal
 
 	// Label picker (bv-126)
 	showLabelPicker bool
@@ -477,18 +505,11 @@ type Model struct {
 	statusIsError bool
 	statusSeq     uint64 // incremented on each status set; used for auto-clear
 
-	// Dolt connection state (bt-3ynd)
-	lastDoltVerified time.Time // Last successful Dolt poll (even if no data changed)
-	doltConnected    bool      // True when Dolt poll loop is healthy
-	doltServer       DoltServerStopper // Dolt server lifecycle handle (bt-07jp); nil if not managed
-	doltShutdownMsg  string            // Message to print after TUI exits (bt-llek)
+	// Dolt connection state (bt-3ynd). Embedded to keep m.doltConnected access pattern.
+	DoltState
 
-	// Workspace mode state
-	workspaceMode    bool            // True when viewing multiple repos
-	availableRepos   []string        // List of repo prefixes available
-	activeRepos      map[string]bool // Which repos are currently shown (nil = all)
-	workspaceSummary string          // Summary text for footer (e.g., "3 projects")
-	currentProjectDB string          // Auto-detected project DB name for W toggle (empty = no home project)
+	// Workspace mode state. Embedded to keep m.workspaceMode access pattern.
+	WorkspaceState
 
 	// Alerts panel (bv-168)
 	alerts          []drift.Alert
@@ -541,7 +562,7 @@ type labelFlowSummary struct {
 // getCrossFlowsForLabel returns outgoing cross-label dependency counts for a label
 func (m Model) getCrossFlowsForLabel(label string) labelFlowSummary {
 	cfg := analysis.DefaultLabelHealthConfig()
-	flow := analysis.ComputeCrossLabelFlow(m.issues, cfg)
+	flow := analysis.ComputeCrossLabelFlow(m.data.issues, cfg)
 	out := labelFlowSummary{}
 	inCounts := make(map[string]int)
 	outCounts := make(map[string]int)
@@ -587,7 +608,7 @@ func (m Model) filterIssuesByLabel(label string) []model.Issue {
 	}
 
 	var out []model.Issue
-	for _, iss := range m.issues {
+	for _, iss := range m.data.issues {
 		for _, l := range iss.Labels {
 			if l == label {
 				out = append(out, iss)
@@ -944,16 +965,37 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 	}
 
 	return Model{
-		issues:                 issues,
-		issueMap:               issueMap,
-		analyzer:               analyzer,
-		analysis:               graphStats,
-		beadsPath:              beadsPath,
-		dataSource:             ds,
-		watcher:                fileWatcher,
-		snapshotInitPending:    backgroundWorker != nil,
-		backgroundWorker:       backgroundWorker,
-		instanceLock:           instLock,
+		data: &DataState{
+			issues:              issues,
+			issueMap:            issueMap,
+			analyzer:            analyzer,
+			analysis:            graphStats,
+			beadsPath:           beadsPath,
+			dataSource:          ds,
+			watcher:             fileWatcher,
+			snapshotInitPending: backgroundWorker != nil,
+			backgroundWorker:    backgroundWorker,
+			instanceLock:        instLock,
+		},
+		filter: &FilterState{
+			currentFilter: "all",
+			recipeLoader:  recipeLoader,
+			activeRecipe:  activeRecipe,
+			bqlEngine:     bqlEngine,
+		},
+		ac: &AnalysisCache{
+			countOpen:         cOpen,
+			countReady:        cReady,
+			countBlocked:      cBlocked,
+			countClosed:       cClosed,
+			priorityHints:     priorityHints,
+			showPriorityHints: false, // Off by default, toggle with 'p'
+			triageScores:      triageScores,
+			triageReasons:     triageReasons,
+			unblocksMap:       unblocksMap,
+			quickWinSet:       quickWinSet,
+			blockerSet:        blockerSet,
+		},
 		list:                   l,
 		viewport:               vp,
 		renderer:               renderer,
@@ -965,7 +1007,6 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		tree:                   treeModel,
 		insightsPanel:          insightsPanel,
 		theme:                  theme,
-		currentFilter:          "all",
 		semanticSearch:         semanticSearch,
 		semanticHybridEnabled:  false,
 		semanticHybridPreset:   search.PresetDefault,
@@ -978,22 +1019,8 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		ready:               true,
 		width:               defaultWidth,
 		height:              defaultHeight,
-		countOpen:           cOpen,
-		countReady:          cReady,
-		countBlocked:        cBlocked,
-		countClosed:         cClosed,
-		priorityHints:       priorityHints,
-		showPriorityHints:   false, // Off by default, toggle with 'p'
-		triageScores:        triageScores,
-		triageReasons:       triageReasons,
-		unblocksMap:         unblocksMap,
-		quickWinSet:         quickWinSet,
-		blockerSet:          blockerSet,
-		recipeLoader:        recipeLoader,
 		recipePicker:        recipePicker,
-		activeRecipe:        activeRecipe,
 		bqlQuery:            bqlQueryModal,
-		bqlEngine:           bqlEngine,
 		labelPicker:         labelPicker,
 		labelDrilldownCache: make(map[string][]model.Issue),
 		timeTravelInput:     ti,
@@ -1039,33 +1066,33 @@ func (m *Model) replaceIssues(newIssues []model.Issue) {
 	})
 
 	// Recompute analysis
-	m.issues = newIssues
+	m.data.issues = newIssues
 	cachedAnalyzer := analysis.NewCachedAnalyzer(newIssues, nil)
-	m.analyzer = cachedAnalyzer.Analyzer
-	m.analysis = cachedAnalyzer.AnalyzeAsync(context.Background())
+	m.data.analyzer = cachedAnalyzer.Analyzer
+	m.data.analysis = cachedAnalyzer.AnalyzeAsync(context.Background())
 	m.labelHealthCached = false
 	m.attentionCached = false
 
 	// Rebuild lookup map
-	m.issueMap = make(map[string]*model.Issue, len(newIssues))
-	for i := range m.issues {
-		m.issueMap[m.issues[i].ID] = &m.issues[i]
+	m.data.issueMap = make(map[string]*model.Issue, len(newIssues))
+	for i := range m.data.issues {
+		m.data.issueMap[m.data.issues[i].ID] = &m.data.issues[i]
 	}
 
 	// Clear stale priority hints
-	m.priorityHints = make(map[string]*analysis.PriorityRecommendation)
+	m.ac.priorityHints = make(map[string]*analysis.PriorityRecommendation)
 
 	// Recompute counts
-	m.countOpen, m.countReady, m.countBlocked, m.countClosed = 0, 0, 0, 0
-	for i := range m.issues {
-		issue := &m.issues[i]
+	m.ac.countOpen, m.ac.countReady, m.ac.countBlocked, m.ac.countClosed = 0, 0, 0, 0
+	for i := range m.data.issues {
+		issue := &m.data.issues[i]
 		if isClosedLikeStatus(issue.Status) {
-			m.countClosed++
+			m.ac.countClosed++
 			continue
 		}
-		m.countOpen++
+		m.ac.countOpen++
 		if issue.Status == model.StatusBlocked {
-			m.countBlocked++
+			m.ac.countBlocked++
 			continue
 		}
 		isBlocked := false
@@ -1073,38 +1100,38 @@ func (m *Model) replaceIssues(newIssues []model.Issue) {
 			if dep == nil || !dep.Type.IsBlocking() {
 				continue
 			}
-			if blocker, exists := m.issueMap[dep.DependsOnID]; exists && !isClosedLikeStatus(blocker.Status) {
+			if blocker, exists := m.data.issueMap[dep.DependsOnID]; exists && !isClosedLikeStatus(blocker.Status) {
 				isBlocked = true
 				break
 			}
 		}
 		if !isBlocked {
-			m.countReady++
+			m.ac.countReady++
 		}
 	}
 
 	// Recompute alerts
-	m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.issues, m.analysis, m.analyzer)
+	m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.data.issues, m.data.analysis, m.data.analyzer)
 	m.dismissedAlerts = make(map[string]bool)
 	m.showAlertsPanel = false
 
 	// Rebuild list items
-	items := make([]list.Item, len(m.issues))
-	for i := range m.issues {
+	items := make([]list.Item, len(m.data.issues))
+	for i := range m.data.issues {
 		item := IssueItem{
-			Issue:      m.issues[i],
-			GraphScore: m.analysis.GetPageRankScore(m.issues[i].ID),
-			Impact:     m.analysis.GetCriticalPathScore(m.issues[i].ID),
-			RepoPrefix: ExtractRepoPrefix(m.issues[i].ID),
+			Issue:      m.data.issues[i],
+			GraphScore: m.data.analysis.GetPageRankScore(m.data.issues[i].ID),
+			Impact:     m.data.analysis.GetCriticalPathScore(m.data.issues[i].ID),
+			RepoPrefix: ExtractRepoPrefix(m.data.issues[i].ID),
 		}
-		item.TriageScore = m.triageScores[m.issues[i].ID]
-		if reasons, exists := m.triageReasons[m.issues[i].ID]; exists {
+		item.TriageScore = m.ac.triageScores[m.data.issues[i].ID]
+		if reasons, exists := m.ac.triageReasons[m.data.issues[i].ID]; exists {
 			item.TriageReason = reasons.Primary
 			item.TriageReasons = reasons.All
 		}
-		item.IsQuickWin = m.quickWinSet[m.issues[i].ID]
-		item.IsBlocker = m.blockerSet[m.issues[i].ID]
-		item.UnblocksCount = len(m.unblocksMap[m.issues[i].ID])
+		item.IsQuickWin = m.ac.quickWinSet[m.data.issues[i].ID]
+		item.IsBlocker = m.ac.blockerSet[m.data.issues[i].ID]
+		item.UnblocksCount = len(m.ac.unblocksMap[m.data.issues[i].ID])
 		items[i] = item
 	}
 	m.updateSemanticIDs(items)
@@ -1126,12 +1153,12 @@ func (m *Model) replaceIssues(newIssues []model.Issue) {
 // isDoltSource returns true if the model's datasource is a Dolt server
 // (single-repo or global).
 func (m *Model) isDoltSource() bool {
-	return m.dataSource != nil && (m.dataSource.Type == datasource.SourceTypeDolt || m.dataSource.Type == datasource.SourceTypeDoltGlobal)
+	return m.data.dataSource != nil && (m.data.dataSource.Type == datasource.SourceTypeDolt || m.data.dataSource.Type == datasource.SourceTypeDoltGlobal)
 }
 
 // reloadFromDataSource returns a Cmd that reloads issues from the stored DataSource.
 func (m *Model) reloadFromDataSource() tea.Cmd {
-	ds := m.dataSource
+	ds := m.data.dataSource
 	if ds == nil {
 		return nil
 	}
@@ -1145,18 +1172,18 @@ func (m *Model) reloadFromDataSource() tea.Cmd {
 func (m Model) Init() tea.Cmd {
 	cmds := []tea.Cmd{
 		CheckUpdateCmd(),
-		WaitForPhase2Cmd(m.analysis),
+		WaitForPhase2Cmd(m.data.analysis),
 	}
-	if m.backgroundWorker != nil {
-		cmds = append(cmds, StartBackgroundWorkerCmd(m.backgroundWorker))
-		cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.backgroundWorker))
+	if m.data.backgroundWorker != nil {
+		cmds = append(cmds, StartBackgroundWorkerCmd(m.data.backgroundWorker))
+		cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.data.backgroundWorker))
 		cmds = append(cmds, workerPollTickCmd())
-	} else if m.watcher != nil {
-		cmds = append(cmds, WatchFileCmd(m.watcher))
+	} else if m.data.watcher != nil {
+		cmds = append(cmds, WatchFileCmd(m.data.watcher))
 	}
 	// Start loading history in background
-	if len(m.issues) > 0 {
-		cmds = append(cmds, LoadHistoryCmd(m.issuesForAsync(), m.beadsPath))
+	if len(m.data.issues) > 0 {
+		cmds = append(cmds, LoadHistoryCmd(m.issuesForAsync(), m.data.beadsPath))
 	}
 	// Check for AGENTS.md integration prompt (bv-i8dk)
 	if m.workDir != "" && !m.workspaceMode {
@@ -1169,10 +1196,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
 
-	if m.backgroundWorker != nil {
+	if m.data.backgroundWorker != nil {
 		switch msg.(type) {
 		case tea.KeyMsg, tea.MouseMsg:
-			m.backgroundWorker.recordActivity()
+			m.data.backgroundWorker.recordActivity()
 		}
 	}
 
@@ -1291,12 +1318,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case workerPollTickMsg:
-		if m.backgroundWorker != nil {
-			state := m.backgroundWorker.State()
+		if m.data.backgroundWorker != nil {
+			state := m.data.backgroundWorker.State()
 			if state == WorkerProcessing {
-				m.workerSpinnerIdx = (m.workerSpinnerIdx + 1) % len(workerSpinnerFrames)
+				m.data.workerSpinnerIdx = (m.data.workerSpinnerIdx + 1) % len(workerSpinnerFrames)
 			} else {
-				m.workerSpinnerIdx = 0
+				m.data.workerSpinnerIdx = 0
 			}
 			if state != WorkerStopped {
 				cmds = append(cmds, workerPollTickCmd())
@@ -1305,38 +1332,38 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case Phase2ReadyMsg:
 		// Ignore stale Phase2 completions (from before a file reload)
-		if msg.Stats != m.analysis {
+		if msg.Stats != m.data.analysis {
 			return m, nil
 		}
 
 		// Mark snapshot as Phase 2 ready for consistency with Phase2UpdateMsg (bv-e3ub)
-		if m.snapshot != nil {
-			m.snapshot.Phase2Ready = true
+		if m.data.snapshot != nil {
+			m.data.snapshot.Phase2Ready = true
 		}
 
 		// Phase 2 analysis complete - update insights with full data (computed off-thread).
 		ins := msg.Insights
-		if m.snapshot != nil {
-			m.snapshot.Insights = ins
+		if m.data.snapshot != nil {
+			m.data.snapshot.Insights = ins
 		}
 		m.insightsPanel.SetInsights(ins)
-		m.insightsPanel.issueMap = m.issueMap
+		m.insightsPanel.issueMap = m.data.issueMap
 		bodyHeight := m.height - 1
 		if bodyHeight < 5 {
 			bodyHeight = 5
 		}
 		m.insightsPanel.SetSize(m.width, bodyHeight)
-		if m.snapshot != nil {
-			if m.snapshot.GraphLayout != nil {
-				m.snapshot.GraphLayout.UpdatePhase2Ranks(msg.Stats)
+		if m.data.snapshot != nil {
+			if m.data.snapshot.GraphLayout != nil {
+				m.data.snapshot.GraphLayout.UpdatePhase2Ranks(msg.Stats)
 			}
-			m.graphView.SetSnapshot(m.snapshot)
+			m.graphView.SetSnapshot(m.data.snapshot)
 		} else {
-			m.graphView.SetIssues(m.issues, &ins)
+			m.graphView.SetIssues(m.data.issues, &ins)
 		}
 
 		// Generate triage for priority panel (bv-91) - reuse existing analyzer/stats (bv-runn.12)
-		triage := analysis.ComputeTriageFromAnalyzer(m.analyzer, m.analysis, m.issues, analysis.TriageOptions{}, time.Now())
+		triage := analysis.ComputeTriageFromAnalyzer(m.data.analyzer, m.data.analysis, m.data.issues, analysis.TriageOptions{}, time.Now())
 		triageScores := make(map[string]float64, len(triage.Recommendations))
 		triageReasons := make(map[string]analysis.TriageReasons, len(triage.Recommendations))
 		quickWinSet := make(map[string]bool, len(triage.QuickWins))
@@ -1361,11 +1388,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			blockerSet[bl.ID] = true
 		}
 
-		m.triageScores = triageScores
-		m.triageReasons = triageReasons
-		m.quickWinSet = quickWinSet
-		m.blockerSet = blockerSet
-		m.unblocksMap = unblocksMap
+		m.ac.triageScores = triageScores
+		m.ac.triageReasons = triageReasons
+		m.ac.quickWinSet = quickWinSet
+		m.ac.blockerSet = blockerSet
+		m.ac.unblocksMap = unblocksMap
 
 		m.insightsPanel.SetTopPicks(triage.QuickRef.TopPicks)
 
@@ -1374,43 +1401,43 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.insightsPanel.SetRecommendations(triage.Recommendations, dataHash)
 
 		// Generate priority recommendations now that Phase 2 is ready
-		recommendations := m.analyzer.GenerateRecommendations()
-		m.priorityHints = make(map[string]*analysis.PriorityRecommendation, len(recommendations))
+		recommendations := m.data.analyzer.GenerateRecommendations()
+		m.ac.priorityHints = make(map[string]*analysis.PriorityRecommendation, len(recommendations))
 		for i := range recommendations {
-			m.priorityHints[recommendations[i].IssueID] = &recommendations[i]
+			m.ac.priorityHints[recommendations[i].IssueID] = &recommendations[i]
 		}
 
 		// Refresh alerts now that full Phase 2 metrics (cycles, etc.) are available
-		m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.issues, m.analysis, m.analyzer)
+		m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.data.issues, m.data.analysis, m.data.analyzer)
 
 		// Invalidate label health cache since we have new graph metrics (criticality)
 		m.labelHealthCached = false
 		if m.focused == focusLabelDashboard {
 			cfg := analysis.DefaultLabelHealthConfig()
-			m.labelHealthCache = analysis.ComputeAllLabelHealth(m.issues, cfg, time.Now().UTC(), m.analysis)
+			m.labelHealthCache = analysis.ComputeAllLabelHealth(m.data.issues, cfg, time.Now().UTC(), m.data.analysis)
 			m.labelHealthCached = true
 			m.labelDashboard.SetData(m.labelHealthCache.Labels)
 			m.statusMsg = fmt.Sprintf("Labels: %d total • critical %d • warning %d", m.labelHealthCache.TotalLabels, m.labelHealthCache.CriticalCount, m.labelHealthCache.WarningCount)
 		}
 
 		// Re-sort issues if sorting by Phase 2 metrics (impact/pagerank)
-		if m.activeRecipe != nil {
-			switch m.activeRecipe.Sort.Field {
+		if m.filter.activeRecipe != nil {
+			switch m.filter.activeRecipe.Sort.Field {
 			case "impact", "pagerank":
-				field := m.activeRecipe.Sort.Field
-				descending := m.activeRecipe.Sort.Direction == "desc"
-				sort.Slice(m.issues, func(i, j int) bool {
-					ii := m.issues[i]
-					jj := m.issues[j]
+				field := m.filter.activeRecipe.Sort.Field
+				descending := m.filter.activeRecipe.Sort.Direction == "desc"
+				sort.Slice(m.data.issues, func(i, j int) bool {
+					ii := m.data.issues[i]
+					jj := m.data.issues[j]
 
 					var iScore, jScore float64
-					if m.analysis != nil {
+					if m.data.analysis != nil {
 						if field == "impact" {
-							iScore = m.analysis.GetCriticalPathScore(ii.ID)
-							jScore = m.analysis.GetCriticalPathScore(jj.ID)
+							iScore = m.data.analysis.GetCriticalPathScore(ii.ID)
+							jScore = m.data.analysis.GetCriticalPathScore(jj.ID)
 						} else {
-							iScore = m.analysis.GetPageRankScore(ii.ID)
-							jScore = m.analysis.GetPageRankScore(jj.ID)
+							iScore = m.data.analysis.GetPageRankScore(ii.ID)
+							jScore = m.data.analysis.GetPageRankScore(jj.ID)
 						}
 					}
 
@@ -1430,17 +1457,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return cmp < 0
 				})
 				// Rebuild issueMap after re-sort (pointers become stale after sorting)
-				for i := range m.issues {
-					m.issueMap[m.issues[i].ID] = &m.issues[i]
+				for i := range m.data.issues {
+					m.data.issueMap[m.data.issues[i].ID] = &m.data.issues[i]
 				}
 			}
 		}
 
 		// Re-apply recipe filter if active (to update scores while preserving filter)
 		// Otherwise, update list respecting current filter (open/ready/etc.)
-		if m.activeRecipe != nil {
-			m.applyRecipe(m.activeRecipe)
-		} else if m.currentFilter == "" || m.currentFilter == "all" {
+		if m.filter.activeRecipe != nil {
+			m.applyRecipe(m.filter.activeRecipe)
+		} else if m.filter.currentFilter == "" || m.filter.currentFilter == "all" {
 			m.refreshListItemsPhase2()
 		} else {
 			m.applyFilter()
@@ -1449,24 +1476,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case Phase2UpdateMsg:
 		// BackgroundWorker notifies that Phase 2 analysis is complete (bv-e3ub)
 		// Verify this update matches the current snapshot using DataHash
-		if m.snapshot == nil || m.snapshot.DataHash != msg.DataHash {
+		if m.data.snapshot == nil || m.data.snapshot.DataHash != msg.DataHash {
 			// Stale update - ignore
-			if m.backgroundWorker != nil {
-				return m, WaitForBackgroundWorkerMsgCmd(m.backgroundWorker)
+			if m.data.backgroundWorker != nil {
+				return m, WaitForBackgroundWorkerMsgCmd(m.data.backgroundWorker)
 			}
 			return m, nil
 		}
 
 		// Mark snapshot as Phase 2 ready
-		m.snapshot.Phase2Ready = true
+		m.data.snapshot.Phase2Ready = true
 
 		// Note: Phase2ReadyMsg handler (via WaitForPhase2Cmd) already handles
 		// all the UI updates (insights, graph view, alerts, etc.). This message
 		// is a complementary notification from the BackgroundWorker that Phase 2
 		// completed. If Phase2ReadyMsg hasn't fired yet, it will handle the full
 		// UI refresh. If it already fired (race condition), this is a no-op.
-		if m.backgroundWorker != nil {
-			return m, WaitForBackgroundWorkerMsgCmd(m.backgroundWorker)
+		if m.data.backgroundWorker != nil {
+			return m, WaitForBackgroundWorkerMsgCmd(m.data.backgroundWorker)
 		}
 		return m, nil
 
@@ -1498,14 +1525,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Background worker has a new snapshot ready (bv-m7v8)
 		// This is the atomic pointer swap - O(1), sub-microsecond
 		if msg.Snapshot == nil {
-			if m.backgroundWorker != nil {
-				return m, WaitForBackgroundWorkerMsgCmd(m.backgroundWorker)
+			if m.data.backgroundWorker != nil {
+				return m, WaitForBackgroundWorkerMsgCmd(m.data.backgroundWorker)
 			}
 			return m, nil
 		}
 
-		firstSnapshot := m.snapshotInitPending && m.snapshot == nil
-		m.snapshotInitPending = false
+		firstSnapshot := m.data.snapshotInitPending && m.data.snapshot == nil
+		m.data.snapshotInitPending = false
 
 		// Clear ephemeral overlays tied to old data
 		m.clearAttentionOverlay()
@@ -1536,17 +1563,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 
-		oldSnapshot := m.snapshot
+		oldSnapshot := m.data.snapshot
 
 		// Swap snapshot pointer
-		m.snapshot = msg.Snapshot
-		if m.backgroundWorker != nil {
+		m.data.snapshot = msg.Snapshot
+		if m.data.backgroundWorker != nil {
 			latencyStart := msg.FileChangeAt
 			if latencyStart.IsZero() {
 				latencyStart = msg.SentAt
 			}
 			if !latencyStart.IsZero() {
-				m.backgroundWorker.recordUIUpdateLatency(time.Since(latencyStart))
+				m.data.backgroundWorker.recordUIUpdateLatency(time.Since(latencyStart))
 			}
 		}
 		if oldSnapshot != nil && len(oldSnapshot.pooledIssues) > 0 {
@@ -1555,36 +1582,36 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Update legacy fields for backwards compatibility during migration
 		// Eventually these will be removed when all code reads from snapshot
-		m.issues = msg.Snapshot.Issues
-		m.issueMap = msg.Snapshot.IssueMap
-		m.analyzer = msg.Snapshot.Analyzer
-		m.analysis = msg.Snapshot.Analysis
-		m.countOpen = msg.Snapshot.CountOpen
-		m.countReady = msg.Snapshot.CountReady
-		m.countBlocked = msg.Snapshot.CountBlocked
-		m.countClosed = msg.Snapshot.CountClosed
-		if len(m.pooledIssues) > 0 {
-			go loader.ReturnIssuePtrsToPool(m.pooledIssues)
-			m.pooledIssues = nil
+		m.data.issues = msg.Snapshot.Issues
+		m.data.issueMap = msg.Snapshot.IssueMap
+		m.data.analyzer = msg.Snapshot.Analyzer
+		m.data.analysis = msg.Snapshot.Analysis
+		m.ac.countOpen = msg.Snapshot.CountOpen
+		m.ac.countReady = msg.Snapshot.CountReady
+		m.ac.countBlocked = msg.Snapshot.CountBlocked
+		m.ac.countClosed = msg.Snapshot.CountClosed
+		if len(m.data.pooledIssues) > 0 {
+			go loader.ReturnIssuePtrsToPool(m.data.pooledIssues)
+			m.data.pooledIssues = nil
 		}
 		// Preserve existing triage data unless the snapshot has Phase 2 results.
 		// Avoid flicker when Phase 1 snapshots arrive without triage data.
 		if msg.Snapshot.Phase2Ready || len(msg.Snapshot.TriageScores) > 0 {
-			m.triageScores = msg.Snapshot.TriageScores
-			m.triageReasons = msg.Snapshot.TriageReasons
-			m.unblocksMap = msg.Snapshot.UnblocksMap
-			m.quickWinSet = msg.Snapshot.QuickWinSet
-			m.blockerSet = msg.Snapshot.BlockerSet
+			m.ac.triageScores = msg.Snapshot.TriageScores
+			m.ac.triageReasons = msg.Snapshot.TriageReasons
+			m.ac.unblocksMap = msg.Snapshot.UnblocksMap
+			m.ac.quickWinSet = msg.Snapshot.QuickWinSet
+			m.ac.blockerSet = msg.Snapshot.BlockerSet
 		}
 
 		// Clear caches that need recomputation
 		m.labelHealthCached = false
 		m.attentionCached = false
-		m.priorityHints = make(map[string]*analysis.PriorityRecommendation)
+		m.ac.priorityHints = make(map[string]*analysis.PriorityRecommendation)
 		m.labelDrilldownCache = make(map[string][]model.Issue)
 
 		// Recompute alerts for refreshed dataset
-		m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.issues, m.analysis, m.analyzer)
+		m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.data.issues, m.data.analysis, m.data.analyzer)
 		m.dismissedAlerts = make(map[string]bool)
 		m.showAlertsPanel = false
 
@@ -1601,8 +1628,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Regenerate sub-views (Phase 1 data; Phase 2 will update via Phase2ReadyMsg)
-		m.insightsPanel.SetInsights(m.snapshot.Insights)
-		m.insightsPanel.issueMap = m.issueMap
+		m.insightsPanel.SetInsights(m.data.snapshot.Insights)
+		m.insightsPanel.issueMap = m.data.issueMap
 		bodyHeight := m.height - 1
 		if bodyHeight < 5 {
 			bodyHeight = 5
@@ -1610,9 +1637,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.insightsPanel.SetSize(m.width, bodyHeight)
 
 		// Update list/board/graph views while preserving the current recipe/filter state.
-		if m.activeRecipe != nil {
+		if m.filter.activeRecipe != nil {
 			// If the snapshot already includes recipe filtering/sorting, use it directly (bv-cwwd).
-			if msg.Snapshot.RecipeName == m.activeRecipe.Name && msg.Snapshot.RecipeHash == recipeFingerprint(m.activeRecipe) {
+			if msg.Snapshot.RecipeName == m.filter.activeRecipe.Name && msg.Snapshot.RecipeHash == recipeFingerprint(m.filter.activeRecipe) {
 				filteredItems := make([]list.Item, 0, len(msg.Snapshot.ListItems))
 				filteredIssues := make([]model.Issue, 0, len(msg.Snapshot.ListItems))
 
@@ -1636,19 +1663,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.board.SetIssues(filteredIssues)
 
 				recipeIns := analysis.Insights{}
-				if m.analysis != nil {
-					recipeIns = m.analysis.GenerateInsights(len(filteredIssues))
+				if m.data.analysis != nil {
+					recipeIns = m.data.analysis.GenerateInsights(len(filteredIssues))
 				}
 				m.graphView.SetIssues(filteredIssues, &recipeIns)
 
-				m.currentFilter = "recipe:" + m.activeRecipe.Name
+				m.filter.currentFilter = "recipe:" + m.filter.activeRecipe.Name
 
 				// Keep selection in bounds
 				if len(filteredItems) > 0 && m.list.Index() >= len(filteredItems) {
 					m.list.Select(0)
 				}
 			} else {
-				m.applyRecipe(m.activeRecipe)
+				m.applyRecipe(m.filter.activeRecipe)
 			}
 		} else {
 			var filteredItems []list.Item
@@ -1669,7 +1696,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 
 				include := false
-				switch m.currentFilter {
+				switch m.filter.currentFilter {
 				case "all":
 					include = true
 				case "open":
@@ -1684,7 +1711,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							if dep == nil || !dep.Type.IsBlocking() {
 								continue
 							}
-							if blocker, exists := m.issueMap[dep.DependsOnID]; exists && !isClosedLikeStatus(blocker.Status) {
+							if blocker, exists := m.data.issueMap[dep.DependsOnID]; exists && !isClosedLikeStatus(blocker.Status) {
 								isBlocked = true
 								break
 							}
@@ -1692,8 +1719,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						include = !isBlocked
 					}
 				default:
-					if strings.HasPrefix(m.currentFilter, "label:") {
-						label := strings.TrimPrefix(m.currentFilter, "label:")
+					if strings.HasPrefix(m.filter.currentFilter, "label:") {
+						label := strings.TrimPrefix(m.filter.currentFilter, "label:")
 						for _, l := range issue.Labels {
 							if l == label {
 								include = true
@@ -1712,15 +1739,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.sortFilteredItems(filteredItems, filteredIssues)
 			m.list.SetItems(filteredItems)
 			m.updateSemanticIDs(filteredItems)
-			if m.snapshot != nil && m.snapshot.BoardState != nil && (!m.workspaceMode || m.activeRepos == nil) && len(filteredIssues) == len(m.snapshot.Issues) {
-				m.board.SetSnapshot(m.snapshot)
+			if m.data.snapshot != nil && m.data.snapshot.BoardState != nil && (!m.workspaceMode || m.activeRepos == nil) && len(filteredIssues) == len(m.data.snapshot.Issues) {
+				m.board.SetSnapshot(m.data.snapshot)
 			} else {
 				m.board.SetIssues(filteredIssues)
 			}
-			if m.snapshot != nil && m.snapshot.GraphLayout != nil && len(filteredIssues) == len(m.snapshot.Issues) {
-				m.graphView.SetSnapshot(m.snapshot)
+			if m.data.snapshot != nil && m.data.snapshot.GraphLayout != nil && len(filteredIssues) == len(m.data.snapshot.Issues) {
+				m.graphView.SetSnapshot(m.data.snapshot)
 			} else {
-				m.graphView.SetIssues(filteredIssues, &m.snapshot.Insights)
+				m.graphView.SetIssues(filteredIssues, &m.data.snapshot.Insights)
 			}
 
 			// Restore selection if possible
@@ -1740,7 +1767,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Restore selection in recipe mode (applyRecipe rebuilds list items)
-		if m.activeRecipe != nil && selectedID != "" {
+		if m.filter.activeRecipe != nil && selectedID != "" {
 			items := m.list.Items()
 			for i := range items {
 				if item, ok := items[i].(IssueItem); ok && item.Issue.ID == selectedID {
@@ -1758,7 +1785,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// If the tree view is active, rebuild it from the new snapshot while preserving
 		// user state (selection + persisted expand/collapse) (bv-6n4c).
 		if m.focused == focusTree {
-			m.tree.BuildFromSnapshot(m.snapshot)
+			m.tree.BuildFromSnapshot(m.data.snapshot)
 			m.tree.SetSize(m.width, m.height-2)
 		}
 
@@ -1774,8 +1801,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Reload sprints (bv-161)
-		if m.beadsPath != "" {
-			beadsDir := filepath.Dir(m.beadsPath)
+		if m.data.beadsPath != "" {
+			beadsDir := filepath.Dir(m.data.beadsPath)
 			if loaded, err := loader.LoadSprintsFromFile(filepath.Join(beadsDir, loader.SprintsFileName)); err == nil {
 				m.sprints = loaded
 				// If we have a selected sprint, try to refresh it
@@ -1801,16 +1828,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// For the initial background snapshot, avoid flashing "Reloaded" at startup.
 			if msg.Snapshot.LoadWarningCount > 0 {
 				cmds = append(cmds, m.setTransientStatus(
-					fmt.Sprintf("Loaded %d issues (%d warnings)", len(m.issues), msg.Snapshot.LoadWarningCount), 3*time.Second))
+					fmt.Sprintf("Loaded %d issues (%d warnings)", len(m.data.issues), msg.Snapshot.LoadWarningCount), 3*time.Second))
 			} else {
 				m.statusMsg = ""
 			}
 		} else if msg.Snapshot.LoadWarningCount > 0 {
 			cmds = append(cmds, m.setTransientStatus(
-				fmt.Sprintf("Reloaded %d issues (%d warnings)", len(m.issues), msg.Snapshot.LoadWarningCount), 3*time.Second))
+				fmt.Sprintf("Reloaded %d issues (%d warnings)", len(m.data.issues), msg.Snapshot.LoadWarningCount), 3*time.Second))
 		} else {
 			cmds = append(cmds, m.setTransientStatus(
-				fmt.Sprintf("Reloaded %d issues", len(m.issues)), 3*time.Second))
+				fmt.Sprintf("Reloaded %d issues", len(m.data.issues)), 3*time.Second))
 		}
 
 		// Wait for Phase 2 if not ready
@@ -1818,8 +1845,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, WaitForPhase2Cmd(msg.Snapshot.Analysis))
 		}
 
-		if m.backgroundWorker != nil {
-			cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.backgroundWorker))
+		if m.data.backgroundWorker != nil {
+			cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.data.backgroundWorker))
 		}
 
 		return m, tea.Batch(cmds...)
@@ -1827,8 +1854,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case SnapshotErrorMsg:
 		// Background worker encountered an error loading/processing data
 		// If recoverable, we'll try again on next file change.
-		if m.snapshotInitPending && m.snapshot == nil {
-			m.snapshotInitPending = false
+		if m.data.snapshotInitPending && m.data.snapshot == nil {
+			m.data.snapshotInitPending = false
 		}
 		if msg.Err != nil {
 			if msg.Recoverable {
@@ -1838,8 +1865,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.statusIsError = true
 		}
-		if m.backgroundWorker != nil {
-			cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.backgroundWorker))
+		if m.data.backgroundWorker != nil {
+			cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.data.backgroundWorker))
 		}
 		return m, tea.Batch(cmds...)
 
@@ -1853,15 +1880,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.replaceIssues(msg.Issues)
 		cmds = append(cmds, m.setTransientStatus(
 			fmt.Sprintf("Reloaded %d issues", len(msg.Issues)), 3*time.Second))
-		cmds = append(cmds, WaitForPhase2Cmd(m.analysis))
+		cmds = append(cmds, WaitForPhase2Cmd(m.data.analysis))
 		return m, tea.Batch(cmds...)
 
 	case DoltVerifiedMsg:
 		// Dolt poll succeeded - data is verified current (bt-3ynd).
 		m.lastDoltVerified = msg.At
 		m.doltConnected = true
-		if m.backgroundWorker != nil {
-			cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.backgroundWorker))
+		if m.data.backgroundWorker != nil {
+			cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.data.backgroundWorker))
 		}
 		return m, tea.Batch(cmds...)
 
@@ -1876,24 +1903,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMsg = fmt.Sprintf("Dolt server unreachable (retrying in %ds)", msg.BackoffSeconds)
 			m.statusIsError = true
 		}
-		if m.backgroundWorker != nil {
-			cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.backgroundWorker))
+		if m.data.backgroundWorker != nil {
+			cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.data.backgroundWorker))
 		}
 		return m, tea.Batch(cmds...)
 
 	case FileChangedMsg:
 		// File changed on disk - reload issues and recompute analysis
 		// In background mode the BackgroundWorker owns file watching and snapshot building.
-		if m.backgroundWorker != nil {
-			if m.watcher != nil {
-				cmds = append(cmds, WatchFileCmd(m.watcher))
+		if m.data.backgroundWorker != nil {
+			if m.data.watcher != nil {
+				cmds = append(cmds, WatchFileCmd(m.data.watcher))
 			}
 			return m, tea.Batch(cmds...)
 		}
-		if m.beadsPath == "" {
+		if m.data.beadsPath == "" {
 			// Re-start watch for next change
-			if m.watcher != nil {
-				cmds = append(cmds, WatchFileCmd(m.watcher))
+			if m.data.watcher != nil {
+				cmds = append(cmds, WatchFileCmd(m.data.watcher))
 			}
 			return m, tea.Batch(cmds...)
 		}
@@ -1911,7 +1938,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			debug.LogTiming("refresh."+name, d)
 		}
 		if profileRefresh {
-			debug.Log("refresh: file change detected path=%s", m.beadsPath)
+			debug.Log("refresh: file change detected path=%s", m.data.beadsPath)
 		}
 
 		// Clear ephemeral overlays tied to old data
@@ -1934,7 +1961,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if profileRefresh {
 			loadStart = time.Now()
 		}
-		loadedIssues, err := loader.LoadIssuesFromFileWithOptionsPooled(m.beadsPath, loader.ParseOptions{
+		loadedIssues, err := loader.LoadIssuesFromFileWithOptionsPooled(m.data.beadsPath, loader.ParseOptions{
 			WarningHandler: func(msg string) {
 				reloadWarnings = append(reloadWarnings, msg)
 			},
@@ -1947,15 +1974,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMsg = fmt.Sprintf("Reload error: %v", err)
 			m.statusIsError = true
 			// Re-start watch for next change
-			if m.watcher != nil {
-				cmds = append(cmds, WatchFileCmd(m.watcher))
+			if m.data.watcher != nil {
+				cmds = append(cmds, WatchFileCmd(m.data.watcher))
 			}
 			return m, tea.Batch(cmds...)
 		}
-		if len(m.pooledIssues) > 0 {
-			loader.ReturnIssuePtrsToPool(m.pooledIssues)
+		if len(m.data.pooledIssues) > 0 {
+			loader.ReturnIssuePtrsToPool(m.data.pooledIssues)
 		}
-		m.pooledIssues = loadedIssues.PoolRefs
+		m.data.pooledIssues = loadedIssues.PoolRefs
 		newIssues := loadedIssues.Issues
 
 		// Store selected issue ID to restore position after reload
@@ -1987,14 +2014,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Recompute analysis (async Phase 1/Phase 2) with caching
-		m.issues = newIssues
+		m.data.issues = newIssues
 		var analysisStart time.Time
 		if profileRefresh {
 			analysisStart = time.Now()
 		}
 		cachedAnalyzer := analysis.NewCachedAnalyzer(newIssues, nil)
-		m.analyzer = cachedAnalyzer.Analyzer
-		m.analysis = cachedAnalyzer.AnalyzeAsync(context.Background())
+		m.data.analyzer = cachedAnalyzer.Analyzer
+		m.data.analysis = cachedAnalyzer.AnalyzeAsync(context.Background())
 		cacheHit := cachedAnalyzer.WasCacheHit()
 		if profileRefresh {
 			recordTiming("phase1_setup", time.Since(analysisStart))
@@ -2008,32 +2035,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if profileRefresh {
 			mapStart = time.Now()
 		}
-		m.issueMap = make(map[string]*model.Issue, len(newIssues))
-		for i := range m.issues {
-			m.issueMap[m.issues[i].ID] = &m.issues[i]
+		m.data.issueMap = make(map[string]*model.Issue, len(newIssues))
+		for i := range m.data.issues {
+			m.data.issueMap[m.data.issues[i].ID] = &m.data.issues[i]
 		}
 		if profileRefresh {
 			recordTiming("issue_map", time.Since(mapStart))
 		}
 
 		// Clear stale priority hints (will be repopulated after Phase 2)
-		m.priorityHints = make(map[string]*analysis.PriorityRecommendation)
+		m.ac.priorityHints = make(map[string]*analysis.PriorityRecommendation)
 
 		// Recompute stats
 		var statsStart time.Time
 		if profileRefresh {
 			statsStart = time.Now()
 		}
-		m.countOpen, m.countReady, m.countBlocked, m.countClosed = 0, 0, 0, 0
-		for i := range m.issues {
-			issue := &m.issues[i]
+		m.ac.countOpen, m.ac.countReady, m.ac.countBlocked, m.ac.countClosed = 0, 0, 0, 0
+		for i := range m.data.issues {
+			issue := &m.data.issues[i]
 			if isClosedLikeStatus(issue.Status) {
-				m.countClosed++
+				m.ac.countClosed++
 				continue
 			}
-			m.countOpen++
+			m.ac.countOpen++
 			if issue.Status == model.StatusBlocked {
-				m.countBlocked++
+				m.ac.countBlocked++
 				continue
 			}
 			isBlocked := false
@@ -2041,13 +2068,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if dep == nil || !dep.Type.IsBlocking() {
 					continue
 				}
-				if blocker, exists := m.issueMap[dep.DependsOnID]; exists && !isClosedLikeStatus(blocker.Status) {
+				if blocker, exists := m.data.issueMap[dep.DependsOnID]; exists && !isClosedLikeStatus(blocker.Status) {
 					isBlocked = true
 					break
 				}
 			}
 			if !isBlocked {
-				m.countReady++
+				m.ac.countReady++
 			}
 		}
 		if profileRefresh {
@@ -2059,7 +2086,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if profileRefresh {
 			alertsStart = time.Now()
 		}
-		m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.issues, m.analysis, m.analyzer)
+		m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.data.issues, m.data.analysis, m.data.analyzer)
 		if profileRefresh {
 			recordTiming("alerts", time.Since(alertsStart))
 		}
@@ -2071,22 +2098,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if profileRefresh {
 			listStart = time.Now()
 		}
-		items := make([]list.Item, len(m.issues))
-		for i := range m.issues {
+		items := make([]list.Item, len(m.data.issues))
+		for i := range m.data.issues {
 			item := IssueItem{
-				Issue:      m.issues[i],
-				GraphScore: m.analysis.GetPageRankScore(m.issues[i].ID),
-				Impact:     m.analysis.GetCriticalPathScore(m.issues[i].ID),
-				RepoPrefix: ExtractRepoPrefix(m.issues[i].ID),
+				Issue:      m.data.issues[i],
+				GraphScore: m.data.analysis.GetPageRankScore(m.data.issues[i].ID),
+				Impact:     m.data.analysis.GetCriticalPathScore(m.data.issues[i].ID),
+				RepoPrefix: ExtractRepoPrefix(m.data.issues[i].ID),
 			}
-			item.TriageScore = m.triageScores[m.issues[i].ID]
-			if reasons, exists := m.triageReasons[m.issues[i].ID]; exists {
+			item.TriageScore = m.ac.triageScores[m.data.issues[i].ID]
+			if reasons, exists := m.ac.triageReasons[m.data.issues[i].ID]; exists {
 				item.TriageReason = reasons.Primary
 				item.TriageReasons = reasons.All
 			}
-			item.IsQuickWin = m.quickWinSet[m.issues[i].ID]
-			item.IsBlocker = m.blockerSet[m.issues[i].ID]
-			item.UnblocksCount = len(m.unblocksMap[m.issues[i].ID])
+			item.IsQuickWin = m.ac.quickWinSet[m.data.issues[i].ID]
+			item.IsBlocker = m.ac.blockerSet[m.data.issues[i].ID]
+			item.UnblocksCount = len(m.ac.unblocksMap[m.data.issues[i].ID])
 			items[i] = item
 		}
 		if profileRefresh {
@@ -2126,7 +2153,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if profileRefresh {
 				insightsStart = time.Now()
 			}
-			ins = m.analysis.GenerateInsights(len(m.issues))
+			ins = m.data.analysis.GenerateInsights(len(m.data.issues))
 			if profileRefresh {
 				recordTiming("insights_generate", time.Since(insightsStart))
 			}
@@ -2137,7 +2164,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			oldRecMap := m.insightsPanel.recommendationMap
 			oldHash := m.insightsPanel.triageDataHash
 
-			m.insightsPanel = NewInsightsModel(ins, m.issueMap, m.theme)
+			m.insightsPanel = NewInsightsModel(ins, m.data.issueMap, m.theme)
 			m.insightsPanel.topPicks = oldTopPicks
 			m.insightsPanel.recommendations = oldRecs
 			m.insightsPanel.recommendationMap = oldRecMap
@@ -2154,10 +2181,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				attentionStart = time.Now()
 			}
 			cfg := analysis.DefaultLabelHealthConfig()
-			m.attentionCache = analysis.ComputeLabelAttentionScores(m.issues, cfg, time.Now().UTC())
+			m.attentionCache = analysis.ComputeLabelAttentionScores(m.data.issues, cfg, time.Now().UTC())
 			m.attentionCached = true
-			attText, _ := ComputeAttentionView(m.issues, max(40, m.width-4))
-			m.insightsPanel = NewInsightsModel(analysis.Insights{}, m.issueMap, m.theme)
+			attText, _ := ComputeAttentionView(m.data.issues, max(40, m.width-4))
+			m.insightsPanel = NewInsightsModel(analysis.Insights{}, m.data.issueMap, m.theme)
 			m.insightsPanel.labelAttention = m.attentionCache.Labels
 			m.insightsPanel.extraText = attText
 			panelHeight := m.height - 2
@@ -2181,19 +2208,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Re-apply recipe filter if active
-		if m.activeRecipe != nil {
-			m.applyRecipe(m.activeRecipe)
+		if m.filter.activeRecipe != nil {
+			m.applyRecipe(m.filter.activeRecipe)
 		}
 
 		// Re-apply BQL filter if active
-		if m.activeBQLExpr != nil && strings.HasPrefix(m.currentFilter, "bql:") {
-			queryStr := strings.TrimPrefix(m.currentFilter, "bql:")
-			m.applyBQL(m.activeBQLExpr, queryStr)
+		if m.filter.activeBQLExpr != nil && strings.HasPrefix(m.filter.currentFilter, "bql:") {
+			queryStr := strings.TrimPrefix(m.filter.currentFilter, "bql:")
+			m.applyBQL(m.filter.activeBQLExpr, queryStr)
 		}
 
 		// Reload sprints (bv-161)
-		if m.beadsPath != "" {
-			beadsDir := filepath.Dir(m.beadsPath)
+		if m.data.beadsPath != "" {
+			beadsDir := filepath.Dir(m.data.beadsPath)
 			if loaded, err := loader.LoadSprintsFromFile(filepath.Join(beadsDir, loader.SprintsFileName)); err == nil {
 				m.sprints = loaded
 				// If we have a selected sprint, try to refresh it
@@ -2255,7 +2282,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Auto-enable background mode after slow sync reloads (opt-out via BT_BACKGROUND_MODE=0).
 		autoEnabled := false
 		slowReload := reloadDuration >= time.Second
-		if slowReload && m.backgroundWorker == nil && m.beadsPath != "" {
+		if slowReload && m.data.backgroundWorker == nil && m.data.beadsPath != "" {
 			autoAllowed := true
 			if v := strings.TrimSpace(os.Getenv("BT_BACKGROUND_MODE")); v != "" {
 				switch strings.ToLower(v) {
@@ -2265,25 +2292,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if autoAllowed {
 				autoBeadsDir := ""
-				if m.beadsPath != "" {
-					autoBeadsDir = filepath.Dir(m.beadsPath)
+				if m.data.beadsPath != "" {
+					autoBeadsDir = filepath.Dir(m.data.beadsPath)
 				}
 				bw, err := NewBackgroundWorker(WorkerConfig{
-					BeadsPath:     m.beadsPath,
+					BeadsPath:     m.data.beadsPath,
 					BeadsDir:      autoBeadsDir,
-					DataSource:    m.dataSource,
+					DataSource:    m.data.dataSource,
 					DebounceDelay: 200 * time.Millisecond,
 				})
 				if err == nil {
-					if m.watcher != nil {
-						m.watcher.Stop()
+					if m.data.watcher != nil {
+						m.data.watcher.Stop()
 					}
-					m.watcher = nil
-					m.backgroundWorker = bw
-					m.snapshotInitPending = true
+					m.data.watcher = nil
+					m.data.backgroundWorker = bw
+					m.data.snapshotInitPending = true
 					autoEnabled = true
-					cmds = append(cmds, StartBackgroundWorkerCmd(m.backgroundWorker))
-					cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.backgroundWorker))
+					cmds = append(cmds, StartBackgroundWorkerCmd(m.data.backgroundWorker))
+					cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.data.backgroundWorker))
 				} else {
 					m.statusMsg += fmt.Sprintf("; background mode unavailable: %v", err)
 				}
@@ -2309,10 +2336,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updateViewportContent()
 
 		// Re-start watching for next change + wait for Phase 2
-		if m.watcher != nil && !autoEnabled {
-			cmds = append(cmds, WatchFileCmd(m.watcher))
+		if m.data.watcher != nil && !autoEnabled {
+			cmds = append(cmds, WatchFileCmd(m.data.watcher))
 		}
-		cmds = append(cmds, WaitForPhase2Cmd(m.analysis))
+		cmds = append(cmds, WaitForPhase2Cmd(m.data.analysis))
 		return m, tea.Batch(cmds...)
 
 	case tea.KeyPressMsg:
@@ -2431,7 +2458,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "enter":
 				// Apply label filter to main list and close drilldown
 				if m.labelDrilldownLabel != "" {
-					m.currentFilter = "label:" + m.labelDrilldownLabel
+					m.filter.currentFilter = "label:" + m.labelDrilldownLabel
 					m.applyFilter()
 					m.focused = focusList
 				}
@@ -2442,7 +2469,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "g":
 				// Show graph analysis sub-view (bv-109)
 				if m.labelDrilldownLabel != "" {
-					sg := analysis.ComputeLabelSubgraph(m.issues, m.labelDrilldownLabel)
+					sg := analysis.ComputeLabelSubgraph(m.data.issues, m.labelDrilldownLabel)
 					pr := analysis.ComputeLabelPageRank(sg)
 					cp := analysis.ComputeLabelCriticalPath(sg)
 					m.labelGraphAnalysisResult = &LabelGraphAnalysisResult{
@@ -2489,7 +2516,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				idx := int(s[0] - '1')
 				if idx >= 0 && idx < len(m.attentionCache.Labels) {
 					label := m.attentionCache.Labels[idx].Label
-					m.currentFilter = "label:" + label
+					m.filter.currentFilter = "label:" + label
 					m.applyFilter()
 					m.statusMsg = fmt.Sprintf("Filtered to label %s (attention #%d)", label, idx+1)
 					m.statusIsError = false
@@ -2656,28 +2683,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Force refresh (bv-4auz): Ctrl+R / F5 triggers an immediate reload.
 		if (msg.String() == "ctrl+r" || msg.String() == "f5") && m.list.FilterState() != list.Filtering {
 			now := time.Now()
-			if !m.lastForceRefresh.IsZero() && now.Sub(m.lastForceRefresh) < time.Second {
+			if !m.data.lastForceRefresh.IsZero() && now.Sub(m.data.lastForceRefresh) < time.Second {
 				return m, nil
 			}
-			m.lastForceRefresh = now
+			m.data.lastForceRefresh = now
 
 			m.statusMsg = "Refreshing…"
 			m.statusIsError = false
 
-			if m.backgroundWorker != nil {
-				m.backgroundWorker.ForceRefresh()
-				cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.backgroundWorker))
+			if m.data.backgroundWorker != nil {
+				m.data.backgroundWorker.ForceRefresh()
+				cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.data.backgroundWorker))
 				return m, tea.Batch(cmds...)
 			}
 
-			if m.beadsPath == "" && m.watcher == nil && !m.isDoltSource() {
+			if m.data.beadsPath == "" && m.data.watcher == nil && !m.isDoltSource() {
 				m.statusMsg = "Refresh unavailable"
 				m.statusIsError = true
 				return m, nil
 			}
 
 			// Dolt sources without background worker use async reload
-			if m.isDoltSource() && m.beadsPath == "" {
+			if m.isDoltSource() && m.data.beadsPath == "" {
 				cmds = append(cmds, m.reloadFromDataSource())
 				return m, tea.Batch(cmds...)
 			}
@@ -3005,7 +3032,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.mode = ViewActionable
 					// Build execution plan
-					analyzer := analysis.NewAnalyzer(m.issues)
+					analyzer := analysis.NewAnalyzer(m.data.issues)
 					plan := analyzer.GetExecutionPlan()
 					m.actionableView = NewActionableModel(plan, m.theme)
 					m.actionableView.SetSize(m.width, m.height-2)
@@ -3022,10 +3049,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				} else {
 					m.mode = ViewTree
 					// Build tree from snapshot when available (bv-t435)
-					if m.snapshot != nil {
-						m.tree.BuildFromSnapshot(m.snapshot)
+					if m.data.snapshot != nil {
+						m.tree.BuildFromSnapshot(m.data.snapshot)
 					} else {
-						m.tree.Build(m.issues)
+						m.tree.Build(m.data.issues)
 					}
 					m.tree.SetSize(m.width, m.height-2)
 					m.focused = focusTree
@@ -3043,17 +3070,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Refresh insights using the current snapshot when available (bv-mpqz).
 					var ins analysis.Insights
 					hasInsights := false
-					if m.snapshot != nil {
-						ins = m.snapshot.Insights
+					if m.data.snapshot != nil {
+						ins = m.data.snapshot.Insights
 						hasInsights = true
-					} else if m.analysis != nil {
-						ins = m.analysis.GenerateInsights(len(m.issues))
+					} else if m.data.analysis != nil {
+						ins = m.data.analysis.GenerateInsights(len(m.data.issues))
 						hasInsights = true
 					}
 					if hasInsights {
-						m.insightsPanel = NewInsightsModel(ins, m.issueMap, m.theme)
+						m.insightsPanel = NewInsightsModel(ins, m.data.issueMap, m.theme)
 						// Include priority triage (bv-91) - reuse existing analyzer/stats (bv-runn.12)
-						triage := analysis.ComputeTriageFromAnalyzer(m.analyzer, m.analysis, m.issues, analysis.TriageOptions{}, time.Now())
+						triage := analysis.ComputeTriageFromAnalyzer(m.data.analyzer, m.data.analysis, m.data.issues, analysis.TriageOptions{}, time.Now())
 						m.insightsPanel.SetTopPicks(triage.QuickRef.TopPicks)
 						// Set full recommendations with breakdown for priority radar (bv-93)
 						dataHash := fmt.Sprintf("v%s@%s#%d", triage.Meta.Version, triage.Meta.GeneratedAt.Format("15:04:05"), triage.Meta.IssueCount)
@@ -3069,12 +3096,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			case "p":
 				// Toggle priority hints
-				m.showPriorityHints = !m.showPriorityHints
+				m.ac.showPriorityHints = !m.ac.showPriorityHints
 				// Update delegate with new state
 				m.updateListDelegate()
 				// Show explanatory status message
-				if m.showPriorityHints {
-					count := len(m.priorityHints)
+				if m.ac.showPriorityHints {
+					count := len(m.ac.priorityHints)
 					if count > 0 {
 						m.statusMsg = fmt.Sprintf("Priority hints: ↑ increase ↓ decrease (%d suggestions)", count)
 					} else {
@@ -3112,7 +3139,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Compute label health (fast; phase1 metrics only needed) with caching
 				if !m.labelHealthCached {
 					cfg := analysis.DefaultLabelHealthConfig()
-					m.labelHealthCache = analysis.ComputeAllLabelHealth(m.issues, cfg, time.Now().UTC(), m.analysis)
+					m.labelHealthCache = analysis.ComputeAllLabelHealth(m.data.issues, cfg, time.Now().UTC(), m.data.analysis)
 					m.labelHealthCached = true
 				}
 				m.labelDashboard.SetData(m.labelHealthCache.Labels)
@@ -3125,13 +3152,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Attention view: compute attention scores (cached) and render as text
 				if !m.attentionCached {
 					cfg := analysis.DefaultLabelHealthConfig()
-					m.attentionCache = analysis.ComputeLabelAttentionScores(m.issues, cfg, time.Now().UTC())
+					m.attentionCache = analysis.ComputeLabelAttentionScores(m.data.issues, cfg, time.Now().UTC())
 					m.attentionCached = true
 				}
-				attText, _ := ComputeAttentionView(m.issues, max(40, m.width-4))
+				attText, _ := ComputeAttentionView(m.data.issues, max(40, m.width-4))
 				m.mode = ViewAttention
 				m.focused = focusInsights
-				m.insightsPanel = NewInsightsModel(analysis.Insights{}, m.issueMap, m.theme)
+				m.insightsPanel = NewInsightsModel(analysis.Insights{}, m.data.issueMap, m.theme)
 				m.insightsPanel.labelAttention = m.attentionCache.Labels
 				m.insightsPanel.extraText = attText
 				panelHeight := m.height - 2
@@ -3145,11 +3172,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Flow matrix view (cross-label dependencies)
 				m.clearAttentionOverlay()
 				cfg := analysis.DefaultLabelHealthConfig()
-				flow := analysis.ComputeCrossLabelFlow(m.issues, cfg)
+				flow := analysis.ComputeCrossLabelFlow(m.data.issues, cfg)
 				m.mode = ViewFlowMatrix
 				m.focused = focusFlowMatrix
 				m.flowMatrix = NewFlowMatrixModel(m.theme)
-				m.flowMatrix.SetData(&flow, m.issues)
+				m.flowMatrix.SetData(&flow, m.data.issues)
 				panelHeight := m.height - 2
 				if panelHeight < 3 {
 					panelHeight = 3
@@ -3217,8 +3244,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.statusMsg = fmt.Sprintf("Showing project: %s", m.currentProjectDB)
 				}
 				m.statusIsError = false
-				if m.activeRecipe != nil {
-					m.applyRecipe(m.activeRecipe)
+				if m.filter.activeRecipe != nil {
+					m.applyRecipe(m.filter.activeRecipe)
 				} else {
 					m.applyFilter()
 				}
@@ -3249,11 +3276,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			case "l":
 				// Open label picker for quick filter (bv-126)
-				if len(m.issues) == 0 {
+				if len(m.data.issues) == 0 {
 					return m, nil
 				}
 				// Update labels in case they changed
-				labelExtraction := analysis.ExtractLabels(m.issues)
+				labelExtraction := analysis.ExtractLabels(m.data.issues)
 				labelCounts := extractLabelCounts(labelExtraction.Stats)
 				m.labelPicker.SetLabels(labelExtraction.Labels, labelCounts)
 				m.labelPicker.Reset()
@@ -3294,7 +3321,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				if selectedLabel, cmd := m.labelDashboard.Update(msg); selectedLabel != "" {
 					// Filter list by selected label and jump back to list view
-					m.currentFilter = "label:" + selectedLabel
+					m.filter.currentFilter = "label:" + selectedLabel
 					m.applyFilter()
 					m.isSplitView = true
 					m.focused = focusList
@@ -3546,18 +3573,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // Stop cleans up resources (file watcher, instance lock, background worker, etc.)
 // Should be called when the program exits
 func (m *Model) Stop() {
-	if m.backgroundWorker != nil {
-		m.backgroundWorker.Stop()
+	if m.data.backgroundWorker != nil {
+		m.data.backgroundWorker.Stop()
 	}
-	if m.watcher != nil {
-		m.watcher.Stop()
+	if m.data.watcher != nil {
+		m.data.watcher.Stop()
 	}
-	if m.instanceLock != nil {
-		m.instanceLock.Release()
+	if m.data.instanceLock != nil {
+		m.data.instanceLock.Release()
 	}
-	if len(m.pooledIssues) > 0 {
-		loader.ReturnIssuePtrsToPool(m.pooledIssues)
-		m.pooledIssues = nil
+	if len(m.data.pooledIssues) > 0 {
+		loader.ReturnIssuePtrsToPool(m.data.pooledIssues)
+		m.data.pooledIssues = nil
 	}
 	// Stop Dolt server if bt started it (bt-07jp)
 	if m.doltServer != nil {
@@ -3573,8 +3600,8 @@ func (m *Model) Stop() {
 // Also wires auto-reconnect into the background worker's poll loop if one exists.
 func (m *Model) SetDoltServer(s DoltServerStopper, reconnectFn func(beadsDir string) error) {
 	m.doltServer = s
-	if m.backgroundWorker != nil && reconnectFn != nil {
-		m.backgroundWorker.SetDoltReconnectFn(reconnectFn)
+	if m.data.backgroundWorker != nil && reconnectFn != nil {
+		m.data.backgroundWorker.SetDoltReconnectFn(reconnectFn)
 	}
 }
 

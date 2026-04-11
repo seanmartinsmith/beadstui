@@ -123,20 +123,20 @@ func (m Model) handleBoardKeys(msg tea.KeyMsg) Model {
 
 	// Global filter keys (bv-naov) - consistent with list view
 	case "o":
-		m.activeBQLExpr = nil
-		m.currentFilter = "open"
+		m.filter.activeBQLExpr = nil
+		m.filter.currentFilter = "open"
 		m.applyFilter()
 		m.statusMsg = "Filter: Open issues"
 		m.statusIsError = false
 	case "c":
-		m.activeBQLExpr = nil
-		m.currentFilter = "closed"
+		m.filter.activeBQLExpr = nil
+		m.filter.currentFilter = "closed"
 		m.applyFilter()
 		m.statusMsg = "Filter: Closed issues"
 		m.statusIsError = false
 	case "r":
-		m.activeBQLExpr = nil
-		m.currentFilter = "ready"
+		m.filter.activeBQLExpr = nil
+		m.filter.currentFilter = "ready"
 		m.applyFilter()
 		m.statusMsg = "Filter: Ready (no blockers)"
 		m.statusIsError = false
@@ -697,8 +697,8 @@ func (m Model) handleRepoPickerKeys(msg tea.KeyMsg) Model {
 		m.statusIsError = false
 
 		// Apply filter to views
-		if m.activeRecipe != nil {
-			m.applyRecipe(m.activeRecipe)
+		if m.filter.activeRecipe != nil {
+			m.applyRecipe(m.filter.activeRecipe)
 		} else {
 			m.applyFilter()
 		}
@@ -716,8 +716,8 @@ func (m Model) handleBQLQueryKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		query := m.bqlQuery.Value()
 		if query == "" {
 			// Empty query = clear BQL filter, show all
-			m.activeBQLExpr = nil
-			m.currentFilter = "all"
+			m.filter.activeBQLExpr = nil
+			m.filter.currentFilter = "all"
 			m.applyFilter()
 		} else {
 			// Parse and validate
@@ -734,7 +734,7 @@ func (m Model) handleBQLQueryKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 			m.setActiveRecipe(nil)
 			m.list.ResetFilter()
 			// Apply BQL via dedicated path
-			m.activeBQLExpr = parsed
+			m.filter.activeBQLExpr = parsed
 			m.applyBQL(parsed, query)
 			m.bqlQuery.AddToHistory(query)
 		}
@@ -776,7 +776,7 @@ func (m Model) handleLabelPickerKeys(msg tea.KeyMsg) Model {
 		m.labelPicker.MoveUp()
 	case "enter":
 		if selected := m.labelPicker.SelectedLabel(); selected != "" {
-			m.currentFilter = "label:" + selected
+			m.filter.currentFilter = "label:" + selected
 			m.applyFilter()
 			m.statusMsg = fmt.Sprintf("Filtered by label: %s", selected)
 			m.statusIsError = false
@@ -880,20 +880,20 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 			m.list.Select(newIdx)
 		}
 	case "o":
-		m.activeBQLExpr = nil
-		m.currentFilter = "open"
+		m.filter.activeBQLExpr = nil
+		m.filter.currentFilter = "open"
 		m.applyFilter()
 	case "c":
-		m.activeBQLExpr = nil
-		m.currentFilter = "closed"
+		m.filter.activeBQLExpr = nil
+		m.filter.currentFilter = "closed"
 		m.applyFilter()
 	case "r":
-		m.activeBQLExpr = nil
-		m.currentFilter = "ready"
+		m.filter.activeBQLExpr = nil
+		m.filter.currentFilter = "ready"
 		m.applyFilter()
 	case "a":
-		m.activeBQLExpr = nil
-		m.currentFilter = "all"
+		m.filter.activeBQLExpr = nil
+		m.filter.currentFilter = "all"
 		m.applyFilter()
 	case "t":
 		// Toggle time-travel mode off, or show prompt for custom revision
@@ -926,7 +926,7 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 		}
 	case "S":
 		// Apply triage recipe - sort by triage score (bv-151)
-		if r := m.recipeLoader.Get("triage"); r != nil {
+		if r := m.filter.recipeLoader.Get("triage"); r != nil {
 			m.setActiveRecipe(r)
 			m.applyRecipe(r)
 		}
