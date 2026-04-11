@@ -655,7 +655,7 @@ func (m Model) handleRecipePickerKeys(msg tea.KeyMsg) Model {
 	case "k", "up":
 		m.recipePicker.MoveUp()
 	case "esc":
-		m.showRecipePicker = false
+		m.closeModal()
 		m.focused = focusList
 	case "enter":
 		// Apply selected recipe
@@ -663,7 +663,7 @@ func (m Model) handleRecipePickerKeys(msg tea.KeyMsg) Model {
 			m.setActiveRecipe(selected)
 			m.applyRecipe(selected)
 		}
-		m.showRecipePicker = false
+		m.closeModal()
 		m.focused = focusList
 	}
 	return m
@@ -681,7 +681,7 @@ func (m Model) handleRepoPickerKeys(msg tea.KeyMsg) Model {
 	case "a":
 		m.repoPicker.SelectAll()
 	case "esc", "q":
-		m.showRepoPicker = false
+		m.closeModal()
 		m.focused = focusList
 	case "enter":
 		selected := m.repoPicker.SelectedRepos()
@@ -703,7 +703,7 @@ func (m Model) handleRepoPickerKeys(msg tea.KeyMsg) Model {
 			m.applyFilter()
 		}
 
-		m.showRepoPicker = false
+		m.closeModal()
 		m.focused = focusList
 	}
 	return m
@@ -738,14 +738,14 @@ func (m Model) handleBQLQueryKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 			m.applyBQL(parsed, query)
 			m.bqlQuery.AddToHistory(query)
 		}
-		m.showBQLQuery = false
+		m.closeModal()
 		m.focused = focusList
 		m.statusMsg = "BQL: " + query
 		m.statusIsError = false
 		return m, nil
 
 	case "esc":
-		m.showBQLQuery = false
+		m.closeModal()
 		m.focused = focusList
 		return m, nil
 
@@ -768,7 +768,7 @@ func (m Model) handleBQLQueryKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 func (m Model) handleLabelPickerKeys(msg tea.KeyMsg) Model {
 	switch msg.String() {
 	case "esc":
-		m.showLabelPicker = false
+		m.closeModal()
 		m.focused = focusList
 	case "j", "down", "ctrl+n":
 		m.labelPicker.MoveDown()
@@ -781,7 +781,7 @@ func (m Model) handleLabelPickerKeys(msg tea.KeyMsg) Model {
 			m.statusMsg = fmt.Sprintf("Filtered by label: %s", selected)
 			m.statusIsError = false
 		}
-		m.showLabelPicker = false
+		m.closeModal()
 		m.focused = focusList
 	default:
 		// Pass other keys to text input for fuzzy search
@@ -901,7 +901,7 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 			m.exitTimeTravelMode()
 		} else {
 			// Show input prompt for revision
-			m.showTimeTravelPrompt = true
+			m.openModal(ModalTimeTravelInput)
 			m.timeTravelInput.SetValue("")
 			m.timeTravelInput.Focus()
 			m.focused = focusTimeTravelInput
@@ -967,13 +967,13 @@ func (m Model) handleTimeTravelInputKeys(msg tea.KeyMsg) Model {
 		if revision == "" {
 			revision = "HEAD~5" // Default if empty
 		}
-		m.showTimeTravelPrompt = false
+		m.closeModal()
 		m.timeTravelInput.Blur()
 		m.focused = focusList
 		m.enterTimeTravelMode(revision)
 	case "esc":
 		// Cancel
-		m.showTimeTravelPrompt = false
+		m.closeModal()
 		m.timeTravelInput.Blur()
 		m.focused = focusList
 	default:
@@ -1047,18 +1047,18 @@ func (m Model) handleHelpKeys(msg tea.KeyMsg) Model {
 		m.helpScroll = 999
 	case "q", "esc", "?", "f1":
 		// Close help overlay and restore previous focus
-		m.showHelp = false
+		m.closeModal()
 		m.helpScroll = 0
 		m.focused = m.restoreFocusFromHelp()
 	case "space": // Space opens interactive tutorial (bv-0trk, bv-8y31)
-		m.showHelp = false
+		m.closeModal()
 		m.helpScroll = 0
-		m.showTutorial = true
+		m.openModal(ModalTutorial)
 		m.tutorialModel.SetSize(m.width, m.height)
 		m.focused = focusTutorial
 	default:
 		// Any other key dismisses help and restores previous focus
-		m.showHelp = false
+		m.closeModal()
 		m.helpScroll = 0
 		m.focused = m.restoreFocusFromHelp()
 	}

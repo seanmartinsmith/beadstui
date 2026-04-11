@@ -205,12 +205,12 @@ func TestHandleListKeysFiltersAndTimeTravelPrompt(t *testing.T) {
 	// Time-travel prompt toggling
 	m.timeTravelMode = false
 	m = m.handleListKeys(tea.KeyPressMsg{Code: 't', Text: "t"})
-	if !m.showTimeTravelPrompt || m.focused != focusTimeTravelInput {
+	if m.activeModal != ModalTimeTravelInput || m.focused != focusTimeTravelInput {
 		t.Fatalf("time-travel prompt not activated")
 	}
 	// Cancel via Esc to avoid git dependency
 	m = m.handleTimeTravelInputKeys(tea.KeyPressMsg{Code: tea.KeyEsc})
-	if m.showTimeTravelPrompt {
+	if m.activeModal == ModalTimeTravelInput {
 		t.Fatalf("prompt should close on esc")
 	}
 	if m.focused != focusList {
@@ -343,7 +343,7 @@ func TestViewTogglesGraphBoardInsightsActionable(t *testing.T) {
 	// Recipe picker toggle (' key)
 	modelAny, _ = m.Update(tea.KeyPressMsg{Code: '\'', Text: "'"})
 	m = modelAny.(Model)
-	if !m.showRecipePicker || m.focused != focusRecipePicker {
+	if m.activeModal != ModalRecipePicker || m.focused != focusRecipePicker {
 		t.Fatalf("recipe picker not opened correctly")
 	}
 }
@@ -419,20 +419,20 @@ func TestHandleRecipePickerAndInsightsKeys(t *testing.T) {
 	m = m.handleInsightsKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
 
 	// Recipe picker escape path
-	m.showRecipePicker = true
+	m.openModal(ModalRecipePicker)
 	m.focused = focusRecipePicker
 	m = m.handleRecipePickerKeys(tea.KeyPressMsg{Code: 'j', Text: "j"})
 	m = m.handleRecipePickerKeys(tea.KeyPressMsg{Code: 'k', Text: "k"})
 	m = m.handleRecipePickerKeys(tea.KeyPressMsg{Code: tea.KeyEsc})
-	if m.showRecipePicker {
+	if m.activeModal == ModalRecipePicker {
 		t.Fatalf("recipe picker should close on esc")
 	}
 
 	// Enter applies selection
-	m.showRecipePicker = true
+	m.openModal(ModalRecipePicker)
 	m.focused = focusRecipePicker
 	m = m.handleRecipePickerKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
-	if m.filter.activeRecipe == nil || m.showRecipePicker {
+	if m.filter.activeRecipe == nil || m.activeModal == ModalRecipePicker {
 		t.Fatalf("enter should apply recipe and close picker")
 	}
 }
@@ -917,7 +917,7 @@ func TestBoardAndInsightsExtraKeys(t *testing.T) {
 		t.Fatalf("chdir temp: %v", err)
 	}
 	t.Cleanup(func() { _ = os.Chdir(origWD) })
-	m.showTimeTravelPrompt = true
+	m.openModal(ModalTimeTravelInput)
 	m.focused = focusTimeTravelInput
 	m.timeTravelInput.SetValue("HEAD~1")
 	m = m.handleTimeTravelInputKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
@@ -1104,26 +1104,23 @@ func TestViewVariantsCoverBranches(t *testing.T) {
 	m.width, m.height = 120, 30
 
 	// Quit confirm
-	m.showQuitConfirm = true
+	m.openModal(ModalQuitConfirm)
 	_ = m.View()
 
 	// Time-travel prompt
-	m.showQuitConfirm = false
-	m.showTimeTravelPrompt = true
+	m.openModal(ModalTimeTravelInput)
 	_ = m.View()
 
 	// Recipe picker
-	m.showTimeTravelPrompt = false
-	m.showRecipePicker = true
+	m.openModal(ModalRecipePicker)
 	_ = m.View()
 
 	// Help
-	m.showRecipePicker = false
-	m.showHelp = true
+	m.openModal(ModalHelp)
 	_ = m.View()
 
 	// Insights view
-	m.showHelp = false
+	m.closeModal()
 	m.mode = ViewInsights
 	m.focused = focusInsights
 	_ = m.View()
@@ -1191,26 +1188,26 @@ func TestOverlaysAndWorkspaceHelpers(t *testing.T) {
 	}
 
 	// Quit confirm overlay
-	m.showQuitConfirm = true
+	m.openModal(ModalQuitConfirm)
 	if !strings.Contains(m.View().Content, "Quit bt?") {
 		t.Fatalf("quit overlay should render")
 	}
-	m.showQuitConfirm = false
+	m.closeModal()
 
 	// Help overlay
-	m.showHelp = true
+	m.openModal(ModalHelp)
 	if !strings.Contains(m.View().Content, "Keyboard") {
 		t.Fatalf("help overlay should render")
 	}
-	m.showHelp = false
+	m.closeModal()
 
 	// Time-travel prompt render path (no git calls)
-	m.showTimeTravelPrompt = true
+	m.openModal(ModalTimeTravelInput)
 	m.timeTravelInput.SetValue("HEAD~1")
 	if out := m.renderTimeTravelPrompt(); !strings.Contains(out, "Time-Travel Mode") {
 		t.Fatalf("time-travel prompt text missing")
 	}
-	m.showTimeTravelPrompt = false
+	m.closeModal()
 
 	// Export filename helper (no filesystem writes)
 	name := m.generateExportFilename()
@@ -1235,7 +1232,7 @@ func TestHelpOverlayScroll(t *testing.T) {
 	issues := []model.Issue{{ID: "1", Title: "One", Status: model.StatusOpen}}
 	m := NewModel(issues, nil, "", nil)
 	m.width, m.height = 80, 20 // Small terminal to force scroll
-	m.showHelp = true
+	m.openModal(ModalHelp)
 	m.focused = focusHelp
 	m.helpScroll = 0
 
@@ -1284,24 +1281,24 @@ func TestHelpOverlayScroll(t *testing.T) {
 
 	// Test q closes help
 	m = m.handleHelpKeys(tea.KeyPressMsg{Code: 'q', Text: "q"})
-	if m.showHelp {
-		t.Fatalf("expected showHelp=false after q")
+	if m.activeModal == ModalHelp {
+		t.Fatalf("expected modal closed after q")
 	}
 	if m.helpScroll != 0 {
 		t.Fatalf("expected helpScroll=0 after closing, got %d", m.helpScroll)
 	}
 
 	// Test any other key closes help
-	m.showHelp = true
+	m.openModal(ModalHelp)
 	m.focused = focusHelp
 	m.helpScroll = 5
 	m = m.handleHelpKeys(tea.KeyPressMsg{Code: 'x', Text: "x"})
-	if m.showHelp {
-		t.Fatalf("expected showHelp=false after x")
+	if m.activeModal == ModalHelp {
+		t.Fatalf("expected modal closed after x")
 	}
 
 	// Test render help overlay
-	m.showHelp = true
+	m.openModal(ModalHelp)
 	m.focused = focusHelp
 	m.helpScroll = 0
 	out := m.renderHelpOverlay()
@@ -1318,12 +1315,12 @@ func TestHelpOverlayScroll(t *testing.T) {
 	}
 
 	// Test Space key closes help for tutorial entry (bv-0trk)
-	m.showHelp = true
+	m.openModal(ModalHelp)
 	m.focused = focusHelp
 	m.helpScroll = 5
 	m = m.handleHelpKeys(tea.KeyPressMsg{Code: ' ', Text: " "})
-	if m.showHelp {
-		t.Fatalf("expected showHelp=false after Space")
+	if m.activeModal == ModalHelp {
+		t.Fatalf("expected modal closed after Space")
 	}
 	if m.helpScroll != 0 {
 		t.Fatalf("expected helpScroll=0 after Space, got %d", m.helpScroll)
@@ -1347,7 +1344,7 @@ func TestRenderHelpOverlay_ResponsiveLayout(t *testing.T) {
 			m := NewModel(nil, nil, "", nil)
 			m.width = tc.width
 			m.height = 40
-			m.showHelp = true
+			m.openModal(ModalHelp)
 			m.focused = focusHelp
 			out := m.renderHelpOverlay()
 			if !strings.Contains(out, "Keyboard Shortcuts") {

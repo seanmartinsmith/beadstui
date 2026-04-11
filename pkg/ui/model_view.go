@@ -42,77 +42,87 @@ func (m Model) View() tea.View {
 
 	var body string
 
-	// Quit confirmation overlay takes highest priority
-	if m.showQuitConfirm {
+	// Modal overlays take highest priority - dispatch by activeModal
+	switch m.activeModal {
+	case ModalQuitConfirm:
 		body = m.renderQuitConfirm()
-	} else if m.showAgentPrompt {
-		// AGENTS.md prompt modal (bv-i8dk)
+	case ModalAgentPrompt:
 		body = m.agentPromptModal.CenterModal(m.width, m.height-1)
-	} else if m.showCassModal {
-		// Cass session preview modal (bv-5bqh)
+	case ModalCassSession:
 		body = m.cassModal.CenterModal(m.width, m.height-1)
-	} else if m.showUpdateModal {
-		// Self-update modal (bv-182)
+	case ModalUpdate:
 		body = m.updateModal.CenterModal(m.width, m.height-1)
-	} else if m.showLabelHealthDetail && m.labelHealthDetail != nil {
-		body = m.renderLabelHealthDetail(*m.labelHealthDetail)
-	} else if m.showLabelGraphAnalysis && m.labelGraphAnalysisResult != nil {
-		body = m.renderLabelGraphAnalysis()
-	} else if m.showLabelDrilldown && m.labelDrilldownLabel != "" {
-		body = m.renderLabelDrilldown()
-	} else if m.showAlertsPanel {
+	case ModalLabelHealthDetail:
+		if m.labelHealthDetail != nil {
+			body = m.renderLabelHealthDetail(*m.labelHealthDetail)
+		}
+	case ModalLabelGraphAnalysis:
+		if m.labelGraphAnalysisResult != nil {
+			body = m.renderLabelGraphAnalysis()
+		}
+	case ModalLabelDrilldown:
+		if m.labelDrilldownLabel != "" {
+			body = m.renderLabelDrilldown()
+		}
+	case ModalAlerts:
 		body = m.renderAlertsPanel()
-	} else if m.showTimeTravelPrompt {
+	case ModalTimeTravelInput:
 		body = m.renderTimeTravelPrompt()
-	} else if m.showBQLQuery {
+	case ModalBQLQuery:
 		body = m.bqlQuery.View()
-	} else if m.showRecipePicker {
+	case ModalRecipePicker:
 		body = m.recipePicker.View()
-	} else if m.showRepoPicker {
+	case ModalRepoPicker:
 		body = m.repoPicker.View()
-	} else if m.showLabelPicker {
+	case ModalLabelPicker:
 		body = m.labelPicker.View()
-	} else if m.showHelp {
+	case ModalHelp:
 		body = m.renderHelpOverlay()
-	} else if m.showTutorial {
-		// Interactive tutorial (bv-8y31) - full screen overlay
+	case ModalTutorial:
 		body = m.tutorialModel.View()
-	} else if m.data.snapshotInitPending && m.data.snapshot == nil {
-		body = m.renderLoadingScreen()
-	} else {
-		// Route by ViewMode enum
-		switch m.mode {
-		case ViewInsights, ViewAttention:
-			m.insightsPanel.SetSize(m.width, m.height-1)
-			body = m.insightsPanel.View()
-		case ViewFlowMatrix:
-			m.flowMatrix.SetSize(m.width, m.height-1)
-			body = m.flowMatrix.View()
-		case ViewTree:
-			m.tree.SetSize(m.width, m.height-1)
-			body = m.tree.View()
-		case ViewGraph:
-			body = m.graphView.View(m.width, m.height-1)
-		case ViewBoard:
-			body = m.board.View(m.width, m.height-1)
-		case ViewActionable:
-			m.actionableView.SetSize(m.width, m.height-2)
-			body = m.actionableView.Render()
-		case ViewHistory:
-			m.historyView.SetSize(m.width, m.height-1)
-			body = m.historyView.View()
-		case ViewSprint:
-			body = m.sprintViewText
-		case ViewLabelDashboard:
-			m.labelDashboard.SetSize(m.width, m.height-1)
-			body = m.labelDashboard.View()
-		default: // ViewList
-			if m.isSplitView {
-				body = m.renderSplitView()
-			} else if m.showDetails {
-				body = m.viewport.View()
-			} else {
-				body = m.renderListWithHeader()
+	case ModalNone:
+		// No modal - fall through to view routing below
+	}
+
+	// If no modal rendered content, route by view mode
+	if body == "" {
+		if m.data.snapshotInitPending && m.data.snapshot == nil {
+			body = m.renderLoadingScreen()
+		} else {
+			// Route by ViewMode enum
+			switch m.mode {
+			case ViewInsights, ViewAttention:
+				m.insightsPanel.SetSize(m.width, m.height-1)
+				body = m.insightsPanel.View()
+			case ViewFlowMatrix:
+				m.flowMatrix.SetSize(m.width, m.height-1)
+				body = m.flowMatrix.View()
+			case ViewTree:
+				m.tree.SetSize(m.width, m.height-1)
+				body = m.tree.View()
+			case ViewGraph:
+				body = m.graphView.View(m.width, m.height-1)
+			case ViewBoard:
+				body = m.board.View(m.width, m.height-1)
+			case ViewActionable:
+				m.actionableView.SetSize(m.width, m.height-2)
+				body = m.actionableView.Render()
+			case ViewHistory:
+				m.historyView.SetSize(m.width, m.height-1)
+				body = m.historyView.View()
+			case ViewSprint:
+				body = m.sprintViewText
+			case ViewLabelDashboard:
+				m.labelDashboard.SetSize(m.width, m.height-1)
+				body = m.labelDashboard.View()
+			default: // ViewList
+				if m.isSplitView {
+					body = m.renderSplitView()
+				} else if m.showDetails {
+					body = m.viewport.View()
+				} else {
+					body = m.renderListWithHeader()
+				}
 			}
 		}
 	}

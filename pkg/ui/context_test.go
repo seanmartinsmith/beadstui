@@ -30,57 +30,57 @@ func TestCurrentContext_Overlays(t *testing.T) {
 	}{
 		{
 			name:     "agent prompt",
-			setup:    func(m *Model) { m.showAgentPrompt = true },
+			setup:    func(m *Model) { m.openModal(ModalAgentPrompt) },
 			expected: ContextAgentPrompt,
 		},
 		{
 			name:     "help overlay",
-			setup:    func(m *Model) { m.showHelp = true },
+			setup:    func(m *Model) { m.openModal(ModalHelp) },
 			expected: ContextHelp,
 		},
 		{
 			name:     "quit confirm",
-			setup:    func(m *Model) { m.showQuitConfirm = true },
+			setup:    func(m *Model) { m.openModal(ModalQuitConfirm) },
 			expected: ContextQuitConfirm,
 		},
 		{
 			name:     "label picker",
-			setup:    func(m *Model) { m.showLabelPicker = true },
+			setup:    func(m *Model) { m.openModal(ModalLabelPicker) },
 			expected: ContextLabelPicker,
 		},
 		{
 			name:     "recipe picker",
-			setup:    func(m *Model) { m.showRecipePicker = true },
+			setup:    func(m *Model) { m.openModal(ModalRecipePicker) },
 			expected: ContextRecipePicker,
 		},
 		{
 			name:     "label health detail",
-			setup:    func(m *Model) { m.showLabelHealthDetail = true },
+			setup:    func(m *Model) { m.openModal(ModalLabelHealthDetail) },
 			expected: ContextLabelHealthDetail,
 		},
 		{
 			name:     "label drilldown",
-			setup:    func(m *Model) { m.showLabelDrilldown = true },
+			setup:    func(m *Model) { m.openModal(ModalLabelDrilldown) },
 			expected: ContextLabelDrilldown,
 		},
 		{
 			name:     "label graph analysis",
-			setup:    func(m *Model) { m.showLabelGraphAnalysis = true },
+			setup:    func(m *Model) { m.openModal(ModalLabelGraphAnalysis) },
 			expected: ContextLabelGraphAnalysis,
 		},
 		{
 			name:     "time travel input",
-			setup:    func(m *Model) { m.showTimeTravelPrompt = true },
+			setup:    func(m *Model) { m.openModal(ModalTimeTravelInput) },
 			expected: ContextTimeTravelInput,
 		},
 		{
 			name:     "alerts panel",
-			setup:    func(m *Model) { m.showAlertsPanel = true },
+			setup:    func(m *Model) { m.openModal(ModalAlerts) },
 			expected: ContextAlerts,
 		},
 		{
 			name:     "repo picker",
-			setup:    func(m *Model) { m.showRepoPicker = true },
+			setup:    func(m *Model) { m.openModal(ModalRepoPicker) },
 			expected: ContextRepoPicker,
 		},
 	}
@@ -207,7 +207,7 @@ func TestCurrentContext_FilterState(t *testing.T) {
 func TestCurrentContext_Priority(t *testing.T) {
 	// Test that overlays take priority over views
 	m := newTestModel()
-	m.showHelp = true       // Overlay
+	m.openModal(ModalHelp)  // Overlay
 	m.mode = ViewGraph      // View
 	m.timeTravelMode = true // Detail state
 
@@ -217,7 +217,7 @@ func TestCurrentContext_Priority(t *testing.T) {
 	}
 
 	// Remove overlay, view should win over detail state
-	m.showHelp = false
+	m.closeModal()
 	if ctx := m.CurrentContext(); ctx != ContextGraph {
 		t.Errorf("View should take priority over detail state, got %q", ctx)
 	}

@@ -50,65 +50,35 @@ const (
 // Priority order: overlays → views → detail states → filter → default
 func (m Model) CurrentContext() Context {
 	// === Overlays (most specific - check first) ===
-
-	// Cass session modal (bv-qi94)
-	if m.showCassModal {
+	switch m.activeModal {
+	case ModalCassSession:
 		return ContextCassSession
-	}
-
-	// Agent prompt modal
-	if m.showAgentPrompt {
+	case ModalAgentPrompt:
 		return ContextAgentPrompt
-	}
-
-	// Help overlay
-	if m.showHelp {
+	case ModalHelp:
 		return ContextHelp
-	}
-
-	// Quit confirmation
-	if m.showQuitConfirm {
+	case ModalQuitConfirm:
 		return ContextQuitConfirm
-	}
-
-	// Label picker overlay
-	if m.showLabelPicker {
+	case ModalLabelPicker:
 		return ContextLabelPicker
-	}
-
-	// Recipe picker overlay
-	if m.showRecipePicker {
+	case ModalRecipePicker:
 		return ContextRecipePicker
-	}
-
-	// Label health detail modal
-	if m.showLabelHealthDetail {
+	case ModalLabelHealthDetail:
 		return ContextLabelHealthDetail
-	}
-
-	// Label drilldown overlay
-	if m.showLabelDrilldown {
+	case ModalLabelDrilldown:
 		return ContextLabelDrilldown
-	}
-
-	// Label graph analysis sub-view
-	if m.showLabelGraphAnalysis {
+	case ModalLabelGraphAnalysis:
 		return ContextLabelGraphAnalysis
-	}
-
-	// Time-travel input prompt
-	if m.showTimeTravelPrompt {
+	case ModalTimeTravelInput:
 		return ContextTimeTravelInput
-	}
-
-	// Alerts panel
-	if m.showAlertsPanel {
+	case ModalAlerts:
 		return ContextAlerts
-	}
-
-	// Project picker overlay (multi-project mode)
-	if m.showRepoPicker {
+	case ModalRepoPicker:
 		return ContextRepoPicker
+	case ModalNone:
+		// Fall through to view-based context
+	default:
+		// Other modals (BQL, Tutorial, Update) don't have dedicated contexts yet
 	}
 
 	// === Views (based on ViewMode enum) ===

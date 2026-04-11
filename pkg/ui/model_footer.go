@@ -71,10 +71,10 @@ func (m *Model) renderFooter() string {
 	if m.focused == focusLabelDashboard {
 		filterTxt = "LABELS: j/k nav • h detail • d drilldown • enter filter"
 		filterIcon = "🏷️"
-	} else if m.showLabelGraphAnalysis && m.labelGraphAnalysisResult != nil {
+	} else if m.activeModal == ModalLabelGraphAnalysis && m.labelGraphAnalysisResult != nil {
 		filterTxt = fmt.Sprintf("GRAPH %s: esc/q/g close", m.labelGraphAnalysisResult.Label)
 		filterIcon = "📊"
-	} else if m.showLabelDrilldown && m.labelDrilldownLabel != "" {
+	} else if m.activeModal == ModalLabelDrilldown && m.labelDrilldownLabel != "" {
 		filterTxt = fmt.Sprintf("LABEL %s: enter filter • g graph • esc/q/d close", m.labelDrilldownLabel)
 		filterIcon = "🏷️"
 	} else {
@@ -533,13 +533,13 @@ func (m *Model) renderFooter() string {
 	sep := sepStyle.Render(" │ ")
 
 	var keyHints []string
-	if m.showHelp {
+	if m.activeModal == ModalHelp {
 		keyHints = append(keyHints, "Press any key to close")
-	} else if m.showRecipePicker {
+	} else if m.activeModal == ModalRecipePicker {
 		keyHints = append(keyHints, keyStyle.Render("j/k")+" nav", keyStyle.Render("⏎")+" apply", keyStyle.Render("esc")+" cancel")
-	} else if m.showRepoPicker {
+	} else if m.activeModal == ModalRepoPicker {
 		keyHints = append(keyHints, keyStyle.Render("j/k")+" nav", keyStyle.Render("space")+" toggle", keyStyle.Render("⏎")+" apply", keyStyle.Render("esc")+" cancel")
-	} else if m.showLabelPicker {
+	} else if m.activeModal == ModalLabelPicker {
 		keyHints = append(keyHints, "type to filter", keyStyle.Render("j/k")+" nav", keyStyle.Render("⏎")+" apply", keyStyle.Render("esc")+" cancel")
 	} else if m.mode == ViewInsights {
 		keyHints = append(keyHints, keyStyle.Render("h/l")+" panels", keyStyle.Render("e")+" explain", keyStyle.Render("⏎")+" jump", keyStyle.Render("?")+" help")
@@ -566,7 +566,7 @@ func (m *Model) renderFooter() string {
 		if m.semanticSearchEnabled {
 			keyHints = append(keyHints, keyStyle.Render("H")+" hybrid", keyStyle.Render("alt+h")+" preset")
 		}
-	} else if m.showTimeTravelPrompt {
+	} else if m.activeModal == ModalTimeTravelInput {
 		keyHints = append(keyHints, keyStyle.Render("⏎")+" compare", keyStyle.Render("esc")+" cancel")
 	} else {
 		if m.timeTravelMode {

@@ -94,6 +94,38 @@ const (
 	ViewAttention                     // Attention scores view
 )
 
+// ModalType identifies which modal overlay (if any) is currently active.
+// Only one modal can be active at a time - opening one closes any previous one.
+type ModalType int
+
+const (
+	ModalNone              ModalType = iota // No modal active
+	ModalHelp                               // Help overlay
+	ModalQuitConfirm                        // Quit confirmation dialog
+	ModalRecipePicker                       // Recipe/filter picker
+	ModalBQLQuery                           // BQL query input
+	ModalLabelPicker                        // Label filter picker
+	ModalRepoPicker                         // Repository/project picker
+	ModalTimeTravelInput                    // Time-travel date input prompt
+	ModalAgentPrompt                        // AGENTS.md integration prompt
+	ModalTutorial                           // Interactive tutorial
+	ModalCassSession                        // Cass session preview
+	ModalUpdate                             // Self-update dialog
+	ModalAlerts                             // Alerts panel
+	ModalLabelHealthDetail                  // Label health detail drill-down
+	ModalLabelDrilldown                     // Label issue drill-down
+	ModalLabelGraphAnalysis                 // Label graph analysis
+)
+
+// modalActive returns true when any modal overlay is open.
+func (m Model) modalActive() bool { return m.activeModal != ModalNone }
+
+// openModal sets the active modal, closing any previously open modal.
+func (m *Model) openModal(t ModalType) { m.activeModal = t }
+
+// closeModal dismisses the currently active modal.
+func (m *Model) closeModal() { m.activeModal = ModalNone }
+
 // SortMode represents the current list sorting mode (bv-3ita)
 type SortMode int
 
@@ -420,6 +452,9 @@ type Model struct {
 	updateTag       string
 	updateURL       string
 
+	// Modal state - only one modal can be active at a time
+	activeModal ModalType
+
 	// Focus and View State
 	mode                     ViewMode // Active view mode (ViewList, ViewBoard, ViewGraph, etc.)
 	focused                  focus
@@ -427,20 +462,15 @@ type Model struct {
 	isSplitView              bool
 	splitPaneRatio           float64 // Ratio of list pane width (0.2-0.8), default 0.4
 	showDetails              bool
-	showHelp                 bool
 	helpScroll               int // Scroll offset for help overlay
-	showQuitConfirm          bool
 	ready                    bool
 	width                    int
 	height                   int
-	showLabelHealthDetail    bool
-	showLabelDrilldown       bool
 	labelHealthDetail        *analysis.LabelHealth
 	labelHealthDetailFlow    labelFlowSummary
 	labelDrilldownLabel      string
 	labelDrilldownIssues     []model.Issue
 	labelDrilldownCache      map[string][]model.Issue
-	showLabelGraphAnalysis   bool
 	labelGraphAnalysisResult *LabelGraphAnalysisResult
 	showShortcutsSidebar     bool // bv-3qi5 toggleable shortcuts sidebar
 	labelHealthCached        bool
@@ -472,21 +502,17 @@ type Model struct {
 	// Derived analysis data (cached, recomputed when issues change)
 	ac *AnalysisCache
 
-	// Recipe picker (modal UI stays on Model, filter state in FilterState)
-	showRecipePicker bool
-	recipePicker     RecipePickerModel
+	// Recipe picker (modal UI stays on Model, modal visibility via activeModal)
+	recipePicker RecipePickerModel
 
-	// BQL query modal (modal UI stays on Model, filter state in FilterState)
-	showBQLQuery bool
-	bqlQuery     BQLQueryModal
+	// BQL query modal (modal UI stays on Model, modal visibility via activeModal)
+	bqlQuery BQLQueryModal
 
 	// Label picker (bv-126)
-	showLabelPicker bool
-	labelPicker     LabelPickerModel
+	labelPicker LabelPickerModel
 
 	// Project picker (multi-project mode)
-	showRepoPicker bool
-	repoPicker     RepoPickerModel
+	repoPicker RepoPickerModel
 
 	// Time-travel mode
 	timeTravelMode   bool
@@ -496,9 +522,8 @@ type Model struct {
 	closedIssueIDs   map[string]bool // Issues in diff.ClosedIssues
 	modifiedIssueIDs map[string]bool // Issues in diff.ModifiedIssues
 
-	// Time-travel input prompt
-	timeTravelInput      textinput.Model
-	showTimeTravelPrompt bool
+	// Time-travel input prompt (modal visibility via activeModal)
+	timeTravelInput textinput.Model
 
 	// Status message (for temporary feedback)
 	statusMsg     string
@@ -511,12 +536,11 @@ type Model struct {
 	// Workspace mode state. Embedded to keep m.workspaceMode access pattern.
 	WorkspaceState
 
-	// Alerts panel (bv-168)
-	alerts          []drift.Alert
-	alertsCritical  int
-	alertsWarning   int
-	alertsInfo      int
-	showAlertsPanel    bool
+	// Alerts panel (bv-168, modal visibility via activeModal)
+	alerts             []drift.Alert
+	alertsCritical     int
+	alertsWarning      int
+	alertsInfo         int
 	alertsCursor       int
 	alertsScrollOffset int
 	dismissedAlerts    map[string]bool
@@ -529,23 +553,19 @@ type Model struct {
 	// Project identity
 	projectName string // Display name for the current project (directory basename)
 
-	// AGENTS.md integration (bv-i8dk)
-	showAgentPrompt  bool
+	// AGENTS.md integration (bv-i8dk, modal visibility via activeModal)
 	agentPromptModal AgentPromptModal
 	workDir          string // Working directory for agent file detection
 
-	// Tutorial integration (bv-8y31)
-	showTutorial  bool
+	// Tutorial integration (bv-8y31, modal visibility via activeModal)
 	tutorialModel TutorialModel
 
-	// Cass session preview modal (bv-5bqh)
-	showCassModal  bool
+	// Cass session preview modal (bv-5bqh, modal visibility via activeModal)
 	cassModal      CassSessionModal
 	cassCorrelator *cass.Correlator
 
-	// Self-update modal (bv-182)
-	showUpdateModal bool
-	updateModal     UpdateModal
+	// Self-update modal (bv-182, modal visibility via activeModal)
+	updateModal UpdateModal
 }
 
 // labelCount is a simple label->count pair for display
@@ -1113,7 +1133,9 @@ func (m *Model) replaceIssues(newIssues []model.Issue) {
 	// Recompute alerts
 	m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.data.issues, m.data.analysis, m.data.analyzer)
 	m.dismissedAlerts = make(map[string]bool)
-	m.showAlertsPanel = false
+	if m.activeModal == ModalAlerts {
+		m.closeModal()
+	}
 
 	// Rebuild list items
 	items := make([]list.Item, len(m.data.issues))
@@ -1211,14 +1233,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case UpdateCompleteMsg:
 		// Forward to the update modal
-		if m.showUpdateModal {
+		if m.activeModal == ModalUpdate {
 			m.updateModal, cmd = m.updateModal.Update(msg)
 			cmds = append(cmds, cmd)
 		}
 
 	case UpdateProgressMsg:
 		// Forward to the update modal
-		if m.showUpdateModal {
+		if m.activeModal == ModalUpdate {
 			m.updateModal, cmd = m.updateModal.Update(msg)
 			cmds = append(cmds, cmd)
 		}
@@ -1516,7 +1538,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case AgentFileCheckMsg:
 		// AGENTS.md integration check (bv-i8dk)
 		if msg.ShouldPrompt && msg.FilePath != "" {
-			m.showAgentPrompt = true
+			m.openModal(ModalAgentPrompt)
 			m.agentPromptModal = NewAgentPromptModal(msg.FilePath, msg.FileType, m.theme)
 			m.focused = focusAgentPrompt
 		}
@@ -1613,7 +1635,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Recompute alerts for refreshed dataset
 		m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.data.issues, m.data.analysis, m.data.analyzer)
 		m.dismissedAlerts = make(map[string]bool)
-		m.showAlertsPanel = false
+		if m.activeModal == ModalAlerts {
+			m.closeModal()
+		}
 
 		// Reset semantic caches for the new dataset.
 		if m.semanticSearch != nil {
@@ -2091,7 +2115,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			recordTiming("alerts", time.Since(alertsStart))
 		}
 		m.dismissedAlerts = make(map[string]bool)
-		m.showAlertsPanel = false
+		if m.activeModal == ModalAlerts {
+			m.closeModal()
+		}
 
 		// Rebuild list items (preserve triage data to avoid flicker)
 		var listStart time.Time
@@ -2348,7 +2374,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.statusIsError = false
 
 		// Handle AGENTS.md prompt modal (bv-i8dk)
-		if m.showAgentPrompt {
+		if m.activeModal == ModalAgentPrompt {
 			m.agentPromptModal, cmd = m.agentPromptModal.Update(msg)
 			cmds = append(cmds, cmd)
 
@@ -2365,30 +2391,30 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Record acceptance
 					_ = agents.RecordAccept(m.workDir)
 				}
-				m.showAgentPrompt = false
+				m.closeModal()
 				m.focused = focusList
 			case AgentPromptDecline:
 				// User declined - just dismiss, may ask again next time
-				m.showAgentPrompt = false
+				m.closeModal()
 				m.focused = focusList
 			case AgentPromptNeverAsk:
 				// User chose "don't ask again" - save preference
 				_ = agents.RecordDecline(m.workDir, true)
-				m.showAgentPrompt = false
+				m.closeModal()
 				m.focused = focusList
 			}
 			return m, tea.Batch(cmds...)
 		}
 
 		// Handle cass session modal (bv-5bqh)
-		if m.showCassModal {
+		if m.activeModal == ModalCassSession {
 			m.cassModal, cmd = m.cassModal.Update(msg)
 			cmds = append(cmds, cmd)
 
 			// Check for dismiss keys
 			switch msg.String() {
 			case "V", "esc", "enter", "q":
-				m.showCassModal = false
+				m.closeModal()
 				m.focused = focusList
 				return m, tea.Batch(cmds...)
 			}
@@ -2396,7 +2422,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Handle self-update modal (bv-182)
-		if m.showUpdateModal {
+		if m.activeModal == ModalUpdate {
 			m.updateModal, cmd = m.updateModal.Update(msg)
 			cmds = append(cmds, cmd)
 
@@ -2405,27 +2431,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "esc", "q":
 				// Always allow escape to close
 				if !m.updateModal.IsInProgress() {
-					m.showUpdateModal = false
+					m.closeModal()
 					m.focused = focusList
 					return m, tea.Batch(cmds...)
 				}
 			case "enter":
 				// Close on enter if complete or if cancelled
 				if m.updateModal.IsComplete() {
-					m.showUpdateModal = false
+					m.closeModal()
 					m.focused = focusList
 					return m, tea.Batch(cmds...)
 				}
 				// If confirming and cancelled, close
 				if m.updateModal.IsConfirming() && m.updateModal.IsCancelled() {
-					m.showUpdateModal = false
+					m.closeModal()
 					m.focused = focusList
 					return m, tea.Batch(cmds...)
 				}
 			case "n", "N":
 				// Quick cancel
 				if m.updateModal.IsConfirming() {
-					m.showUpdateModal = false
+					m.closeModal()
 					m.focused = focusList
 					return m, tea.Batch(cmds...)
 				}
@@ -2434,10 +2460,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Close label health detail modal if open
-		if m.showLabelHealthDetail {
+		if m.activeModal == ModalLabelHealthDetail {
 			s := msg.String()
 			if s == "esc" || s == "q" || s == "enter" || s == "h" {
-				m.showLabelHealthDetail = false
+				m.closeModal()
 				m.labelHealthDetail = nil
 				return m, nil
 			}
@@ -2445,14 +2471,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// open drilldown from detail modal
 				m.labelDrilldownLabel = m.labelHealthDetail.Label
 				m.labelDrilldownIssues = m.filterIssuesByLabel(m.labelDrilldownLabel)
-				m.showLabelDrilldown = true
-				m.showLabelHealthDetail = false
+				m.openModal(ModalLabelDrilldown)
 				return m, nil
 			}
 		}
 
 		// Handle label drilldown modal if open
-		if m.showLabelDrilldown {
+		if m.activeModal == ModalLabelDrilldown {
 			s := msg.String()
 			switch s {
 			case "enter":
@@ -2462,7 +2487,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.applyFilter()
 					m.focused = focusList
 				}
-				m.showLabelDrilldown = false
+				m.closeModal()
 				m.labelDrilldownLabel = ""
 				m.labelDrilldownIssues = nil
 				return m, nil
@@ -2478,11 +2503,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						PageRank:     pr,
 						CriticalPath: cp,
 					}
-					m.showLabelGraphAnalysis = true
+					m.openModal(ModalLabelGraphAnalysis)
 				}
 				return m, nil
 			case "esc", "q", "d":
-				m.showLabelDrilldown = false
+				m.closeModal()
 				m.labelDrilldownLabel = ""
 				m.labelDrilldownIssues = nil
 				return m, nil
@@ -2490,11 +2515,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Handle label graph analysis sub-view (bv-109)
-		if m.showLabelGraphAnalysis {
+		if m.activeModal == ModalLabelGraphAnalysis {
 			s := msg.String()
 			switch s {
 			case "esc", "q", "g":
-				m.showLabelGraphAnalysis = false
+				m.closeModal()
 				m.labelGraphAnalysisResult = nil
 				return m, nil
 			}
@@ -2526,7 +2551,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Handle alerts panel modal if open (bv-168)
-		if m.showAlertsPanel {
+		if m.activeModal == ModalAlerts {
 			// Build list of active (non-dismissed) alerts
 			var activeAlerts []drift.Alert
 			for _, a := range m.alerts {
@@ -2569,7 +2594,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 					}
 				}
-				m.showAlertsPanel = false
+				m.closeModal()
 				return m, nil
 			case "c":
 				// Clear the selected alert
@@ -2595,7 +2620,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 					// Close panel if no alerts left
 					if remaining == 0 {
-						m.showAlertsPanel = false
+						m.closeModal()
 					}
 				}
 				return m, nil
@@ -2606,17 +2631,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.alertsCursor = 0
 				m.alertsScrollOffset = 0
-				m.showAlertsPanel = false
+				m.closeModal()
 				return m, nil
 			case "esc", "q", "!":
-				m.showAlertsPanel = false
+				m.closeModal()
 				return m, nil
 			}
 			return m, nil
 		}
 
 		// Handle repo picker overlay (workspace mode) before global keys (esc/q/etc.)
-		if m.showRepoPicker {
+		if m.activeModal == ModalRepoPicker {
 			if msg.String() == "ctrl+c" {
 				return m, tea.Quit
 			}
@@ -2625,7 +2650,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Handle BQL query modal before global keys
-		if m.showBQLQuery {
+		if m.activeModal == ModalBQLQuery {
 			if msg.String() == "ctrl+c" {
 				return m, tea.Quit
 			}
@@ -2634,7 +2659,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Handle recipe picker overlay before global keys (esc/q/etc.)
-		if m.showRecipePicker {
+		if m.activeModal == ModalRecipePicker {
 			if msg.String() == "ctrl+c" {
 				return m, tea.Quit
 			}
@@ -2643,12 +2668,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Handle quit confirmation first
-		if m.showQuitConfirm {
+		if m.activeModal == ModalQuitConfirm {
 			switch msg.String() {
 			case "esc", "y", "Y":
 				return m, tea.Quit
 			default:
-				m.showQuitConfirm = false
+				m.closeModal()
 				m.focused = focusList
 				return m, nil
 			}
@@ -2656,26 +2681,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Handle help overlay toggle (? or F1)
 		if (msg.String() == "?" || msg.String() == "f1") && m.list.FilterState() != list.Filtering {
-			m.showHelp = !m.showHelp
-			if m.showHelp {
+			if m.activeModal == ModalHelp {
+				m.closeModal()
+				m.focused = m.restoreFocusFromHelp()
+			} else {
 				m.focusBeforeHelp = m.focused // Store current focus before switching to help
+				m.openModal(ModalHelp)
 				m.focused = focusHelp
 				m.helpScroll = 0 // Reset scroll position when opening help
-			} else {
-				m.focused = m.restoreFocusFromHelp()
 			}
 			return m, nil
 		}
 
 		// Handle tutorial toggle (backtick `) - bv-8y31
 		if msg.String() == "`" && m.list.FilterState() != list.Filtering {
-			m.showTutorial = !m.showTutorial
-			if m.showTutorial {
-				m.showHelp = false // Close help if open
+			if m.activeModal == ModalTutorial {
+				m.closeModal()
+				m.focused = focusList
+			} else {
+				m.closeModal() // Close help or any other modal if open
+				m.openModal(ModalTutorial)
 				m.tutorialModel.SetSize(m.width, m.height)
 				m.focused = focusTutorial
-			} else {
-				m.focused = focusList
 			}
 			return m, nil
 		}
@@ -2847,12 +2874,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// If tutorial is showing, route input to tutorial model (bv-8y31)
-		if m.focused == focusTutorial && m.showTutorial {
+		if m.focused == focusTutorial && m.activeModal == ModalTutorial {
 			var tutorialCmd tea.Cmd
 			m.tutorialModel, tutorialCmd = m.tutorialModel.Update(msg)
 			// Check if tutorial wants to close
 			if m.tutorialModel.ShouldClose() {
-				m.showTutorial = false
+				m.closeModal()
 				m.focused = focusList
 				m.tutorialModel = NewTutorialModel(m.theme) // Reset for next time
 			}
@@ -2948,8 +2975,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 				// Close label picker if open (bv-126 fix)
-				if m.showLabelPicker {
-					m.showLabelPicker = false
+				if m.activeModal == ModalLabelPicker {
+					m.closeModal()
 					m.focused = focusList
 					return m, nil
 				}
@@ -2965,7 +2992,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 				// No filters active - show quit confirmation
-				m.showQuitConfirm = true
+				m.openModal(ModalQuitConfirm)
 				m.focused = focusQuitConfirm
 				return m, nil
 
@@ -3194,7 +3221,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 				if activeCount > 0 {
-					m.showAlertsPanel = !m.showAlertsPanel
+					if m.activeModal == ModalAlerts {
+						m.closeModal()
+					} else {
+						m.openModal(ModalAlerts)
+					}
 					m.alertsCursor = 0       // Reset cursor when opening
 					m.alertsScrollOffset = 0 // Reset scroll position
 				} else {
@@ -3207,18 +3238,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Open BQL query modal
 				m.bqlQuery.SetSize(m.width, m.height-1)
 				m.bqlQuery.Reset()
-				m.showBQLQuery = true
+				m.openModal(ModalBQLQuery)
 				m.focused = focusBQLQuery
 				return m, m.bqlQuery.Focus()
 
 			case "'":
 				// Toggle recipe picker overlay
-				m.showRecipePicker = !m.showRecipePicker
-				if m.showRecipePicker {
+				if m.activeModal == ModalRecipePicker {
+					m.closeModal()
+					m.focused = focusList
+				} else {
+					m.openModal(ModalRecipePicker)
 					m.recipePicker.SetSize(m.width, m.height-1)
 					m.focused = focusRecipePicker
-				} else {
-					m.focused = focusList
 				}
 				return m, nil
 
@@ -3258,14 +3290,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.statusIsError = false
 					return m, nil
 				}
-				m.showRepoPicker = !m.showRepoPicker
-				if m.showRepoPicker {
+				if m.activeModal == ModalRepoPicker {
+					m.closeModal()
+					m.focused = focusList
+				} else {
+					m.openModal(ModalRepoPicker)
 					m.repoPicker = NewRepoPickerModel(m.availableRepos, m.theme)
 					m.repoPicker.SetActiveRepos(m.activeRepos)
 					m.repoPicker.SetSize(m.width, m.height-1)
 					m.focused = focusRepoPicker
-				} else {
-					m.focused = focusList
 				}
 				return m, nil
 
@@ -3285,7 +3318,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.labelPicker.SetLabels(labelExtraction.Labels, labelCounts)
 				m.labelPicker.Reset()
 				m.labelPicker.SetSize(m.width, m.height-1)
-				m.showLabelPicker = true
+				m.openModal(ModalLabelPicker)
 				m.focused = focusLabelPicker
 				return m, nil
 
@@ -3332,7 +3365,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					idx := m.labelDashboard.cursor
 					if idx >= 0 && idx < len(m.labelDashboard.labels) {
 						lh := m.labelDashboard.labels[idx]
-						m.showLabelHealthDetail = true
+						m.openModal(ModalLabelHealthDetail)
 						m.labelHealthDetail = &lh
 						// Precompute cross-label flows for this label
 						m.labelHealthDetailFlow = m.getCrossFlowsForLabel(lh.Label)
@@ -3346,7 +3379,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						lh := m.labelDashboard.labels[idx]
 						m.labelDrilldownLabel = lh.Label
 						m.labelDrilldownIssues = m.filterIssuesByLabel(lh.Label)
-						m.showLabelDrilldown = true
+						m.openModal(ModalLabelDrilldown)
 						return m, nil
 					}
 				}
@@ -3380,7 +3413,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.MouseWheelMsg:
 		// Intercept mouse wheel when alerts panel is open
-		if m.showAlertsPanel {
+		if m.activeModal == ModalAlerts {
 			var activeAlerts []drift.Alert
 			for _, a := range m.alerts {
 				if !m.dismissedAlerts[alertKey(a)] {

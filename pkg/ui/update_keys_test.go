@@ -21,12 +21,12 @@ func TestUpdateHelpQuitAndTabFocus(t *testing.T) {
 	// Help toggle via ? then dismiss with another key
 	updated, _ = m.Update(tea.KeyPressMsg{Code: '?', Text: "?"})
 	m = updated.(Model)
-	if !m.showHelp || m.focused != focusHelp {
+	if m.activeModal != ModalHelp || m.focused != focusHelp {
 		t.Fatalf("expected help overlay shown")
 	}
 	updated, _ = m.Update(tea.KeyPressMsg{Code: 'x', Text: "x"})
 	m = updated.(Model)
-	if m.showHelp || m.focused != focusList {
+	if m.activeModal == ModalHelp || m.focused != focusList {
 		t.Fatalf("expected help overlay dismissed")
 	}
 
@@ -48,7 +48,7 @@ func TestUpdateHelpQuitAndTabFocus(t *testing.T) {
 	// Escape should show quit confirm, 'y' should issue tea.Quit
 	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
 	m = updated.(Model)
-	if !m.showQuitConfirm {
+	if m.activeModal != ModalQuitConfirm {
 		t.Fatalf("expected quit confirm after esc")
 	}
 	_, cmd := m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"})
