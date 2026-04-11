@@ -252,13 +252,11 @@ func (m Model) renderAlertsPanel() string {
 	paddedContent := padContentLines(sb.String(), 1)
 
 	// Use blocked/red color to match alert severity
-	alertColor := t.Blocked
-
 	panel := RenderTitledPanel(paddedContent, PanelOpts{
 		Title:       "Alerts!",
 		Width:       panelWidth,
-		BorderColor: &alertColor,
-		TitleColor:  &alertColor,
+		BorderColor: t.Blocked,
+		TitleColor:  t.Blocked,
 	})
 
 	return lipgloss.Place(

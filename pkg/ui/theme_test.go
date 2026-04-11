@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"image/color"
 	"testing"
 
 	"github.com/charmbracelet/colorprofile"
@@ -10,17 +11,13 @@ import (
 func TestDefaultTheme(t *testing.T) {
 	theme := DefaultTheme()
 
-	// Check a few known colors are set (not zero value)
-	if isColorEmpty(theme.Primary) {
-		t.Error("DefaultTheme Primary color is empty")
+	// Check a few known colors are set (not nil)
+	if theme.Primary == nil {
+		t.Error("DefaultTheme Primary color is nil")
 	}
-	if isColorEmpty(theme.Open) {
-		t.Error("DefaultTheme Open color is empty")
+	if theme.Open == nil {
+		t.Error("DefaultTheme Open color is nil")
 	}
-}
-
-func isColorEmpty(c AdaptiveColor) bool {
-	return c.Light == "" && c.Dark == ""
 }
 
 func TestGetStatusColor(t *testing.T) {
@@ -28,7 +25,7 @@ func TestGetStatusColor(t *testing.T) {
 
 	tests := []struct {
 		status string
-		want   AdaptiveColor
+		want   color.Color
 	}{
 		{"open", theme.Open},
 		{"in_progress", theme.InProgress},
@@ -52,12 +49,12 @@ func TestGetTypeIcon(t *testing.T) {
 	tests := []struct {
 		typ      string
 		wantIcon string
-		wantCol  AdaptiveColor
+		wantCol  color.Color
 	}{
 		{"bug", "🐛", theme.Bug},
 		{"feature", "✨", theme.Feature},
 		{"task", "📋", theme.Task},
-		{"epic", "🚀", theme.Epic}, // Changed from 🏔️ - variation selector caused width issues
+		{"epic", "🚀", theme.Epic}, // Changed from mountain - variation selector caused width issues
 		{"chore", "🧹", theme.Chore},
 		{"unknown", "•", theme.Subtext},
 	}
@@ -73,7 +70,7 @@ func TestGetTypeIcon(t *testing.T) {
 	}
 }
 
-// ── Color profile detection tests (bd-2rih) ─────────────────────────────
+// -- Color profile detection tests (bd-2rih) --
 
 func TestColorProfile_Detection(t *testing.T) {
 	// TermProfile is set at init(); just verify it's a valid value

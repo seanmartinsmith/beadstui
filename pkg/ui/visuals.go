@@ -130,21 +130,36 @@ func GetHeatGradientColorBg(intensity float64) (bg color.Color, fg color.Color) 
 	}
 }
 
-// RepoColors maps repo prefixes to distinctive colors for visual differentiation
-// These colors are designed to be visible on both light and dark backgrounds
-var RepoColors = []AdaptiveColor{
-	{Light: "#c82829", Dark: "#cc6666"}, // Red
-	{Light: "#3e999f", Dark: "#8abeb7"}, // Teal
-	{Light: "#4271ae", Dark: "#81a2be"}, // Blue
-	{Light: "#718c00", Dark: "#b5bd68"}, // Green
-	{Light: "#8959a8", Dark: "#b294bb"}, // Purple
-	{Light: "#eab700", Dark: "#f0c674"}, // Yellow
-	{Light: "#f5871f", Dark: "#de935f"}, // Orange
-	{Light: "#4271ae", Dark: "#7aa6da"}, // Light blue
+// repoColorPairs holds the light/dark hex pairs for repo colors.
+// Resolved into RepoColors via resolveRepoColors().
+var repoColorPairs = [][2]string{
+	{"#c82829", "#cc6666"}, // Red
+	{"#3e999f", "#8abeb7"}, // Teal
+	{"#4271ae", "#81a2be"}, // Blue
+	{"#718c00", "#b5bd68"}, // Green
+	{"#8959a8", "#b294bb"}, // Purple
+	{"#eab700", "#f0c674"}, // Yellow
+	{"#f5871f", "#de935f"}, // Orange
+	{"#4271ae", "#7aa6da"}, // Light blue
+}
+
+// RepoColors maps repo prefixes to distinctive colors for visual differentiation.
+// Resolved at init and on dark/light mode change.
+var RepoColors []color.Color
+
+func init() {
+	resolveRepoColors()
+}
+
+func resolveRepoColors() {
+	RepoColors = make([]color.Color, len(repoColorPairs))
+	for i, pair := range repoColorPairs {
+		RepoColors[i] = resolveColor(pair[0], pair[1])
+	}
 }
 
 // GetRepoColor returns a consistent color for a repo prefix based on hash
-func GetRepoColor(prefix string) AdaptiveColor {
+func GetRepoColor(prefix string) color.Color {
 	if prefix == "" {
 		return ColorMuted
 	}

@@ -1,5 +1,6 @@
 package ui
 
+import "image/color"
 
 // StructuredTutorialPage represents a tutorial page with typed elements
 type StructuredTutorialPage struct {
@@ -15,15 +16,15 @@ func RenderStructuredPage(page StructuredTutorialPage, theme Theme, width int) s
 	return renderElements(page.Elements, theme, width)
 }
 
-// Theme colors for status flow diagrams
-var (
-	colorOpen       = AdaptiveColor{Light: "#718c00", Dark: "#b5bd68"}
-	colorInProgress = AdaptiveColor{Light: "#4271ae", Dark: "#81a2be"}
-	colorBlocked    = AdaptiveColor{Light: "#c82829", Dark: "#cc6666"}
-	colorClosed     = AdaptiveColor{Light: "#8e908c", Dark: "#969896"}
-	colorPrimary    = AdaptiveColor{Light: "#3e999f", Dark: "#8abeb7"}
-	colorFeature    = AdaptiveColor{Light: "#f5871f", Dark: "#de935f"}
-)
+// tutorialColors returns resolved colors for status flow diagrams.
+// Called inline rather than cached at package level because they need
+// to respect the current isDarkBackground state.
+func tutorialColorOpen() color.Color       { return resolveColor("#718c00", "#b5bd68") }
+func tutorialColorInProgress() color.Color { return resolveColor("#4271ae", "#81a2be") }
+func tutorialColorBlocked() color.Color    { return resolveColor("#c82829", "#cc6666") }
+func tutorialColorClosed() color.Color     { return resolveColor("#8e908c", "#969896") }
+func tutorialColorPrimary() color.Color    { return resolveColor("#3e999f", "#8abeb7") }
+func tutorialColorFeature() color.Color    { return resolveColor("#f5871f", "#de935f") }
 
 // structuredTutorialPages returns tutorial content using the component system
 func structuredTutorialPages() []StructuredTutorialPage {
@@ -166,8 +167,8 @@ func structuredTutorialPages() []StructuredTutorialPage {
 				Spacer{Lines: 1},
 				Section{Title: "The Relationship"},
 				StatusFlow{Steps: []FlowStep{
-					{Label: "Auth Fix", Color: colorOpen},
-					{Label: "Deploy", Color: colorBlocked},
+					{Label: "Auth Fix", Color: tutorialColorOpen()},
+					{Label: "Deploy", Color: tutorialColorBlocked()},
 				}},
 				Spacer{Lines: 1},
 				Paragraph{Text: "Auth Fix BLOCKS Deploy. You can't deploy until auth is fixed."},
@@ -230,9 +231,9 @@ func structuredTutorialPages() []StructuredTutorialPage {
 				Spacer{Lines: 1},
 				Section{Title: "Status Flow"},
 				StatusFlow{Steps: []FlowStep{
-					{Label: "open", Color: colorOpen},
-					{Label: "in_progress", Color: colorInProgress},
-					{Label: "closed", Color: colorClosed},
+					{Label: "open", Color: tutorialColorOpen()},
+					{Label: "in_progress", Color: tutorialColorInProgress()},
+					{Label: "closed", Color: tutorialColorClosed()},
 				}},
 				Spacer{Lines: 1},
 				Section{Title: "Changing Priority/Status"},

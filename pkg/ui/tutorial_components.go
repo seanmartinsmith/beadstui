@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -135,7 +136,7 @@ type StatusFlow struct {
 
 type FlowStep struct {
 	Label string
-	Color AdaptiveColor
+	Color color.Color
 }
 
 func (sf StatusFlow) Render(theme Theme, width int) string {
@@ -304,7 +305,7 @@ func buildTreeNode(node TutorialTreeNode, itemStyle, enumStyle lipgloss.Style) *
 type InfoBox struct {
 	Title   string
 	Content string
-	Color   AdaptiveColor
+	Color   color.Color
 }
 
 func (ib InfoBox) Render(theme Theme, width int) string {
@@ -492,7 +493,7 @@ func (pi ProgressIndicator) Render(theme Theme, width int) string {
 // Highlight renders inline highlighted/emphasized text
 type Highlight struct {
 	Text  string
-	Color AdaptiveColor
+	Color color.Color
 }
 
 func (h Highlight) Render(theme Theme, width int) string {

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 	"time"
 
@@ -278,7 +279,7 @@ func GetAgeDays(t time.Time) int {
 
 // GetAgeColor returns a color based on staleness:
 // green (<7 days), yellow (7-30 days), red (>30 days)
-func GetAgeColor(t time.Time) AdaptiveColor {
+func GetAgeColor(t time.Time) color.Color {
 	days := GetAgeDays(t)
 	switch {
 	case days < 7:

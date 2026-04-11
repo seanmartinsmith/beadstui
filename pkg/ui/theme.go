@@ -8,6 +8,12 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
+// isDarkBackground defaults to true (dark theme). Updated at runtime via
+// tea.BackgroundColorMsg for proper light/dark detection. We intentionally
+// avoid calling lipgloss.HasDarkBackground() at init time because it
+// queries the terminal and can hang in non-TTY environments (tests, CI, pipes).
+var isDarkBackground = true
+
 // TermProfile holds the detected terminal color profile. Computed once at
 // package init so every style helper can branch without re-detecting.
 var TermProfile colorprofile.Profile
@@ -36,40 +42,49 @@ func ThemeFg(hex string) color.Color {
 	return lipgloss.Color(hex)
 }
 
+// resolveColor picks the dark or light hex color based on isDarkBackground
+// and returns a resolved color.Color via lipgloss.Color().
+func resolveColor(light, dark string) color.Color {
+	if isDarkBackground {
+		return lipgloss.Color(dark)
+	}
+	return lipgloss.Color(light)
+}
+
 type Theme struct {
-	// Colors
-	Primary   AdaptiveColor
-	Secondary AdaptiveColor
-	Subtext   AdaptiveColor
+	// Colors - resolved color.Color values (not adaptive)
+	Primary   color.Color
+	Secondary color.Color
+	Subtext   color.Color
 
 	// Accents (map to Color* globals)
-	Info    AdaptiveColor
-	Success AdaptiveColor
-	Warning AdaptiveColor
-	Danger  AdaptiveColor
+	Info    color.Color
+	Success color.Color
+	Warning color.Color
+	Danger  color.Color
 
 	// Status
-	Open       AdaptiveColor
-	InProgress AdaptiveColor
-	Blocked    AdaptiveColor
-	Deferred   AdaptiveColor
-	Pinned     AdaptiveColor
-	Hooked     AdaptiveColor
-	Closed     AdaptiveColor
-	Tombstone  AdaptiveColor
-	Review     AdaptiveColor
+	Open       color.Color
+	InProgress color.Color
+	Blocked    color.Color
+	Deferred   color.Color
+	Pinned     color.Color
+	Hooked     color.Color
+	Closed     color.Color
+	Tombstone  color.Color
+	Review     color.Color
 
 	// Types
-	Bug     AdaptiveColor
-	Feature AdaptiveColor
-	Task    AdaptiveColor
-	Epic    AdaptiveColor
-	Chore   AdaptiveColor
+	Bug     color.Color
+	Feature color.Color
+	Task    color.Color
+	Epic    color.Color
+	Chore   color.Color
 
 	// UI Elements
-	Border    AdaptiveColor
-	Highlight AdaptiveColor
-	Muted     AdaptiveColor
+	Border    color.Color
+	Highlight color.Color
+	Muted     color.Color
 
 	// Styles
 	Base     lipgloss.Style
@@ -84,48 +99,49 @@ type Theme struct {
 	InfoBold          lipgloss.Style // Search scores
 	SecondaryText     lipgloss.Style // ID, assignee
 	PrimaryBold       lipgloss.Style // Selection indicator
-	PriorityUpArrow   lipgloss.Style // Priority hint ↑
-	PriorityDownArrow lipgloss.Style // Priority hint ↓
-	TriageStar        lipgloss.Style // Top pick ⭐
-	TriageUnblocks    lipgloss.Style // Unblocks indicator 🔓
-	TriageUnblocksAlt lipgloss.Style // Secondary unblocks ↪
+	PriorityUpArrow   lipgloss.Style // Priority hint up
+	PriorityDownArrow lipgloss.Style // Priority hint down
+	TriageStar        lipgloss.Style // Top pick star
+	TriageUnblocks    lipgloss.Style // Unblocks indicator
+	TriageUnblocksAlt lipgloss.Style // Secondary unblocks
 }
 
-// DefaultTheme returns the Tomorrow Night theme (adaptive).
+// DefaultTheme returns the Tomorrow Night theme with colors resolved
+// for the current isDarkBackground state.
 func DefaultTheme() Theme {
 	t := Theme{
 		// Tomorrow Night palette + matcha-dark-sea teal accent
-		Primary:   AdaptiveColor{Light: "#3e999f", Dark: "#8abeb7"}, // Teal
-		Secondary: AdaptiveColor{Light: "#8e908c", Dark: "#969896"}, // Comment gray
-		Subtext:   AdaptiveColor{Light: "#8e908c", Dark: "#b4b7b4"}, // Lighter muted
+		Primary:   resolveColor("#3e999f", "#8abeb7"), // Teal
+		Secondary: resolveColor("#8e908c", "#969896"), // Comment gray
+		Subtext:   resolveColor("#8e908c", "#b4b7b4"), // Lighter muted
 
-		Info:    AdaptiveColor{Light: "#4271ae", Dark: "#81a2be"}, // Blue
-		Success: AdaptiveColor{Light: "#718c00", Dark: "#b5bd68"}, // Green
-		Warning: AdaptiveColor{Light: "#f5871f", Dark: "#de935f"}, // Orange
-		Danger:  AdaptiveColor{Light: "#c82829", Dark: "#cc6666"}, // Red
+		Info:    resolveColor("#4271ae", "#81a2be"), // Blue
+		Success: resolveColor("#718c00", "#b5bd68"), // Green
+		Warning: resolveColor("#f5871f", "#de935f"), // Orange
+		Danger:  resolveColor("#c82829", "#cc6666"), // Red
 
-		Open:       AdaptiveColor{Light: "#718c00", Dark: "#b5bd68"}, // Green
-		InProgress: AdaptiveColor{Light: "#4271ae", Dark: "#81a2be"}, // Blue
-		Blocked:    AdaptiveColor{Light: "#c82829", Dark: "#cc6666"}, // Red
-		Deferred:   AdaptiveColor{Light: "#f5871f", Dark: "#de935f"}, // Orange
-		Pinned:     AdaptiveColor{Light: "#4271ae", Dark: "#7aa6da"}, // Blue variant
-		Hooked:     AdaptiveColor{Light: "#3e999f", Dark: "#8abeb7"}, // Teal
-		Closed:     AdaptiveColor{Light: "#8e908c", Dark: "#969896"}, // Gray
-		Tombstone:  AdaptiveColor{Light: "#c5c8c6", Dark: "#373b41"}, // Muted
-		Review:     AdaptiveColor{Light: "#8959a8", Dark: "#b294bb"}, // Purple
+		Open:       resolveColor("#718c00", "#b5bd68"), // Green
+		InProgress: resolveColor("#4271ae", "#81a2be"), // Blue
+		Blocked:    resolveColor("#c82829", "#cc6666"), // Red
+		Deferred:   resolveColor("#f5871f", "#de935f"), // Orange
+		Pinned:     resolveColor("#4271ae", "#7aa6da"), // Blue variant
+		Hooked:     resolveColor("#3e999f", "#8abeb7"), // Teal
+		Closed:     resolveColor("#8e908c", "#969896"), // Gray
+		Tombstone:  resolveColor("#c5c8c6", "#373b41"), // Muted
+		Review:     resolveColor("#8959a8", "#b294bb"), // Purple
 
-		Bug:     AdaptiveColor{Light: "#c82829", Dark: "#cc6666"}, // Red
-		Feature: AdaptiveColor{Light: "#f5871f", Dark: "#de935f"}, // Orange
-		Epic:    AdaptiveColor{Light: "#8959a8", Dark: "#b294bb"}, // Purple
-		Task:    AdaptiveColor{Light: "#eab700", Dark: "#f0c674"}, // Yellow
-		Chore:   AdaptiveColor{Light: "#4271ae", Dark: "#81a2be"}, // Blue
+		Bug:     resolveColor("#c82829", "#cc6666"), // Red
+		Feature: resolveColor("#f5871f", "#de935f"), // Orange
+		Epic:    resolveColor("#8959a8", "#b294bb"), // Purple
+		Task:    resolveColor("#eab700", "#f0c674"), // Yellow
+		Chore:   resolveColor("#4271ae", "#81a2be"), // Blue
 
-		Border:    AdaptiveColor{Light: "#d6d6d6", Dark: "#373b41"},
-		Highlight: AdaptiveColor{Light: "#d6d6d6", Dark: "#373b41"},
-		Muted:     AdaptiveColor{Light: "#8e908c", Dark: "#969896"},
+		Border:    resolveColor("#d6d6d6", "#373b41"),
+		Highlight: resolveColor("#d6d6d6", "#373b41"),
+		Muted:     resolveColor("#8e908c", "#969896"),
 	}
 
-	t.Base = lipgloss.NewStyle().Foreground(AdaptiveColor{Light: "#4d4d4c", Dark: "#c5c8c6"})
+	t.Base = lipgloss.NewStyle().Foreground(resolveColor("#4d4d4c", "#c5c8c6"))
 
 	t.Selected = lipgloss.NewStyle().
 		Background(t.Highlight).
@@ -136,7 +152,7 @@ func DefaultTheme() Theme {
 
 	t.Header = lipgloss.NewStyle().
 		Background(t.Primary).
-		Foreground(AdaptiveColor{Light: "#ffffff", Dark: "#1d1f21"}).
+		Foreground(resolveColor("#ffffff", "#1d1f21")).
 		Bold(true).
 		Padding(0, 1)
 
@@ -155,7 +171,7 @@ func DefaultTheme() Theme {
 	return t
 }
 
-func (t Theme) GetStatusColor(s string) AdaptiveColor {
+func (t Theme) GetStatusColor(s string) color.Color {
 	switch s {
 	case "open":
 		return t.Open
@@ -178,7 +194,7 @@ func (t Theme) GetStatusColor(s string) AdaptiveColor {
 	}
 }
 
-func (t Theme) GetTypeIcon(typ string) (string, AdaptiveColor) {
+func (t Theme) GetTypeIcon(typ string) (string, color.Color) {
 	switch typ {
 	case "bug":
 		return "🐛", t.Bug
@@ -187,8 +203,8 @@ func (t Theme) GetTypeIcon(typ string) (string, AdaptiveColor) {
 	case "task":
 		return "📋", t.Task
 	case "epic":
-		// Use 🚀 instead of 🏔️ - the snow-capped mountain has a variation selector
-		// (U+FE0F) that causes inconsistent width calculations across terminals
+		// Use rocket instead of snow-capped mountain - the mountain has a variation
+		// selector (U+FE0F) that causes inconsistent width calculations across terminals
 		return "🚀", t.Epic
 	case "chore":
 		return "🧹", t.Chore

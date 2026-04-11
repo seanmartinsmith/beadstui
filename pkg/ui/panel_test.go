@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"charm.land/lipgloss/v2"
 )
 
 func TestRenderTitledPanel_Basic(t *testing.T) {
@@ -131,16 +132,16 @@ func TestRenderTitledPanel_Variants(t *testing.T) {
 
 func TestRenderTitledPanel_ColorOverrides(t *testing.T) {
 
-	customBorder := AdaptiveColor{Light: "#ff0000", Dark: "#ff0000"}
-	customTitle := AdaptiveColor{Light: "#00ff00", Dark: "#00ff00"}
+	customBorder := lipgloss.Color("#ff0000")
+	customTitle := lipgloss.Color("#00ff00")
 
 	// With overrides, the panel should still render correctly regardless of Focused
 	result := RenderTitledPanel("content", PanelOpts{
 		Title:       "Custom",
 		Width:       20,
 		Focused:     false,
-		BorderColor: &customBorder,
-		TitleColor:  &customTitle,
+		BorderColor: customBorder,
+		TitleColor:  customTitle,
 	})
 
 	if !strings.Contains(result, "Custom") {
@@ -158,8 +159,8 @@ func TestRenderTitledPanel_ColorOverrides(t *testing.T) {
 		Title:       "F",
 		Width:       20,
 		Focused:     true,
-		BorderColor: &customBorder,
-		TitleColor:  &customTitle,
+		BorderColor: customBorder,
+		TitleColor:  customTitle,
 	})
 	if !strings.Contains(focusedResult, "F") {
 		t.Error("focused panel with overrides should contain title")
@@ -169,22 +170,22 @@ func TestRenderTitledPanel_ColorOverrides(t *testing.T) {
 func TestRenderTitledPanel_PartialOverrides(t *testing.T) {
 
 	// Only override border color, let title use default
-	customBorder := AdaptiveColor{Light: "#ff0000", Dark: "#ff0000"}
+	customBorder := lipgloss.Color("#ff0000")
 	result := RenderTitledPanel("x", PanelOpts{
 		Title:       "Partial",
 		Width:       20,
-		BorderColor: &customBorder,
+		BorderColor: customBorder,
 	})
 	if !strings.Contains(result, "Partial") {
 		t.Error("partial override should still render title")
 	}
 
 	// Only override title color, let border use default
-	customTitle := AdaptiveColor{Light: "#00ff00", Dark: "#00ff00"}
+	customTitle := lipgloss.Color("#00ff00")
 	result2 := RenderTitledPanel("x", PanelOpts{
 		Title:      "Partial2",
 		Width:      20,
-		TitleColor: &customTitle,
+		TitleColor: customTitle,
 	})
 	if !strings.Contains(result2, "Partial2") {
 		t.Error("partial title override should still render title")

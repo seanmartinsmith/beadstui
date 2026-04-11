@@ -4,6 +4,7 @@ package ui
 import (
 	"encoding/json"
 	"fmt"
+	"image/color"
 	"log"
 	"os"
 	"path/filepath"
@@ -718,7 +719,7 @@ func (t *TreeModel) truncateTitle(title string, maxLen int) string {
 }
 
 // GetPriorityColor returns the color for a priority level.
-func (t *TreeModel) GetPriorityColor(priority int) AdaptiveColor {
+func (t *TreeModel) GetPriorityColor(priority int) color.Color {
 	switch priority {
 	case 0:
 		return t.theme.Primary // Critical - red/bright

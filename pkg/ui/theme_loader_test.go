@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
 )
 
 func TestLoadTheme_EmbeddedDefaults(t *testing.T) {
@@ -31,13 +30,18 @@ func TestApplyThemeToGlobals(t *testing.T) {
 			Primary: &AdaptiveHex{Dark: "#ff0000", Light: "#00ff00"},
 		},
 	}
+
+	// In dark mode, the resolved color should be the dark value
+	origDark := isDarkBackground
+	isDarkBackground = true
+	defer func() { isDarkBackground = origDark }()
+
 	ApplyThemeToGlobals(tf)
 
-	if ColorPrimary.Dark != "#ff0000" {
-		t.Errorf("expected dark #ff0000, got %s", ColorPrimary.Dark)
-	}
-	if ColorPrimary.Light != "#00ff00" {
-		t.Errorf("expected light #00ff00, got %s", ColorPrimary.Light)
+	// Verify the resolved color is correct for dark mode
+	r, g, b, _ := ColorPrimary.RGBA()
+	if r>>8 != 0xff || g>>8 != 0x00 || b>>8 != 0x00 {
+		t.Errorf("expected dark mode color #ff0000, got #%02x%02x%02x", r>>8, g>>8, b>>8)
 	}
 }
 
@@ -47,6 +51,10 @@ func TestApplyThemeToGlobals_Nil(t *testing.T) {
 }
 
 func TestApplyThemeToThemeStruct(t *testing.T) {
+	origDark := isDarkBackground
+	isDarkBackground = true
+	defer func() { isDarkBackground = origDark }()
+
 	theme := DefaultTheme()
 
 	tf := &ThemeFile{
@@ -56,12 +64,56 @@ func TestApplyThemeToThemeStruct(t *testing.T) {
 	}
 	ApplyThemeToThemeStruct(&theme, tf)
 
-	if theme.Primary.Dark != "#aabbcc" {
-		t.Errorf("expected primary dark #aabbcc, got %s", theme.Primary.Dark)
+	// In dark mode, should be the overridden dark value
+	r, g, b, _ := theme.Primary.RGBA()
+	if r>>8 != 0xaa || g>>8 != 0xbb || b>>8 != 0xcc {
+		t.Errorf("expected primary #aabbcc in dark mode, got #%02x%02x%02x", r>>8, g>>8, b>>8)
 	}
-	// Light should be preserved from default
-	if theme.Primary.Light != "#3e999f" {
-		t.Errorf("expected primary light #3e999f (unchanged), got %s", theme.Primary.Light)
+}
+
+func TestAdaptiveHex_ToColor(t *testing.T) {
+	// Full override
+	hex := AdaptiveHex{Dark: "#111111", Light: "#222222"}
+	origDark := isDarkBackground
+	defer func() { isDarkBackground = origDark }()
+
+	isDarkBackground = true
+	result := hex.toColor("#aaa", "#bbb")
+	r, g, b, _ := result.RGBA()
+	if r>>8 != 0x11 || g>>8 != 0x11 || b>>8 != 0x11 {
+		t.Errorf("dark mode full override failed: got #%02x%02x%02x", r>>8, g>>8, b>>8)
+	}
+
+	isDarkBackground = false
+	result = hex.toColor("#aaa", "#bbb")
+	r, g, b, _ = result.RGBA()
+	if r>>8 != 0x22 || g>>8 != 0x22 || b>>8 != 0x22 {
+		t.Errorf("light mode full override failed: got #%02x%02x%02x", r>>8, g>>8, b>>8)
+	}
+
+	// Partial override (dark only) - light should use fallback
+	hex = AdaptiveHex{Dark: "#333333"}
+	isDarkBackground = true
+	result = hex.toColor("#aaaaaa", "#bbbbbb")
+	r, g, b, _ = result.RGBA()
+	if r>>8 != 0x33 || g>>8 != 0x33 || b>>8 != 0x33 {
+		t.Errorf("partial dark override failed: got #%02x%02x%02x", r>>8, g>>8, b>>8)
+	}
+
+	isDarkBackground = false
+	result = hex.toColor("#aaaaaa", "#bbbbbb")
+	r, g, b, _ = result.RGBA()
+	if r>>8 != 0xaa || g>>8 != 0xaa || b>>8 != 0xaa {
+		t.Errorf("partial light fallback failed: got #%02x%02x%02x", r>>8, g>>8, b>>8)
+	}
+
+	// Empty (no override) - should use fallback
+	hex = AdaptiveHex{}
+	isDarkBackground = true
+	result = hex.toColor("#aaaaaa", "#bbbbbb")
+	r, g, b, _ = result.RGBA()
+	if r>>8 != 0xbb || g>>8 != 0xbb || b>>8 != 0xbb {
+		t.Errorf("empty should use dark fallback: got #%02x%02x%02x", r>>8, g>>8, b>>8)
 	}
 }
 
@@ -88,31 +140,6 @@ func TestMergeTheme_PartialOverride(t *testing.T) {
 	// Info should be untouched
 	if base.Colors.Info.Dark != "#333333" {
 		t.Errorf("expected info dark #333333 (unchanged), got %s", base.Colors.Info.Dark)
-	}
-}
-
-func TestAdaptiveHex_ToAdaptiveColor(t *testing.T) {
-	fallback := AdaptiveColor{Light: "#aaa", Dark: "#bbb"}
-
-	// Full override
-	hex := AdaptiveHex{Dark: "#111", Light: "#222"}
-	result := hex.toAdaptiveColor(fallback)
-	if result.Dark != "#111" || result.Light != "#222" {
-		t.Errorf("full override failed: got %v", result)
-	}
-
-	// Partial override (dark only)
-	hex = AdaptiveHex{Dark: "#333"}
-	result = hex.toAdaptiveColor(fallback)
-	if result.Dark != "#333" || result.Light != "#aaa" {
-		t.Errorf("partial override failed: got %v", result)
-	}
-
-	// Empty (no override)
-	hex = AdaptiveHex{}
-	result = hex.toAdaptiveColor(fallback)
-	if result != fallback {
-		t.Errorf("empty should return fallback: got %v", result)
 	}
 }
 

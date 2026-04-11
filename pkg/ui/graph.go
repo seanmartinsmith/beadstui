@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"sort"
 	"strings"
 
@@ -553,7 +554,7 @@ func (g *GraphModel) renderNodeBox(id string, boxWidth int, t Theme, isEgo bool)
 	issue := g.issueMap[id]
 
 	var statusIcon, displayID, title string
-	var statusColor AdaptiveColor
+	var statusColor color.Color
 
 	if issue != nil {
 		statusIcon = getStatusIcon(issue.Status)

@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"sort"
 	"strings"
 
@@ -473,7 +474,7 @@ func (m FlowMatrixModel) renderLabelRow(stat labelFlowStats, selected bool, barW
 	}
 
 	// Color based on bottleneck status
-	var labelColor AdaptiveColor
+	var labelColor color.Color
 	if stat.IsBottleneck {
 		labelColor = m.theme.Blocked // Red for bottlenecks
 	} else if stat.BottleneckScore > 0.5 {
@@ -683,16 +684,16 @@ func (m FlowMatrixModel) renderScoreBar(score float64, width int) string {
 		filled = width
 	}
 
-	var color AdaptiveColor
+	var barColor color.Color
 	if score > 0.7 {
-		color = m.theme.Blocked
+		barColor = m.theme.Blocked
 	} else if score > 0.3 {
-		color = m.theme.Feature
+		barColor = m.theme.Feature
 	} else {
-		color = m.theme.Open
+		barColor = m.theme.Open
 	}
 
-	barStyle := lipgloss.NewStyle().Foreground(color)
+	barStyle := lipgloss.NewStyle().Foreground(barColor)
 	emptyStyle := lipgloss.NewStyle().Foreground(m.theme.Border)
 
 	return barStyle.Render(strings.Repeat("█", filled)) +
@@ -710,17 +711,17 @@ func (m FlowMatrixModel) miniBar(count, maxWidth int) string {
 		filled = maxWidth
 	}
 
-	var color AdaptiveColor
+	var miniColor color.Color
 	if count >= 5 {
-		color = m.theme.Blocked
+		miniColor = m.theme.Blocked
 	} else if count >= 2 {
-		color = m.theme.Feature
+		miniColor = m.theme.Feature
 	} else {
-		color = m.theme.Task
+		miniColor = m.theme.Task
 	}
 
-	barStyle := lipgloss.NewStyle().Foreground(color)
-	return barStyle.Render(strings.Repeat("■", filled)) + strings.Repeat("·", maxWidth-filled)
+	miniBarStyle := lipgloss.NewStyle().Foreground(miniColor)
+	return miniBarStyle.Render(strings.Repeat("■", filled)) + strings.Repeat("·", maxWidth-filled)
 }
 
 func (m FlowMatrixModel) renderFooter() string {

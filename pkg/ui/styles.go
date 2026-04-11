@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -21,77 +22,154 @@ const (
 )
 
 // ══════════════════════════════════════════════════════════════════════════════
-// COLOR PALETTE - Adaptive colors for light and dark terminals
-// Light mode colors tuned for WCAG AA compliance (contrast ratio >= 4.5:1)
+// COLOR PALETTE - Resolved colors for the current light/dark background
+// WCAG AA compliance (contrast ratio >= 4.5:1) for light mode colors
 // ══════════════════════════════════════════════════════════════════════════════
 
 var (
 	// Base colors - Tomorrow Night palette
-	ColorBg          = AdaptiveColor{Light: "#ffffff", Dark: "#1d1f21"}
-	ColorBgDark      = AdaptiveColor{Light: "#f0f0f0", Dark: "#191b1d"}
-	ColorBgSubtle    = AdaptiveColor{Light: "#efefef", Dark: "#282a2e"}
-	ColorBgHighlight = AdaptiveColor{Light: "#d6d6d6", Dark: "#373b41"}
-	ColorText        = AdaptiveColor{Light: "#4d4d4c", Dark: "#c5c8c6"}
-	ColorSubtext     = AdaptiveColor{Light: "#8e908c", Dark: "#b4b7b4"}
-	ColorMuted       = AdaptiveColor{Light: "#8e908c", Dark: "#969896"}
+	ColorBg          color.Color
+	ColorBgDark      color.Color
+	ColorBgSubtle    color.Color
+	ColorBgHighlight color.Color
+	ColorText        color.Color
+	ColorSubtext     color.Color
+	ColorMuted       color.Color
 
 	// Primary accent - teal (matcha-dark-sea)
-	ColorPrimary   = AdaptiveColor{Light: "#3e999f", Dark: "#8abeb7"}
-	ColorSecondary = AdaptiveColor{Light: "#8e908c", Dark: "#969896"}
-	ColorInfo      = AdaptiveColor{Light: "#4271ae", Dark: "#81a2be"}
-	ColorSuccess   = AdaptiveColor{Light: "#718c00", Dark: "#b5bd68"}
-	ColorWarning   = AdaptiveColor{Light: "#f5871f", Dark: "#de935f"}
-	ColorDanger    = AdaptiveColor{Light: "#c82829", Dark: "#cc6666"}
+	ColorPrimary   color.Color
+	ColorSecondary color.Color
+	ColorInfo      color.Color
+	ColorSuccess   color.Color
+	ColorWarning   color.Color
+	ColorDanger    color.Color
 
 	// Semantic tokens for inline hex replacement
-	ColorTextSecondary = AdaptiveColor{Light: "#333333", Dark: "#e8e8e8"}
-	ColorBgContrast    = AdaptiveColor{Light: "#ffffff", Dark: "#1d1f21"}
+	ColorTextSecondary color.Color
+	ColorBgContrast    color.Color
 
 	// Status colors
-	ColorStatusOpen       = AdaptiveColor{Light: "#718c00", Dark: "#b5bd68"}
-	ColorStatusInProgress = AdaptiveColor{Light: "#4271ae", Dark: "#81a2be"}
-	ColorStatusBlocked    = AdaptiveColor{Light: "#c82829", Dark: "#cc6666"}
-	ColorStatusDeferred   = AdaptiveColor{Light: "#f5871f", Dark: "#de935f"} // Orange - on ice
-	ColorStatusPinned     = AdaptiveColor{Light: "#4271ae", Dark: "#7aa6da"} // Blue - persistent
-	ColorStatusHooked     = AdaptiveColor{Light: "#3e999f", Dark: "#8abeb7"} // Teal - agent-attached
-	ColorStatusReview     = AdaptiveColor{Light: "#8959a8", Dark: "#b294bb"} // Purple - awaiting review
-	ColorStatusClosed     = AdaptiveColor{Light: "#8e908c", Dark: "#969896"}
-	ColorStatusTombstone  = AdaptiveColor{Light: "#c5c8c6", Dark: "#373b41"} // Muted gray - deleted
+	ColorStatusOpen       color.Color
+	ColorStatusInProgress color.Color
+	ColorStatusBlocked    color.Color
+	ColorStatusDeferred   color.Color
+	ColorStatusPinned     color.Color
+	ColorStatusHooked     color.Color
+	ColorStatusReview     color.Color
+	ColorStatusClosed     color.Color
+	ColorStatusTombstone  color.Color
 
 	// Status background colors (for badges) - subtle tinted backgrounds
-	ColorStatusOpenBg       = AdaptiveColor{Light: "#e8f0e0", Dark: "#252e1e"}
-	ColorStatusInProgressBg = AdaptiveColor{Light: "#dce8f0", Dark: "#1e2530"}
-	ColorStatusBlockedBg    = AdaptiveColor{Light: "#f0dce0", Dark: "#2e1e1e"}
-	ColorStatusDeferredBg   = AdaptiveColor{Light: "#f0e4d8", Dark: "#2e251e"} // Orange bg
-	ColorStatusPinnedBg     = AdaptiveColor{Light: "#dce4f0", Dark: "#1e2230"} // Blue bg
-	ColorStatusHookedBg     = AdaptiveColor{Light: "#dce8e8", Dark: "#1e2a2a"} // Teal bg
-	ColorStatusReviewBg     = AdaptiveColor{Light: "#e4dce8", Dark: "#261e2e"} // Purple bg
-	ColorStatusClosedBg     = AdaptiveColor{Light: "#e0e0e0", Dark: "#252527"}
-	ColorStatusTombstoneBg  = AdaptiveColor{Light: "#d6d6d6", Dark: "#1d1f21"} // Dark bg
+	ColorStatusOpenBg       color.Color
+	ColorStatusInProgressBg color.Color
+	ColorStatusBlockedBg    color.Color
+	ColorStatusDeferredBg   color.Color
+	ColorStatusPinnedBg     color.Color
+	ColorStatusHookedBg     color.Color
+	ColorStatusReviewBg     color.Color
+	ColorStatusClosedBg     color.Color
+	ColorStatusTombstoneBg  color.Color
 
 	// Priority colors
-	ColorPrioCritical = AdaptiveColor{Light: "#c82829", Dark: "#cc6666"}
-	ColorPrioHigh     = AdaptiveColor{Light: "#f5871f", Dark: "#de935f"}
-	ColorPrioMedium   = AdaptiveColor{Light: "#eab700", Dark: "#f0c674"}
-	ColorPrioLow      = AdaptiveColor{Light: "#718c00", Dark: "#b5bd68"}
+	ColorPrioCritical color.Color
+	ColorPrioHigh     color.Color
+	ColorPrioMedium   color.Color
+	ColorPrioLow      color.Color
 
 	// Priority background colors
-	ColorPrioCriticalBg = AdaptiveColor{Light: "#f0dce0", Dark: "#2e1e1e"}
-	ColorPrioHighBg     = AdaptiveColor{Light: "#f0e4d8", Dark: "#2e251e"}
-	ColorPrioMediumBg   = AdaptiveColor{Light: "#f0ecd8", Dark: "#2e2e1e"}
-	ColorPrioLowBg      = AdaptiveColor{Light: "#e8f0e0", Dark: "#252e1e"}
+	ColorPrioCriticalBg color.Color
+	ColorPrioHighBg     color.Color
+	ColorPrioMediumBg   color.Color
+	ColorPrioLowBg      color.Color
 
 	// Type colors
-	ColorTypeBug     = AdaptiveColor{Light: "#c82829", Dark: "#cc6666"}
-	ColorTypeFeature = AdaptiveColor{Light: "#f5871f", Dark: "#de935f"}
-	ColorTypeTask    = AdaptiveColor{Light: "#eab700", Dark: "#f0c674"}
-	ColorTypeEpic    = AdaptiveColor{Light: "#8959a8", Dark: "#b294bb"}
-	ColorTypeChore   = AdaptiveColor{Light: "#4271ae", Dark: "#81a2be"}
+	ColorTypeBug     color.Color
+	ColorTypeFeature color.Color
+	ColorTypeTask    color.Color
+	ColorTypeEpic    color.Color
+	ColorTypeChore   color.Color
 
 	// UI chrome
-	ColorBorder    = AdaptiveColor{Light: "#d6d6d6", Dark: "#373b41"}
-	ColorHighlight = AdaptiveColor{Light: "#d6d6d6", Dark: "#373b41"}
+	ColorBorder    color.Color
+	ColorHighlight color.Color
 )
+
+// resolveColors resolves all package-level Color* vars based on the current
+// isDarkBackground state. Called at init and when tea.BackgroundColorMsg
+// detects a mode change.
+func resolveColors() {
+	ColorBg = resolveColor("#ffffff", "#1d1f21")
+	ColorBgDark = resolveColor("#f0f0f0", "#191b1d")
+	ColorBgSubtle = resolveColor("#efefef", "#282a2e")
+	ColorBgHighlight = resolveColor("#d6d6d6", "#373b41")
+	ColorText = resolveColor("#4d4d4c", "#c5c8c6")
+	ColorSubtext = resolveColor("#8e908c", "#b4b7b4")
+	ColorMuted = resolveColor("#8e908c", "#969896")
+
+	ColorPrimary = resolveColor("#3e999f", "#8abeb7")
+	ColorSecondary = resolveColor("#8e908c", "#969896")
+	ColorInfo = resolveColor("#4271ae", "#81a2be")
+	ColorSuccess = resolveColor("#718c00", "#b5bd68")
+	ColorWarning = resolveColor("#f5871f", "#de935f")
+	ColorDanger = resolveColor("#c82829", "#cc6666")
+
+	ColorTextSecondary = resolveColor("#333333", "#e8e8e8")
+	ColorBgContrast = resolveColor("#ffffff", "#1d1f21")
+
+	ColorStatusOpen = resolveColor("#718c00", "#b5bd68")
+	ColorStatusInProgress = resolveColor("#4271ae", "#81a2be")
+	ColorStatusBlocked = resolveColor("#c82829", "#cc6666")
+	ColorStatusDeferred = resolveColor("#f5871f", "#de935f")
+	ColorStatusPinned = resolveColor("#4271ae", "#7aa6da")
+	ColorStatusHooked = resolveColor("#3e999f", "#8abeb7")
+	ColorStatusReview = resolveColor("#8959a8", "#b294bb")
+	ColorStatusClosed = resolveColor("#8e908c", "#969896")
+	ColorStatusTombstone = resolveColor("#c5c8c6", "#373b41")
+
+	ColorStatusOpenBg = resolveColor("#e8f0e0", "#252e1e")
+	ColorStatusInProgressBg = resolveColor("#dce8f0", "#1e2530")
+	ColorStatusBlockedBg = resolveColor("#f0dce0", "#2e1e1e")
+	ColorStatusDeferredBg = resolveColor("#f0e4d8", "#2e251e")
+	ColorStatusPinnedBg = resolveColor("#dce4f0", "#1e2230")
+	ColorStatusHookedBg = resolveColor("#dce8e8", "#1e2a2a")
+	ColorStatusReviewBg = resolveColor("#e4dce8", "#261e2e")
+	ColorStatusClosedBg = resolveColor("#e0e0e0", "#252527")
+	ColorStatusTombstoneBg = resolveColor("#d6d6d6", "#1d1f21")
+
+	ColorPrioCritical = resolveColor("#c82829", "#cc6666")
+	ColorPrioHigh = resolveColor("#f5871f", "#de935f")
+	ColorPrioMedium = resolveColor("#eab700", "#f0c674")
+	ColorPrioLow = resolveColor("#718c00", "#b5bd68")
+
+	ColorPrioCriticalBg = resolveColor("#f0dce0", "#2e1e1e")
+	ColorPrioHighBg = resolveColor("#f0e4d8", "#2e251e")
+	ColorPrioMediumBg = resolveColor("#f0ecd8", "#2e2e1e")
+	ColorPrioLowBg = resolveColor("#e8f0e0", "#252e1e")
+
+	ColorTypeBug = resolveColor("#c82829", "#cc6666")
+	ColorTypeFeature = resolveColor("#f5871f", "#de935f")
+	ColorTypeTask = resolveColor("#eab700", "#f0c674")
+	ColorTypeEpic = resolveColor("#8959a8", "#b294bb")
+	ColorTypeChore = resolveColor("#4271ae", "#81a2be")
+
+	ColorBorder = resolveColor("#d6d6d6", "#373b41")
+	ColorHighlight = resolveColor("#d6d6d6", "#373b41")
+
+	// Rebuild panel styles with resolved colors
+	PanelStyle = lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(ColorBgHighlight)
+	FocusedPanelStyle = lipgloss.NewStyle().
+		Border(lipgloss.NormalBorder()).
+		BorderForeground(ColorPrimary)
+
+	// Rebuild any other color arrays that depend on isDarkBackground
+	resolveRepoColors()
+}
+
+func init() {
+	resolveColors()
+}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // PANEL STYLES - For split view layouts
@@ -99,14 +177,10 @@ var (
 
 var (
 	// PanelStyle is the default style for unfocused panels
-	PanelStyle = lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder()).
-			BorderForeground(ColorBgHighlight)
+	PanelStyle lipgloss.Style
 
 	// FocusedPanelStyle is the style for focused panels
-	FocusedPanelStyle = lipgloss.NewStyle().
-				Border(lipgloss.NormalBorder()).
-				BorderForeground(ColorPrimary)
+	FocusedPanelStyle lipgloss.Style
 )
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -116,7 +190,7 @@ var (
 // RenderPriorityBadge returns a styled priority badge
 // Priority values: 0=Critical, 1=High, 2=Medium, 3=Low, 4=Backlog
 func RenderPriorityBadge(priority int) string {
-	var fg, bg AdaptiveColor
+	var fg, bg color.Color
 	var label string
 
 	switch priority {
@@ -144,7 +218,7 @@ func RenderPriorityBadge(priority int) string {
 
 // RenderStatusBadge returns a styled status badge
 func RenderStatusBadge(status string) string {
-	var fg, bg AdaptiveColor
+	var fg, bg color.Color
 	var label string
 
 	switch status {
@@ -199,7 +273,7 @@ func RenderMiniBar(value float64, width int, t Theme) string {
 	}
 
 	// Choose color based on value
-	var barColor AdaptiveColor
+	var barColor color.Color
 	if value >= 0.75 {
 		barColor = t.Open // Green/Success
 	} else if value >= 0.5 {
@@ -222,19 +296,19 @@ func RenderRankBadge(rank, total int) string {
 
 	percentile := float64(rank) / float64(total)
 
-	var color AdaptiveColor
+	var rankColor color.Color
 	if percentile <= 0.1 {
-		color = ColorSuccess // Top 10%
+		rankColor = ColorSuccess // Top 10%
 	} else if percentile <= 0.25 {
-		color = ColorInfo // Top 25%
+		rankColor = ColorInfo // Top 25%
 	} else if percentile <= 0.5 {
-		color = ColorWarning // Top 50%
+		rankColor = ColorWarning // Top 50%
 	} else {
-		color = ColorMuted // Bottom 50%
+		rankColor = ColorMuted // Bottom 50%
 	}
 
 	return lipgloss.NewStyle().
-		Foreground(color).
+		Foreground(rankColor).
 		Render(fmt.Sprintf("#%d", rank))
 }
 

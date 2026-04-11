@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"strings"
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
@@ -790,8 +791,8 @@ func (m *InsightsModel) renderMetricPanel(panel MetricPanel, width, height int, 
 			Width:       width + 2,
 			Height:      height + 2,
 			Focused:     isFocused,
-			BorderColor: &borderColor,
-			TitleColor:  &titleColor,
+			BorderColor: borderColor,
+			TitleColor:  titleColor,
 		})
 	}
 
@@ -845,8 +846,8 @@ func (m *InsightsModel) renderMetricPanel(panel MetricPanel, width, height int, 
 		Width:       width + 2,
 		Height:      height + 2,
 		Focused:     isFocused,
-		BorderColor: &borderColor,
-		TitleColor:  &titleColor,
+		BorderColor: borderColor,
+		TitleColor:  titleColor,
 	})
 }
 
@@ -1001,8 +1002,8 @@ func (m *InsightsModel) renderCyclesPanel(width, height int, t Theme) string {
 			Width:       width + 2,
 			Height:      height + 2,
 			Focused:     isFocused,
-			BorderColor: &borderColor,
-			TitleColor:  &titleColor,
+			BorderColor: borderColor,
+			TitleColor:  titleColor,
 		})
 	}
 
@@ -1072,8 +1073,8 @@ func (m *InsightsModel) renderCyclesPanel(width, height int, t Theme) string {
 		Width:       width + 2,
 		Height:      height + 2,
 		Focused:     isFocused,
-		BorderColor: &borderColor,
-		TitleColor:  &titleColor,
+		BorderColor: borderColor,
+		TitleColor:  titleColor,
 	})
 }
 
@@ -1111,8 +1112,8 @@ func (m *InsightsModel) renderPriorityPanel(width, height int, t Theme) string {
 			Width:       width + 2,
 			Height:      height + 2,
 			Focused:     isFocused,
-			BorderColor: &borderColor,
-			TitleColor:  &titleColor,
+			BorderColor: borderColor,
+			TitleColor:  titleColor,
 		})
 	}
 
@@ -1176,8 +1177,8 @@ func (m *InsightsModel) renderPriorityPanel(width, height int, t Theme) string {
 		Width:       width + 2,
 		Height:      height + 2,
 		Focused:     isFocused,
-		BorderColor: &borderColor,
-		TitleColor:  &titleColor,
+		BorderColor: borderColor,
+		TitleColor:  titleColor,
 	})
 }
 
@@ -1213,7 +1214,7 @@ func (m *InsightsModel) renderMiniBar(label string, value float64, width int, t 
 	}
 
 	// Color based on value intensity
-	var barColor AdaptiveColor
+	var barColor color.Color
 	switch {
 	case value >= 0.7:
 		barColor = ColorSuccess // Green - high
@@ -1329,8 +1330,8 @@ func (m *InsightsModel) renderPriorityItem(pick analysis.TopPick, width, height 
 		Width:       width,
 		Height:      height + 2,
 		Focused:     isSelected,
-		BorderColor: &borderColor,
-		TitleColor:  &titleColor,
+		BorderColor: borderColor,
+		TitleColor:  titleColor,
 	})
 }
 
@@ -1357,8 +1358,8 @@ func (m *InsightsModel) renderHeatmapPanel(width, height int, t Theme) string {
 			Width:       width + 2,
 			Height:      height + 2,
 			Focused:     isFocused,
-			BorderColor: &borderColor,
-			TitleColor:  &titleColor,
+			BorderColor: borderColor,
+			TitleColor:  titleColor,
 		})
 	}
 
@@ -1979,13 +1980,12 @@ Navigate to a metric panel and select an item to view its details here.
 		sb.WriteString(strings.TrimRight(scrollHint, "\n\r"))
 	}
 
-	bc := t.Primary
 	return RenderTitledPanel(sb.String(), PanelOpts{
 		Title:       "Details",
 		Width:       width,
 		Height:      height + 2,
-		BorderColor: &bc,
-		TitleColor:  &bc,
+		BorderColor: t.Primary,
+		TitleColor:  t.Primary,
 	})
 }
 

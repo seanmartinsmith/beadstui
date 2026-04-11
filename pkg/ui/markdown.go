@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"fmt"
+	"image/color"
+
 	"charm.land/glamour/v2"
 	"charm.land/glamour/v2/ansi"
 )
@@ -436,12 +439,15 @@ func buildStyleFromTheme(theme Theme, isDark bool) ansi.StyleConfig {
 	}
 }
 
-// extractHex gets the hex color string from an AdaptiveColor.
-func extractHex(ac AdaptiveColor, isDark bool) string {
-	if isDark {
-		return ac.Dark
+// colorToHex converts a color.Color to a hex string like "#rrggbb".
+// The isDark parameter is ignored - colors are already resolved for the
+// current mode. Kept for call-site compatibility.
+func extractHex(c color.Color, _ bool) string {
+	if c == nil {
+		return "#000000"
 	}
-	return ac.Light
+	r, g, b, _ := c.RGBA()
+	return fmt.Sprintf("#%02x%02x%02x", r>>8, g>>8, b>>8)
 }
 
 // Helper functions for pointer creation

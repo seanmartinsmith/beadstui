@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 )
 
 func TestNewAgentPromptModal(t *testing.T) {
@@ -121,10 +122,10 @@ func TestAgentPromptModalEscDismisses(t *testing.T) {
 
 func TestAgentPromptModalView(t *testing.T) {
 	theme := Theme{
-		Primary:   AdaptiveColor{Light: "#00ff00", Dark: "#00ff00"},
-		Secondary: AdaptiveColor{Light: "#888888", Dark: "#888888"},
-		Subtext:   AdaptiveColor{Light: "#888888", Dark: "#888888"},
-		Border:    AdaptiveColor{Light: "#888888", Dark: "#888888"},
+		Primary:   lipgloss.Color("#00ff00"),
+		Secondary: lipgloss.Color("#888888"),
+		Subtext:   lipgloss.Color("#888888"),
+		Border:    lipgloss.Color("#888888"),
 	}
 	modal := NewAgentPromptModal("/test/AGENTS.md", "AGENTS.md", theme)
 
@@ -219,10 +220,10 @@ func TestGetBlurbPreview(t *testing.T) {
 
 func TestCenterModal(t *testing.T) {
 	theme := Theme{
-		Primary:   AdaptiveColor{Light: "#00ff00", Dark: "#00ff00"},
-		Secondary: AdaptiveColor{Light: "#888888", Dark: "#888888"},
-		Subtext:   AdaptiveColor{Light: "#888888", Dark: "#888888"},
-		Border:    AdaptiveColor{Light: "#888888", Dark: "#888888"},
+		Primary:   lipgloss.Color("#00ff00"),
+		Secondary: lipgloss.Color("#888888"),
+		Subtext:   lipgloss.Color("#888888"),
+		Border:    lipgloss.Color("#888888"),
 	}
 	modal := NewAgentPromptModal("/test/AGENTS.md", "AGENTS.md", theme)
 

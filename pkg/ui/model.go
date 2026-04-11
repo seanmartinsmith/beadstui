@@ -1194,6 +1194,7 @@ func (m Model) Init() tea.Cmd {
 	cmds := []tea.Cmd{
 		CheckUpdateCmd(),
 		WaitForPhase2Cmd(m.data.analysis),
+		tea.RequestBackgroundColor,
 	}
 	if m.data.backgroundWorker != nil {
 		cmds = append(cmds, StartBackgroundWorkerCmd(m.data.backgroundWorker))
@@ -1306,6 +1307,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.WindowSizeMsg:
 		m = m.handleWindowSize(msg)
+
+	case tea.BackgroundColorMsg:
+		isDark := msg.IsDark()
+		isDarkBackground = isDark
+		resolveColors()
+		m.theme = DefaultTheme()
+		tf := LoadTheme()
+		ApplyThemeToGlobals(tf)
+		ApplyThemeToThemeStruct(&m.theme, tf)
 	}
 
 

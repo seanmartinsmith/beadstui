@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"image/color"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -32,8 +33,8 @@ type PanelOpts struct {
 	// over the default focus-based colors, letting callers supply
 	// custom border/title colors (e.g. per-column board colors,
 	// dimmed "skipped" panels).
-	BorderColor *AdaptiveColor
-	TitleColor  *AdaptiveColor
+	BorderColor color.Color
+	TitleColor  color.Color
 }
 
 // borderChars returns the box-drawing characters for a variant.
@@ -62,9 +63,9 @@ func RenderTitledPanel(content string, opts PanelOpts) string {
 	tl, tr, bl, br, h, vert := borderChars(opts.Variant)
 
 	// Colors: use overrides when provided, otherwise derive from focus state
-	var borderColor, titleColor AdaptiveColor
+	var borderColor, titleColor color.Color
 	if opts.BorderColor != nil {
-		borderColor = *opts.BorderColor
+		borderColor = opts.BorderColor
 	} else if opts.Focused {
 		borderColor = ColorPrimary
 	} else {
@@ -72,7 +73,7 @@ func RenderTitledPanel(content string, opts PanelOpts) string {
 	}
 
 	if opts.TitleColor != nil {
-		titleColor = *opts.TitleColor
+		titleColor = opts.TitleColor
 	} else if opts.Focused {
 		titleColor = ColorPrimary
 	} else {

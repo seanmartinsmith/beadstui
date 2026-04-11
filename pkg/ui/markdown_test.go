@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"charm.land/lipgloss/v2"
 )
 
 func TestNewMarkdownRenderer(t *testing.T) {
@@ -181,16 +182,17 @@ func TestMarkdownRenderer_IsDarkMode(t *testing.T) {
 }
 
 func TestExtractHex(t *testing.T) {
-	ac := AdaptiveColor{Light: "#ffffff", Dark: "#000000"}
+	white := lipgloss.Color("#ffffff")
+	black := lipgloss.Color("#000000")
 
-	lightHex := extractHex(ac, false)
-	if lightHex != "#ffffff" {
-		t.Errorf("expected #ffffff for light mode, got %s", lightHex)
+	whiteHex := extractHex(white, false)
+	if whiteHex != "#ffffff" {
+		t.Errorf("expected #ffffff, got %s", whiteHex)
 	}
 
-	darkHex := extractHex(ac, true)
-	if darkHex != "#000000" {
-		t.Errorf("expected #000000 for dark mode, got %s", darkHex)
+	blackHex := extractHex(black, true)
+	if blackHex != "#000000" {
+		t.Errorf("expected #000000, got %s", blackHex)
 	}
 }
 

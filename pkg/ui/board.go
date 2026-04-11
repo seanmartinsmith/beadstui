@@ -397,9 +397,13 @@ func NewBoardModel(issues []model.Issue, theme Theme) BoardModel {
 	cols := groupIssuesByMode(issues, SwimByStatus)
 
 	// Initialize markdown renderer for detail panel (bv-r6kh)
+	glamourStyle := "dark"
+	if !isDarkBackground {
+		glamourStyle = "light"
+	}
 	var mdRenderer *glamour.TermRenderer
 	mdRenderer, _ = glamour.NewTermRenderer(
-		glamour.WithStandardStyle("dark"),
+		glamour.WithStandardStyle(glamourStyle),
 		glamour.WithWordWrap(60),
 	)
 
@@ -981,24 +985,24 @@ func (b BoardModel) View(width, height int) string {
 	columnTitles, columnEmoji := b.getColumnHeaders()
 
 	// Column colors - use appropriate colors based on mode
-	var columnColors []AdaptiveColor
+	var columnColors []color.Color
 	switch b.swimLaneMode {
 	case SwimByPriority:
-		columnColors = []AdaptiveColor{
+		columnColors = []color.Color{
 			ColorPrioCritical, // P0
 			ColorPrioHigh,     // P1
 			ColorPrioMedium,   // P2
 			ColorSecondary,    // P3+
 		}
 	case SwimByType:
-		columnColors = []AdaptiveColor{
+		columnColors = []color.Color{
 			ColorTypeBug,     // Bug
 			ColorTypeFeature, // Feature
 			ColorTypeTask,    // Task
 			ColorTypeEpic,    // Epic
 		}
 	default: // SwimByStatus
-		columnColors = []AdaptiveColor{t.Open, t.InProgress, t.Blocked, t.Closed}
+		columnColors = []color.Color{t.Open, t.InProgress, t.Blocked, t.Closed}
 	}
 
 	var renderedCols []string
@@ -1148,8 +1152,8 @@ func (b BoardModel) View(width, height int) string {
 			Width:       baseWidth + borderOverhead,
 			Height:      colHeight + 2,
 			Focused:     isFocused,
-			BorderColor: &colBorderColor,
-			TitleColor:  &colTitleColor,
+			BorderColor: colBorderColor,
+			TitleColor:  colTitleColor,
 		})
 		renderedCols = append(renderedCols, column)
 	}
@@ -1290,7 +1294,7 @@ func (b BoardModel) renderCard(issue model.Issue, width int, selected bool, colI
 			BorderForeground(borderColor)
 	} else if isCurrentMatch {
 		cardStyle = cardStyle.
-			Background(AdaptiveColor{Light: "#e4dce8", Dark: "#2a1e30"}).
+			Background(resolveColor("#e4dce8", "#2a1e30")).
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(borderColor)
 	} else {
@@ -1715,12 +1719,11 @@ func (b *BoardModel) renderDetailPanel(width, height int) string {
 		sb.WriteString(scrollHint)
 	}
 
-	bc := t.Primary
 	return RenderTitledPanel(sb.String(), PanelOpts{
 		Title:       "Details",
 		Width:       width + 2,
 		Height:      height + 2,
-		BorderColor: &bc,
-		TitleColor:  &bc,
+		BorderColor: t.Primary,
+		TitleColor:  t.Primary,
 	})
 }

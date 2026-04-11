@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"sort"
 	"strings"
 
@@ -346,22 +347,22 @@ func (m *Model) renderHelpOverlay() string {
 	gapWidth := 3 // gap between panels in river layout
 
 	// Tomorrow Night gradient for help overlay sections
-	colors := []AdaptiveColor{
-		{Light: "#3e999f", Dark: "#8abeb7"}, // Teal (primary)
-		{Light: "#4271ae", Dark: "#81a2be"}, // Blue
-		{Light: "#718c00", Dark: "#b5bd68"}, // Green
-		{Light: "#f5871f", Dark: "#de935f"}, // Orange
-		{Light: "#8959a8", Dark: "#b294bb"}, // Purple
-		{Light: "#eab700", Dark: "#f0c674"}, // Yellow
+	colors := []color.Color{
+		resolveColor("#3e999f", "#8abeb7"), // Teal (primary)
+		resolveColor("#4271ae", "#81a2be"), // Blue
+		resolveColor("#718c00", "#b5bd68"), // Green
+		resolveColor("#f5871f", "#de935f"), // Orange
+		resolveColor("#8959a8", "#b294bb"), // Purple
+		resolveColor("#eab700", "#f0c674"), // Yellow
 	}
 
 	// Helper to render a section panel (auto-sized to content).
 	// Flipped layout: description on left, key right-aligned (bt-dx7k).
 	renderPanel := func(title string, icon string, colorIdx int, shortcuts []struct{ key, desc string }) string {
-		color := colors[colorIdx%len(colors)]
+		panelColor := colors[colorIdx%len(colors)]
 
 		keyStyle := lipgloss.NewStyle().
-			Foreground(color).
+			Foreground(panelColor).
 			Bold(true)
 
 		descStyle := lipgloss.NewStyle().
@@ -409,8 +410,8 @@ func (m *Model) renderHelpOverlay() string {
 			Title:       icon + " " + title,
 			Width:       panelWidth,
 			CenterTitle: true,
-			BorderColor: &color,
-			TitleColor:  &color,
+			BorderColor: panelColor,
+			TitleColor:  panelColor,
 		})
 	}
 
