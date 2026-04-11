@@ -482,14 +482,36 @@ Blast radius analysis (Phase 0.5) found only ~6 test files need explicit updates
 See: `docs/audit/test-baseline-2026-04-10.md` and `docs/brainstorms/2026-04-10-phase-0.5-test-foundation-brainstorm.md`
 
 ### Acceptance Criteria
-- [ ] Model struct has ViewMode enum (no boolean view flags)
-- [ ] `focus` enum split into ViewMode + PaneFocus (document valid pairs)
-- [ ] Model struct uses sub-state structs (DataState, FilterState, AnalysisCache)
-- [ ] `activeModal ModalType` replaces 19 show* booleans
-- [ ] Update() is under 100 lines (routing only)
-- [ ] Handler methods are in separate files by concern
-- [ ] All tests pass (test helper for Model construction)
-- [ ] TUI behavior unchanged
+- [x] Model struct has ViewMode enum (no boolean view flags) - Step 1.1, commit 4c3c1e81
+- [ ] `focus` enum split into ViewMode + PaneFocus (document valid pairs) - deferred, ViewMode done but PaneFocus not yet separated
+- [x] Model struct uses sub-state structs (DataState, FilterState, AnalysisCache) - Step 1.2, commit 84edd951
+- [x] `activeModal ModalType` replaces 19 show* booleans - Step 1.3, commit 0b8b5ea7
+- [~] Update() is under 100 lines (routing only) - 147 lines (142 router + tail logic), Step 1.4, commit bf773c82
+- [x] Handler methods are in separate files by concern - 3 files: model_update_data.go, model_update_input.go, model_update_analysis.go
+- [x] All tests pass (test helper for Model construction) - 24/24 packages green
+- [x] TUI behavior unchanged - robot mode smoke-tested, build clean
+- [ ] Step 1.5: Footer extraction - deferred to bt-oim6 (bundle with Phase 2)
+
+### Execution Notes (2026-04-10)
+
+**What went as planned:**
+- Incremental commit strategy worked well (1.1 -> 1.2 -> 1.3 -> 1.4)
+- Test-after-each-step caught issues early
+- Public accessor methods (added in Phase 0.5) kept 40+ test files working untouched
+- model.go reduction: 3,684 -> 1,438 lines (61%). Update(): 2,387 -> 147 lines.
+
+**What didn't go as planned:**
+- Worker 1 used `sed` for bulk replacement and hit FlowMatrixModel/InsightsModel receivers (they also have `issues` fields). Overshoot consumed context recovering.
+- Worker 1 exhausted context mid-Step 1.2. Required spawning Worker 2.
+- Test files needed fixing at each step (not deferred to 1.6 as planned - they must compile for green gate).
+- `focus` enum split into PaneFocus was not completed - ViewMode subsumes the view-level values but pane-level focus values still use the old enum.
+- Update() landed at 147 lines, not under 100. The tail logic (activity recording, background worker polling) doesn't naturally belong in any handler file.
+
+**How this shapes remaining phases:**
+- Phase 1.5 (footer) should bundle with Phase 2 - both touch styling code in model_footer.go.
+- Phase 2 and Phase 3 touch different files (pkg/ui/ vs cmd/bt/) and can genuinely run in parallel.
+- The PaneFocus extraction is a follow-up task, not blocking anything.
+- Bulk sed/replace-all is risky in this codebase - multiple model types share field names. Workers should grep for receiver types before replacing.
 
 ---
 

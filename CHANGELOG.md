@@ -6,6 +6,26 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-10b - Phase 1: Model decomposition (bt-98v9)
+
+**Core refactor shipped**: 4 commits, 21 files, 3,235 insertions / 3,030 deletions.
+
+**Step 1.1 - ViewMode enum**: Replaced 7 mutually exclusive boolean view flags (`isBoardView`, `isGraphView`, etc.) with an 11-value `ViewMode` enum. All routing (View(), Update(), key dispatch) now switches on `m.mode`.
+
+**Step 1.2 - State extraction**: Moved ~50 fields from Model into focused sub-structs: `DataState` (pointer, issues/snapshot/worker), `FilterState` (pointer, filters/BQL/recipes), `AnalysisCache` (pointer, triage scores/counts). `DoltState` and `WorkspaceState` embedded as value types. Model copy per frame: ~1.6KB -> ~240 bytes.
+
+**Step 1.3 - Modal state**: Replaced 19 `show*` booleans with single `activeModal ModalType` enum (16 values). Added `modalActive()`, `openModal()`, `closeModal()` helpers.
+
+**Step 1.4 - Update() decomposition**: Split 2,387-line Update() into 147-line thin router + 3 handler files: `model_update_data.go` (871 lines), `model_update_input.go` (1,217 lines), `model_update_analysis.go` (348 lines). model.go: 3,684 -> 1,438 lines.
+
+**Step 1.5 deferred**: Footer extraction (bt-oim6) - `model_footer.go` touches 35+ Model fields. Natural to bundle with Phase 2 theme redesign.
+
+**Process**: 2 worker agents, ~65 min wall clock. Worker 1 exhausted context on a sed overshoot (replaced `m.issues` in FlowMatrixModel/InsightsModel receivers). Monitor caught it early. Worker 2 finished cleanly through Step 1.4.
+
+**All 24 test packages green. Build clean.**
+
+---
+
 ## 2026-04-03c - Global hub data layer (bt-6wbd phase 1)
 
 **GlobalDoltReader shipped**: `internal/datasource/global_dolt.go` - connects to shared Dolt server without a database in the DSN, enumerates all beads project databases, loads issues via UNION ALL with backtick-quoted `database.table` syntax.
