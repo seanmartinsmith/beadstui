@@ -79,15 +79,15 @@ func TestRobotFlagsOutputJSON(t *testing.T) {
 		return out
 	}
 
-	for _, flag := range [][]string{
-		{"--robot-plan"},
-		{"--robot-insights"},
-		{"--robot-priority"},
-		{"--robot-recipes"},
+	for _, args := range [][]string{
+		{"robot", "plan"},
+		{"robot", "insights"},
+		{"robot", "priority"},
+		{"robot", "recipes"},
 	} {
-		out := run(flag...)
+		out := run(args...)
 		if !json.Valid(out) {
-			t.Fatalf("%v did not return valid JSON: %s", flag, string(out))
+			t.Fatalf("%v did not return valid JSON: %s", args, string(out))
 		}
 	}
 }

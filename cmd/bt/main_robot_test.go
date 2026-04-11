@@ -28,32 +28,32 @@ func TestRobotPlanAndPriorityIncludeMetadata(t *testing.T) {
 
 	exe := buildTestBinary(t)
 
-	runAndCheck := func(flag string) {
-		cmd := exec.Command(exe, flag)
+	runAndCheck := func(args ...string) {
+		cmd := exec.Command(exe, args...)
 		cmd.Dir = dir
 		cmd.Env = append(os.Environ(), "BT_TEST_MODE=1", "BT_NO_BROWSER=1")
 		out, err := cmd.Output()
 		if err != nil {
-			t.Fatalf("%s failed: %v, out=%s", flag, err, string(out))
+			t.Fatalf("%v failed: %v, out=%s", args, err, string(out))
 		}
 		var payload map[string]any
 		if err := json.Unmarshal(out, &payload); err != nil {
-			t.Fatalf("%s json: %v", flag, err)
+			t.Fatalf("%v json: %v", args, err)
 		}
 		if _, ok := payload["data_hash"]; !ok {
-			t.Fatalf("%s missing data_hash", flag)
+			t.Fatalf("%v missing data_hash", args)
 		}
 		if _, ok := payload["analysis_config"]; !ok {
-			t.Fatalf("%s missing analysis_config", flag)
+			t.Fatalf("%v missing analysis_config", args)
 		}
 		statusAny, ok := payload["status"]
 		if !ok {
-			t.Fatalf("%s missing status", flag)
+			t.Fatalf("%v missing status", args)
 		}
 
 		status, ok := statusAny.(map[string]any)
 		if !ok {
-			t.Fatalf("%s status not an object", flag)
+			t.Fatalf("%v status not an object", args)
 		}
 
 		// Ensure the status contract is usable at process exit (no pending/empty states).
@@ -61,28 +61,28 @@ func TestRobotPlanAndPriorityIncludeMetadata(t *testing.T) {
 		for _, metric := range expected {
 			entryAny, ok := status[metric]
 			if !ok {
-				t.Fatalf("%s status missing %s", flag, metric)
+				t.Fatalf("%v status missing %s", args, metric)
 			}
 			entry, ok := entryAny.(map[string]any)
 			if !ok {
-				t.Fatalf("%s status.%s not an object", flag, metric)
+				t.Fatalf("%v status.%s not an object", args, metric)
 			}
 			stateAny, ok := entry["state"]
 			if !ok {
-				t.Fatalf("%s status.%s missing state", flag, metric)
+				t.Fatalf("%v status.%s missing state", args, metric)
 			}
 			state, _ := stateAny.(string)
 			if state == "" {
-				t.Fatalf("%s status.%s state empty", flag, metric)
+				t.Fatalf("%v status.%s state empty", args, metric)
 			}
 			if state == "pending" {
-				t.Fatalf("%s status.%s still pending at exit", flag, metric)
+				t.Fatalf("%v status.%s still pending at exit", args, metric)
 			}
 		}
 	}
 
-	runAndCheck("--robot-plan")
-	runAndCheck("--robot-priority")
+	runAndCheck("robot", "plan")
+	runAndCheck("robot", "priority")
 }
 
 // buildTestBinary builds the current module's bt binary for testing.
@@ -122,8 +122,8 @@ func TestTOONOutputFormat(t *testing.T) {
 
 	exe := buildTestBinary(t)
 
-	// Test TOON output for robot-next
-	cmd := exec.Command(exe, "--robot-next", "--format=toon")
+	// Test TOON output for robot next
+	cmd := exec.Command(exe, "robot", "next", "--format=toon")
 	cmd.Dir = dir
 	out, err := cmd.Output()
 	if err != nil {
@@ -164,7 +164,7 @@ func TestTOONRoundTrip(t *testing.T) {
 	exe := buildTestBinary(t)
 
 	// Get TOON output
-	cmd := exec.Command(exe, "--robot-next", "--format=toon")
+	cmd := exec.Command(exe, "robot", "next", "--format=toon")
 	cmd.Dir = dir
 	toonOut, err := cmd.Output()
 	if err != nil {
@@ -218,7 +218,7 @@ func TestTOONTokenStats(t *testing.T) {
 	exe := buildTestBinary(t)
 
 	// Test --stats flag with TOON output
-	cmd := exec.Command(exe, "--robot-next", "--format=toon", "--stats")
+	cmd := exec.Command(exe, "robot", "next", "--format=toon", "--stats")
 	cmd.Dir = dir
 	var stderr strings.Builder
 	cmd.Stderr = &stderr
@@ -243,8 +243,8 @@ func TestTOONSchemaOutput(t *testing.T) {
 
 	exe := buildTestBinary(t)
 
-	// Test --robot-schema with TOON format
-	cmd := exec.Command(exe, "--robot-schema", "--format=toon")
+	// Test robot schema with TOON format
+	cmd := exec.Command(exe, "robot", "schema", "--format=toon")
 	out, err := cmd.Output()
 	if err != nil {
 		t.Fatalf("robot-schema with toon failed: %v", err)
