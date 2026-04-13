@@ -330,6 +330,10 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 	} else {
 		titleStyle = titleStyle.Foreground(ColorTextSecondary)
 	}
+	// bt-9kdo: dim wisps
+	if i.Issue.Ephemeral != nil && *i.Issue.Ephemeral {
+		titleStyle = titleStyle.Foreground(ColorMuted).Italic(true)
+	}
 	leftSide.WriteString(titleStyle.Render(title))
 
 	// Right side

@@ -189,6 +189,16 @@ func (m *Model) renderFooter() string {
 			Render(fmt.Sprintf("↕ %s", m.filter.sortMode.String()))
 	}
 
+	// Wisp visibility badge (bt-9kdo)
+	wispBadge := ""
+	if m.showWisps {
+		wispBadge = lipgloss.NewStyle().
+			Background(ColorBgHighlight).
+			Foreground(ColorSecondary).
+			Padding(0, 1).
+			Render("wisps")
+	}
+
 	labelHint := lipgloss.NewStyle().
 		Foreground(ColorMuted).
 		Padding(0, 1).
@@ -658,6 +668,9 @@ func (m *Model) renderFooter() string {
 	if sortBadge != "" {
 		leftWidth += lipgloss.Width(sortBadge) + 1
 	}
+	if wispBadge != "" {
+		leftWidth += lipgloss.Width(wispBadge) + 1
+	}
 	if alertsSection != "" {
 		leftWidth += lipgloss.Width(alertsSection) + 1
 	}
@@ -698,6 +711,9 @@ func (m *Model) renderFooter() string {
 	}
 	if sortBadge != "" {
 		parts = append(parts, sortBadge)
+	}
+	if wispBadge != "" {
+		parts = append(parts, wispBadge)
 	}
 	parts = append(parts, labelHint)
 	if alertsSection != "" {

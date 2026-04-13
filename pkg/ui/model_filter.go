@@ -109,6 +109,16 @@ func (m *Model) filteredIssuesForActiveView() []model.Issue {
 	// BQL filter active? Use BQL executor (set-level operations: ORDER BY, EXPAND)
 	if m.filter.activeBQLExpr != nil && strings.HasPrefix(m.filter.currentFilter, "bql:") {
 		issues := m.workspacePrefilter(m.data.issues)
+		// bt-9kdo: skip wisps when hidden
+		if !m.showWisps {
+			filtered := make([]model.Issue, 0, len(issues))
+			for _, issue := range issues {
+				if issue.Ephemeral == nil || !*issue.Ephemeral {
+					filtered = append(filtered, issue)
+				}
+			}
+			issues = filtered
+		}
 		opts := bql.ExecuteOpts{IssueMap: m.data.issueMap}
 		return m.filter.bqlEngine.Execute(m.filter.activeBQLExpr, issues, opts)
 	}
@@ -117,6 +127,10 @@ func (m *Model) filteredIssuesForActiveView() []model.Issue {
 	recipeFilterActive := m.filter.activeRecipe != nil && strings.HasPrefix(m.filter.currentFilter, "recipe:")
 	if recipeFilterActive {
 		for _, issue := range m.data.issues {
+			// bt-9kdo: skip wisps when hidden
+			if !m.showWisps && issue.Ephemeral != nil && *issue.Ephemeral {
+				continue
+			}
 			if m.workspaceMode && m.activeRepos != nil {
 				repoKey := strings.ToLower(ExtractRepoPrefix(issue.ID))
 				if repoKey != "" && !m.activeRepos[repoKey] {
@@ -131,6 +145,10 @@ func (m *Model) filteredIssuesForActiveView() []model.Issue {
 		return filtered
 	}
 	for _, issue := range m.data.issues {
+		// bt-9kdo: skip wisps when hidden
+		if !m.showWisps && issue.Ephemeral != nil && *issue.Ephemeral {
+			continue
+		}
 		if m.matchesCurrentFilter(issue) {
 			filtered = append(filtered, issue)
 		}
@@ -184,6 +202,10 @@ func (m *Model) applyFilter() {
 	var filteredIssues []model.Issue
 
 	for _, issue := range m.data.issues {
+		// bt-9kdo: skip wisps when hidden
+		if !m.showWisps && issue.Ephemeral != nil && *issue.Ephemeral {
+			continue
+		}
 		if m.matchesCurrentFilter(issue) {
 			// Use pre-computed graph scores (avoid redundant calculation)
 			item := IssueItem{

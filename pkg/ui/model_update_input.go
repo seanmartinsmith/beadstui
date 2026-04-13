@@ -938,10 +938,16 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			return m, nil
 
 		case "w":
-			// Project picker overlay (multi-project mode)
+			// Project picker overlay (multi-project mode), or wisp toggle (bt-9kdo)
 			if !m.workspaceMode || len(m.availableRepos) == 0 {
-				m.statusMsg = "Project filter available only in multi-project mode"
-				m.statusIsError = false
+				// bt-9kdo: toggle wisp (ephemeral) visibility
+				m.showWisps = !m.showWisps
+				m.applyFilter()
+				if m.showWisps {
+					m.setStatus("wisps: visible")
+				} else {
+					m.setStatus("wisps: hidden")
+				}
 				return m, nil
 			}
 			if m.activeModal == ModalRepoPicker {

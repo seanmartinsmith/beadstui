@@ -472,6 +472,7 @@ type Model struct {
 	labelDrilldownCache      map[string][]model.Issue
 	labelGraphAnalysisResult *LabelGraphAnalysisResult
 	showShortcutsSidebar     bool // bv-3qi5 toggleable shortcuts sidebar
+	showWisps                bool // bt-9kdo: toggle wisp visibility (default: hide)
 	labelHealthCached        bool
 	labelHealthCache         analysis.LabelAnalysisResult
 	attentionCached          bool
