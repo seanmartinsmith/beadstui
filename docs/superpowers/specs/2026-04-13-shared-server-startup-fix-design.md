@@ -98,12 +98,16 @@ DiscoverSharedServer() finds port file
 
 ```go
 func startSharedDoltServer() error {
-    if _, err := exec.LookPath("bd"); err != nil {
+    bdPath, err := exec.LookPath("bd")
+    if err != nil {
         return fmt.Errorf("bd CLI not found")
     }
     ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
     defer cancel()
-    cmd := exec.CommandContext(ctx, "bd", "dolt", "start")
+    cmd := exec.CommandContext(ctx, bdPath, "dolt", "start")
+    // Force shared server mode regardless of cwd - we know this is a shared
+    // server setup because DiscoverSharedServer() found the port file.
+    cmd.Env = append(os.Environ(), "BEADS_DOLT_SHARED_SERVER=1")
     out, err := cmd.CombinedOutput()
     if err != nil {
         return fmt.Errorf("bd dolt start failed: %w\nOutput: %s", err, string(out))
@@ -133,7 +137,7 @@ func startSharedDoltServer() error {
 
 ### Working directory for `bd dolt start`
 
-`bd dolt start` resolves server mode from the current project's `.beads/metadata.json`. If bt is launched from a non-beads directory (e.g., `~`), `bd` won't find a project config. The helper should try the current directory first, and if no beads project is found, use the shared server directory directly. Since the port file already told us this IS a shared server setup, we can set `BEADS_DOLT_SHARED_SERVER=1` to ensure `bd` starts in shared mode regardless of cwd.
+`bd dolt start` resolves server mode from the current project's `.beads/metadata.json`. If bt is launched from a non-beads directory (e.g., `~`), `bd` won't find a project config. The helper sets `BEADS_DOLT_SHARED_SERVER=1` on the subprocess environment to force shared mode regardless of cwd. This is safe because we only reach this code path when `DiscoverSharedServer()` already found the port file - confirming a shared server setup exists.
 
 ### Ghost process prevention
 
@@ -166,15 +170,13 @@ Not part of this spec. Filed as bt-bv3a. When bt detects a local-only project, i
 | bt-d8ty | Scroll acceleration on issues list | UX polish, unrelated |
 | bt-bv3a | Document local-to-shared migration path | Follow-up, depends on this fix shipping first |
 
-## Cross-project context (from beads session)
+## Cross-project context (from beads session bd-zsy8)
 
-The beads session (bd-zsy8 investigation + bd-mh6 epic) established:
+Server lifecycle findings that informed this design:
 
-- **bd human** is advisory only (label + comment). Does NOT block issues.
-- **bd gate await:human** is the blocking mechanism, currently tied to formula/molecule system only.
-- **Server lifecycle**: auto-starts on demand, never auto-stops. `cleanupStateFiles()` removes port/PID on stop. `IsRunning()` detects and cleans stale files on crash.
-- **No env var needed** for `bd dolt start` - bd reads the project's `metadata.json` to determine shared vs per-project mode.
-- The broader cross-project beads OS epic (bd-mh6) has 10 children across infrastructure, conventions, and tooling. This fix is one piece of that.
+- **Auto-starts on demand, never auto-stops.** Server persists across commands. `cleanupStateFiles()` removes port/PID on stop. `IsRunning()` detects and cleans stale files on crash.
+- **`BEADS_DOLT_SHARED_SERVER=1`** forces shared mode. Without it, `bd dolt start` resolves mode from the cwd's `.beads/metadata.json`.
+- **Key files in beads:** `internal/doltserver/doltserver.go` (lifecycle), `internal/doltserver/servermode.go` (mode resolution), `internal/storage/dolt/store.go:972-1010` (auto-start trigger).
 
 ## Testing
 
