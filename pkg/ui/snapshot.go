@@ -187,6 +187,11 @@ type DataSnapshot struct {
 	// In TUI mode, warnings must not be printed to stderr during render.
 	LoadWarningCount int
 
+	// Temporal data (global Dolt mode only)
+	// TemporalCache provides historical snapshots for sparklines, diff mode, etc.
+	// Nil when not in global mode or when cache hasn't been populated yet.
+	TemporalCache *analysis.TemporalCache
+
 	// Phase 2 analysis status
 	// Phase2Ready is true when expensive metrics (PageRank, Betweenness, etc.) are computed
 	// UI can render immediately with Phase 1 data, then refresh when Phase 2 completes
@@ -274,9 +279,10 @@ type SnapshotBuilder struct {
 	recipe   *recipe.Recipe
 	cfg      snapshotBuildConfig
 
-	prevSnapshot *DataSnapshot
-	diff         *analysis.IssueDiff
-	diffStats    IssueDiffStats
+	prevSnapshot  *DataSnapshot
+	diff          *analysis.IssueDiff
+	diffStats     IssueDiffStats
+	temporalCache *analysis.TemporalCache
 }
 
 // NewSnapshotBuilder creates a builder for constructing a DataSnapshot.
@@ -296,6 +302,13 @@ func (b *SnapshotBuilder) WithAnalysis(a *analysis.GraphStats) *SnapshotBuilder 
 
 func (b *SnapshotBuilder) WithRecipe(r *recipe.Recipe) *SnapshotBuilder {
 	b.recipe = r
+	return b
+}
+
+// WithTemporalCache attaches the temporal cache to the snapshot being built.
+// The cache reference is shared (not copied) - it's populated by a separate goroutine.
+func (b *SnapshotBuilder) WithTemporalCache(tc *analysis.TemporalCache) *SnapshotBuilder {
+	b.temporalCache = tc
 	return b
 }
 
@@ -508,6 +521,7 @@ func (b *SnapshotBuilder) Build() *DataSnapshot {
 		TreeNodeMap:   treeNodeMap,
 		BoardState:    boardState,
 		GraphLayout:   graphLayout,
+		TemporalCache: b.temporalCache,
 		CreatedAt:     time.Now(),
 		Phase2Ready:   graphStats.IsPhase2Ready(),
 		IssueDiff:     b.diff,

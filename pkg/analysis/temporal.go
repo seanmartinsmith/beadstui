@@ -292,6 +292,16 @@ func (tc *TemporalCache) evictOldest() {
 	}
 }
 
+// TTL returns the cache's staleness threshold.
+func (tc *TemporalCache) TTL() time.Duration {
+	return tc.ttl
+}
+
+// MaxSnapshots returns the configured maximum number of snapshots.
+func (tc *TemporalCache) MaxSnapshots() int {
+	return tc.maxSnapshots
+}
+
 // Clear removes all cached snapshots.
 func (tc *TemporalCache) Clear() {
 	tc.mu.Lock()

@@ -227,6 +227,9 @@ type BackgroundWorker struct {
 	coalesceCount  atomic.Int64
 	metrics        workerMetrics
 
+	// Temporal cache for historical snapshot data (global Dolt mode only)
+	temporalCache *analysis.TemporalCache
+
 	// Error tracking
 	lastError  *WorkerError // Most recent error (nil if last operation succeeded)
 	errorCount int          // Consecutive error count for backoff
@@ -362,6 +365,11 @@ func NewBackgroundWorker(cfg WorkerConfig) (*BackgroundWorker, error) {
 		doltReconnectFn:   cfg.DoltReconnectFn,
 	}
 	w.lastActivityUnixNano.Store(time.Now().UnixNano())
+
+	// Initialize temporal cache for global Dolt mode
+	if cfg.DataSource != nil && cfg.DataSource.Type == datasource.SourceTypeDoltGlobal {
+		w.temporalCache = analysis.NewTemporalCache(analysis.DefaultTemporalCacheConfig())
+	}
 
 	// Initialize file watcher
 	if cfg.BeadsPath != "" {
@@ -611,6 +619,7 @@ func (w *BackgroundWorker) Start() error {
 		w.startLoop()
 		w.startWatchdog()
 		go w.startDoltPollLoop()
+		go w.startTemporalCacheLoop()
 	} else {
 		// No watcher and no Dolt - close done channel immediately so Stop() doesn't block
 		if idleGCEnabled && idleGCGCPercent > 0 {
@@ -1540,6 +1549,9 @@ func (w *BackgroundWorker) buildSnapshot() *DataSnapshot {
 			WithBuildConfig(snapshotBuildConfigForTier(tier))
 		if prevSnapshot != nil {
 			builder.WithPreviousSnapshot(prevSnapshot, diff)
+		}
+		if w.temporalCache != nil {
+			builder.WithTemporalCache(w.temporalCache)
 		}
 		snapshot = builder.Build()
 		return nil
