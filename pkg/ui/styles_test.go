@@ -120,14 +120,14 @@ func TestRenderGateBadge(t *testing.T) {
 		want      string
 	}{
 		{"human", "👤"},
-		{"timer", "TMR"},
-		{"gh:run", "CI"},
-		{"ci", "CI"},
-		{"gh:pr", "PR"},
-		{"pr", "PR"},
-		{"bead", "BD"},
-		{"unknown", "GTD"},
-		{"", "GTD"},
+		{"timer", "⏱"},
+		{"gh:run", "⚙"},
+		{"ci", "⚙"},
+		{"gh:pr", "⬡"},
+		{"pr", "⬡"},
+		{"bead", "⛓"},
+		{"unknown", "⏸"},
+		{"", "⏸"},
 	}
 
 	for _, tt := range tests {

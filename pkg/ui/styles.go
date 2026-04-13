@@ -301,15 +301,15 @@ func RenderGateBadge(awaitType string) string {
 	case awaitType == "human":
 		fg, bg, label = ColorGateHuman, ColorGateHumanBg, "👤"
 	case awaitType == "timer":
-		fg, bg, label = ColorGateTimer, ColorGateTimerBg, "⏱TMR"
+		fg, bg, label = ColorGateTimer, ColorGateTimerBg, "⏱"
 	case awaitType == "gh:run" || awaitType == "ci":
-		fg, bg, label = ColorGateCI, ColorGateCIBg, "⚙CI"
+		fg, bg, label = ColorGateCI, ColorGateCIBg, "⚙"
 	case awaitType == "gh:pr" || awaitType == "pr":
-		fg, bg, label = ColorGateCI, ColorGateCIBg, "⬡PR"
+		fg, bg, label = ColorGateCI, ColorGateCIBg, "⬡"
 	case awaitType == "bead":
-		fg, bg, label = ColorGateOther, ColorGateOtherBg, "⛓BD"
+		fg, bg, label = ColorGateOther, ColorGateOtherBg, "⛓"
 	default:
-		fg, bg, label = ColorGateOther, ColorGateOtherBg, "⏸GTD"
+		fg, bg, label = ColorGateOther, ColorGateOtherBg, "⏸"
 	}
 
 	return lipgloss.NewStyle().
