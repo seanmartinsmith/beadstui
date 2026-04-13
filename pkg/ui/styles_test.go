@@ -3,7 +3,9 @@ package ui
 import (
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 func TestRenderPriorityBadge(t *testing.T) {
@@ -175,6 +177,174 @@ func TestHasHumanLabel(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("hasHumanLabel(%v) = %v, want %v", tt.labels, got, tt.want)
 		}
+	}
+}
+
+func TestRenderOverdueBadge(t *testing.T) {
+	got := RenderOverdueBadge()
+	if !strings.Contains(got, "DUE") {
+		t.Errorf("RenderOverdueBadge() = %q, want to contain 'DUE'", got)
+	}
+}
+
+func TestRenderStaleBadge(t *testing.T) {
+	got := RenderStaleBadge()
+	if !strings.Contains(got, "STL") {
+		t.Errorf("RenderStaleBadge() = %q, want to contain 'STL'", got)
+	}
+}
+
+func TestIsOverdue(t *testing.T) {
+	past := time.Now().Add(-48 * time.Hour)
+	future := time.Now().Add(48 * time.Hour)
+
+	tests := []struct {
+		name string
+		issue model.Issue
+		want  bool
+	}{
+		{"past due, open", model.Issue{DueDate: &past, Status: model.StatusOpen, IssueType: "task"}, true},
+		{"future due, open", model.Issue{DueDate: &future, Status: model.StatusOpen, IssueType: "task"}, false},
+		{"past due, closed", model.Issue{DueDate: &past, Status: model.StatusClosed, IssueType: "task"}, false},
+		{"no due date", model.Issue{Status: model.StatusOpen, IssueType: "task"}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isOverdue(&tt.issue)
+			if got != tt.want {
+				t.Errorf("isOverdue() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsStale(t *testing.T) {
+	recent := time.Now().Add(-1 * time.Hour)
+	old := time.Now().Add(-30 * 24 * time.Hour)
+
+	tests := []struct {
+		name  string
+		issue model.Issue
+		want  bool
+	}{
+		{"recently updated, open", model.Issue{UpdatedAt: recent, Status: model.StatusOpen, IssueType: "task"}, false},
+		{"old update, open", model.Issue{UpdatedAt: old, Status: model.StatusOpen, IssueType: "task"}, true},
+		{"old update, in_progress", model.Issue{UpdatedAt: old, Status: model.StatusInProgress, IssueType: "task"}, true},
+		{"old update, closed", model.Issue{UpdatedAt: old, Status: model.StatusClosed, IssueType: "task"}, false},
+		{"old update, deferred", model.Issue{UpdatedAt: old, Status: model.StatusDeferred, IssueType: "task"}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isStale(&tt.issue)
+			if got != tt.want {
+				t.Errorf("isStale() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseStateDimensions(t *testing.T) {
+	tests := []struct {
+		name   string
+		labels []string
+		want   int
+		dims   []StateDimension
+	}{
+		{"basic", []string{"health:degraded", "patrol:active"}, 2,
+			[]StateDimension{{"health", "degraded"}, {"patrol", "active"}}},
+		{"excludes non-state", []string{"export:capability", "provides:api", "health:ok"}, 1,
+			[]StateDimension{{"health", "ok"}}},
+		{"no colons", []string{"bug", "p0", "human"}, 0, nil},
+		{"colon at start", []string{":value"}, 0, nil},
+		{"colon at end", []string{"dim:"}, 0, nil},
+		{"empty", nil, 0, nil},
+		{"mixed", []string{"bug", "mode:dark", "external:jira", "stream:alpha"}, 1,
+			[]StateDimension{{"mode", "dark"}}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := parseStateDimensions(tt.labels)
+			if len(got) != tt.want {
+				t.Errorf("parseStateDimensions() returned %d dims, want %d", len(got), tt.want)
+			}
+			if tt.dims != nil {
+				for i, d := range tt.dims {
+					if i >= len(got) {
+						break
+					}
+					if got[i].Dimension != d.Dimension || got[i].Value != d.Value {
+						t.Errorf("dim[%d] = %v, want %v", i, got[i], d)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestRenderStateDimensionBadge(t *testing.T) {
+	tests := []struct {
+		dim, val string
+		contains string
+	}{
+		{"health", "degraded", "health:degraded"},
+		{"patrol", "active", "patrol:active"},
+		{"mode", "dark", "mode:dark"},
+		{"custom", "value", "custom:value"},
+	}
+
+	for _, tt := range tests {
+		got := RenderStateDimensionBadge(tt.dim, tt.val)
+		if !strings.Contains(got, tt.contains) {
+			t.Errorf("RenderStateDimensionBadge(%q, %q) = %q, want to contain %q", tt.dim, tt.val, got, tt.contains)
+		}
+	}
+}
+
+func TestEpicProgress(t *testing.T) {
+	epic := model.Issue{ID: "ep-1", IssueType: model.TypeEpic, Status: model.StatusOpen}
+	child1 := model.Issue{
+		ID: "ch-1", Status: model.StatusClosed, IssueType: model.TypeTask,
+		Dependencies: []*model.Dependency{{IssueID: "ch-1", DependsOnID: "ep-1", Type: model.DepParentChild}},
+	}
+	child2 := model.Issue{
+		ID: "ch-2", Status: model.StatusOpen, IssueType: model.TypeTask,
+		Dependencies: []*model.Dependency{{IssueID: "ch-2", DependsOnID: "ep-1", Type: model.DepParentChild}},
+	}
+	child3 := model.Issue{
+		ID: "ch-3", Status: model.StatusInProgress, IssueType: model.TypeTask,
+		Dependencies: []*model.Dependency{{IssueID: "ch-3", DependsOnID: "ep-1", Type: model.DepParentChild}},
+	}
+	unrelated := model.Issue{
+		ID: "un-1", Status: model.StatusOpen, IssueType: model.TypeTask,
+		Dependencies: []*model.Dependency{{IssueID: "un-1", DependsOnID: "other-epic", Type: model.DepParentChild}},
+	}
+
+	all := []model.Issue{epic, child1, child2, child3, unrelated}
+
+	done, total := epicProgress("ep-1", all)
+	if total != 3 {
+		t.Errorf("epicProgress total = %d, want 3", total)
+	}
+	if done != 1 {
+		t.Errorf("epicProgress done = %d, want 1", done)
+	}
+
+	// No children
+	done2, total2 := epicProgress("no-children", all)
+	if total2 != 0 || done2 != 0 {
+		t.Errorf("epicProgress for nonexistent = (%d, %d), want (0, 0)", done2, total2)
+	}
+
+	// All closed
+	child2.Status = model.StatusClosed
+	child3.Status = model.StatusClosed
+	all2 := []model.Issue{epic, child1, child2, child3}
+	done3, total3 := epicProgress("ep-1", all2)
+	if total3 != 3 || done3 != 3 {
+		t.Errorf("epicProgress all closed = (%d, %d), want (3, 3)", done3, total3)
 	}
 }
 

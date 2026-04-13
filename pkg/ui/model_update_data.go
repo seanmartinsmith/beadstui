@@ -682,6 +682,9 @@ func (m Model) handleFileChanged(msg FileChangedMsg) (Model, tea.Cmd) {
 		item.IsQuickWin = m.ac.quickWinSet[m.data.issues[i].ID]
 		item.IsBlocker = m.ac.blockerSet[m.data.issues[i].ID]
 		item.UnblocksCount = len(m.ac.unblocksMap[m.data.issues[i].ID])
+		if m.data.issues[i].IssueType == model.TypeEpic {
+			item.EpicDone, item.EpicTotal = epicProgress(m.data.issues[i].ID, m.data.issues)
+		}
 		items[i] = item
 	}
 	if profileRefresh {

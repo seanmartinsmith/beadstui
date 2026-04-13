@@ -2,10 +2,12 @@ package ui
 
 import (
 	"fmt"
+	"image/color"
 	"io"
 	"strings"
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
@@ -148,13 +150,39 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 	var gateBadge string
 	if width > 80 {
 		if i.Issue.AwaitType != nil {
-			// Blocking gate - red/amber badge by type
 			gateBadge = RenderGateBadge(*i.Issue.AwaitType)
 			leftFixedWidth += lipgloss.Width(gateBadge) + 1
 		} else if hasHumanLabel(i.Issue.Labels) {
-			// Advisory human flag - yellow badge (only when no blocking gate)
 			gateBadge = RenderHumanAdvisoryBadge()
 			leftFixedWidth += lipgloss.Width(gateBadge) + 1
+		}
+	}
+
+	// Epic progress indicator (bt-waeh) - only at width > 80
+	var epicBadge string
+	if width > 80 && i.Issue.IssueType == model.TypeEpic && i.EpicTotal > 0 {
+		epicLabel := fmt.Sprintf("%d/%d", i.EpicDone, i.EpicTotal)
+		var epicFg color.Color
+		if i.EpicDone == i.EpicTotal {
+			epicFg = ColorSuccess
+		} else if i.EpicDone > 0 {
+			epicFg = ColorInfo
+		} else {
+			epicFg = ColorMuted
+		}
+		epicBadge = lipgloss.NewStyle().Foreground(epicFg).Render(epicLabel)
+		leftFixedWidth += lipgloss.Width(epicBadge) + 1
+	}
+
+	// Overdue/stale indicator (bt-5oqf) - only at width > 80
+	var timeBadge string
+	if width > 80 {
+		if isOverdue(&i.Issue) {
+			timeBadge = RenderOverdueBadge()
+			leftFixedWidth += lipgloss.Width(timeBadge) + 1
+		} else if isStale(&i.Issue) {
+			timeBadge = RenderStaleBadge()
+			leftFixedWidth += lipgloss.Width(timeBadge) + 1
 		}
 	}
 
@@ -256,6 +284,18 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 	// Gate/human indicator (bt-c69c)
 	if gateBadge != "" {
 		leftSide.WriteString(gateBadge)
+		leftSide.WriteString(" ")
+	}
+
+	// Overdue/stale indicator (bt-5oqf)
+	if timeBadge != "" {
+		leftSide.WriteString(timeBadge)
+		leftSide.WriteString(" ")
+	}
+
+	// Epic progress (bt-waeh)
+	if epicBadge != "" {
+		leftSide.WriteString(epicBadge)
 		leftSide.WriteString(" ")
 	}
 

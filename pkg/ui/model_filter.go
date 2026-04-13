@@ -651,6 +651,15 @@ func (m *Model) updateViewportContent() {
 		sb.WriteString(fmt.Sprintf("**Labels:** %s\n\n", strings.Join(item.Labels, ", ")))
 	}
 
+	// State dimensions (bt-jprp) - parsed from dimension:value labels
+	if dims := parseStateDimensions(item.Labels); len(dims) > 0 {
+		sb.WriteString("### 🏷️ State Dimensions\n")
+		for _, d := range dims {
+			sb.WriteString(fmt.Sprintf("- **%s:** %s\n", d.Dimension, d.Value))
+		}
+		sb.WriteString("\n")
+	}
+
 	// Gate status (bt-c69c) - blocking coordination
 	if item.AwaitType != nil {
 		sb.WriteString("### 🚧 Gate (Blocking)\n")
@@ -681,6 +690,52 @@ func (m *Model) updateViewportContent() {
 			sb.WriteString("- **Template:** yes\n")
 		}
 		sb.WriteString("\n")
+	}
+
+	// Epic progress (bt-waeh)
+	if item.IssueType == model.TypeEpic {
+		done, total := epicProgress(item.ID, m.data.issues)
+		if total > 0 {
+			pct := 0
+			if total > 0 {
+				pct = done * 100 / total
+			}
+			sb.WriteString("### 🚀 Epic Progress\n")
+			sb.WriteString(fmt.Sprintf("**%d / %d** children complete (%d%%)\n\n", done, total, pct))
+
+			// List children with status
+			for i := range m.data.issues {
+				for _, dep := range m.data.issues[i].Dependencies {
+					if dep != nil && dep.Type == model.DepParentChild && dep.DependsOnID == item.ID {
+						statusIcon := "○"
+						if m.data.issues[i].Status.IsClosed() {
+							statusIcon = "✓"
+						} else if m.data.issues[i].Status == model.StatusInProgress {
+							statusIcon = "◉"
+						}
+						sb.WriteString(fmt.Sprintf("- %s %s — %s\n", statusIcon, m.data.issues[i].ID, m.data.issues[i].Title))
+						break
+					}
+				}
+			}
+			sb.WriteString("\n")
+		}
+	}
+
+	// Overdue/stale notices (bt-5oqf)
+	if isOverdue(&item) {
+		sb.WriteString(fmt.Sprintf("### ⏰ Overdue\n"))
+		sb.WriteString(fmt.Sprintf("Due date **%s** has passed (%s ago).\n\n",
+			FormatTimeAbs(*item.DueDate),
+			FormatTimeRel(*item.DueDate),
+		))
+	} else if isStale(&item) {
+		sb.WriteString(fmt.Sprintf("### 💤 Stale\n"))
+		sb.WriteString(fmt.Sprintf("No updates for **%s** (last: %s). Threshold: %d days.\n\n",
+			FormatTimeRel(item.UpdatedAt),
+			FormatTimeAbs(item.UpdatedAt),
+			staleDays(),
+		))
 	}
 
 	// Triage Insights (bv-151)

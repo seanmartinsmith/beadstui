@@ -52,6 +52,10 @@ type IssueItem struct {
 	IsQuickWin    bool     // True if identified as a quick win
 	IsBlocker     bool     // True if this item blocks significant downstream work
 	UnblocksCount int      // Number of items this unblocks
+
+	// Epic progress (bt-waeh) - only populated for epic-type issues with children
+	EpicDone  int // Number of closed children
+	EpicTotal int // Total number of children
 }
 
 func (i IssueItem) Title() string {

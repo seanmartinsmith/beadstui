@@ -3,6 +3,8 @@ package ui
 import (
 	"fmt"
 	"image/color"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -43,6 +45,79 @@ func FormatTimeAbs(t time.Time) string {
 		return "unknown"
 	}
 	return t.Local().Format("2006-01-02 15:04")
+}
+
+// staleDays returns the stale threshold in days from BT_STALE_DAYS env var, defaulting to 14.
+func staleDays() int {
+	if s := os.Getenv("BT_STALE_DAYS"); s != "" {
+		if n, err := strconv.Atoi(s); err == nil && n > 0 {
+			return n
+		}
+	}
+	return 14
+}
+
+// isOverdue returns true if the issue has a past due date and is not closed.
+func isOverdue(issue *model.Issue) bool {
+	return issue.DueDate != nil && issue.DueDate.Before(time.Now()) && !issue.Status.IsClosed()
+}
+
+// isStale returns true if the issue hasn't been updated in staleDays() and is open/in_progress.
+func isStale(issue *model.Issue) bool {
+	if !issue.Status.IsOpen() {
+		return false
+	}
+	threshold := time.Duration(staleDays()) * 24 * time.Hour
+	return time.Since(issue.UpdatedAt) > threshold
+}
+
+// epicProgress counts children of an epic issue by scanning all issues for parent-child deps.
+// Returns (closed, total). If the issue is not an epic or has no children, returns (0, 0).
+func epicProgress(epicID string, allIssues []model.Issue) (done, total int) {
+	for i := range allIssues {
+		for _, dep := range allIssues[i].Dependencies {
+			if dep != nil && dep.Type == model.DepParentChild && dep.DependsOnID == epicID {
+				total++
+				if allIssues[i].Status.IsClosed() {
+					done++
+				}
+				break // only count once per child
+			}
+		}
+	}
+	return
+}
+
+// StateDimension represents a parsed dimension:value label.
+type StateDimension struct {
+	Dimension string
+	Value     string
+}
+
+// nonStatePrefixes are label prefixes that look like dimension:value but are not state dimensions.
+var nonStatePrefixes = map[string]bool{
+	"export":   true,
+	"provides": true,
+	"external": true,
+	"stream":   true,
+}
+
+// parseStateDimensions extracts dimension:value pairs from labels, excluding known non-state prefixes.
+func parseStateDimensions(labels []string) []StateDimension {
+	var dims []StateDimension
+	for _, label := range labels {
+		idx := strings.Index(label, ":")
+		if idx <= 0 || idx >= len(label)-1 {
+			continue // no colon, or colon at start/end
+		}
+		dim := label[:idx]
+		val := label[idx+1:]
+		if nonStatePrefixes[dim] {
+			continue
+		}
+		dims = append(dims, StateDimension{Dimension: dim, Value: val})
+	}
+	return dims
 }
 
 // formatNanoseconds converts nanoseconds to a human-readable duration string.

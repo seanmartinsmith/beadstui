@@ -104,6 +104,11 @@ var (
 	ColorHumanAdvisory   color.Color
 	ColorHumanAdvisoryBg color.Color
 
+	// Stale/overdue indicators
+	ColorOverdue   color.Color
+	ColorOverdueBg color.Color
+	ColorStale     color.Color
+
 	// UI chrome
 	ColorBorder    color.Color
 	ColorHighlight color.Color
@@ -181,6 +186,11 @@ func resolveColors() {
 	// Human advisory: yellow/amber to distinguish from red blocking gate
 	ColorHumanAdvisory = resolveColor("#eab700", "#f0c674")
 	ColorHumanAdvisoryBg = resolveColor("#f0ecd8", "#2e2e1e")
+
+	// Stale/overdue
+	ColorOverdue = resolveColor("#c82829", "#cc6666")
+	ColorOverdueBg = resolveColor("#f0dce0", "#2e1e1e")
+	ColorStale = resolveColor("#8e908c", "#969896") // muted/dimmed
 
 	ColorBorder = resolveColor("#d6d6d6", "#373b41")
 	ColorHighlight = resolveColor("#d6d6d6", "#373b41")
@@ -319,6 +329,47 @@ func RenderHumanAdvisoryBadge() string {
 		Bold(true).
 		Padding(0, 0).
 		Render("🏷HUM")
+}
+
+// RenderStateDimensionBadge returns a styled badge for a state dimension:value label.
+// Known dimensions get distinct colors; others get a default muted style.
+func RenderStateDimensionBadge(dim, val string) string {
+	var fg color.Color
+	switch dim {
+	case "health":
+		fg = ColorDanger
+	case "patrol":
+		fg = ColorSuccess
+	case "mode":
+		fg = ColorInfo
+	default:
+		fg = ColorSecondary
+	}
+
+	label := dim + ":" + val
+	return lipgloss.NewStyle().
+		Foreground(fg).
+		Background(ColorBgSubtle).
+		Padding(0, 0).
+		Render(label)
+}
+
+// RenderOverdueBadge returns a red badge for overdue issues.
+func RenderOverdueBadge() string {
+	return lipgloss.NewStyle().
+		Foreground(ColorOverdue).
+		Background(ColorOverdueBg).
+		Bold(true).
+		Padding(0, 0).
+		Render("⏰DUE")
+}
+
+// RenderStaleBadge returns a muted badge for stale issues.
+func RenderStaleBadge() string {
+	return lipgloss.NewStyle().
+		Foreground(ColorStale).
+		Padding(0, 0).
+		Render("💤STL")
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

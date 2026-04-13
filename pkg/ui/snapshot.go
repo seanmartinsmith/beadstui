@@ -474,6 +474,9 @@ func (b *SnapshotBuilder) Build() *DataSnapshot {
 			listItems[i].IsQuickWin = quickWinSet[id]
 			listItems[i].IsBlocker = blockerSet[id]
 			listItems[i].UnblocksCount = len(unblocksMap[id])
+			if listItems[i].Issue.IssueType == model.TypeEpic {
+				listItems[i].EpicDone, listItems[i].EpicTotal = epicProgress(id, issues)
+			}
 		}
 	}
 
