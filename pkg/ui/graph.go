@@ -1,10 +1,14 @@
 package ui
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"image/color"
+	"os/exec"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
@@ -39,6 +43,12 @@ type GraphModel struct {
 	rankCriticalPath map[string]int
 	rankInDegree     map[string]int
 	rankOutDegree    map[string]int
+
+	// Swarm wave visualization (bt-1knw)
+	swarmWaves   map[string]int // issueID -> wave number
+	swarmEnabled bool           // toggle state
+	maxParallel  int            // max parallelism from swarm validate
+	estSessions  int            // estimated sessions from swarm validate
 }
 
 // NewGraphModel creates a new graph view from issues
@@ -594,6 +604,16 @@ func (g *GraphModel) renderNodeBox(id string, boxWidth int, t Theme, isEgo bool)
 			Padding(0, 0)
 	}
 
+	// bt-1knw: override border color with swarm wave color
+	if g.swarmEnabled && g.swarmWaves != nil {
+		if wave, ok := g.swarmWaves[id]; ok {
+			waveColor := swarmColorForWave(wave)
+			boxStyle = boxStyle.BorderForeground(waveColor).Foreground(waveColor)
+		} else {
+			boxStyle = boxStyle.BorderForeground(ColorMuted).Foreground(ColorMuted)
+		}
+	}
+
 	content := line1
 	if title != "" && boxWidth > 14 {
 		content = line1 + "\n" + title
@@ -855,6 +875,42 @@ func (g *GraphModel) renderMetricsPanel(id string, width int, t Theme) string {
 
 	rows = append(rows, "")
 
+	// bt-1knw: swarm wave section
+	if g.swarmEnabled && g.swarmWaves != nil {
+		maxWave := 0
+		for _, w := range g.swarmWaves {
+			if w > maxWave {
+				maxWave = w
+			}
+		}
+
+		currentWave := -1
+		if w, ok := g.swarmWaves[id]; ok {
+			currentWave = w
+		}
+
+		swarmHeaderStyle := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(ColorPrimary).
+			Padding(0, 1)
+		rows = append(rows, swarmHeaderStyle.Render("Swarm Analysis"))
+
+		swarmDetailStyle := lipgloss.NewStyle().
+			Foreground(ColorText).
+			Padding(0, 2)
+
+		waveStr := "—"
+		if currentWave >= 0 {
+			waveStr = fmt.Sprintf("Wave %d/%d", currentWave, maxWave)
+		}
+
+		rows = append(rows, swarmDetailStyle.Render(fmt.Sprintf(
+			"%s │ ∥ %d │ ~%d sessions",
+			waveStr, g.maxParallel, g.estSessions,
+		)))
+		rows = append(rows, "")
+	}
+
 	// Legend
 	legendStyle := lipgloss.NewStyle().
 		Foreground(ColorMuted).
@@ -990,4 +1046,66 @@ func smartTruncateID(id string, maxLen int) string {
 
 	// Fallback: simple truncation
 	return clamp(string(runes))
+}
+
+// swarmValidateResult represents the JSON output of `bd swarm validate`
+type swarmValidateResult struct {
+	ReadyFronts []struct {
+		Wave   int      `json:"wave"`
+		Issues []string `json:"issues"`
+	} `json:"ready_fronts"`
+	MaxParallelism    int `json:"max_parallelism"`
+	EstimatedSessions int `json:"estimated_sessions"`
+}
+
+// loadSwarmData shells out to `bd swarm validate` to get wave assignments.
+func (g *GraphModel) loadSwarmData(epicID string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "bd", "swarm", "validate", epicID, "--json")
+	out, err := cmd.Output()
+	if err != nil {
+		g.swarmWaves = nil
+		g.maxParallel = 0
+		g.estSessions = 0
+		return fmt.Errorf("bd swarm validate: %w", err)
+	}
+
+	var result swarmValidateResult
+	if err := json.Unmarshal(out, &result); err != nil {
+		return fmt.Errorf("parse swarm output: %w", err)
+	}
+
+	waves := make(map[string]int, len(g.sortedIDs))
+	for _, front := range result.ReadyFronts {
+		for _, id := range front.Issues {
+			waves[id] = front.Wave
+		}
+	}
+
+	g.swarmWaves = waves
+	g.maxParallel = result.MaxParallelism
+	g.estSessions = result.EstimatedSessions
+	return nil
+}
+
+// clearSwarmData removes swarm wave data and reverts to status-based coloring.
+func (g *GraphModel) clearSwarmData() {
+	g.swarmWaves = nil
+	g.swarmEnabled = false
+	g.maxParallel = 0
+	g.estSessions = 0
+}
+
+// swarmColorForWave returns the color for a given wave number.
+func swarmColorForWave(wave int) color.Color {
+	switch wave {
+	case 0:
+		return ColorSuccess // green - ready front
+	case 1:
+		return ColorWarning // yellow/amber
+	default:
+		return ColorInfo // blue for wave 2+
+	}
 }
