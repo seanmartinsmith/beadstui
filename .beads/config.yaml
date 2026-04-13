@@ -3,3 +3,9 @@ sync:
 sync.mode: simple
 
 dolt.shared-server: true
+
+create.require-description: true
+
+validation.on-create: "warn"
+
+validation.on-close: "warn"
