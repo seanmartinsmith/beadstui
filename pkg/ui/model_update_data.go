@@ -685,6 +685,7 @@ func (m Model) handleFileChanged(msg FileChangedMsg) (Model, tea.Cmd) {
 		if m.data.issues[i].IssueType == model.TypeEpic {
 			item.EpicDone, item.EpicTotal = epicProgress(m.data.issues[i].ID, m.data.issues)
 		}
+		item.GateAwaitType = gateAwaitFromBlockers(m.data.issues[i], m.data.issueMap)
 		items[i] = item
 	}
 	if profileRefresh {

@@ -71,6 +71,23 @@ func isStale(issue *model.Issue) bool {
 	return time.Since(issue.UpdatedAt) > threshold
 }
 
+// gateAwaitFromBlockers checks if any blocker of the given issue is a gate-type issue,
+// and returns its AwaitType. Gate issues block other issues via dependencies; the gate's
+// own AwaitType tells us what kind of gate it is (human, timer, gh:run, etc.).
+func gateAwaitFromBlockers(issue model.Issue, issueMap map[string]*model.Issue) string {
+	for _, dep := range issue.Dependencies {
+		if dep == nil || !dep.Type.IsBlocking() {
+			continue
+		}
+		if blocker, ok := issueMap[dep.DependsOnID]; ok && blocker != nil {
+			if blocker.IssueType == "gate" && blocker.AwaitType != nil && *blocker.AwaitType != "" {
+				return *blocker.AwaitType
+			}
+		}
+	}
+	return ""
+}
+
 // epicProgress counts children of an epic issue by scanning all issues for parent-child deps.
 // Returns (closed, total). If the issue is not an epic or has no children, returns (0, 0).
 func epicProgress(epicID string, allIssues []model.Issue) (done, total int) {

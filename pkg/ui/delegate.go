@@ -149,7 +149,10 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 	// Gate/human indicator width (bt-c69c) - only at width > 80
 	var gateBadge string
 	if width > 80 {
-		if i.Issue.AwaitType != nil {
+		if i.GateAwaitType != "" {
+			gateBadge = RenderGateBadge(i.GateAwaitType)
+			leftFixedWidth += lipgloss.Width(gateBadge) + 1
+		} else if i.Issue.AwaitType != nil {
 			gateBadge = RenderGateBadge(*i.Issue.AwaitType)
 			leftFixedWidth += lipgloss.Width(gateBadge) + 1
 		} else if hasHumanLabel(i.Issue.Labels) {

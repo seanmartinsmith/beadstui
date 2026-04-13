@@ -56,6 +56,9 @@ type IssueItem struct {
 	// Epic progress (bt-waeh) - only populated for epic-type issues with children
 	EpicDone  int // Number of closed children
 	EpicTotal int // Total number of children
+
+	// Gate badge - pre-computed from blockers that are gate-type issues
+	GateAwaitType string // await_type from a blocking gate issue (empty = no gate)
 }
 
 func (i IssueItem) Title() string {

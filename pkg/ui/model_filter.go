@@ -224,6 +224,7 @@ func (m *Model) applyFilter() {
 			item.IsQuickWin = m.ac.quickWinSet[issue.ID]
 			item.IsBlocker = m.ac.blockerSet[issue.ID]
 			item.UnblocksCount = len(m.ac.unblocksMap[issue.ID])
+			item.GateAwaitType = gateAwaitFromBlockers(issue, m.data.issueMap)
 			filteredItems = append(filteredItems, item)
 			filteredIssues = append(filteredIssues, issue)
 		}
@@ -464,6 +465,7 @@ func (m *Model) applyRecipe(r *recipe.Recipe) {
 			item.IsQuickWin = m.ac.quickWinSet[issue.ID]
 			item.IsBlocker = m.ac.blockerSet[issue.ID]
 			item.UnblocksCount = len(m.ac.unblocksMap[issue.ID])
+			item.GateAwaitType = gateAwaitFromBlockers(issue, m.data.issueMap)
 			filteredItems = append(filteredItems, item)
 			filteredIssues = append(filteredIssues, issue)
 		}
@@ -1064,6 +1066,7 @@ func (m *Model) applyBQL(query *bql.Query, queryStr string) {
 		item.IsQuickWin = m.ac.quickWinSet[issue.ID]
 		item.IsBlocker = m.ac.blockerSet[issue.ID]
 		item.UnblocksCount = len(m.ac.unblocksMap[issue.ID])
+		item.GateAwaitType = gateAwaitFromBlockers(issue, m.data.issueMap)
 		filteredItems = append(filteredItems, item)
 	}
 
