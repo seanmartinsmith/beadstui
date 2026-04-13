@@ -76,3 +76,6 @@ _tmp/
 
 # Security audit working files
 security-audit-results.tsv
+
+# Git worktrees
+.worktrees/
