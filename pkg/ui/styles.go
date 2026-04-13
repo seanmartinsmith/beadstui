@@ -299,7 +299,7 @@ func RenderGateBadge(awaitType string) string {
 
 	switch {
 	case awaitType == "human":
-		fg, bg, label = ColorGateHuman, ColorGateHumanBg, "✋HUM"
+		fg, bg, label = ColorGateHuman, ColorGateHumanBg, "👤"
 	case awaitType == "timer":
 		fg, bg, label = ColorGateTimer, ColorGateTimerBg, "⏱TMR"
 	case awaitType == "gh:run" || awaitType == "ci":
@@ -328,7 +328,7 @@ func RenderHumanAdvisoryBadge() string {
 		Background(ColorHumanAdvisoryBg).
 		Bold(true).
 		Padding(0, 0).
-		Render("🏷HUM")
+		Render("👤")
 }
 
 // RenderStateDimensionBadge returns a styled badge for a state dimension:value label.

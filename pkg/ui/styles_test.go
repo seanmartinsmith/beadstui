@@ -119,7 +119,7 @@ func TestRenderGateBadge(t *testing.T) {
 		awaitType string
 		want      string
 	}{
-		{"human", "HUM"},
+		{"human", "👤"},
 		{"timer", "TMR"},
 		{"gh:run", "CI"},
 		{"ci", "CI"},
@@ -143,8 +143,8 @@ func TestRenderGateBadge(t *testing.T) {
 
 func TestRenderHumanAdvisoryBadge(t *testing.T) {
 	got := RenderHumanAdvisoryBadge()
-	if !strings.Contains(got, "HUM") {
-		t.Errorf("RenderHumanAdvisoryBadge() = %q, want to contain 'HUM'", got)
+	if !strings.Contains(got, "👤") {
+		t.Errorf("RenderHumanAdvisoryBadge() = %q, want to contain human icon", got)
 	}
 	if got == "" {
 		t.Errorf("RenderHumanAdvisoryBadge() returned empty string")
