@@ -454,6 +454,17 @@ func (m Model) handleDoltConnectionStatus(msg DoltConnectionStatusMsg) (Model, t
 	return m, tea.Batch(cmds...)
 }
 
+// handleTemporalCacheReady processes temporal cache population completion.
+func (m Model) handleTemporalCacheReady(msg TemporalCacheReadyMsg) (Model, tea.Cmd) {
+	_ = msg
+	// Temporal cache populated - future phases (sparklines, diff, timeline)
+	// will use this to refresh their views. For now, just acknowledge.
+	if m.data.backgroundWorker != nil {
+		return m, WaitForBackgroundWorkerMsgCmd(m.data.backgroundWorker)
+	}
+	return m, nil
+}
+
 // handleFileChanged processes file-system change notifications.
 func (m Model) handleFileChanged(msg FileChangedMsg) (Model, tea.Cmd) {
 	_ = msg // msg has no fields, just a signal

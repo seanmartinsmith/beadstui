@@ -1274,20 +1274,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case Phase2UpdateMsg:
 		return m.handlePhase2Update(msg)
 
-	case TemporalCacheReadyMsg:
-		// Temporal cache populated - future phases (sparklines, diff, timeline)
-		// will use this to refresh their views. For now, just acknowledge.
-		// Re-subscribe so subsequent background worker messages (DoltVerifiedMsg,
-		// SnapshotReadyMsg, etc.) continue to be received (bt-6l2c).
-		if m.data.backgroundWorker != nil {
-			cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.data.backgroundWorker))
-		}
-
-	case HistoryLoadedMsg:
-		m = m.handleHistoryLoaded(msg)
-
-	case AgentFileCheckMsg:
-		m = m.handleAgentFileCheck(msg)
+	// -- Background worker channel messages (bt-6l2c) --
+	// These message types arrive via w.send() -> WaitForBackgroundWorkerMsgCmd.
+	// Only ONE subscriber is active at a time. Each handler MUST re-subscribe
+	// via WaitForBackgroundWorkerMsgCmd or the subscription chain dies silently
+	// and the poll loop, snapshots, and connection status all stop updating.
 
 	case SnapshotReadyMsg:
 		return m.handleSnapshotReady(msg)
@@ -1295,14 +1286,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case SnapshotErrorMsg:
 		return m.handleSnapshotError(msg)
 
-	case DataSourceReloadMsg:
-		return m.handleDataSourceReload(msg)
-
 	case DoltVerifiedMsg:
 		return m.handleDoltVerified(msg)
 
 	case DoltConnectionStatusMsg:
 		return m.handleDoltConnectionStatus(msg)
+
+	case TemporalCacheReadyMsg:
+		return m.handleTemporalCacheReady(msg)
+
+	// -- End background worker channel messages --
+
+	case HistoryLoadedMsg:
+		m = m.handleHistoryLoaded(msg)
+
+	case AgentFileCheckMsg:
+		m = m.handleAgentFileCheck(msg)
+
+	case DataSourceReloadMsg:
+		return m.handleDataSourceReload(msg)
 
 	case FileChangedMsg:
 		return m.handleFileChanged(msg)
