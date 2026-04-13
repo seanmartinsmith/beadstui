@@ -6,6 +6,32 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-12 - Temporal Infrastructure: Dolt AS OF queries + TemporalCache (bt-ph1z.7)
+
+**Foundation for cross-project trending features.** 4 commits, 955 lines added across 8 files, 13 new tests.
+
+### What shipped
+- **`LoadIssuesAsOf(timestamp)`** on `GlobalDoltReader` - queries each database individually using Dolt `AS OF` syntax. Per-database error handling: if one database has no commit at the requested timestamp, it's skipped with a warning (others still load).
+- **`TemporalCache`** in `pkg/analysis/temporal.go` - stores `map[time.Time][]model.Issue` snapshots. TTL-based staleness (default 1hr, configurable via `BT_TEMPORAL_CACHE_TTL`). Max 30 snapshots cap (`BT_TEMPORAL_MAX_SNAPSHOTS`). Concurrent populate guard. Oldest-first eviction.
+- **`SnapshotMetrics`** - lightweight summary struct (open/blocked/closed counts, 7-day velocity) computed per snapshot. `ComputeMetricsSeries()` produces a time-ordered series from cache data.
+- **Background worker integration** - `startTemporalCacheLoop()` goroutine runs on the cache TTL cadence (hourly), independent of the 3-second UI poll. 5-second startup delay to avoid competing with main data load. `TemporalCacheReadyMsg` notifies the UI.
+- **`DataSnapshot.TemporalCache`** field carries the cache reference to the UI layer.
+
+### Key design decisions
+- Per-database queries (not UNION ALL) for AS OF - databases have different commit histories
+- Background goroutine separate from poll loop - slow cadence, own connection
+- `IssueLoader` interface on `TemporalCache.Populate()` - testable without a live Dolt server
+- Timestamps, not commit refs - simpler across databases with different commit cadences
+
+### What this unlocks
+- bt-ph1z.2: Sparkline snapshots (needs TemporalCache data)
+- bt-ph1z.3: Diff mode (needs LoadIssuesAsOf for two-snapshot comparison)
+- bt-ph1z.4: Timeline view (needs SnapshotMetrics series)
+
+**All 1483 package tests pass. Build clean.**
+
+---
+
 ## 2026-04-10c - Phase 2 + Phase 3: Theme redesign + Cobra CLI (bt-k5zs, bt-oim6, bt-zt9q)
 
 **Two parallel refactors shipped**: Phase 2 (theme/color system) and Phase 3 (CLI structure) executed as parallel worktree agents since they touch disjoint file sets (pkg/ui/ vs cmd/bt/).
