@@ -6,6 +6,25 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-13 - Beads Feature Surfacing Wave 4: Wisps, Swarm, Capabilities (bt-9kdo, bt-1knw, bt-t0z6)
+
+**Final session of the 4-wave feature surfacing plan.** 3 commits (parallel subagents), 740 lines added across 12 files, 20 new tests.
+
+### What shipped
+- **Wisp visibility toggle** (bt-9kdo) - `w` key hides/shows ephemeral issues. Default: hidden (matches `bd ready`). Wisps render dimmed+italic when visible. Footer badge shows state. Filter applied across all view paths (list, board, graph, BQL, recipes).
+- **Swarm wave visualization** (bt-1knw) - `s` key in graph view shells to `bd swarm validate --json`, colors nodes by wave (green=wave 0/ready, yellow=wave 1, blue=wave 2+). Metrics panel shows wave position, max parallelism, estimated sessions. 5-second timeout with graceful error handling.
+- **Capability map** (bt-t0z6) - Parses `export:`, `provides:`, `external:<project>:<cap>` labels. Detail panel shows capabilities section in workspace/global mode. `aggregateCapabilities()` builds cross-project edge graph with unresolved dependency detection.
+
+### Key design decisions
+- Wisp `w` key reuses the existing global handler - fires wisp toggle in non-workspace mode, project picker in workspace mode
+- Swarm data loaded via `exec.CommandContext` (same pattern as other bd integrations) - no direct Dolt writes
+- Capability map is a detail panel section, not a new ViewMode - lower effort, 80% of the value
+
+### Parent epic: bt-53du (beads feature surfacing)
+All 4 waves complete. Sessions 0-1 (data model), Session 2 (gate indicators), Session 3 (stale/epic/state dims), Session 4 (wisps/swarm/capabilities).
+
+---
+
 ## 2026-04-12 - Temporal Infrastructure: Dolt AS OF queries + TemporalCache (bt-ph1z.7)
 
 **Foundation for cross-project trending features.** 4 commits, 955 lines added across 8 files, 13 new tests.
