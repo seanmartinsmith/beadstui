@@ -219,8 +219,20 @@ func loadIssues() error {
 			appCtx.workspaceInfo = buildWorkspaceInfoFromIssues(result)
 			appCtx.currentProjectDB = detectCurrentProjectDB()
 		} else {
-			if !envRobot {
-				fmt.Fprintf(os.Stderr, "Warning: shared Dolt server found but load failed (%v), falling back to local project\n", loadErr)
+			// Shared server configured but not running - try to start it (bt-zsy8)
+			if startErr := startSharedDoltServer(envRobot); startErr == nil {
+				retryResult, retryErr := datasource.LoadFromSource(globalSource)
+				if retryErr == nil {
+					appCtx.issues = retryResult
+					appCtx.selectedSource = &globalSource
+					appCtx.beadsPath = ""
+					appCtx.workspaceInfo = buildWorkspaceInfoFromIssues(retryResult)
+					appCtx.currentProjectDB = detectCurrentProjectDB()
+				} else if !envRobot {
+					fmt.Fprintf(os.Stderr, "Warning: started shared server but load still failed (%v), falling back to local project\n", retryErr)
+				}
+			} else if !envRobot {
+				fmt.Fprintf(os.Stderr, "Warning: could not start shared server (%v), falling back to local project\n", startErr)
 			}
 		}
 	}
@@ -828,6 +840,44 @@ func loadBackgroundModeFromUserConfig() (bool, bool) {
 		return false, false
 	}
 	return *cfg.Experimental.BackgroundMode, true
+}
+
+// startSharedDoltServer starts the shared Dolt server by shelling out to bd.
+// Sets BEADS_DOLT_SHARED_SERVER=1 to force shared mode regardless of cwd,
+// since we only call this when DiscoverSharedServer() found the port file
+// confirming a shared server setup exists. (bt-zsy8)
+func startSharedDoltServer(robot bool) error {
+	bdPath, err := exec.LookPath("bd")
+	if err != nil {
+		return fmt.Errorf("bd CLI not found")
+	}
+	if !robot {
+		fmt.Fprintln(os.Stderr, "Starting shared Dolt server...")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bdPath, "dolt", "start")
+	cmd.Env = append(os.Environ(), "BEADS_DOLT_SHARED_SERVER=1")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("bd dolt start failed: %w\nOutput: %s", err, string(out))
+	}
+	// Wait for server to be ready (TCP dial retry)
+	host, port, discoverErr := datasource.DiscoverSharedServer()
+	if discoverErr != nil {
+		return fmt.Errorf("server started but port not discoverable: %w", discoverErr)
+	}
+	addr := fmt.Sprintf("%s:%d", host, port)
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		conn, dialErr := net.DialTimeout("tcp", addr, 500*time.Millisecond)
+		if dialErr == nil {
+			conn.Close()
+			return nil
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	return fmt.Errorf("server started but not reachable at %s after 10s", addr)
 }
 
 // detectCurrentProjectDB reads the dolt_database name from the cwd's .beads/metadata.json.

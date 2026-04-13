@@ -18,6 +18,7 @@ import (
 func (m *Model) setTransientStatus(msg string, d time.Duration) tea.Cmd {
 	m.statusMsg = msg
 	m.statusIsError = false
+	m.statusSetAt = time.Now()
 	m.statusSeq++
 	seq := m.statusSeq
 	return tea.Tick(d, func(time.Time) tea.Msg {
@@ -25,10 +26,40 @@ func (m *Model) setTransientStatus(msg string, d time.Duration) tea.Cmd {
 	})
 }
 
+// setStatus sets a status message with auto-dismiss tracking (bt-zdae).
+func (m *Model) setStatus(msg string) {
+	m.statusMsg = msg
+	m.statusIsError = false
+	m.statusSetAt = time.Now()
+}
+
+// setStatusError sets an error status message (not auto-dismissed).
+func (m *Model) setStatusError(msg string) {
+	m.statusMsg = msg
+	m.statusIsError = true
+	m.statusSetAt = time.Now()
+}
+
+// statusAutoDismissAge is how long non-transient status messages persist
+// before being auto-cleared during render (bt-zdae).
+const statusAutoDismissAge = 5 * time.Second
+
 func (m *Model) renderFooter() string {
 	// ══════════════════════════════════════════════════════════════════════════
 	// POLISHED FOOTER - Stripe-level status bar with visual hierarchy
 	// ══════════════════════════════════════════════════════════════════════════
+
+	// Auto-dismiss stale status messages (bt-zdae). Non-error messages that
+	// weren't set via setTransientStatus will linger forever without this.
+	// For messages set without statusSetAt (legacy direct assignments),
+	// set the timestamp on first render so they'll clear on the next cycle.
+	if m.statusMsg != "" && !m.statusIsError {
+		if m.statusSetAt.IsZero() {
+			m.statusSetAt = time.Now()
+		} else if time.Since(m.statusSetAt) > statusAutoDismissAge {
+			m.statusMsg = ""
+		}
+	}
 
 	// If there's a status message, show it prominently with polished styling
 	if m.statusMsg != "" {

@@ -527,7 +527,8 @@ type Model struct {
 	// Status message (for temporary feedback)
 	statusMsg     string
 	statusIsError bool
-	statusSeq     uint64 // incremented on each status set; used for auto-clear
+	statusSeq     uint64    // incremented on each status set; used for auto-clear
+	statusSetAt   time.Time // when statusMsg was last set; used for auto-dismiss (bt-zdae)
 
 	// Dolt connection state (bt-3ynd). Embedded to keep m.doltConnected access pattern.
 	DoltState

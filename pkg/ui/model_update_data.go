@@ -57,6 +57,11 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 		}
 	}
 
+	// Preserve list filter state across snapshot swap (bt-4kuh).
+	// SetItems() resets the built-in filter, so we save and restore it.
+	prevFilterState := m.list.FilterState()
+	prevFilterValue := m.list.FilterValue()
+
 	// Preserve board selection by issue ID (bv-6n4c).
 	var boardSelectedID string
 	if m.focused == focusBoard {
@@ -347,6 +352,14 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 	// Wait for Phase 2 if not ready
 	if msg.Snapshot.Analysis != nil {
 		cmds = append(cmds, WaitForPhase2Cmd(msg.Snapshot.Analysis))
+	}
+
+	// Restore list filter if it was active before the snapshot swap (bt-4kuh).
+	// SetItems() resets the built-in Bubbles filter, so we re-apply the saved
+	// filter text and state to keep search results visible across poll refreshes.
+	if prevFilterState == list.Filtering || prevFilterState == list.FilterApplied {
+		m.list.SetFilterText(prevFilterValue)
+		m.list.SetFilterState(prevFilterState)
 	}
 
 	if m.data.backgroundWorker != nil {
