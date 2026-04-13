@@ -369,7 +369,7 @@ func RenderStaleBadge() string {
 	return lipgloss.NewStyle().
 		Foreground(ColorStale).
 		Padding(0, 0).
-		Render("💤STL")
+		Render("💤")
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

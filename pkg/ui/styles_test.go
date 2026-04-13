@@ -189,8 +189,8 @@ func TestRenderOverdueBadge(t *testing.T) {
 
 func TestRenderStaleBadge(t *testing.T) {
 	got := RenderStaleBadge()
-	if !strings.Contains(got, "STL") {
-		t.Errorf("RenderStaleBadge() = %q, want to contain 'STL'", got)
+	if !strings.Contains(got, "💤") {
+		t.Errorf("RenderStaleBadge() = %q, want to contain sleep icon", got)
 	}
 }
 

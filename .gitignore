@@ -79,3 +79,4 @@ security-audit-results.tsv
 
 # Git worktrees
 .worktrees/
+.claude/worktrees/
