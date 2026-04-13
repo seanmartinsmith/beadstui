@@ -402,7 +402,19 @@ func (m Model) handleDataSourceReload(msg DataSourceReloadMsg) (Model, tea.Cmd) 
 		m.statusIsError = true
 		return m, tea.Batch(cmds...)
 	}
+
+	// Preserve list filter state across datasource reload (bt-4kuh).
+	prevFilterState := m.list.FilterState()
+	prevFilterValue := m.list.FilterValue()
+
 	m.replaceIssues(msg.Issues)
+
+	// Restore list filter if it was active before the reload (bt-4kuh).
+	if prevFilterState == list.Filtering || prevFilterState == list.FilterApplied {
+		m.list.SetFilterText(prevFilterValue)
+		m.list.SetFilterState(prevFilterState)
+	}
+
 	cmds = append(cmds, m.setTransientStatus(
 		fmt.Sprintf("Reloaded %d issues", len(msg.Issues)), 3*time.Second))
 	cmds = append(cmds, WaitForPhase2Cmd(m.data.analysis))
@@ -530,6 +542,11 @@ func (m Model) handleFileChanged(msg FileChangedMsg) (Model, tea.Cmd) {
 			selectedID = item.Issue.ID
 		}
 	}
+
+	// Preserve list filter state across file reload (bt-4kuh).
+	// SetItems() resets the built-in filter, so we save and restore it.
+	prevFilterState := m.list.FilterState()
+	prevFilterValue := m.list.FilterValue()
 
 	// Apply default sorting (Open first, Priority, Date)
 	var sortStart time.Time
@@ -756,6 +773,12 @@ func (m Model) handleFileChanged(msg FileChangedMsg) (Model, tea.Cmd) {
 	if m.filter.activeBQLExpr != nil && strings.HasPrefix(m.filter.currentFilter, "bql:") {
 		queryStr := strings.TrimPrefix(m.filter.currentFilter, "bql:")
 		m.applyBQL(m.filter.activeBQLExpr, queryStr)
+	}
+
+	// Restore list filter if it was active before the file reload (bt-4kuh).
+	if prevFilterState == list.Filtering || prevFilterState == list.FilterApplied {
+		m.list.SetFilterText(prevFilterValue)
+		m.list.SetFilterState(prevFilterState)
 	}
 
 	// Reload sprints (bv-161)

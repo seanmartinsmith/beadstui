@@ -1277,6 +1277,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case TemporalCacheReadyMsg:
 		// Temporal cache populated - future phases (sparklines, diff, timeline)
 		// will use this to refresh their views. For now, just acknowledge.
+		// Re-subscribe so subsequent background worker messages (DoltVerifiedMsg,
+		// SnapshotReadyMsg, etc.) continue to be received (bt-6l2c).
+		if m.data.backgroundWorker != nil {
+			cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.data.backgroundWorker))
+		}
 
 	case HistoryLoadedMsg:
 		m = m.handleHistoryLoaded(msg)
