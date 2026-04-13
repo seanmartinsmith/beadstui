@@ -278,6 +278,77 @@ func TestEscapeSQLString(t *testing.T) {
 	}
 }
 
+func TestBuildIssuesQueryAsOf(t *testing.T) {
+	tests := []struct {
+		name   string
+		dbName string
+		tsStr  string
+	}{
+		{
+			name:   "simple database",
+			dbName: "myproject",
+			tsStr:  "2026-01-15T00:00:00",
+		},
+		{
+			name:   "database with hyphen",
+			dbName: "my-project",
+			tsStr:  "2025-06-30T12:30:00",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			query := buildIssuesQueryAsOf(tt.dbName, tt.tsStr)
+
+			// Should contain AS OF clause with timestamp
+			if !strings.Contains(query, "AS OF '"+tt.tsStr+"'") {
+				t.Errorf("query should contain AS OF clause, got: %s", query)
+			}
+
+			// Should reference backtick-quoted database
+			if !strings.Contains(query, "`"+tt.dbName+"`") {
+				t.Errorf("query should contain backtick-quoted database %q", tt.dbName)
+			}
+
+			// Should contain _global_source
+			if !strings.Contains(query, "_global_source") {
+				t.Error("query should contain _global_source column")
+			}
+
+			// Should use IssuesColumns
+			if !strings.Contains(query, "id, title, description") {
+				t.Error("query should contain columns from IssuesColumns")
+			}
+
+			// Should filter tombstone
+			if !strings.Contains(query, "status != 'tombstone'") {
+				t.Error("query should filter tombstone issues")
+			}
+
+			// Should NOT contain UNION ALL (single database)
+			if strings.Contains(query, "UNION ALL") {
+				t.Error("single-database AS OF query should not contain UNION ALL")
+			}
+
+			// Should NOT contain ORDER BY (ordering is done by caller)
+			if strings.Contains(query, "ORDER BY") {
+				t.Error("per-database AS OF query should not contain ORDER BY")
+			}
+		})
+	}
+}
+
+func TestBuildIssuesQueryAsOf_QuoteEscaping(t *testing.T) {
+	// Single quotes in timestamp string should be escaped to ''
+	// so the payload stays inside the SQL string literal
+	query := buildIssuesQueryAsOf("normal_db", "2026-01-01'; DROP TABLE issues; --")
+
+	// The single quote should be doubled (escaped)
+	if !strings.Contains(query, "2026-01-01''; DROP TABLE issues; --") {
+		t.Error("single quote in timestamp should be escaped to '' in query")
+	}
+}
+
 func TestNewGlobalDataSource(t *testing.T) {
 	ds := NewGlobalDataSource("127.0.0.1", 3307)
 	if ds.Type != SourceTypeDoltGlobal {

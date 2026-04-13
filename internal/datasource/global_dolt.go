@@ -225,6 +225,86 @@ func (r *GlobalDoltReader) LoadIssues() ([]model.Issue, error) {
 	return issues, nil
 }
 
+// LoadIssuesAsOf loads issues from all databases at a historical point in time
+// using Dolt's AS OF syntax. Each database is queried individually (not UNION ALL)
+// because databases may have different commit histories - a timestamp valid for
+// one database may have no corresponding commit in another.
+//
+// Databases that fail (no commit at timestamp, schema mismatch) are skipped with
+// a log warning. The method only returns an error if ALL databases fail.
+func (r *GlobalDoltReader) LoadIssuesAsOf(timestamp time.Time) ([]model.Issue, error) {
+	if len(r.databases) == 0 {
+		return nil, fmt.Errorf("no databases to query")
+	}
+
+	tsStr := timestamp.UTC().Format("2006-01-02T15:04:05")
+	var allIssues []model.Issue
+	var dbErrors []string
+	successCount := 0
+
+	for _, dbName := range r.databases {
+		query := buildIssuesQueryAsOf(dbName, tsStr)
+		rows, err := r.db.Query(query)
+		if err != nil {
+			slog.Warn("AS OF query failed for database",
+				"database", dbName, "timestamp", tsStr, "error", err)
+			dbErrors = append(dbErrors, fmt.Sprintf("%s: %v", dbName, err))
+			continue
+		}
+
+		var dbIssues []model.Issue
+		for rows.Next() {
+			issue, scanErr := scanGlobalIssue(rows)
+			if scanErr != nil {
+				slog.Warn("skipping issue row in AS OF query",
+					"database", dbName, "error", scanErr)
+				continue
+			}
+			dbIssues = append(dbIssues, *issue)
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			slog.Warn("AS OF row iteration error",
+				"database", dbName, "error", err)
+			dbErrors = append(dbErrors, fmt.Sprintf("%s: %v", dbName, err))
+			continue
+		}
+		rows.Close()
+
+		allIssues = append(allIssues, dbIssues...)
+		successCount++
+	}
+
+	if successCount == 0 {
+		return nil, fmt.Errorf("AS OF query failed for all %d databases at %s: %s",
+			len(r.databases), tsStr, strings.Join(dbErrors, "; "))
+	}
+
+	if len(dbErrors) > 0 {
+		slog.Info("AS OF query partial success",
+			"timestamp", tsStr,
+			"succeeded", successCount,
+			"failed", len(dbErrors))
+	}
+
+	return allIssues, nil
+}
+
+// Databases returns the list of discovered database names.
+// Used by TemporalCache to report which databases are available.
+func (r *GlobalDoltReader) Databases() []string {
+	return r.databases
+}
+
+// buildIssuesQueryAsOf generates an AS OF query for a single database.
+// Uses the same IssuesColumns as the regular query plus _global_source.
+// Dolt AS OF syntax: SELECT ... FROM `db`.issues AS OF '<timestamp>'
+func buildIssuesQueryAsOf(dbName, tsStr string) string {
+	quoted := backtickQuote(dbName)
+	return fmt.Sprintf("SELECT %s, '%s' AS _global_source FROM %s.issues AS OF '%s' WHERE status != 'tombstone'",
+		IssuesColumns, escapeSQLString(dbName), quoted, escapeSQLString(tsStr))
+}
+
 // buildIssuesQuery generates a UNION ALL query across all databases.
 func buildIssuesQuery(databases []string) (string, error) {
 	if len(databases) == 0 {
