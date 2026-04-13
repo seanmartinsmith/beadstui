@@ -65,13 +65,17 @@ func (r *SQLiteReader) LoadIssues() ([]model.Issue, error) {
 // LoadIssuesFiltered reads issues matching the filter function
 func (r *SQLiteReader) LoadIssuesFiltered(filter func(*model.Issue) bool) ([]model.Issue, error) {
 	// Query for all non-tombstone issues
+	// Note: SQLite backend is legacy (beads removed SQLite in v0.56.1).
+	// Gate/molecule columns may not exist in older databases - fallback handles that.
 	query := `
 		SELECT
 			id, title, description, status, priority, issue_type,
 			assignee, estimated_minutes, created_at, updated_at,
 			due_date, closed_at, external_ref, compaction_level,
 			compacted_at, compacted_at_commit, original_size,
-			labels, design, acceptance_criteria, notes, source_repo
+			labels, design, acceptance_criteria, notes, source_repo,
+			await_type, await_id, timeout_ns,
+			ephemeral, is_template, mol_type
 		FROM issues
 		WHERE (tombstone IS NULL OR tombstone = 0)
 		ORDER BY updated_at DESC
@@ -93,12 +97,19 @@ func (r *SQLiteReader) LoadIssuesFiltered(filter func(*model.Issue) bool) ([]mod
 		var labelsJSON sql.NullString
 		var issueType string
 
+		// Gate/molecule columns
+		var awaitType, awaitID, molType sql.NullString
+		var timeoutNs sql.NullInt64
+		var ephemeral, isTemplate sql.NullBool
+
 		err := rows.Scan(
 			&issue.ID, &issue.Title, &description, &issue.Status, &issue.Priority, &issueType,
 			&assignee, &estimatedMinutes, &createdAt, &updatedAt,
 			&dueDate, &closedAt, &externalRef, &compactionLevel,
 			&compactedAt, &compactedAtCommit, &originalSize,
 			&labelsJSON, &design, &acceptanceCriteria, &notes, &sourceRepo,
+			&awaitType, &awaitID, &timeoutNs,
+			&ephemeral, &isTemplate, &molType,
 		)
 		if err != nil {
 			continue
@@ -159,6 +170,34 @@ func (r *SQLiteReader) LoadIssuesFiltered(filter func(*model.Issue) bool) ([]mod
 		}
 		if sourceRepo.Valid {
 			issue.SourceRepo = sourceRepo.String
+		}
+
+		// Gate fields
+		if awaitType.Valid && awaitType.String != "" {
+			s := awaitType.String
+			issue.AwaitType = &s
+		}
+		if awaitID.Valid && awaitID.String != "" {
+			s := awaitID.String
+			issue.AwaitID = &s
+		}
+		if timeoutNs.Valid && timeoutNs.Int64 != 0 {
+			v := timeoutNs.Int64
+			issue.TimeoutNs = &v
+		}
+
+		// Molecule/wisp fields
+		if ephemeral.Valid && ephemeral.Bool {
+			v := ephemeral.Bool
+			issue.Ephemeral = &v
+		}
+		if isTemplate.Valid && isTemplate.Bool {
+			v := isTemplate.Bool
+			issue.IsTemplate = &v
+		}
+		if molType.Valid && molType.String != "" {
+			s := molType.String
+			issue.MolType = &s
 		}
 
 		// Parse labels JSON array

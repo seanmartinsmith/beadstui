@@ -33,6 +33,16 @@ type Issue struct {
 	Dependencies       []*Dependency `json:"dependencies,omitempty"`
 	Comments           []*Comment    `json:"comments,omitempty"`
 	SourceRepo         string        `json:"source_repo,omitempty"`
+
+	// Gate fields (blocking coordination)
+	AwaitType *string `json:"await_type,omitempty"`
+	AwaitID   *string `json:"await_id,omitempty"`
+	TimeoutNs *int64  `json:"timeout_ns,omitempty"`
+
+	// Molecule/wisp fields
+	Ephemeral  *bool   `json:"ephemeral,omitempty"`
+	IsTemplate *bool   `json:"is_template,omitempty"`
+	MolType    *string `json:"mol_type,omitempty"`
 }
 
 // Clone creates a deep copy of the issue
@@ -66,6 +76,34 @@ func (i Issue) Clone() Issue {
 	if i.CompactedAtCommit != nil {
 		v := *i.CompactedAtCommit
 		clone.CompactedAtCommit = &v
+	}
+
+	// Gate fields
+	if i.AwaitType != nil {
+		v := *i.AwaitType
+		clone.AwaitType = &v
+	}
+	if i.AwaitID != nil {
+		v := *i.AwaitID
+		clone.AwaitID = &v
+	}
+	if i.TimeoutNs != nil {
+		v := *i.TimeoutNs
+		clone.TimeoutNs = &v
+	}
+
+	// Molecule/wisp fields
+	if i.Ephemeral != nil {
+		v := *i.Ephemeral
+		clone.Ephemeral = &v
+	}
+	if i.IsTemplate != nil {
+		v := *i.IsTemplate
+		clone.IsTemplate = &v
+	}
+	if i.MolType != nil {
+		v := *i.MolType
+		clone.MolType = &v
 	}
 
 	if i.Labels != nil {

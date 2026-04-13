@@ -682,6 +682,12 @@ func TestIssue_Clone(t *testing.T) {
 	externalRef := "JIRA-123"
 	compactedAt := now.Add(-2 * time.Hour)
 	compactedAtCommit := "abc123"
+	awaitType := "human"
+	awaitID := "gate-123"
+	timeoutNs := int64(5000000000)
+	ephemeral := true
+	isTemplate := false
+	molType := "research-audit"
 
 	original := Issue{
 		ID:                "TEST-1",
@@ -706,6 +712,12 @@ func TestIssue_Clone(t *testing.T) {
 		Comments: []*Comment{
 			{ID: 1, IssueID: "TEST-1", Author: "user", Text: "comment"},
 		},
+		AwaitType:  &awaitType,
+		AwaitID:    &awaitID,
+		TimeoutNs:  &timeoutNs,
+		Ephemeral:  &ephemeral,
+		IsTemplate: &isTemplate,
+		MolType:    &molType,
 	}
 
 	clone := original.Clone()
@@ -779,6 +791,39 @@ func TestIssue_Clone(t *testing.T) {
 	if clone.Comments[0] == original.Comments[0] {
 		t.Errorf("Comments[0] should be a new pointer")
 	}
+
+	// Verify gate/molecule fields are deep copied
+	if clone.AwaitType == original.AwaitType {
+		t.Errorf("AwaitType should be a new pointer")
+	}
+	if *clone.AwaitType != *original.AwaitType {
+		t.Errorf("AwaitType value mismatch")
+	}
+	if clone.AwaitID == original.AwaitID {
+		t.Errorf("AwaitID should be a new pointer")
+	}
+	if clone.TimeoutNs == original.TimeoutNs {
+		t.Errorf("TimeoutNs should be a new pointer")
+	}
+	if clone.Ephemeral == original.Ephemeral {
+		t.Errorf("Ephemeral should be a new pointer")
+	}
+	if clone.IsTemplate == original.IsTemplate {
+		t.Errorf("IsTemplate should be a new pointer")
+	}
+	if clone.MolType == original.MolType {
+		t.Errorf("MolType should be a new pointer")
+	}
+
+	// Verify modifying clone gate fields doesn't affect original
+	*clone.AwaitType = "ci"
+	if *original.AwaitType != "human" {
+		t.Errorf("Modifying clone affected original AwaitType")
+	}
+	*clone.TimeoutNs = 999
+	if *original.TimeoutNs != 5000000000 {
+		t.Errorf("Modifying clone affected original TimeoutNs")
+	}
 }
 
 func TestIssue_Clone_NilFields(t *testing.T) {
@@ -808,5 +853,25 @@ func TestIssue_Clone_NilFields(t *testing.T) {
 	}
 	if clone.Comments != nil {
 		t.Errorf("Comments should be nil")
+	}
+
+	// Gate/molecule fields should be nil
+	if clone.AwaitType != nil {
+		t.Errorf("AwaitType should be nil")
+	}
+	if clone.AwaitID != nil {
+		t.Errorf("AwaitID should be nil")
+	}
+	if clone.TimeoutNs != nil {
+		t.Errorf("TimeoutNs should be nil")
+	}
+	if clone.Ephemeral != nil {
+		t.Errorf("Ephemeral should be nil")
+	}
+	if clone.IsTemplate != nil {
+		t.Errorf("IsTemplate should be nil")
+	}
+	if clone.MolType != nil {
+		t.Errorf("MolType should be nil")
 	}
 }

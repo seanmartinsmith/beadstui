@@ -425,6 +425,11 @@ func scanGlobalIssue(rows *sql.Rows) (*model.Issue, error) {
 	var issueType string
 	var globalSource string
 
+	// Gate/molecule columns (must match IssuesColumns order)
+	var awaitType, awaitID, molType sql.NullString
+	var timeoutNs sql.NullInt64
+	var ephemeral, isTemplate sql.NullBool
+
 	err := rows.Scan(
 		&issue.ID, &issue.Title, &description, &issue.Status, &issue.Priority, &issueType,
 		&assignee, &estimatedMinutes, &createdAt, &updatedAt,
@@ -432,6 +437,8 @@ func scanGlobalIssue(rows *sql.Rows) (*model.Issue, error) {
 		&compactedAt, &compactedAtCommit, &originalSize,
 		&design, &acceptanceCriteria, &notes, &sourceRepo,
 		&closeReason,
+		&awaitType, &awaitID, &timeoutNs,
+		&ephemeral, &isTemplate, &molType,
 		&globalSource,
 	)
 	if err != nil {
@@ -493,6 +500,34 @@ func scanGlobalIssue(rows *sql.Rows) (*model.Issue, error) {
 	}
 	if notes.Valid {
 		issue.Notes = notes.String
+	}
+
+	// Gate fields
+	if awaitType.Valid && awaitType.String != "" {
+		s := awaitType.String
+		issue.AwaitType = &s
+	}
+	if awaitID.Valid && awaitID.String != "" {
+		s := awaitID.String
+		issue.AwaitID = &s
+	}
+	if timeoutNs.Valid && timeoutNs.Int64 != 0 {
+		v := timeoutNs.Int64
+		issue.TimeoutNs = &v
+	}
+
+	// Molecule/wisp fields
+	if ephemeral.Valid && ephemeral.Bool {
+		v := ephemeral.Bool
+		issue.Ephemeral = &v
+	}
+	if isTemplate.Valid && isTemplate.Bool {
+		v := isTemplate.Bool
+		issue.IsTemplate = &v
+	}
+	if molType.Valid && molType.String != "" {
+		s := molType.String
+		issue.MolType = &s
 	}
 
 	// SourceRepo always comes from the database name in global mode
