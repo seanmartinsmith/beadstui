@@ -120,6 +120,105 @@ func parseStateDimensions(labels []string) []StateDimension {
 	return dims
 }
 
+// Capability represents a cross-project capability label (bt-t0z6).
+type Capability struct {
+	Project       string // source project (from SourceRepo)
+	TargetProject string // for external: the project being depended on
+	Type          string // "export", "provides", "external"
+	Capability    string // the capability name
+	IssueID       string // which issue has this label
+}
+
+// parseCapabilities extracts capability labels from an issue's labels.
+// Recognized patterns:
+//   - export:<name>     - this project produces capability <name>
+//   - provides:<name>   - this project fulfills capability <name>
+//   - external:<project>:<capability> - consumes <capability> from <project>
+func parseCapabilities(issue model.Issue) []Capability {
+	var caps []Capability
+	for _, label := range issue.Labels {
+		idx := strings.Index(label, ":")
+		if idx <= 0 || idx >= len(label)-1 {
+			continue
+		}
+		prefix := label[:idx]
+		rest := label[idx+1:]
+
+		switch prefix {
+		case "export", "provides":
+			caps = append(caps, Capability{
+				Project:    issue.SourceRepo,
+				Type:       prefix,
+				Capability: rest,
+				IssueID:    issue.ID,
+			})
+		case "external":
+			// external:<project>:<capability>
+			idx2 := strings.Index(rest, ":")
+			if idx2 <= 0 || idx2 >= len(rest)-1 {
+				continue
+			}
+			caps = append(caps, Capability{
+				Project:       issue.SourceRepo,
+				TargetProject: rest[:idx2],
+				Type:          "external",
+				Capability:    rest[idx2+1:],
+				IssueID:       issue.ID,
+			})
+		}
+	}
+	return caps
+}
+
+// CapabilityEdge represents a dependency from one project to another.
+type CapabilityEdge struct {
+	FromProject string // consumer
+	ToProject   string // producer
+	Capability  string // what's being consumed
+	Resolved    bool   // whether a matching export exists
+}
+
+// aggregateCapabilities scans all issues and builds a capability graph.
+func aggregateCapabilities(issues []model.Issue) (exports map[string][]Capability, consumes map[string][]Capability, edges []CapabilityEdge) {
+	exports = make(map[string][]Capability)  // project -> exports
+	consumes = make(map[string][]Capability) // project -> external deps
+
+	// Collect all capabilities
+	allExports := make(map[string]map[string]bool) // capability -> set of projects that export it
+	for _, issue := range issues {
+		for _, cap := range parseCapabilities(issue) {
+			switch cap.Type {
+			case "export", "provides":
+				exports[cap.Project] = append(exports[cap.Project], cap)
+				if allExports[cap.Capability] == nil {
+					allExports[cap.Capability] = make(map[string]bool)
+				}
+				allExports[cap.Capability][cap.Project] = true
+			case "external":
+				consumes[cap.Project] = append(consumes[cap.Project], cap)
+			}
+		}
+	}
+
+	// Build edges from external deps
+	for project, caps := range consumes {
+		for _, cap := range caps {
+			resolved := false
+			if producers, ok := allExports[cap.Capability]; ok && len(producers) > 0 {
+				resolved = true
+			}
+			edges = append(edges, CapabilityEdge{
+				FromProject: project,
+				ToProject:   cap.TargetProject,
+				Capability:  cap.Capability,
+				Resolved:    resolved,
+			})
+		}
+	}
+
+	return exports, consumes, edges
+}
+
 // formatNanoseconds converts nanoseconds to a human-readable duration string.
 func formatNanoseconds(ns int64) string {
 	d := time.Duration(ns)

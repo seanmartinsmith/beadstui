@@ -682,6 +682,25 @@ func (m *Model) updateViewportContent() {
 		sb.WriteString("\n")
 	}
 
+	// Capabilities (bt-t0z6) - cross-project capability labels in workspace mode
+	if m.workspaceMode {
+		caps := parseCapabilities(item)
+		if len(caps) > 0 {
+			sb.WriteString("### 🔗 Capabilities\n")
+			for _, cap := range caps {
+				switch cap.Type {
+				case "export":
+					sb.WriteString(fmt.Sprintf("- **exports** `%s`\n", cap.Capability))
+				case "provides":
+					sb.WriteString(fmt.Sprintf("- **provides** `%s`\n", cap.Capability))
+				case "external":
+					sb.WriteString(fmt.Sprintf("- **needs** `%s` from `%s`\n", cap.Capability, cap.TargetProject))
+				}
+			}
+			sb.WriteString("\n")
+		}
+	}
+
 	// Gate status (bt-c69c) - blocking coordination
 	if item.AwaitType != nil {
 		sb.WriteString("### 🚧 Gate (Blocking)\n")
