@@ -651,6 +651,38 @@ func (m *Model) updateViewportContent() {
 		sb.WriteString(fmt.Sprintf("**Labels:** %s\n\n", strings.Join(item.Labels, ", ")))
 	}
 
+	// Gate status (bt-c69c) - blocking coordination
+	if item.AwaitType != nil {
+		sb.WriteString("### 🚧 Gate (Blocking)\n")
+		sb.WriteString(fmt.Sprintf("- **Type:** %s\n", *item.AwaitType))
+		if item.AwaitID != nil {
+			sb.WriteString(fmt.Sprintf("- **Awaiting:** %s\n", *item.AwaitID))
+		}
+		if item.TimeoutNs != nil && *item.TimeoutNs > 0 {
+			sb.WriteString(fmt.Sprintf("- **Timeout:** %s\n", formatNanoseconds(*item.TimeoutNs)))
+		}
+		sb.WriteString("\n")
+	} else if hasHumanLabel(item.Labels) {
+		// Advisory human flag (label, not gate)
+		sb.WriteString("### 🏷️ Flagged for Human Input\n")
+		sb.WriteString("This issue is flagged for human review (advisory - not blocking workflow).\n\n")
+	}
+
+	// Molecule/wisp metadata (bt-c69c)
+	if item.MolType != nil || (item.Ephemeral != nil && *item.Ephemeral) || (item.IsTemplate != nil && *item.IsTemplate) {
+		sb.WriteString("### 🧪 Molecule\n")
+		if item.MolType != nil {
+			sb.WriteString(fmt.Sprintf("- **Type:** %s\n", *item.MolType))
+		}
+		if item.Ephemeral != nil && *item.Ephemeral {
+			sb.WriteString("- **Ephemeral:** yes (wisp)\n")
+		}
+		if item.IsTemplate != nil && *item.IsTemplate {
+			sb.WriteString("- **Template:** yes\n")
+		}
+		sb.WriteString("\n")
+	}
+
 	// Triage Insights (bv-151)
 	if issueItem.TriageScore > 0 || issueItem.TriageReason != "" || issueItem.UnblocksCount > 0 || issueItem.IsQuickWin || issueItem.IsBlocker {
 		sb.WriteString("### 🎯 Triage Insights\n")

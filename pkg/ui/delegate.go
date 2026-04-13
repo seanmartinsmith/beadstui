@@ -144,6 +144,20 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 		leftFixedWidth += lipgloss.Width(fmt.Sprintf("↪%d", i.UnblocksCount)) + 1 // arrow+count + space
 	}
 
+	// Gate/human indicator width (bt-c69c) - only at width > 80
+	var gateBadge string
+	if width > 80 {
+		if i.Issue.AwaitType != nil {
+			// Blocking gate - red/amber badge by type
+			gateBadge = RenderGateBadge(*i.Issue.AwaitType)
+			leftFixedWidth += lipgloss.Width(gateBadge) + 1
+		} else if hasHumanLabel(i.Issue.Labels) {
+			// Advisory human flag - yellow badge (only when no blocking gate)
+			gateBadge = RenderHumanAdvisoryBadge()
+			leftFixedWidth += lipgloss.Width(gateBadge) + 1
+		}
+	}
+
 	// Status badge (polished)
 	statusBadge := RenderStatusBadge(string(i.Issue.Status))
 	statusBadgeWidth := lipgloss.Width(statusBadge)
@@ -239,6 +253,12 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 		leftSide.WriteString(" ")
 	}
 
+	// Gate/human indicator (bt-c69c)
+	if gateBadge != "" {
+		leftSide.WriteString(gateBadge)
+		leftSide.WriteString(" ")
+	}
+
 	// Status badge (polished)
 	leftSide.WriteString(statusBadge)
 	leftSide.WriteString(" ")
@@ -295,4 +315,14 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 	}
 
 	fmt.Fprint(w, row)
+}
+
+// hasHumanLabel returns true if labels contains "human".
+func hasHumanLabel(labels []string) bool {
+	for _, l := range labels {
+		if l == "human" {
+			return true
+		}
+	}
+	return false
 }

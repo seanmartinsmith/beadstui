@@ -89,6 +89,21 @@ var (
 	ColorTypeEpic    color.Color
 	ColorTypeChore   color.Color
 
+	// Gate colors (blocking coordination indicators)
+	ColorGateHuman color.Color
+	ColorGateTimer color.Color
+	ColorGateCI    color.Color
+	ColorGateOther color.Color
+
+	ColorGateHumanBg color.Color
+	ColorGateTimerBg color.Color
+	ColorGateCIBg    color.Color
+	ColorGateOtherBg color.Color
+
+	// Human advisory flag (non-blocking label)
+	ColorHumanAdvisory   color.Color
+	ColorHumanAdvisoryBg color.Color
+
 	// UI chrome
 	ColorBorder    color.Color
 	ColorHighlight color.Color
@@ -151,6 +166,21 @@ func resolveColors() {
 	ColorTypeTask = resolveColor("#eab700", "#f0c674")
 	ColorTypeEpic = resolveColor("#8959a8", "#b294bb")
 	ColorTypeChore = resolveColor("#4271ae", "#81a2be")
+
+	// Gate colors: human=warm red, timer=amber, CI=blue, other=muted
+	ColorGateHuman = resolveColor("#c82829", "#cc6666")
+	ColorGateTimer = resolveColor("#f5871f", "#de935f")
+	ColorGateCI = resolveColor("#4271ae", "#81a2be")
+	ColorGateOther = resolveColor("#8959a8", "#b294bb")
+
+	ColorGateHumanBg = resolveColor("#f0dce0", "#2e1e1e")
+	ColorGateTimerBg = resolveColor("#f0e4d8", "#2e251e")
+	ColorGateCIBg = resolveColor("#dce8f0", "#1e2530")
+	ColorGateOtherBg = resolveColor("#e4dce8", "#261e2e")
+
+	// Human advisory: yellow/amber to distinguish from red blocking gate
+	ColorHumanAdvisory = resolveColor("#eab700", "#f0c674")
+	ColorHumanAdvisoryBg = resolveColor("#f0ecd8", "#2e2e1e")
 
 	ColorBorder = resolveColor("#d6d6d6", "#373b41")
 	ColorHighlight = resolveColor("#d6d6d6", "#373b41")
@@ -249,6 +279,46 @@ func RenderStatusBadge(status string) string {
 		Background(bg).
 		Padding(0, 0).
 		Render(label)
+}
+
+// RenderGateBadge returns a styled badge for gate-blocked issues.
+// awaitType values: "human", "timer", "gh:run", "gh:pr", "bead", etc.
+func RenderGateBadge(awaitType string) string {
+	var fg, bg color.Color
+	var label string
+
+	switch {
+	case awaitType == "human":
+		fg, bg, label = ColorGateHuman, ColorGateHumanBg, "✋HUM"
+	case awaitType == "timer":
+		fg, bg, label = ColorGateTimer, ColorGateTimerBg, "⏱TMR"
+	case awaitType == "gh:run" || awaitType == "ci":
+		fg, bg, label = ColorGateCI, ColorGateCIBg, "⚙CI"
+	case awaitType == "gh:pr" || awaitType == "pr":
+		fg, bg, label = ColorGateCI, ColorGateCIBg, "⬡PR"
+	case awaitType == "bead":
+		fg, bg, label = ColorGateOther, ColorGateOtherBg, "⛓BD"
+	default:
+		fg, bg, label = ColorGateOther, ColorGateOtherBg, "⏸GTD"
+	}
+
+	return lipgloss.NewStyle().
+		Foreground(fg).
+		Background(bg).
+		Bold(true).
+		Padding(0, 0).
+		Render(label)
+}
+
+// RenderHumanAdvisoryBadge returns a yellow flag badge for advisory human flags.
+// Distinct from gate badge: advisory (label) = yellow, blocking (gate) = red.
+func RenderHumanAdvisoryBadge() string {
+	return lipgloss.NewStyle().
+		Foreground(ColorHumanAdvisory).
+		Background(ColorHumanAdvisoryBg).
+		Bold(true).
+		Padding(0, 0).
+		Render("🏷HUM")
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

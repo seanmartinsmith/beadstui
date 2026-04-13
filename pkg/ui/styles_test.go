@@ -112,6 +112,93 @@ func TestRenderMiniBar(t *testing.T) {
 	}
 }
 
+func TestRenderGateBadge(t *testing.T) {
+	tests := []struct {
+		awaitType string
+		want      string
+	}{
+		{"human", "HUM"},
+		{"timer", "TMR"},
+		{"gh:run", "CI"},
+		{"ci", "CI"},
+		{"gh:pr", "PR"},
+		{"pr", "PR"},
+		{"bead", "BD"},
+		{"unknown", "GTD"},
+		{"", "GTD"},
+	}
+
+	for _, tt := range tests {
+		got := RenderGateBadge(tt.awaitType)
+		if !strings.Contains(got, tt.want) {
+			t.Errorf("RenderGateBadge(%q) = %q, want to contain %q", tt.awaitType, got, tt.want)
+		}
+		if got == "" {
+			t.Errorf("RenderGateBadge(%q) returned empty string", tt.awaitType)
+		}
+	}
+}
+
+func TestRenderHumanAdvisoryBadge(t *testing.T) {
+	got := RenderHumanAdvisoryBadge()
+	if !strings.Contains(got, "HUM") {
+		t.Errorf("RenderHumanAdvisoryBadge() = %q, want to contain 'HUM'", got)
+	}
+	if got == "" {
+		t.Errorf("RenderHumanAdvisoryBadge() returned empty string")
+	}
+}
+
+func TestRenderGateBadge_DistinctFromAdvisory(t *testing.T) {
+	gateBadge := RenderGateBadge("human")
+	advisoryBadge := RenderHumanAdvisoryBadge()
+	if gateBadge == advisoryBadge {
+		t.Errorf("Gate human badge and advisory badge should be visually distinct, both = %q", gateBadge)
+	}
+}
+
+func TestHasHumanLabel(t *testing.T) {
+	tests := []struct {
+		labels []string
+		want   bool
+	}{
+		{[]string{"human"}, true},
+		{[]string{"bug", "human", "p0"}, true},
+		{[]string{"bug", "p0"}, false},
+		{nil, false},
+		{[]string{}, false},
+		{[]string{"Human"}, false}, // case-sensitive
+	}
+
+	for _, tt := range tests {
+		got := hasHumanLabel(tt.labels)
+		if got != tt.want {
+			t.Errorf("hasHumanLabel(%v) = %v, want %v", tt.labels, got, tt.want)
+		}
+	}
+}
+
+func TestFormatNanoseconds(t *testing.T) {
+	tests := []struct {
+		ns   int64
+		want string
+	}{
+		{0, "0s"},
+		{1_000_000_000, "1s"},       // 1 second
+		{60_000_000_000, "1m"},      // 1 minute
+		{3_600_000_000_000, "1h"},   // 1 hour
+		{86_400_000_000_000, "1d"},  // 1 day
+		{172_800_000_000_000, "2d"}, // 2 days
+	}
+
+	for _, tt := range tests {
+		got := formatNanoseconds(tt.ns)
+		if got != tt.want {
+			t.Errorf("formatNanoseconds(%d) = %q, want %q", tt.ns, got, tt.want)
+		}
+	}
+}
+
 func TestRenderRankBadge(t *testing.T) {
 	tests := []struct {
 		rank  int

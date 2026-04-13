@@ -45,6 +45,21 @@ func FormatTimeAbs(t time.Time) string {
 	return t.Local().Format("2006-01-02 15:04")
 }
 
+// formatNanoseconds converts nanoseconds to a human-readable duration string.
+func formatNanoseconds(ns int64) string {
+	d := time.Duration(ns)
+	switch {
+	case d >= 24*time.Hour:
+		return fmt.Sprintf("%.0fd", d.Hours()/24)
+	case d >= time.Hour:
+		return fmt.Sprintf("%.0fh", d.Hours())
+	case d >= time.Minute:
+		return fmt.Sprintf("%.0fm", d.Minutes())
+	default:
+		return fmt.Sprintf("%.0fs", d.Seconds())
+	}
+}
+
 // truncateRunesHelper truncates a string to max visual width (cells), adding suffix if needed.
 // Uses go-runewidth to handle wide characters correctly.
 func truncateRunesHelper(s string, maxWidth int, suffix string) string {
