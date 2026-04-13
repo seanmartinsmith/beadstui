@@ -1273,6 +1273,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case Phase2UpdateMsg:
 		return m.handlePhase2Update(msg)
 
+	case TemporalCacheReadyMsg:
+		// Temporal cache populated - future phases (sparklines, diff, timeline)
+		// will use this to refresh their views. For now, just acknowledge.
+
 	case HistoryLoadedMsg:
 		m = m.handleHistoryLoaded(msg)
 
