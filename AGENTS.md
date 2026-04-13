@@ -880,9 +880,9 @@ bd close <id>         # Complete work
 
 ### Rules
 
-- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
+- Use `bd` for persistent cross-session work. Use TaskCreate/TodoWrite for in-session execution tracking (3+ steps). They complement each other.
 - Run `bd prime` for detailed command reference and session close protocol
-- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
+- Use `bd remember` for project-scoped knowledge. Use MEMORY.md for user preferences and cross-project patterns. They complement each other.
 
 ## Session Completion
 
@@ -910,3 +910,27 @@ bd close <id>         # Complete work
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
 <!-- END BEADS INTEGRATION -->
+
+## Workflow Formulas
+
+This project has reusable workflow formulas at `~/.beads/formulas/`. Use them instead of ad-hoc execution.
+
+```bash
+bd formula list                    # See available formulas
+bd mol pour <name> --var k=v       # Create persistent molecule (tracked work)
+bd mol wisp <name> --var k=v       # Create ephemeral wisp (scratch/operational)
+bd mol pour <name> --dry-run       # Preview what would be created
+```
+
+### Working through a molecule
+
+Molecules create a parent issue with child steps linked by dependencies. `bd ready` surfaces the next unblocked step.
+
+```bash
+bd mol show <mol-id>               # See structure and steps
+bd ready                           # Find next unblocked step
+bd update <step-id> --claim        # Claim it
+# ... do the work ...
+bd close <step-id> --reason="..."  # Complete it, unblocks next step
+bd mol burn <wisp-id>              # Clean up wisp when done (ephemeral only)
+```
