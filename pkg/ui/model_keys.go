@@ -797,18 +797,30 @@ func (m Model) handleBQLQueryKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 }
 
 // handleLabelPickerKeys handles keyboard input when label picker is focused (bv-126)
+// Letter keys are NOT used for navigation - they go to the text input for search.
+// Only arrow keys and ctrl combos navigate. `l` closes the modal when the input
+// is empty (matching `w` for project picker), but types `l` when searching.
 func (m Model) handleLabelPickerKeys(msg tea.KeyMsg) Model {
 	switch msg.String() {
 	case "esc":
 		m.closeModal()
 		m.focused = focusList
-	case "j", "down", "ctrl+n":
+	case "l":
+		// Close modal when input is empty (like w for project picker),
+		// otherwise type the letter into search
+		if m.labelPicker.InputValue() == "" {
+			m.closeModal()
+			m.focused = focusList
+		} else {
+			m.labelPicker.UpdateInput(msg)
+		}
+	case "down", "ctrl+n":
 		m.labelPicker.MoveDown()
-	case "k", "up", "ctrl+p":
+	case "up", "ctrl+p":
 		m.labelPicker.MoveUp()
-	case "left", "h":
+	case "left":
 		m.labelPicker.PageUp()
-	case "right", "l":
+	case "right":
 		m.labelPicker.PageDown()
 	case "enter":
 		if selected := m.labelPicker.SelectedLabel(); selected != "" {
@@ -819,7 +831,7 @@ func (m Model) handleLabelPickerKeys(msg tea.KeyMsg) Model {
 		m.closeModal()
 		m.focused = focusList
 	default:
-		// Pass other keys to text input for fuzzy search
+		// Pass all other keys (including letters) to text input for search
 		m.labelPicker.UpdateInput(msg)
 	}
 	return m
