@@ -156,16 +156,22 @@ func (m *LabelPickerModel) PageDown() {
 	}
 }
 
-// PageUp moves selection up by one page.
+// PageUp moves selection to the top of the previous page.
 func (m *LabelPickerModel) PageUp() {
 	if len(m.filtered) == 0 {
 		return
 	}
 	pageSize := m.visibleCount()
-	m.selectedIndex -= pageSize
-	if m.selectedIndex < 0 {
-		m.selectedIndex = 0
+	// Snap to top of the current visible page, then go back one page
+	pageStart := (m.selectedIndex / pageSize) * pageSize
+	if pageStart == m.selectedIndex {
+		// Already at top of a page - go to top of previous page
+		pageStart -= pageSize
 	}
+	if pageStart < 0 {
+		pageStart = 0
+	}
+	m.selectedIndex = pageStart
 }
 
 // visibleCount returns how many labels are visible in the picker.
