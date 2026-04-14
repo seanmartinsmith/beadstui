@@ -798,8 +798,7 @@ func (m Model) handleBQLQueryKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 
 // handleLabelPickerKeys handles keyboard input when label picker is focused (bv-126)
 // Letter keys are NOT used for navigation - they go to the text input for search.
-// Only arrow keys and ctrl combos navigate. `l` closes the modal when the input
-// is empty (matching `w` for project picker), but types `l` when searching.
+// Only arrow keys and ctrl combos navigate. Space toggles multi-select.
 func (m Model) handleLabelPickerKeys(msg tea.KeyMsg) Model {
 	switch msg.String() {
 	case "esc":
@@ -813,11 +812,26 @@ func (m Model) handleLabelPickerKeys(msg tea.KeyMsg) Model {
 		m.labelPicker.PageUp()
 	case "right":
 		m.labelPicker.PageDown()
+	case "space":
+		m.labelPicker.ToggleSelected()
 	case "enter":
-		if selected := m.labelPicker.SelectedLabel(); selected != "" {
-			m.filter.currentFilter = "label:" + selected
+		selected := m.labelPicker.SelectedLabels()
+		if len(selected) == 0 {
+			// No checkmarks: enter applies the cursor label (single-select)
+			if cursor := m.labelPicker.SelectedLabel(); cursor != "" {
+				m.filter.currentFilter = "label:" + cursor
+				m.applyFilter()
+				m.setStatus(fmt.Sprintf("Filtered by label: %s", cursor))
+			}
+		} else if len(selected) == 1 {
+			m.filter.currentFilter = "label:" + selected[0]
 			m.applyFilter()
-			m.setStatus(fmt.Sprintf("Filtered by label: %s", selected))
+			m.setStatus(fmt.Sprintf("Filtered by label: %s", selected[0]))
+		} else {
+			// Multi-select: comma-separated labels
+			m.filter.currentFilter = "label:" + strings.Join(selected, ",")
+			m.applyFilter()
+			m.setStatus(fmt.Sprintf("Filtered by %d labels", len(selected)))
 		}
 		m.closeModal()
 		m.focused = focusList

@@ -457,7 +457,7 @@ func (m *Model) extractKeyHints() []string {
 	} else if m.activeModal == ModalRepoPicker {
 		hints = append(hints, keyStyle.Render("j/k")+" nav", keyStyle.Render("space")+" toggle", keyStyle.Render("⏎")+" apply", keyStyle.Render("esc")+" cancel")
 	} else if m.activeModal == ModalLabelPicker {
-		hints = append(hints, "type to filter", keyStyle.Render("↑/↓")+" nav", keyStyle.Render("⏎")+" apply", keyStyle.Render("esc")+" close")
+		hints = append(hints, "type to filter", keyStyle.Render("space")+" toggle", keyStyle.Render("⏎")+" apply", keyStyle.Render("esc")+" close")
 	} else if m.mode == ViewInsights {
 		hints = append(hints, keyStyle.Render("h/l")+" panels", keyStyle.Render("e")+" explain", keyStyle.Render("⏎")+" jump", keyStyle.Render("?")+" help")
 		hints = append(hints, keyStyle.Render("A")+" attention", keyStyle.Render("F")+" flow")

@@ -994,11 +994,12 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			labelExtraction := analysis.ExtractLabels(m.data.issues)
 			labelCounts := extractLabelCounts(labelExtraction.Stats)
 			m.labelPicker.SetLabels(labelExtraction.Labels, labelCounts)
-			// Set active label so the picker opens to the current filter
+			// Set active labels so the picker opens to the current filter
 			if strings.HasPrefix(m.filter.currentFilter, "label:") {
-				m.labelPicker.SetActiveLabel(strings.TrimPrefix(m.filter.currentFilter, "label:"))
+				labelFilter := strings.TrimPrefix(m.filter.currentFilter, "label:")
+				m.labelPicker.SetActiveLabels(strings.Split(labelFilter, ","))
 			} else {
-				m.labelPicker.SetActiveLabel("")
+				m.labelPicker.SetActiveLabels(nil)
 			}
 			m.labelPicker.Reset()
 			m.labelPicker.SetSize(m.width, m.height-1)

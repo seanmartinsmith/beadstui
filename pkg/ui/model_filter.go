@@ -94,10 +94,15 @@ func (m *Model) matchesCurrentFilter(issue model.Issue) bool {
 		return true
 	default:
 		if strings.HasPrefix(m.filter.currentFilter, "label:") {
-			label := strings.TrimPrefix(m.filter.currentFilter, "label:")
-			for _, l := range issue.Labels {
-				if l == label {
-					return true
+			labelFilter := strings.TrimPrefix(m.filter.currentFilter, "label:")
+			// Support multi-label: "label:area:tui,area:cli" matches issues
+			// that have ANY of the selected labels
+			filterLabels := strings.Split(labelFilter, ",")
+			for _, fl := range filterLabels {
+				for _, l := range issue.Labels {
+					if l == fl {
+						return true
+					}
 				}
 			}
 		}

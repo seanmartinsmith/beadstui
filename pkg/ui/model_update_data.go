@@ -229,10 +229,16 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 				}
 			default:
 				if strings.HasPrefix(m.filter.currentFilter, "label:") {
-					label := strings.TrimPrefix(m.filter.currentFilter, "label:")
-					for _, l := range issue.Labels {
-						if l == label {
-							include = true
+					labelFilter := strings.TrimPrefix(m.filter.currentFilter, "label:")
+					filterLabels := strings.Split(labelFilter, ",")
+					for _, fl := range filterLabels {
+						for _, l := range issue.Labels {
+							if l == fl {
+								include = true
+								break
+							}
+						}
+						if include {
 							break
 						}
 					}

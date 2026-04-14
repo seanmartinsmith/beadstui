@@ -17,7 +17,8 @@ type LabelPickerModel struct {
 	filtered      []string
 	input         textinput.Model
 	selectedIndex int
-	activeLabel   string // currently applied label filter (shown with indicator)
+	activeLabels  map[string]bool // currently applied label filters (shown with indicator)
+	selected      map[string]bool // labels toggled in this session (space to toggle)
 	width         int
 	height        int
 	theme         Theme
@@ -73,9 +74,50 @@ func (m *LabelPickerModel) SetLabels(labels []string, counts map[string]int) {
 	m.filterLabels()
 }
 
-// SetActiveLabel sets the currently applied label filter so it can be indicated.
-func (m *LabelPickerModel) SetActiveLabel(label string) {
-	m.activeLabel = label
+// SetActiveLabels sets the currently applied label filters so they can be indicated.
+func (m *LabelPickerModel) SetActiveLabels(labels []string) {
+	m.activeLabels = make(map[string]bool, len(labels))
+	for _, l := range labels {
+		m.activeLabels[l] = true
+	}
+	// Pre-select active labels so enter preserves the current filter
+	m.selected = make(map[string]bool, len(labels))
+	for _, l := range labels {
+		m.selected[l] = true
+	}
+}
+
+// ToggleSelected toggles the label under the cursor.
+func (m *LabelPickerModel) ToggleSelected() {
+	if len(m.filtered) == 0 || m.selectedIndex >= len(m.filtered) {
+		return
+	}
+	label := m.filtered[m.selectedIndex]
+	if m.selected == nil {
+		m.selected = make(map[string]bool)
+	}
+	if m.selected[label] {
+		delete(m.selected, label)
+	} else {
+		m.selected[label] = true
+	}
+}
+
+// SelectedLabels returns the labels that have been toggled on.
+func (m *LabelPickerModel) SelectedLabels() []string {
+	var labels []string
+	// Return in display order (allLabels order) for deterministic output
+	for _, l := range m.allLabels {
+		if m.selected[l] {
+			labels = append(labels, l)
+		}
+	}
+	return labels
+}
+
+// HasSelections returns true if any labels are toggled.
+func (m *LabelPickerModel) HasSelections() bool {
+	return len(m.selected) > 0
 }
 
 // MoveUp moves selection up, wrapping to the bottom.
@@ -153,14 +195,14 @@ func (m *LabelPickerModel) UpdateInput(msg interface{}) {
 }
 
 // Reset clears the input and resets selection.
-// If an active label filter is set, the cursor moves to that label.
+// If active label filters are set, the cursor moves to the first one.
 func (m *LabelPickerModel) Reset() {
 	m.input.SetValue("")
 	m.filterLabels()
-	// Position cursor on the active label if one is set
-	if m.activeLabel != "" {
+	// Position cursor on the first active label if any are set
+	if len(m.activeLabels) > 0 {
 		for i, label := range m.filtered {
-			if label == m.activeLabel {
+			if m.activeLabels[label] {
 				m.selectedIndex = i
 				return
 			}
@@ -298,9 +340,9 @@ func (m *LabelPickerModel) View() string {
 	lineWidth := labelPickerHPad + 2 + 2 + 1 + maxLabelWidth + labelPickerHPad
 
 	// Footer line width
-	footerText := "\u2191/\u2193: nav \u2022 enter: apply \u2022 esc: close"
+	footerText := "space: toggle \u2022 enter: apply \u2022 esc: close"
 	if len(m.filtered) > maxVisible {
-		footerText = "\u2191/\u2193: nav \u2022 \u2190/\u2192: page \u2022 enter: apply \u2022 esc: close"
+		footerText = "space: toggle \u2022 \u2190/\u2192: page \u2022 enter: apply \u2022 esc: close"
 	}
 	footerLineWidth := labelPickerHPad + len(footerText) + labelPickerHPad
 
@@ -368,7 +410,7 @@ func (m *LabelPickerModel) View() string {
 		for i := start; i < end; i++ {
 			label := m.filtered[i]
 			isCursor := i == m.selectedIndex
-			isActive := label == m.activeLabel
+			isSelected := m.selected[label]
 
 			nameStyle := lipgloss.NewStyle().Foreground(t.Base.GetForeground())
 			countStyle := lipgloss.NewStyle().Foreground(t.Secondary)
@@ -382,9 +424,9 @@ func (m *LabelPickerModel) View() string {
 				cursor = nameStyle.Render("▸ ")
 			}
 
-			// Show active label indicator (like the checkmark in project picker)
+			// Show selected indicator (checkmark when toggled, dot otherwise)
 			indicator := dimStyle.Render("• ")
-			if isActive {
+			if isSelected {
 				indicator = activeStyle.Render("✓ ")
 			}
 
