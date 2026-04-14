@@ -23,7 +23,7 @@ func (e *MemoryExecutor) Execute(query *Query, issues []model.Issue, opts Execut
 
 	// Filter
 	for _, issue := range issues {
-		if query.Filter == nil || evalExpr(query.Filter, issue, opts) {
+		if query.Filter == nil || evalExpr(query.Filter, issue, opts, 0) {
 			result = append(result, issue)
 		}
 	}
@@ -46,28 +46,34 @@ func (e *MemoryExecutor) Matches(query *Query, issue model.Issue, opts ExecuteOp
 	if query.Filter == nil {
 		return true
 	}
-	return evalExpr(query.Filter, issue, opts)
+	return evalExpr(query.Filter, issue, opts, 0)
 }
 
+// maxEvalDepth is the maximum recursion depth for expression evaluation.
+const maxEvalDepth = 100
+
 // evalExpr recursively evaluates an expression against an issue.
-func evalExpr(expr Expr, issue model.Issue, opts ExecuteOpts) bool {
+func evalExpr(expr Expr, issue model.Issue, opts ExecuteOpts, depth int) bool {
+	if depth > maxEvalDepth {
+		return false // query too deeply nested, fail closed
+	}
 	switch e := expr.(type) {
 	case *BinaryExpr:
-		left := evalExpr(e.Left, issue, opts)
+		left := evalExpr(e.Left, issue, opts, depth+1)
 		if e.Op == TokenAnd {
 			if !left {
 				return false // short-circuit
 			}
-			return evalExpr(e.Right, issue, opts)
+			return evalExpr(e.Right, issue, opts, depth+1)
 		}
 		// OR
 		if left {
 			return true // short-circuit
 		}
-		return evalExpr(e.Right, issue, opts)
+		return evalExpr(e.Right, issue, opts, depth+1)
 
 	case *NotExpr:
-		return !evalExpr(e.Expr, issue, opts)
+		return !evalExpr(e.Expr, issue, opts, depth+1)
 
 	case *CompareExpr:
 		return evalCompare(e, issue, opts)

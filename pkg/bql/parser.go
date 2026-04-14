@@ -8,11 +8,15 @@ import (
 	"log/slog"
 )
 
+// maxParseDepth is the maximum nesting depth for BQL expressions.
+const maxParseDepth = 100
+
 // Parser parses BQL tokens into an AST.
 type Parser struct {
 	lexer   *Lexer
 	current Token
 	peek    Token
+	depth   int
 }
 
 // NewParser creates a parser for the input.
@@ -123,6 +127,12 @@ func (p *Parser) parseTerm() (Expr, error) {
 // parseFactor parses NOT, parenthesized expressions, or comparisons.
 // factor = "not" factor | "(" expression ")" | comparison
 func (p *Parser) parseFactor() (Expr, error) {
+	p.depth++
+	defer func() { p.depth-- }()
+	if p.depth > maxParseDepth {
+		return nil, fmt.Errorf("query too deeply nested (max depth %d)", maxParseDepth)
+	}
+
 	switch p.current.Type {
 	case TokenNot:
 		p.nextToken() // consume NOT

@@ -220,11 +220,14 @@ func (b *SQLBuilder) dateToSQL(dateStr string) string {
 
 			switch suffix {
 			case 'd', 'D':
-				return fmt.Sprintf("DATE_SUB(CURDATE(), INTERVAL %s DAY)", value)
+				b.params = append(b.params, value)
+				return "DATE_SUB(CURDATE(), INTERVAL ? DAY)"
 			case 'h', 'H':
-				return fmt.Sprintf("DATE_SUB(NOW(), INTERVAL %s HOUR)", value)
+				b.params = append(b.params, value)
+				return "DATE_SUB(NOW(), INTERVAL ? HOUR)"
 			case 'm', 'M':
-				return fmt.Sprintf("DATE_SUB(CURDATE(), INTERVAL %s MONTH)", value)
+				b.params = append(b.params, value)
+				return "DATE_SUB(CURDATE(), INTERVAL ? MONTH)"
 			}
 		}
 		b.params = append(b.params, dateStr)
