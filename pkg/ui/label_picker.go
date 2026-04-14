@@ -144,16 +144,18 @@ func (m *LabelPickerModel) MoveDown() {
 	}
 }
 
-// PageDown moves selection down by one page.
+// PageDown moves selection to the bottom of the next page.
 func (m *LabelPickerModel) PageDown() {
 	if len(m.filtered) == 0 {
 		return
 	}
 	pageSize := m.visibleCount()
-	m.selectedIndex += pageSize
-	if m.selectedIndex >= len(m.filtered) {
-		m.selectedIndex = len(m.filtered) - 1
+	currentPageStart := (m.selectedIndex / pageSize) * pageSize
+	target := currentPageStart + pageSize + pageSize - 1 // bottom of next page
+	if target >= len(m.filtered) {
+		target = len(m.filtered) - 1
 	}
+	m.selectedIndex = target
 }
 
 // PageUp moves selection to the top of the previous page.
@@ -162,16 +164,12 @@ func (m *LabelPickerModel) PageUp() {
 		return
 	}
 	pageSize := m.visibleCount()
-	// Snap to top of the current visible page, then go back one page
-	pageStart := (m.selectedIndex / pageSize) * pageSize
-	if pageStart == m.selectedIndex {
-		// Already at top of a page - go to top of previous page
-		pageStart -= pageSize
+	currentPageStart := (m.selectedIndex / pageSize) * pageSize
+	target := currentPageStart - pageSize // top of previous page
+	if target < 0 {
+		target = 0
 	}
-	if pageStart < 0 {
-		pageStart = 0
-	}
-	m.selectedIndex = pageStart
+	m.selectedIndex = target
 }
 
 // visibleCount returns how many labels are visible in the picker.
@@ -216,7 +214,9 @@ func (m *LabelPickerModel) Reset() {
 	}
 }
 
-// filterLabels filters the labels based on current input using fuzzy matching
+// filterLabels filters the labels based on current input using fuzzy matching.
+// Selected (toggled) labels are always included at the top of the list so they
+// remain visible and accessible even when they don't match the search query.
 func (m *LabelPickerModel) filterLabels() {
 	query := strings.ToLower(strings.TrimSpace(m.input.Value()))
 	if query == "" {
@@ -245,9 +245,25 @@ func (m *LabelPickerModel) filterLabels() {
 		return matches[i].label < matches[j].label
 	})
 
-	m.filtered = make([]string, len(matches))
-	for i, match := range matches {
-		m.filtered[i] = match.label
+	// Build filtered list: pinned selected labels first, then matches
+	seen := make(map[string]bool, len(matches)+len(m.selected))
+	m.filtered = m.filtered[:0]
+
+	// Pin selected labels at the top (in their original sort order)
+	if len(m.selected) > 0 {
+		for _, l := range m.allLabels {
+			if m.selected[l] {
+				m.filtered = append(m.filtered, l)
+				seen[l] = true
+			}
+		}
+	}
+
+	// Then add search matches (skip any already pinned)
+	for _, match := range matches {
+		if !seen[match.label] {
+			m.filtered = append(m.filtered, match.label)
+		}
 	}
 
 	// Keep selection in bounds
@@ -374,27 +390,6 @@ func (m *LabelPickerModel) View() string {
 
 	var lines []string
 
-	// Selected labels summary - persists through filtering
-	if len(m.selected) > 0 {
-		selectedStyle := lipgloss.NewStyle().Foreground(t.Primary)
-		dimStyle := lipgloss.NewStyle().Foreground(t.Secondary)
-
-		// Show selected labels inline, truncated to fit
-		var names []string
-		for _, l := range m.allLabels {
-			if m.selected[l] {
-				names = append(names, l)
-			}
-		}
-		summary := strings.Join(names, ", ")
-		maxSummaryWidth := innerWidth - labelPickerHPad*2 - 4 // room for "✓ " prefix
-		if len(summary) > maxSummaryWidth {
-			summary = summary[:maxSummaryWidth-3] + "..."
-		}
-		lines = append(lines, selectedStyle.Render(pad+"✓ ")+dimStyle.Render(summary))
-		lines = append(lines, "")
-	}
-
 	// Search input
 	inputStyle := lipgloss.NewStyle().
 		Foreground(t.Primary)
@@ -413,11 +408,8 @@ func (m *LabelPickerModel) View() string {
 			lines = append(lines, "")
 		}
 	} else {
-		// Calculate visible window
-		start := 0
-		if m.selectedIndex >= maxVisible {
-			start = m.selectedIndex - maxVisible + 1
-		}
+		// Page-aligned visible window so paging feels natural
+		start := (m.selectedIndex / maxVisible) * maxVisible
 		end := start + maxVisible
 		if end > len(m.filtered) {
 			end = len(m.filtered)
