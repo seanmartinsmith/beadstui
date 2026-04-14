@@ -312,6 +312,17 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, cmd
 	}
 
+	// Handle label picker modal before global keys (bt-eorx)
+	// Without this early return, typed characters get intercepted by global handlers
+	// (e.g., 'g' opens graph, 'i' opens insights) triggering expensive operations.
+	if m.activeModal == ModalLabelPicker {
+		if msg.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
+		m = m.handleLabelPickerKeys(msg)
+		return m, nil
+	}
+
 	// Handle recipe picker overlay before global keys (esc/q/etc.)
 	if m.activeModal == ModalRecipePicker {
 		if msg.String() == "ctrl+c" {
@@ -628,12 +639,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				m.focused = focusList
 				return m, nil
 			}
-			// Close label picker if open (bv-126 fix)
-			if m.activeModal == ModalLabelPicker {
-				m.closeModal()
-				m.focused = focusList
-				return m, nil
-			}
+			// Label picker esc is now handled by the early return above (bt-eorx)
 			// Close label dashboard if open
 			if m.mode == ViewLabelDashboard {
 				m.mode = ViewList
