@@ -7,6 +7,7 @@ package ui
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/agents"
@@ -993,6 +994,12 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			labelExtraction := analysis.ExtractLabels(m.data.issues)
 			labelCounts := extractLabelCounts(labelExtraction.Stats)
 			m.labelPicker.SetLabels(labelExtraction.Labels, labelCounts)
+			// Set active label so the picker opens to the current filter
+			if strings.HasPrefix(m.filter.currentFilter, "label:") {
+				m.labelPicker.SetActiveLabel(strings.TrimPrefix(m.filter.currentFilter, "label:"))
+			} else {
+				m.labelPicker.SetActiveLabel("")
+			}
 			m.labelPicker.Reset()
 			m.labelPicker.SetSize(m.width, m.height-1)
 			m.openModal(ModalLabelPicker)

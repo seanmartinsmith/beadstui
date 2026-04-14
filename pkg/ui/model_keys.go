@@ -806,12 +806,15 @@ func (m Model) handleLabelPickerKeys(msg tea.KeyMsg) Model {
 		m.labelPicker.MoveDown()
 	case "k", "up", "ctrl+p":
 		m.labelPicker.MoveUp()
+	case "left", "h":
+		m.labelPicker.PageUp()
+	case "right", "l":
+		m.labelPicker.PageDown()
 	case "enter":
 		if selected := m.labelPicker.SelectedLabel(); selected != "" {
 			m.filter.currentFilter = "label:" + selected
 			m.applyFilter()
-			m.statusMsg = fmt.Sprintf("Filtered by label: %s", selected)
-			m.statusIsError = false
+			m.setStatus(fmt.Sprintf("Filtered by label: %s", selected))
 		}
 		m.closeModal()
 		m.focused = focusList

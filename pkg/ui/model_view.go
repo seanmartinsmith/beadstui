@@ -76,7 +76,7 @@ func (m Model) View() tea.View {
 	case ModalRepoPicker:
 		// Handled as overlay after background renders (below)
 	case ModalLabelPicker:
-		body = m.labelPicker.View()
+		// Handled as overlay after background renders (below)
 	case ModalHelp:
 		body = m.renderHelpOverlay()
 	case ModalTutorial:
@@ -140,6 +140,9 @@ func (m Model) View() tea.View {
 	// Overlay modals that float on top of the background
 	if m.activeModal == ModalRepoPicker {
 		body = OverlayCenter(body, m.repoPicker.View(), m.width, m.height-1)
+	}
+	if m.activeModal == ModalLabelPicker {
+		body = OverlayCenter(body, m.labelPicker.View(), m.width, m.height-1)
 	}
 
 	footer := m.renderFooter()

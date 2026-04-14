@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 	"unicode"
@@ -16,6 +17,7 @@ type LabelPickerModel struct {
 	filtered      []string
 	input         textinput.Model
 	selectedIndex int
+	activeLabel   string // currently applied label filter (shown with indicator)
 	width         int
 	height        int
 	theme         Theme
@@ -71,18 +73,69 @@ func (m *LabelPickerModel) SetLabels(labels []string, counts map[string]int) {
 	m.filterLabels()
 }
 
-// MoveUp moves selection up
+// SetActiveLabel sets the currently applied label filter so it can be indicated.
+func (m *LabelPickerModel) SetActiveLabel(label string) {
+	m.activeLabel = label
+}
+
+// MoveUp moves selection up, wrapping to the bottom.
 func (m *LabelPickerModel) MoveUp() {
+	if len(m.filtered) == 0 {
+		return
+	}
 	if m.selectedIndex > 0 {
 		m.selectedIndex--
+	} else {
+		m.selectedIndex = len(m.filtered) - 1
 	}
 }
 
-// MoveDown moves selection down
+// MoveDown moves selection down, wrapping to the top.
 func (m *LabelPickerModel) MoveDown() {
+	if len(m.filtered) == 0 {
+		return
+	}
 	if m.selectedIndex < len(m.filtered)-1 {
 		m.selectedIndex++
+	} else {
+		m.selectedIndex = 0
 	}
+}
+
+// PageDown moves selection down by one page.
+func (m *LabelPickerModel) PageDown() {
+	if len(m.filtered) == 0 {
+		return
+	}
+	pageSize := m.visibleCount()
+	m.selectedIndex += pageSize
+	if m.selectedIndex >= len(m.filtered) {
+		m.selectedIndex = len(m.filtered) - 1
+	}
+}
+
+// PageUp moves selection up by one page.
+func (m *LabelPickerModel) PageUp() {
+	if len(m.filtered) == 0 {
+		return
+	}
+	pageSize := m.visibleCount()
+	m.selectedIndex -= pageSize
+	if m.selectedIndex < 0 {
+		m.selectedIndex = 0
+	}
+}
+
+// visibleCount returns how many labels are visible in the picker.
+func (m *LabelPickerModel) visibleCount() int {
+	maxVisible := 10
+	if m.height < 15 {
+		maxVisible = m.height - 7
+	}
+	if maxVisible < 3 {
+		maxVisible = 3
+	}
+	return maxVisible
 }
 
 // SelectedLabel returns the currently selected label
@@ -99,10 +152,20 @@ func (m *LabelPickerModel) UpdateInput(msg interface{}) {
 	m.filterLabels()
 }
 
-// Reset clears the input and resets selection
+// Reset clears the input and resets selection.
+// If an active label filter is set, the cursor moves to that label.
 func (m *LabelPickerModel) Reset() {
 	m.input.SetValue("")
 	m.filterLabels()
+	// Position cursor on the active label if one is set
+	if m.activeLabel != "" {
+		for i, label := range m.filtered {
+			if label == m.activeLabel {
+				m.selectedIndex = i
+				return
+			}
+		}
+	}
 }
 
 // filterLabels filters the labels based on current input using fuzzy matching
@@ -206,6 +269,8 @@ func fuzzyScore(label, query string) int {
 	return 0
 }
 
+const labelPickerHPad = 3 // horizontal padding inside box
+
 // View renders the label picker overlay
 func (m *LabelPickerModel) View() string {
 	if m.width == 0 {
@@ -217,40 +282,58 @@ func (m *LabelPickerModel) View() string {
 
 	t := m.theme
 
-	// Calculate box dimensions
-	boxWidth := 40
-	if m.width < 50 {
-		boxWidth = m.width - 10
-	}
-	if boxWidth < 25 {
-		boxWidth = 25
+	maxVisible := m.visibleCount()
+
+	// Find widest label+count for sizing
+	maxLabelWidth := 0
+	for _, label := range m.filtered {
+		count := m.labelCounts[label]
+		w := len(label) + len(fmt.Sprintf(" (%d)", count))
+		if w > maxLabelWidth {
+			maxLabelWidth = w
+		}
 	}
 
-	maxVisible := 10
-	if m.height < 15 {
-		maxVisible = m.height - 7
+	// Compute box width: hpad + cursor(2) + indicator(2) + space(1) + label+count + hpad
+	lineWidth := labelPickerHPad + 2 + 2 + 1 + maxLabelWidth + labelPickerHPad
+
+	// Footer line width
+	footerText := "enter: apply \u2022 esc: cancel"
+	if len(m.filtered) > maxVisible {
+		footerText = "\u2190/\u2192: page \u2022 enter: apply \u2022 esc: cancel"
 	}
-	if maxVisible < 3 {
-		maxVisible = 3
+	footerLineWidth := labelPickerHPad + len(footerText) + labelPickerHPad
+
+	// Input line width
+	inputLineWidth := labelPickerHPad + 4 + 30 + labelPickerHPad // "> " + input
+
+	innerWidth := lineWidth
+	if footerLineWidth > innerWidth {
+		innerWidth = footerLineWidth
 	}
+	if inputLineWidth > innerWidth {
+		innerWidth = inputLineWidth
+	}
+
+	boxWidth := innerWidth + 2 // add border chars
+	if boxWidth > m.width-4 {
+		boxWidth = m.width - 4
+		innerWidth = boxWidth - 2
+	}
+	if boxWidth < 35 {
+		boxWidth = 35
+		innerWidth = boxWidth - 2
+	}
+
+	pad := strings.Repeat(" ", labelPickerHPad)
 
 	var lines []string
 
-	// Title
-	titleStyle := lipgloss.NewStyle().
-		Foreground(t.Primary).
-		Bold(true).
-		MarginBottom(1)
-	lines = append(lines, titleStyle.Render("Filter by Label"))
-	lines = append(lines, "")
-
 	// Search input
 	inputStyle := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(t.Secondary).
-		Padding(0, 1).
-		Width(boxWidth - 6)
-	lines = append(lines, inputStyle.Render(m.input.View()))
+		Foreground(t.Primary)
+	inputLine := pad + inputStyle.Render("> ") + m.input.View()
+	lines = append(lines, inputLine)
 	lines = append(lines, "")
 
 	// Label list with scroll
@@ -258,7 +341,7 @@ func (m *LabelPickerModel) View() string {
 		dimStyle := lipgloss.NewStyle().
 			Foreground(t.Secondary).
 			Italic(true)
-		lines = append(lines, dimStyle.Render("  No matching labels"))
+		lines = append(lines, dimStyle.Render(pad+"No matching labels"))
 	} else {
 		// Calculate visible window
 		start := 0
@@ -270,75 +353,74 @@ func (m *LabelPickerModel) View() string {
 			end = len(m.filtered)
 		}
 
+		// Line content width for centering
+		lineContentWidth := 2 + 2 + 1 + maxLabelWidth
+		availableWidth := innerWidth - labelPickerHPad*2
+		leftExtra := (availableWidth - lineContentWidth) / 2
+		if leftExtra < 0 {
+			leftExtra = 0
+		}
+		centering := pad + strings.Repeat(" ", leftExtra)
+
+		activeStyle := lipgloss.NewStyle().Foreground(t.Primary)
+		dimStyle := lipgloss.NewStyle().Foreground(t.Secondary)
+
 		for i := start; i < end; i++ {
 			label := m.filtered[i]
-			isSelected := i == m.selectedIndex
+			isCursor := i == m.selectedIndex
+			isActive := label == m.activeLabel
 
-			itemStyle := lipgloss.NewStyle()
+			nameStyle := lipgloss.NewStyle().Foreground(t.Base.GetForeground())
 			countStyle := lipgloss.NewStyle().Foreground(t.Secondary)
-			if isSelected {
-				itemStyle = itemStyle.Foreground(t.Primary).Bold(true)
+			if isCursor {
+				nameStyle = nameStyle.Foreground(t.Primary).Bold(true)
 				countStyle = countStyle.Foreground(t.Primary)
-			} else {
-				itemStyle = itemStyle.Foreground(t.Base.GetForeground())
 			}
 
-			prefix := "  "
-			if isSelected {
-				prefix = "> "
+			cursor := "  "
+			if isCursor {
+				cursor = nameStyle.Render("▸ ")
 			}
 
-			// Format label with count in parentheses
+			// Show active label indicator (like the checkmark in project picker)
+			indicator := dimStyle.Render("• ")
+			if isActive {
+				indicator = activeStyle.Render("✓ ")
+			}
+
 			count := m.labelCounts[label]
-			countStr := " (" + itoa(count) + ")"
-			// Reserve space for count when truncating label
-			maxLabelLen := boxWidth - 8 - len(countStr)
-			if maxLabelLen < 10 {
-				maxLabelLen = 10
-			}
-			displayLabel := truncateRunesHelper(label, maxLabelLen, "...")
-			lines = append(lines, itemStyle.Render(prefix+displayLabel)+countStyle.Render(countStr))
+			countStr := countStyle.Render(fmt.Sprintf(" (%d)", count))
+			line := centering + cursor + indicator + nameStyle.Render(label) + countStr
+			lines = append(lines, line)
 		}
 
-		// Show count if scrolling
+		// Page indicator
 		if len(m.filtered) > maxVisible {
-			countStyle := lipgloss.NewStyle().
+			page := m.selectedIndex/maxVisible + 1
+			totalPages := (len(m.filtered) + maxVisible - 1) / maxVisible
+			pageStyle := lipgloss.NewStyle().
 				Foreground(t.Secondary).
 				Italic(true)
 			lines = append(lines, "")
-			lines = append(lines, countStyle.Render(
-				"  "+strings.Repeat(" ", boxWidth/2-10)+
-					"("+itoa(m.selectedIndex+1)+"/"+itoa(len(m.filtered))+")",
-			))
+			lines = append(lines, pageStyle.Render(
+				pad+fmt.Sprintf("%d/%d (%d labels)", page, totalPages, len(m.filtered))))
 		}
 	}
 
-	// Footer with keybindings
+	// Footer hints
 	lines = append(lines, "")
 	footerStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary).
 		Italic(true)
-	lines = append(lines, footerStyle.Render("j/k: navigate | enter: apply | esc: cancel"))
+	lines = append(lines, footerStyle.Render(pad+footerText))
 
 	content := strings.Join(lines, "\n")
 
-	// Box style
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(t.Primary).
-		Padding(1, 2).
-		Width(boxWidth)
-
-	box := boxStyle.Render(content)
-
-	// Center in viewport
-	return lipgloss.Place(
-		m.width,
-		m.height,
-		lipgloss.Center,
-		lipgloss.Center,
-		box,
-	)
+	return RenderTitledPanel(content, PanelOpts{
+		Title:   "Filter by Label",
+		Width:   boxWidth,
+		Focused: true,
+	})
 }
 
 // InputValue returns the current input value

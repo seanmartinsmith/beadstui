@@ -109,15 +109,16 @@ func TestLabelPickerNavigation(t *testing.T) {
 		t.Errorf("Expected 'core' after second MoveDown, got %s", picker.SelectedLabel())
 	}
 
-	// At end, MoveDown should stay at end
+	// At end, MoveDown wraps to top
 	picker.MoveDown()
-	if picker.SelectedLabel() != "core" {
-		t.Errorf("Expected 'core' at end boundary, got %s", picker.SelectedLabel())
+	if picker.SelectedLabel() != "api" {
+		t.Errorf("Expected 'api' after wrap down, got %s", picker.SelectedLabel())
 	}
 
+	// At top, MoveUp wraps to bottom
 	picker.MoveUp()
-	if picker.SelectedLabel() != "backend" {
-		t.Errorf("Expected 'backend' after MoveUp, got %s", picker.SelectedLabel())
+	if picker.SelectedLabel() != "core" {
+		t.Errorf("Expected 'core' after wrap up, got %s", picker.SelectedLabel())
 	}
 }
 
