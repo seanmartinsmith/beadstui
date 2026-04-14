@@ -215,12 +215,34 @@ func (m *LabelPickerModel) Reset() {
 }
 
 // filterLabels filters the labels based on current input using fuzzy matching.
-// Selected (toggled) labels are always included at the top of the list so they
+// Selected (toggled) labels are always pinned at the top of the list so they
 // remain visible and accessible even when they don't match the search query.
 func (m *LabelPickerModel) filterLabels() {
 	query := strings.ToLower(strings.TrimSpace(m.input.Value()))
+
+	// Always allocate a fresh slice - never reuse m.allLabels' backing array
+	var result []string
+
 	if query == "" {
-		m.filtered = m.allLabels
+		// No search: pin selected at top, then the rest in count order
+		if len(m.selected) > 0 {
+			seen := make(map[string]bool, len(m.selected))
+			for _, l := range m.allLabels {
+				if m.selected[l] {
+					result = append(result, l)
+					seen[l] = true
+				}
+			}
+			for _, l := range m.allLabels {
+				if !seen[l] {
+					result = append(result, l)
+				}
+			}
+		} else {
+			result = make([]string, len(m.allLabels))
+			copy(result, m.allLabels)
+		}
+		m.filtered = result
 		m.selectedIndex = 0
 		return
 	}
@@ -245,26 +267,23 @@ func (m *LabelPickerModel) filterLabels() {
 		return matches[i].label < matches[j].label
 	})
 
-	// Build filtered list: pinned selected labels first, then matches
+	// Pin selected labels at the top (in their original sort order), then matches
 	seen := make(map[string]bool, len(matches)+len(m.selected))
-	m.filtered = m.filtered[:0]
-
-	// Pin selected labels at the top (in their original sort order)
 	if len(m.selected) > 0 {
 		for _, l := range m.allLabels {
 			if m.selected[l] {
-				m.filtered = append(m.filtered, l)
+				result = append(result, l)
 				seen[l] = true
 			}
 		}
 	}
-
-	// Then add search matches (skip any already pinned)
 	for _, match := range matches {
 		if !seen[match.label] {
-			m.filtered = append(m.filtered, match.label)
+			result = append(result, match.label)
 		}
 	}
+
+	m.filtered = result
 
 	// Keep selection in bounds
 	if m.selectedIndex >= len(m.filtered) {
