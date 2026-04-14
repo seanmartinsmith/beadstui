@@ -600,6 +600,12 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				m.focused = focusList
 				return m, nil
 			}
+			if m.mode == ViewLabelDashboard {
+				m.mode = ViewList
+				m.isSplitView = true // restore split view cleared on entry (bt-trqo)
+				m.focused = focusList
+				return m, nil
+			}
 			return m, tea.Quit
 
 		case "esc":
@@ -644,9 +650,10 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				return m, nil
 			}
 			// Label picker esc is now handled by the early return above (bt-eorx)
-			// Close label dashboard if open
+			// Close label dashboard if open (bt-trqo: restore split view)
 			if m.mode == ViewLabelDashboard {
 				m.mode = ViewList
+				m.isSplitView = true
 				m.focused = focusList
 				return m, nil
 			}
