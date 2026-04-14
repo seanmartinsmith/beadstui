@@ -819,17 +819,17 @@ func (m Model) handleLabelPickerKeys(msg tea.KeyMsg) Model {
 		if len(selected) == 0 {
 			// No checkmarks: enter applies the cursor label (single-select)
 			if cursor := m.labelPicker.SelectedLabel(); cursor != "" {
-				m.filter.currentFilter = "label:" + cursor
+				m.filter.labelFilter = cursor
 				m.applyFilter()
 				m.setStatus(fmt.Sprintf("Filtered by label: %s", cursor))
 			}
 		} else if len(selected) == 1 {
-			m.filter.currentFilter = "label:" + selected[0]
+			m.filter.labelFilter = selected[0]
 			m.applyFilter()
 			m.setStatus(fmt.Sprintf("Filtered by label: %s", selected[0]))
 		} else {
 			// Multi-select: comma-separated labels
-			m.filter.currentFilter = "label:" + strings.Join(selected, ",")
+			m.filter.labelFilter = strings.Join(selected, ",")
 			m.applyFilter()
 			m.setStatus(fmt.Sprintf("Filtered by %d labels", len(selected)))
 		}

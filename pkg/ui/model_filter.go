@@ -34,8 +34,12 @@ func (m Model) getDiffStatus(id string) DiffStatus {
 // hasActiveFilters returns true if any filter is currently applied
 // (status filter, label filter, recipe filter, or fuzzy search)
 func (m *Model) hasActiveFilters() bool {
-	// Check status/label/recipe filter
+	// Check status filter
 	if m.filter.currentFilter != "all" {
+		return true
+	}
+	// Check label filter
+	if m.filter.labelFilter != "" {
 		return true
 	}
 	// Check if fuzzy search filter is active
@@ -48,6 +52,7 @@ func (m *Model) hasActiveFilters() bool {
 // clearAllFilters resets all filters to their default state
 func (m *Model) clearAllFilters() {
 	m.filter.currentFilter = "all"
+	m.filter.labelFilter = ""
 	m.setActiveRecipe(nil) // Clear any active recipe filter
 	m.filter.activeBQLExpr = nil  // Clear BQL state
 	// Reset the fuzzy search filter by resetting the filter state
@@ -71,13 +76,18 @@ func (m *Model) matchesCurrentFilter(issue model.Issue) bool {
 		}
 	}
 
+	// Status filter
 	switch m.filter.currentFilter {
 	case "all":
-		return true
+		// pass
 	case "open":
-		return !isClosedLikeStatus(issue.Status)
+		if isClosedLikeStatus(issue.Status) {
+			return false
+		}
 	case "closed":
-		return isClosedLikeStatus(issue.Status)
+		if !isClosedLikeStatus(issue.Status) {
+			return false
+		}
 	case "ready":
 		// Ready = Open/InProgress AND NO Open Blockers
 		if isClosedLikeStatus(issue.Status) || issue.Status == model.StatusBlocked {
@@ -91,23 +101,40 @@ func (m *Model) matchesCurrentFilter(issue model.Issue) bool {
 				return false
 			}
 		}
-		return true
 	default:
+		// Legacy: handle "label:X" in currentFilter for backwards compat
+		// (new path uses labelFilter field)
 		if strings.HasPrefix(m.filter.currentFilter, "label:") {
-			labelFilter := strings.TrimPrefix(m.filter.currentFilter, "label:")
-			// Support multi-label: "label:area:tui,area:cli" matches issues
-			// that have ANY of the selected labels
-			filterLabels := strings.Split(labelFilter, ",")
-			for _, fl := range filterLabels {
-				for _, l := range issue.Labels {
-					if l == fl {
-						return true
-					}
-				}
+			lf := strings.TrimPrefix(m.filter.currentFilter, "label:")
+			if !matchesLabelFilter(issue, lf) {
+				return false
+			}
+		} else {
+			return false
+		}
+	}
+
+	// Label filter (independent dimension, composes with status filter)
+	if m.filter.labelFilter != "" {
+		if !matchesLabelFilter(issue, m.filter.labelFilter) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// matchesLabelFilter checks if an issue has any of the comma-separated labels.
+func matchesLabelFilter(issue model.Issue, labelFilter string) bool {
+	labels := strings.Split(labelFilter, ",")
+	for _, fl := range labels {
+		for _, l := range issue.Labels {
+			if l == fl {
+				return true
 			}
 		}
-		return false
 	}
+	return false
 }
 
 func (m *Model) filteredIssuesForActiveView() []model.Issue {

@@ -142,7 +142,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		case "enter":
 			// Apply label filter to main list and close drilldown
 			if m.labelDrilldownLabel != "" {
-				m.filter.currentFilter = "label:" + m.labelDrilldownLabel
+				m.filter.labelFilter = m.labelDrilldownLabel
 				m.applyFilter()
 				m.focused = focusList
 			}
@@ -200,7 +200,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			idx := int(s[0] - '1')
 			if idx >= 0 && idx < len(m.attentionCache.Labels) {
 				label := m.attentionCache.Labels[idx].Label
-				m.filter.currentFilter = "label:" + label
+				m.filter.labelFilter = label
 				m.applyFilter()
 				m.statusMsg = fmt.Sprintf("Filtered to label %s (attention #%d)", label, idx+1)
 				m.statusIsError = false
@@ -995,9 +995,8 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			labelCounts := extractLabelCounts(labelExtraction.Stats)
 			m.labelPicker.SetLabels(labelExtraction.Labels, labelCounts)
 			// Set active labels so the picker opens to the current filter
-			if strings.HasPrefix(m.filter.currentFilter, "label:") {
-				labelFilter := strings.TrimPrefix(m.filter.currentFilter, "label:")
-				m.labelPicker.SetActiveLabels(strings.Split(labelFilter, ","))
+			if m.filter.labelFilter != "" {
+				m.labelPicker.SetActiveLabels(strings.Split(m.filter.labelFilter, ","))
 			} else {
 				m.labelPicker.SetActiveLabels(nil)
 			}
@@ -1039,7 +1038,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			}
 			if selectedLabel, cmd := m.labelDashboard.Update(msg); selectedLabel != "" {
 				// Filter list by selected label and jump back to list view
-				m.filter.currentFilter = "label:" + selectedLabel
+				m.filter.labelFilter = selectedLabel
 				m.applyFilter()
 				m.isSplitView = true
 				m.focused = focusList

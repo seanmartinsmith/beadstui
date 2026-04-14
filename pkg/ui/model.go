@@ -384,6 +384,7 @@ type WorkspaceState struct {
 // Pointer on Model to keep Model copies cheap.
 type FilterState struct {
 	currentFilter string
+	labelFilter   string   // independent label filter, composes with currentFilter (e.g. "area:tui" or "area:tui,area:cli")
 	sortMode      SortMode // bv-3ita: current sort mode
 	activeRecipe  *recipe.Recipe
 	recipeLoader  *recipe.Loader

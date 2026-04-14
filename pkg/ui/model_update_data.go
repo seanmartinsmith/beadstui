@@ -228,21 +228,16 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 					include = !isBlocked
 				}
 			default:
+				// Legacy: label: prefix in currentFilter
 				if strings.HasPrefix(m.filter.currentFilter, "label:") {
-					labelFilter := strings.TrimPrefix(m.filter.currentFilter, "label:")
-					filterLabels := strings.Split(labelFilter, ",")
-					for _, fl := range filterLabels {
-						for _, l := range issue.Labels {
-							if l == fl {
-								include = true
-								break
-							}
-						}
-						if include {
-							break
-						}
-					}
+					lf := strings.TrimPrefix(m.filter.currentFilter, "label:")
+					include = matchesLabelFilter(issue, lf)
 				}
+			}
+
+			// Independent label filter (composes with status)
+			if include && m.filter.labelFilter != "" {
+				include = matchesLabelFilter(issue, m.filter.labelFilter)
 			}
 
 			if include {

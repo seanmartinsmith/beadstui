@@ -137,6 +137,9 @@ type FooterData struct {
 	// Workspace summary
 	WorkspaceSummary string
 
+	// Label filter (independent from status filter)
+	LabelFilterText string // "" = no label filter
+
 	// Repo filter
 	RepoFilterLabel string // "" = no repo filter
 
@@ -232,6 +235,16 @@ func (m *Model) footerData() FooterData {
 	// Workspace summary
 	if m.workspaceMode && m.workspaceSummary != "" {
 		fd.WorkspaceSummary = m.workspaceSummary
+	}
+
+	// Label filter
+	if m.filter.labelFilter != "" {
+		parts := strings.Split(m.filter.labelFilter, ",")
+		if len(parts) == 1 {
+			fd.LabelFilterText = parts[0]
+		} else {
+			fd.LabelFilterText = fmt.Sprintf("%d labels", len(parts))
+		}
 	}
 
 	// Repo filter
@@ -680,6 +693,17 @@ func (fd FooterData) Render() string {
 	}
 
 	// Repo filter badge
+	// Label filter badge
+	labelFilterSection := ""
+	if fd.LabelFilterText != "" {
+		labelStyle := lipgloss.NewStyle().
+			Background(ColorBgHighlight).
+			Foreground(ColorInfo).
+			Bold(true).
+			Padding(0, 1)
+		labelFilterSection = labelStyle.Render(fmt.Sprintf("🏷 %s", fd.LabelFilterText))
+	}
+
 	repoFilterSection := ""
 	if fd.RepoFilterLabel != "" {
 		repoStyle := lipgloss.NewStyle().
@@ -718,7 +742,7 @@ func (fd FooterData) Render() string {
 	// Assemble footer with proper spacing
 	leftWidth := lipgloss.Width(filterBadge) + lipgloss.Width(labelHint) + lipgloss.Width(statsSection)
 	for _, sec := range []string{projectBadge, phase2Section, watcherSection, workerSection,
-		searchBadge, sortBadge, wispBadge, alertsSection, instanceSection,
+		searchBadge, sortBadge, wispBadge, labelFilterSection, alertsSection, instanceSection,
 		sessionSection, workspaceSection, repoFilterSection, updateSection, datasetSection} {
 		if sec != "" {
 			leftWidth += lipgloss.Width(sec) + 1
@@ -744,6 +768,7 @@ func (fd FooterData) Render() string {
 	addIf(searchBadge)
 	addIf(sortBadge)
 	addIf(wispBadge)
+	addIf(labelFilterSection)
 	parts = append(parts, labelHint)
 	addIf(alertsSection)
 	addIf(instanceSection)
