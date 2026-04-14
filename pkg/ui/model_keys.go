@@ -805,15 +805,6 @@ func (m Model) handleLabelPickerKeys(msg tea.KeyMsg) Model {
 	case "esc":
 		m.closeModal()
 		m.focused = focusList
-	case "l":
-		// Close modal when input is empty (like w for project picker),
-		// otherwise type the letter into search
-		if m.labelPicker.InputValue() == "" {
-			m.closeModal()
-			m.focused = focusList
-		} else {
-			m.labelPicker.UpdateInput(msg)
-		}
 	case "down", "ctrl+n":
 		m.labelPicker.MoveDown()
 	case "up", "ctrl+p":

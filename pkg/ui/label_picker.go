@@ -298,9 +298,9 @@ func (m *LabelPickerModel) View() string {
 	lineWidth := labelPickerHPad + 2 + 2 + 1 + maxLabelWidth + labelPickerHPad
 
 	// Footer line width
-	footerText := "\u2191/\u2193: nav \u2022 enter: apply \u2022 l: close"
+	footerText := "\u2191/\u2193: nav \u2022 enter: apply \u2022 esc: close"
 	if len(m.filtered) > maxVisible {
-		footerText = "\u2191/\u2193: nav \u2022 \u2190/\u2192: page \u2022 enter: apply \u2022 l: close"
+		footerText = "\u2191/\u2193: nav \u2022 \u2190/\u2192: page \u2022 enter: apply \u2022 esc: close"
 	}
 	footerLineWidth := labelPickerHPad + len(footerText) + labelPickerHPad
 
