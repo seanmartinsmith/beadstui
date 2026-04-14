@@ -11,15 +11,16 @@ of the change.
 | Label | Use for |
 |---|---|
 | `area:cli` | cmd/bt/ - entry point, flags, cobra commands |
-| `area:tui` | pkg/ui/ - Bubble Tea model, views, styling |
+| `area:tui` | pkg/ui/ - Bubble Tea model, views, styling, key handlers |
+| `area:bql` | pkg/bql/ - query language parser, executor, SQL builder |
 | `area:analysis` | pkg/analysis/ - graph metrics, triage, planning |
 | `area:data` | internal/datasource/, internal/dolt/, pkg/loader/ - data loading |
 | `area:search` | pkg/search/ - FTS5 hybrid search, ranking |
-| `area:export` | pkg/export/ - static site, HTML bundle |
+| `area:export` | pkg/export/ - static site, HTML bundle, browser open |
 | `area:correlation` | pkg/correlation/ - bead-to-commit correlation |
 | `area:infra` | pkg/updater, watcher, hooks, drift, agents, cass, version, instance |
 | `area:wasm` | bv-graph-wasm/ - Rust WASM graph visualization |
-| `area:docs` | docs/, README, ADRs, AGENTS.md |
+| `area:docs` | docs/, README, ADRs, AGENTS.md, CHANGELOG |
 | `area:tests` | tests/e2e/, test infrastructure, coverage |
 
 ## Platform
@@ -63,6 +64,11 @@ bd create --title="Status bar renders broken on Windows Terminal" \
   --type=bug --priority=2 --labels="area:tui,platform:windows,ux" \
   --description="Status bar JSON dump when Dolt disconnects"
 
+# Security fix in BQL
+bd create --title="Parameterize dateToSQL before DoltExecutor activation" \
+  --type=bug --priority=2 --labels="area:bql,security" \
+  --description="fmt.Sprintf interpolation in sql.go:219-229 is a SQL injection vector"
+
 # Performance investigation in graph analysis
 bd create --title="PageRank computation slow on large graphs" \
   --type=task --priority=3 --labels="area:analysis,performance,workflow:investigate" \
@@ -70,11 +76,6 @@ bd create --title="PageRank computation slow on large graphs" \
 
 # Documentation update
 bd create --title="Rewrite README prose for public release" \
-  --type=docs --priority=2 --labels="area:docs" \
+  --type=task --priority=2 --labels="area:docs" \
   --description="README still has Jeffrey-era prose, needs full rewrite"
-
-# Data layer feature
-bd create --title="Add Dolt activity keepalive on poll" \
-  --type=feature --priority=2 --labels="area:data" \
-  --description="Touch .beads/dolt-server.activity to prevent idle monitor from killing Dolt"
 ```

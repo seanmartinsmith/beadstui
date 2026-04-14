@@ -88,25 +88,75 @@ bt --robot-suggest                   # Hygiene: duplicates, missing deps
 
 Scoping: `--label <name>`, `--as-of <ref>`, `--recipe actionable|high-impact`
 
-<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:3216161c -->
-## Beads Issue Tracker
+<!-- BEGIN BEADS INTEGRATION v:4 profile:full -->
+## Issue Tracking
 
-This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
+> This project uses [beads](https://github.com/steveyegge/beads) for task tracking.
+
+**MANDATORY**: Read these files before creating, updating, or closing any issue:
+1. `.beads/conventions/reference.md` - issue lifecycle, field triggers, close format
+2. `.beads/conventions/labels.md` - valid label taxonomy
+
+### Code Change Policy
+
+Create a bead for anything changelog-worthy, any deliberate project activity, or any work persisting between sessions. Even single-session cleanup gets a bead if it's intentional project work. Skip beads only for truly trivial changes (typo fix, dep bump, lint).
+
+### Commit Format
+
+`type(scope): description (bt-xxx)` - bead ref in parens when applicable.
+
+Scope maps to area labels: `cli`, `tui`, `bql`, `data`, `export`, `graph`, `search`, etc.
 
 ### Quick Reference
 
+| Action | Command |
+|---|---|
+| Find work | `bd ready` |
+| Read before work | `bd show <id>` |
+| Claim | `bd update <id> --claim` |
+| Complete | `bd close <id> --reason="..."` |
+| Flag for human | `bd human <id>` |
+| Session notes | `bd comments add <id> "..."` |
+| Search | `bd search "query"` |
+| Sync | `bd dolt push` |
+
+### Creating Issues
+
+Always include: `--type`, `--priority`, `--labels`, `--description`.
+Use `--notes`, `--design`, `--acceptance` when trigger conditions apply
+(see reference.md for triggers and decision tests).
+Valid labels: `.beads/conventions/labels.md`
+
+### Close Outcome Format
+
+Use **literal newlines with blank lines** between fields:
+
 ```bash
-bd ready              # Find available work
-bd show <id>          # View issue details
-bd update <id> --claim  # Claim work
-bd close <id>         # Complete work
+bd close <id> --reason="Summary: ...
+
+Change: ...
+
+Files: ...
+
+Verify: ...
+
+Risk: ...
+
+Notes: ..."
 ```
 
-### Rules
+### Beads + Tasks
 
-- Use `bd` for persistent cross-session work. Use TaskCreate/TodoWrite for in-session execution tracking (3+ steps). They complement each other.
-- Run `bd prime` for detailed command reference and session close protocol
-- Use `bd remember` for project-scoped knowledge. Use MEMORY.md for user preferences and cross-project patterns. They complement each other.
+Beads for cross-session persistence. Tasks for within-session execution.
+
+### Session Rules
+
+- Read close_reason before working a bead to avoid re-solving
+- Check for abandoned work: `bd list --status=in_progress`
+- Use `bd human <id>` for issues needing human decision
+- Close beads before committing
+- Don't invent labels - use `.beads/conventions/labels.md`
+- Do NOT use `bd edit` - it opens $EDITOR. Use `bd update <id> --field "value"`
 
 ## Session Completion
 
