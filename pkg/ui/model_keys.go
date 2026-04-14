@@ -120,25 +120,37 @@ func (m Model) handleBoardKeys(msg tea.KeyMsg) Model {
 			}
 		}
 
-	// Global filter keys (bv-naov) - consistent with list view
+	// Global filter keys (bv-naov) - toggle: press again to revert to all
 	case "o":
 		m.filter.activeBQLExpr = nil
-		m.filter.currentFilter = "open"
+		if m.filter.currentFilter == "open" {
+			m.filter.currentFilter = "all"
+			m.setStatus("Filter: All issues")
+		} else {
+			m.filter.currentFilter = "open"
+			m.setStatus("Filter: Open issues")
+		}
 		m.applyFilter()
-		m.statusMsg = "Filter: Open issues"
-		m.statusIsError = false
 	case "c":
 		m.filter.activeBQLExpr = nil
-		m.filter.currentFilter = "closed"
+		if m.filter.currentFilter == "closed" {
+			m.filter.currentFilter = "all"
+			m.setStatus("Filter: All issues")
+		} else {
+			m.filter.currentFilter = "closed"
+			m.setStatus("Filter: Closed issues")
+		}
 		m.applyFilter()
-		m.statusMsg = "Filter: Closed issues"
-		m.statusIsError = false
 	case "r":
 		m.filter.activeBQLExpr = nil
-		m.filter.currentFilter = "ready"
+		if m.filter.currentFilter == "ready" {
+			m.filter.currentFilter = "all"
+			m.setStatus("Filter: All issues")
+		} else {
+			m.filter.currentFilter = "ready"
+			m.setStatus("Filter: Ready (no blockers)")
+		}
 		m.applyFilter()
-		m.statusMsg = "Filter: Ready (no blockers)"
-		m.statusIsError = false
 
 	// Swimlane mode cycling (bv-wjs0)
 	case "s":
@@ -933,15 +945,33 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 		}
 	case "o":
 		m.filter.activeBQLExpr = nil
-		m.filter.currentFilter = "open"
+		if m.filter.currentFilter == "open" {
+			m.filter.currentFilter = "all"
+			m.setStatus("Filter: All issues")
+		} else {
+			m.filter.currentFilter = "open"
+			m.setStatus("Filter: Open issues")
+		}
 		m.applyFilter()
 	case "c":
 		m.filter.activeBQLExpr = nil
-		m.filter.currentFilter = "closed"
+		if m.filter.currentFilter == "closed" {
+			m.filter.currentFilter = "all"
+			m.setStatus("Filter: All issues")
+		} else {
+			m.filter.currentFilter = "closed"
+			m.setStatus("Filter: Closed issues")
+		}
 		m.applyFilter()
 	case "r":
 		m.filter.activeBQLExpr = nil
-		m.filter.currentFilter = "ready"
+		if m.filter.currentFilter == "ready" {
+			m.filter.currentFilter = "all"
+			m.setStatus("Filter: All issues")
+		} else {
+			m.filter.currentFilter = "ready"
+			m.setStatus("Filter: Ready (no blockers)")
+		}
 		m.applyFilter()
 	case "a":
 		m.filter.activeBQLExpr = nil
