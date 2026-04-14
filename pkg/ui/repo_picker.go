@@ -37,6 +37,7 @@ func (m *RepoPickerModel) SetSize(width, height int) {
 }
 
 // SetActiveRepos initializes selection from the currently active repo filter (nil = all).
+// Cursor moves to the first selected project (or stays at top if all/none).
 func (m *RepoPickerModel) SetActiveRepos(active map[string]bool) {
 	if len(m.repos) == 0 {
 		m.selected = map[string]bool{}
@@ -48,27 +49,47 @@ func (m *RepoPickerModel) SetActiveRepos(active map[string]bool) {
 		for _, r := range m.repos {
 			m.selected[r] = true
 		}
+		m.selectedIndex = 0
 		return
 	}
 
-	for _, r := range m.repos {
+	firstSelected := -1
+	for i, r := range m.repos {
 		if active[r] {
 			m.selected[r] = true
+			if firstSelected == -1 {
+				firstSelected = i
+			}
 		}
 	}
-}
-
-// MoveUp moves selection up.
-func (m *RepoPickerModel) MoveUp() {
-	if m.selectedIndex > 0 {
-		m.selectedIndex--
+	if firstSelected >= 0 {
+		m.selectedIndex = firstSelected
+	} else {
+		m.selectedIndex = 0
 	}
 }
 
-// MoveDown moves selection down.
+// MoveUp moves selection up, wrapping to the bottom.
+func (m *RepoPickerModel) MoveUp() {
+	if len(m.repos) == 0 {
+		return
+	}
+	if m.selectedIndex > 0 {
+		m.selectedIndex--
+	} else {
+		m.selectedIndex = len(m.repos) - 1
+	}
+}
+
+// MoveDown moves selection down, wrapping to the top.
 func (m *RepoPickerModel) MoveDown() {
+	if len(m.repos) == 0 {
+		return
+	}
 	if m.selectedIndex < len(m.repos)-1 {
 		m.selectedIndex++
+	} else {
+		m.selectedIndex = 0
 	}
 }
 
@@ -81,11 +102,60 @@ func (m *RepoPickerModel) ToggleSelected() {
 	m.selected[r] = !m.selected[r]
 }
 
+// AnySelected returns true if at least one repo is selected.
+func (m *RepoPickerModel) AnySelected() bool {
+	for _, r := range m.repos {
+		if m.selected[r] {
+			return true
+		}
+	}
+	return false
+}
+
+// NoneSelected returns true if no repos are selected.
+func (m *RepoPickerModel) NoneSelected() bool {
+	return !m.AnySelected()
+}
+
+// AllSelected returns true if every repo is selected.
+func (m *RepoPickerModel) AllSelected() bool {
+	for _, r := range m.repos {
+		if !m.selected[r] {
+			return false
+		}
+	}
+	return len(m.repos) > 0
+}
+
+// ToggleAll deselects all if any are selected, otherwise selects all.
+func (m *RepoPickerModel) ToggleAll() {
+	if m.AnySelected() {
+		m.DeselectAll()
+	} else {
+		m.SelectAll()
+	}
+}
+
 // SelectAll selects all repos.
 func (m *RepoPickerModel) SelectAll() {
 	for _, r := range m.repos {
 		m.selected[r] = true
 	}
+}
+
+// DeselectAll deselects all repos.
+func (m *RepoPickerModel) DeselectAll() {
+	for _, r := range m.repos {
+		m.selected[r] = false
+	}
+}
+
+// CursorRepo returns the repo name under the cursor.
+func (m *RepoPickerModel) CursorRepo() string {
+	if len(m.repos) == 0 || m.selectedIndex < 0 || m.selectedIndex >= len(m.repos) {
+		return ""
+	}
+	return m.repos[m.selectedIndex]
 }
 
 // SelectedRepos returns the selected repos as a map (repo -> true).
@@ -99,6 +169,11 @@ func (m RepoPickerModel) SelectedRepos() map[string]bool {
 	return out
 }
 
+const pickerHPad = 3 // horizontal padding inside box
+
+// footer hint text (no padding - added during render)
+const pickerFooter = "space: toggle \u2022 a: all \u2022 enter: apply \u2022 esc: cancel"
+
 // View renders the repo picker overlay.
 func (m *RepoPickerModel) View() string {
 	if m.width == 0 {
@@ -110,28 +185,57 @@ func (m *RepoPickerModel) View() string {
 
 	t := m.theme
 
-	// Calculate box dimensions
-	boxWidth := 50
-	if m.width < 60 {
-		boxWidth = m.width - 10
+	// Find the longest repo name to size the box
+	maxNameLen := 0
+	for _, repo := range m.repos {
+		if len(repo) > maxNameLen {
+			maxNameLen = len(repo)
+		}
+	}
+
+	// Compute the widest content line to size the box.
+	// Repo line: hpad + cursor(2) + indicator(2) + space(1) + name + hpad
+	repoLineWidth := pickerHPad + 2 + 2 + 1 + maxNameLen + pickerHPad
+	// Footer line: hpad + text + hpad
+	footerLineWidth := pickerHPad + len(pickerFooter) + pickerHPad
+
+	innerWidth := repoLineWidth
+	if footerLineWidth > innerWidth {
+		innerWidth = footerLineWidth
+	}
+
+	boxWidth := innerWidth + 2 // add border chars
+	if boxWidth > m.width-4 {
+		boxWidth = m.width - 4
+		innerWidth = boxWidth - 2
 	}
 	if boxWidth < 30 {
 		boxWidth = 30
+		innerWidth = boxWidth - 2
 	}
 
-	var lines []string
+	pad := strings.Repeat(" ", pickerHPad)
 
-	titleStyle := lipgloss.NewStyle().
-		Foreground(t.Primary).
-		Bold(true).
-		MarginBottom(1)
-	lines = append(lines, titleStyle.Render("Project Filter"))
-	lines = append(lines, "")
+	var lines []string
+	lines = append(lines, "") // top breathing room
 
 	if len(m.repos) == 0 {
 		emptyStyle := lipgloss.NewStyle().Foreground(t.Secondary).Italic(true)
-		lines = append(lines, emptyStyle.Render("No projects available."))
+		lines = append(lines, emptyStyle.Render(pad+"No projects available."))
 	} else {
+		// Each line: cursor(2) + indicator(2) + space(1) + name
+		lineContentWidth := 2 + 2 + 1 + maxNameLen
+		// Center the block within the inner area (minus horizontal padding)
+		availableWidth := innerWidth - pickerHPad*2
+		leftExtra := (availableWidth - lineContentWidth) / 2
+		if leftExtra < 0 {
+			leftExtra = 0
+		}
+		centering := pad + strings.Repeat(" ", leftExtra)
+
+		checkStyle := lipgloss.NewStyle().Foreground(t.Primary)
+		uncheckStyle := lipgloss.NewStyle().Foreground(t.Secondary)
+
 		for i, repo := range m.repos {
 			isCursor := i == m.selectedIndex
 			isSelected := m.selected[repo]
@@ -141,17 +245,18 @@ func (m *RepoPickerModel) View() string {
 				nameStyle = nameStyle.Foreground(t.Primary).Bold(true)
 			}
 
-			prefix := "  "
+			cursor := "  "
 			if isCursor {
-				prefix = "▸ "
-			}
-			check := "[ ]"
-			if isSelected {
-				check = "[x]"
+				cursor = nameStyle.Render("▸ ")
 			}
 
-			line := prefix + check + " " + repo
-			lines = append(lines, nameStyle.Render(line))
+			indicator := uncheckStyle.Render("• ")
+			if isSelected {
+				indicator = checkStyle.Render("✓ ")
+			}
+
+			line := centering + cursor + indicator + nameStyle.Render(repo)
+			lines = append(lines, line)
 		}
 	}
 
@@ -159,22 +264,13 @@ func (m *RepoPickerModel) View() string {
 	footerStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary).
 		Italic(true)
-	lines = append(lines, footerStyle.Render("j/k: navigate • space: toggle • a: all • enter: apply • esc: cancel"))
+	lines = append(lines, footerStyle.Render(pad+pickerFooter))
 
 	content := strings.Join(lines, "\n")
 
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(t.Primary).
-		Padding(1, 2).
-		Width(boxWidth)
-	box := boxStyle.Render(content)
-
-	return lipgloss.Place(
-		m.width,
-		m.height,
-		lipgloss.Center,
-		lipgloss.Center,
-		box,
-	)
+	return RenderTitledPanel(content, PanelOpts{
+		Title:   "Project Filter",
+		Width:   boxWidth,
+		Focused: true,
+	})
 }

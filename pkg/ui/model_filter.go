@@ -65,7 +65,7 @@ func (m *Model) setActiveRecipe(r *recipe.Recipe) {
 func (m *Model) matchesCurrentFilter(issue model.Issue) bool {
 	// Workspace repo filter (nil = all repos)
 	if m.workspaceMode && m.activeRepos != nil {
-		repoKey := strings.ToLower(ExtractRepoPrefix(issue.ID))
+		repoKey := IssueRepoKey(issue)
 		if repoKey != "" && !m.activeRepos[repoKey] {
 			return false
 		}
@@ -132,7 +132,7 @@ func (m *Model) filteredIssuesForActiveView() []model.Issue {
 				continue
 			}
 			if m.workspaceMode && m.activeRepos != nil {
-				repoKey := strings.ToLower(ExtractRepoPrefix(issue.ID))
+				repoKey := IssueRepoKey(issue)
 				if repoKey != "" && !m.activeRepos[repoKey] {
 					continue
 				}
@@ -388,7 +388,7 @@ func (m *Model) applyRecipe(r *recipe.Recipe) {
 
 		// Workspace repo filter (nil = all repos)
 		if m.workspaceMode && m.activeRepos != nil {
-			repoKey := strings.ToLower(ExtractRepoPrefix(issue.ID))
+			repoKey := IssueRepoKey(issue)
 			if repoKey != "" && !m.activeRepos[repoKey] {
 				include = false
 			}
@@ -1033,7 +1033,7 @@ func (m *Model) workspacePrefilter(issues []model.Issue) []model.Issue {
 	}
 	filtered := make([]model.Issue, 0, len(issues))
 	for _, issue := range issues {
-		repoKey := strings.ToLower(ExtractRepoPrefix(issue.ID))
+		repoKey := IssueRepoKey(issue)
 		if repoKey == "" || m.activeRepos[repoKey] {
 			filtered = append(filtered, issue)
 		}

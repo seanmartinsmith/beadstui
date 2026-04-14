@@ -99,6 +99,17 @@ func (i IssueItem) FilterValue() string {
 	return sb.String()
 }
 
+// IssueRepoKey returns the normalized repo key for filtering.
+// Prefers issue.SourceRepo (authoritative, set by data loader) over parsing the ID.
+// This avoids mismatches where the database name differs from the ID prefix
+// (e.g. database "marketplace" but IDs like "mkt-xxx").
+func IssueRepoKey(issue model.Issue) string {
+	if issue.SourceRepo != "" {
+		return strings.ToLower(strings.TrimRight(issue.SourceRepo, "-:_"))
+	}
+	return strings.ToLower(ExtractRepoPrefix(issue.ID))
+}
+
 // ExtractRepoPrefix extracts the repository prefix from a namespaced issue ID.
 // For example, "api-AUTH-123" returns "api", "web-UI-1" returns "web".
 // If no prefix is detected (no separator), returns empty string.

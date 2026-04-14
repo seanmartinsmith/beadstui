@@ -3,7 +3,6 @@ package ui
 import (
 	"strings"
 	"testing"
-
 )
 
 func TestRepoPickerSelectionAndToggle(t *testing.T) {
@@ -26,6 +25,34 @@ func TestRepoPickerSelectionAndToggle(t *testing.T) {
 	m.SelectAll()
 	if got := len(m.SelectedRepos()); got != 3 {
 		t.Fatalf("expected 3 selected after SelectAll, got %d", got)
+	}
+}
+
+func TestRepoPickerToggleAll(t *testing.T) {
+	repos := []string{"api", "web", "lib"}
+	m := NewRepoPickerModel(repos, DefaultTheme())
+	m.SetSize(80, 24)
+
+	// All selected -> ToggleAll deselects all
+	m.ToggleAll()
+	if got := len(m.SelectedRepos()); got != 0 {
+		t.Fatalf("expected 0 selected after ToggleAll (was all), got %d", got)
+	}
+
+	// None selected -> ToggleAll selects all
+	m.ToggleAll()
+	if got := len(m.SelectedRepos()); got != 3 {
+		t.Fatalf("expected 3 selected after ToggleAll (was none), got %d", got)
+	}
+
+	// Some selected -> ToggleAll deselects all
+	m.ToggleSelected() // deselect first
+	if !m.AnySelected() {
+		t.Fatal("expected some selected after toggling one off")
+	}
+	m.ToggleAll()
+	if got := len(m.SelectedRepos()); got != 0 {
+		t.Fatalf("expected 0 selected after ToggleAll (was some), got %d", got)
 	}
 }
 

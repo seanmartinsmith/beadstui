@@ -709,15 +709,22 @@ func (m Model) handleRepoPickerKeys(msg tea.KeyMsg) Model {
 	case "space":
 		m.repoPicker.ToggleSelected()
 	case "a":
-		m.repoPicker.SelectAll()
-	case "esc", "q":
+		m.repoPicker.ToggleAll()
+	case "esc", "q", "w":
 		m.closeModal()
 		m.focused = focusList
 	case "enter":
 		selected := m.repoPicker.SelectedRepos()
 
-		// Normalize: nil means "all projects" (no filter). Also treat empty as "all" to avoid hiding everything.
-		if len(selected) == 0 || len(selected) == len(m.availableRepos) {
+		if m.repoPicker.NoneSelected() {
+			// No checkmarks: enter jumps to the cursor project (single-project switch)
+			cursorRepo := m.repoPicker.CursorRepo()
+			if cursorRepo != "" {
+				m.activeRepos = map[string]bool{cursorRepo: true}
+				m.statusMsg = fmt.Sprintf("Project filter: %s", cursorRepo)
+			}
+		} else if len(selected) == len(m.availableRepos) {
+			// All selected: clear filter (nil = all)
 			m.activeRepos = nil
 			m.statusMsg = "Project filter: all projects"
 		} else {

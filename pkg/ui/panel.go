@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/mattn/go-runewidth"
 )
 
@@ -181,4 +182,49 @@ func RenderTitledPanel(content string, opts PanelOpts) string {
 	}
 
 	return top.String() + "\n" + body.String() + bottom
+}
+
+// OverlayCenter composites fg centered on top of bg, preserving ANSI styling.
+// Uses charmbracelet/x/ansi for ANSI-aware string slicing so background colors
+// are preserved in the left/right regions flanking the overlay.
+// bgWidth/bgHeight are used only for centering math - the bg line count is
+// preserved exactly so the view pipeline's height assumptions aren't broken.
+func OverlayCenter(bg, fg string, bgWidth, bgHeight int) string {
+	bgLines := strings.Split(bg, "\n")
+	fgLines := strings.Split(fg, "\n")
+
+	fgWidth := 0
+	for _, line := range fgLines {
+		if w := ansi.StringWidth(line); w > fgWidth {
+			fgWidth = w
+		}
+	}
+	fgHeight := len(fgLines)
+
+	// Center offsets (use bgHeight for vertical centering, not len(bgLines))
+	startRow := (bgHeight - fgHeight) / 2
+	startCol := (bgWidth - fgWidth) / 2
+	if startRow < 0 {
+		startRow = 0
+	}
+	if startCol < 0 {
+		startCol = 0
+	}
+
+	for i, fgLine := range fgLines {
+		bgRow := startRow + i
+		if bgRow < 0 || bgRow >= len(bgLines) {
+			continue
+		}
+
+		bgLine := bgLines[bgRow]
+
+		// ANSI-aware slicing: keep styling intact in left/right bg regions
+		left := ansi.Truncate(bgLine, startCol, "")
+		right := ansi.TruncateLeft(bgLine, startCol+fgWidth, "")
+
+		bgLines[bgRow] = left + fgLine + right
+	}
+
+	return strings.Join(bgLines, "\n")
 }

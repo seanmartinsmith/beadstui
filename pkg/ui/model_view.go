@@ -74,7 +74,7 @@ func (m Model) View() tea.View {
 	case ModalRecipePicker:
 		body = m.recipePicker.View()
 	case ModalRepoPicker:
-		body = m.repoPicker.View()
+		// Handled as overlay after background renders (below)
 	case ModalLabelPicker:
 		body = m.labelPicker.View()
 	case ModalHelp:
@@ -135,6 +135,11 @@ func (m Model) View() tea.View {
 		m.shortcutsSidebar.SetSize(m.shortcutsSidebar.Width(), m.height-2)
 		sidebar := m.shortcutsSidebar.View()
 		body = lipgloss.JoinHorizontal(lipgloss.Top, body, sidebar)
+	}
+
+	// Overlay modals that float on top of the background
+	if m.activeModal == ModalRepoPicker {
+		body = OverlayCenter(body, m.repoPicker.View(), m.width, m.height-1)
 	}
 
 	footer := m.renderFooter()
