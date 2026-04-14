@@ -42,6 +42,10 @@ func (m *Model) hasActiveFilters() bool {
 	if m.filter.labelFilter != "" {
 		return true
 	}
+	// Check sort mode
+	if m.filter.sortMode != SortDefault {
+		return true
+	}
 	// Check if fuzzy search filter is active
 	if m.list.FilterState() == list.Filtering || m.list.FilterState() == list.FilterApplied {
 		return true
@@ -53,6 +57,7 @@ func (m *Model) hasActiveFilters() bool {
 func (m *Model) clearAllFilters() {
 	m.filter.currentFilter = "all"
 	m.filter.labelFilter = ""
+	m.filter.sortMode = SortDefault
 	m.setActiveRecipe(nil) // Clear any active recipe filter
 	m.filter.activeBQLExpr = nil  // Clear BQL state
 	// Reset the fuzzy search filter by resetting the filter state

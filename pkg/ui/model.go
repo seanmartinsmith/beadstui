@@ -130,24 +130,24 @@ type SortMode int
 
 const (
 	SortDefault     SortMode = iota // Priority asc, then created desc (original default)
-	SortCreatedAsc                  // By creation date, oldest first
-	SortCreatedDesc                 // By creation date, newest first
-	SortPriority                    // By priority only (ascending)
 	SortUpdated                     // By last update, newest first
+	SortCreatedDesc                 // By creation date, newest first
+	SortCreatedAsc                  // By creation date, oldest first
+	SortPriority                    // By priority only (ascending)
 	numSortModes                    // Keep this last - used for cycling
 )
 
 // String returns a human-readable label for the sort mode
 func (s SortMode) String() string {
 	switch s {
-	case SortCreatedAsc:
-		return "Created ↑"
-	case SortCreatedDesc:
-		return "Created ↓"
-	case SortPriority:
-		return "Priority"
 	case SortUpdated:
 		return "Updated"
+	case SortCreatedDesc:
+		return "Created ↓"
+	case SortCreatedAsc:
+		return "Created ↑"
+	case SortPriority:
+		return "Priority"
 	default:
 		return "Default"
 	}
