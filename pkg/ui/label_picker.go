@@ -374,6 +374,27 @@ func (m *LabelPickerModel) View() string {
 
 	var lines []string
 
+	// Selected labels summary - persists through filtering
+	if len(m.selected) > 0 {
+		selectedStyle := lipgloss.NewStyle().Foreground(t.Primary)
+		dimStyle := lipgloss.NewStyle().Foreground(t.Secondary)
+
+		// Show selected labels inline, truncated to fit
+		var names []string
+		for _, l := range m.allLabels {
+			if m.selected[l] {
+				names = append(names, l)
+			}
+		}
+		summary := strings.Join(names, ", ")
+		maxSummaryWidth := innerWidth - labelPickerHPad*2 - 4 // room for "✓ " prefix
+		if len(summary) > maxSummaryWidth {
+			summary = summary[:maxSummaryWidth-3] + "..."
+		}
+		lines = append(lines, selectedStyle.Render(pad+"✓ ")+dimStyle.Render(summary))
+		lines = append(lines, "")
+	}
+
 	// Search input
 	inputStyle := lipgloss.NewStyle().
 		Foreground(t.Primary)
@@ -381,12 +402,16 @@ func (m *LabelPickerModel) View() string {
 	lines = append(lines, inputLine)
 	lines = append(lines, "")
 
-	// Label list with scroll
+	// Label list with scroll - always render maxVisible lines for vertical stability
+	activeStyle := lipgloss.NewStyle().Foreground(t.Primary)
+	dimStyle := lipgloss.NewStyle().Foreground(t.Secondary)
+
 	if len(m.filtered) == 0 {
-		dimStyle := lipgloss.NewStyle().
-			Foreground(t.Secondary).
-			Italic(true)
 		lines = append(lines, dimStyle.Render(pad+"No matching labels"))
+		// Pad to fixed height
+		for i := 1; i < maxVisible; i++ {
+			lines = append(lines, "")
+		}
 	} else {
 		// Calculate visible window
 		start := 0
@@ -397,18 +422,6 @@ func (m *LabelPickerModel) View() string {
 		if end > len(m.filtered) {
 			end = len(m.filtered)
 		}
-
-		// Line content width for centering
-		lineContentWidth := 2 + 2 + 1 + maxLabelWidth
-		availableWidth := innerWidth - labelPickerHPad*2
-		leftExtra := (availableWidth - lineContentWidth) / 2
-		if leftExtra < 0 {
-			leftExtra = 0
-		}
-		centering := pad + strings.Repeat(" ", leftExtra)
-
-		activeStyle := lipgloss.NewStyle().Foreground(t.Primary)
-		dimStyle := lipgloss.NewStyle().Foreground(t.Secondary)
 
 		for i := start; i < end; i++ {
 			label := m.filtered[i]
@@ -427,7 +440,6 @@ func (m *LabelPickerModel) View() string {
 				cursor = nameStyle.Render("▸ ")
 			}
 
-			// Show selected indicator (checkmark when toggled, dot otherwise)
 			indicator := dimStyle.Render("• ")
 			if isSelected {
 				indicator = activeStyle.Render("✓ ")
@@ -435,20 +447,41 @@ func (m *LabelPickerModel) View() string {
 
 			count := m.labelCounts[label]
 			countStr := countStyle.Render(fmt.Sprintf(" (%d)", count))
-			line := centering + cursor + indicator + nameStyle.Render(label) + countStr
+			line := pad + cursor + indicator + nameStyle.Render(label) + countStr
 			lines = append(lines, line)
 		}
 
-		// Page indicator
-		if len(m.filtered) > maxVisible {
-			page := m.selectedIndex/maxVisible + 1
-			totalPages := (len(m.filtered) + maxVisible - 1) / maxVisible
-			pageStyle := lipgloss.NewStyle().
-				Foreground(t.Secondary).
-				Italic(true)
+		// Pad remaining lines to fixed height
+		for i := end - start; i < maxVisible; i++ {
 			lines = append(lines, "")
-			lines = append(lines, pageStyle.Render(
-				pad+fmt.Sprintf("%d/%d (%d labels)", page, totalPages, len(m.filtered))))
+		}
+	}
+
+	// Page indicator + selection count (always present for vertical stability)
+	pageStyle := lipgloss.NewStyle().
+		Foreground(t.Secondary).
+		Italic(true)
+	selCountStyle := lipgloss.NewStyle().
+		Foreground(t.Primary).
+		Bold(true)
+	selSuffix := ""
+	if len(m.selected) > 0 {
+		selSuffix = " • " + selCountStyle.Render(fmt.Sprintf("%d selected", len(m.selected)))
+	}
+	lines = append(lines, "")
+	if len(m.filtered) > maxVisible {
+		page := m.selectedIndex/maxVisible + 1
+		totalPages := (len(m.filtered) + maxVisible - 1) / maxVisible
+		lines = append(lines, pageStyle.Render(
+			pad+fmt.Sprintf("%d/%d (%d labels)", page, totalPages, len(m.filtered)))+selSuffix)
+	} else if len(m.filtered) > 0 {
+		lines = append(lines, pageStyle.Render(
+			pad+fmt.Sprintf("%d labels", len(m.filtered)))+selSuffix)
+	} else {
+		if selSuffix != "" {
+			lines = append(lines, pad+selSuffix)
+		} else {
+			lines = append(lines, "")
 		}
 	}
 
