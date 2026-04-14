@@ -6,9 +6,9 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
-## 2026-04-14 - Quick wins + footer extraction (bt-eorx, bt-6k0f, bt-trqo, bt-oim6)
+## 2026-04-14 - Quick wins, footer extraction, label picker redesign
 
-**Bug fixes from quality audit + footer decomposition.** 4 commits, 3 bugs fixed, 1 refactor, 12 new tests.
+**Bug fixes + footer decomposition + label picker UX overhaul.** 17 commits, 4 bugs fixed, 1 refactor, 12 new tests.
 
 ### Bug fixes
 
@@ -29,6 +29,23 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 ### Refactor epic status (bt-if3w)
 
 5/7 children complete (oim6 closed this session). Remaining: bt-t82t (stale refs/golden files), bt-if3w.1 (sprint view extraction).
+
+### Label picker redesign (bt-36h7, dogfooded)
+
+- **Overlay compositing** - converted from full-screen replacement to OverlayCenter overlay, matching project filter pattern
+- **RenderTitledPanel** - round borders with "Filter by Label" title in border
+- **Search input** - all letter keys go to text input (no j/k/h/l navigation conflicts), arrow keys only for nav
+- **Multi-select** - space toggles labels (checkmarks), enter applies compound OR filter
+- **Composing filters** - label filter is now independent of status filter (open + area:tui works)
+- **Selected labels pinned** - toggled labels stay at top of list even when filtered by search
+- **Stable modal** - fixed width (computed from all labels), fixed height (padded to maxVisible), page-aligned windowing
+- **Page navigation** - left/right arrows, PageUp lands at top, PageDown at bottom
+
+### UX improvements
+
+- **Filter toggle** - o/c/r keys now toggle (press again to revert to "all")
+- **Sort cycle** - reordered to updated -> created newest -> created oldest -> priority
+- **Esc clears everything** - status filter, label filter, sort mode, search all reset on esc
 
 **All tests pass. Build clean.**
 
