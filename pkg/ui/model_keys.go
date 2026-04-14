@@ -114,11 +114,9 @@ func (m Model) handleBoardKeys(msg tea.KeyMsg) Model {
 	case "y":
 		if selected := m.board.SelectedIssue(); selected != nil {
 			if err := clipboard.WriteAll(selected.ID); err != nil {
-				m.statusMsg = fmt.Sprintf("❌ Clipboard error: %v", err)
-				m.statusIsError = true
+				m.setStatusError(fmt.Sprintf("Clipboard error: %v", err))
 			} else {
-				m.statusMsg = fmt.Sprintf("📋 Copied %s to clipboard", selected.ID)
-				m.statusIsError = false
+				m.setStatus(fmt.Sprintf("Copied %s to clipboard", selected.ID))
 			}
 		}
 
@@ -527,15 +525,12 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 		}
 		if sha != "" {
 			if err := clipboard.WriteAll(sha); err != nil {
-				m.statusMsg = fmt.Sprintf("❌ Clipboard error: %v", err)
-				m.statusIsError = true
+				m.setStatusError(fmt.Sprintf("Clipboard error: %v", err))
 			} else {
-				m.statusMsg = fmt.Sprintf("📋 Copied %s to clipboard", shortSHA)
-				m.statusIsError = false
+				m.setStatus(fmt.Sprintf("Copied %s to clipboard", shortSHA))
 			}
 		} else {
-			m.statusMsg = "❌ No commit selected"
-			m.statusIsError = true
+			m.setStatusError("No commit selected")
 		}
 	case "c":
 		// Cycle confidence threshold (only in bead mode)
@@ -980,15 +975,12 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 		// Copy ID to clipboard (consistent with board view - bv-yg39)
 		selectedItem := m.list.SelectedItem()
 		if selectedItem == nil {
-			m.statusMsg = "❌ No issue selected"
-			m.statusIsError = true
+			m.setStatusError("No issue selected")
 		} else if issueItem, ok := selectedItem.(IssueItem); ok {
 			if err := clipboard.WriteAll(issueItem.Issue.ID); err != nil {
-				m.statusMsg = fmt.Sprintf("❌ Clipboard error: %v", err)
-				m.statusIsError = true
+				m.setStatusError(fmt.Sprintf("Clipboard error: %v", err))
 			} else {
-				m.statusMsg = fmt.Sprintf("📋 Copied %s to clipboard", issueItem.Issue.ID)
-				m.statusIsError = false
+				m.setStatus(fmt.Sprintf("Copied %s to clipboard", issueItem.Issue.ID))
 			}
 		}
 	}

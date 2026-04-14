@@ -23,9 +23,13 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
 
-	// Clear status message on any keypress
+	// Clear status message on any keypress.
+	// Must also reset statusSetAt so the next message gets a fresh auto-dismiss
+	// window. Without this, renderFooter's auto-dismiss sees the stale timestamp
+	// from a previous message and clears the new one immediately (bt-6k0f).
 	m.statusMsg = ""
 	m.statusIsError = false
+	m.statusSetAt = time.Time{}
 
 	// Handle AGENTS.md prompt modal (bv-i8dk)
 	if m.activeModal == ModalAgentPrompt {
