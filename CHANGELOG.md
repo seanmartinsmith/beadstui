@@ -6,6 +6,34 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-14 - Quick wins + footer extraction (bt-eorx, bt-6k0f, bt-trqo, bt-oim6)
+
+**Bug fixes from quality audit + footer decomposition.** 4 commits, 3 bugs fixed, 1 refactor, 12 new tests.
+
+### Bug fixes
+
+- **Label picker freeze** (bt-eorx, P1) - Label picker lacked the early-return pattern used by other modals. Typed characters (g, i, a) were intercepted by global handlers that triggered expensive operations on 2500+ issues. Fix: added early return for ModalLabelPicker before global key handlers.
+
+- **Status bar message not displaying** (bt-6k0f, P2) - `handleKeyPress` cleared `statusMsg` on every keypress but did not reset `statusSetAt`. New messages set via direct assignment had a stale timestamp from a previous message, causing `renderFooter`'s auto-dismiss to clear them before they rendered. Fix: reset `statusSetAt` in the clear-on-keypress block. Also migrated y-key copy handlers to use `setStatus()`/`setStatusError()`.
+
+- **Label dashboard leaves split view disabled** (bt-trqo, P2) - Global `esc` handler for ViewLabelDashboard set `mode=ViewList` but forgot to restore `isSplitView=true`. Global `q` handler had no ViewLabelDashboard check at all (fell through to `tea.Quit`). Fix: added `isSplitView=true` to both global handlers.
+
+### Refactor
+
+- **Footer extraction** (bt-oim6, P2) - Extracted 650-line `renderFooter()` into `FooterData` value struct + `Render()` method. `Model.footerData()` extracts ~35 Model fields into plain values, `FooterData.Render()` does pure rendering with no Model access. 12 tests cover status bar, badges, worker levels, alerts, time travel, hint truncation.
+
+### Skipped
+
+- **bt-8jds** (wisp toggle key conflict) - Blocked by bt-tkhq (keybinding research, human gate). Both `w` and `W` are taken, needs keybinding audit before choosing a new key.
+
+### Refactor epic status (bt-if3w)
+
+5/7 children complete (oim6 closed this session). Remaining: bt-t82t (stale refs/golden files), bt-if3w.1 (sprint view extraction).
+
+**All tests pass. Build clean.**
+
+---
+
 ## 2026-04-13 - Beads Feature Surfacing Wave 4: Wisps, Swarm, Capabilities (bt-9kdo, bt-1knw, bt-t0z6)
 
 **Final session of the 4-wave feature surfacing plan.** 3 commits (parallel subagents), 740 lines added across 12 files, 20 new tests.
