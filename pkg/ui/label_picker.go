@@ -332,9 +332,9 @@ func (m *LabelPickerModel) View() string {
 
 	maxVisible := m.visibleCount()
 
-	// Find widest label+count for sizing
+	// Size box from ALL labels (not filtered) so it stays stable while typing
 	maxLabelWidth := 0
-	for _, label := range m.filtered {
+	for _, label := range m.allLabels {
 		count := m.labelCounts[label]
 		w := len(label) + len(fmt.Sprintf(" (%d)", count))
 		if w > maxLabelWidth {
@@ -345,11 +345,8 @@ func (m *LabelPickerModel) View() string {
 	// Compute box width: hpad + cursor(2) + indicator(2) + space(1) + label+count + hpad
 	lineWidth := labelPickerHPad + 2 + 2 + 1 + maxLabelWidth + labelPickerHPad
 
-	// Footer line width
-	footerText := "space: toggle \u2022 enter: apply \u2022 esc: close"
-	if len(m.filtered) > maxVisible {
-		footerText = "space: toggle \u2022 \u2190/\u2192: page \u2022 enter: apply \u2022 esc: close"
-	}
+	// Footer - always use the longer version for stable width
+	footerText := "space: toggle \u2022 \u2190/\u2192: page \u2022 enter: apply \u2022 esc: close"
 	footerLineWidth := labelPickerHPad + len(footerText) + labelPickerHPad
 
 	// Input line width
