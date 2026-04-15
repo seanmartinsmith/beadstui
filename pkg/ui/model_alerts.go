@@ -226,7 +226,8 @@ func (m Model) renderAlertsPanel() string {
 
 			// Alert line (sanitize newlines to prevent panel expansion)
 			msg := strings.ReplaceAll(a.Message, "\n", " ")
-			line := fmt.Sprintf("%s%s %s", cursor, severityIcon, msg)
+			typeTag := fmt.Sprintf("[%s]", alertTypeLabel(a.Type))
+			line := fmt.Sprintf("%s%s %s %s", cursor, severityIcon, typeTag, msg)
 			if lipgloss.Width(line) > innerWidth {
 				line = truncateRunesHelper(line, innerWidth, "…")
 			}
@@ -327,6 +328,40 @@ func (m Model) renderAlertsPanel() string {
 	})
 
 	return panel
+}
+
+// alertTypeLabel returns a short human-readable label for an alert type.
+func alertTypeLabel(t drift.AlertType) string {
+	switch t {
+	case drift.AlertNewCycle:
+		return "cycle"
+	case drift.AlertPageRankChange:
+		return "centrality"
+	case drift.AlertDensityGrowth:
+		return "density"
+	case drift.AlertNodeCountChange:
+		return "nodes"
+	case drift.AlertEdgeCountChange:
+		return "edges"
+	case drift.AlertBlockedIncrease:
+		return "blocked"
+	case drift.AlertActionableChange:
+		return "actionable"
+	case drift.AlertStaleIssue:
+		return "stale"
+	case drift.AlertVelocityDrop:
+		return "velocity"
+	case drift.AlertBlockingCascade:
+		return "cascade"
+	case drift.AlertHighImpactUnblock:
+		return "unblock"
+	case drift.AlertAbandonedClaim:
+		return "abandoned"
+	case drift.AlertPotentialDuplicate:
+		return "duplicate"
+	default:
+		return string(t)
+	}
 }
 
 // padContentLines adds horizontal padding to each line of content.
