@@ -45,10 +45,9 @@ func (m *RepoPickerModel) SetActiveRepos(active map[string]bool) {
 	}
 
 	m.selected = make(map[string]bool, len(m.repos))
-	if active == nil {
-		for _, r := range m.repos {
-			m.selected[r] = true
-		}
+	if active == nil || len(active) <= 1 {
+		// All-projects or single-project mode: open with nothing checked for quick-pick.
+		// Multi-project groups (2+) preserve their checkmarks for add/remove.
 		m.selectedIndex = 0
 		return
 	}
