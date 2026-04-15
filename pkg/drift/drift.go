@@ -128,6 +128,9 @@ func (c *Calculator) Calculate() *Result {
 	// Check blocking cascades (uses current issues if provided)
 	c.checkBlockingCascade(result)
 
+	// Check abandoned claims (in_progress + assigned but inactive)
+	c.checkAbandonedClaims(result)
+
 	// Compute summary
 	for _, alert := range result.Alerts {
 		switch alert.Severity {
@@ -309,21 +312,17 @@ func (c *Calculator) checkActionable(result *Result) {
 
 	if blAction > 0 {
 		pct := float64(delta) / float64(blAction) * 100
-		if pct <= -c.config.ActionableDecreaseWarningPct {
-			result.Alerts = append(result.Alerts, Alert{
-				Type:        AlertActionableChange,
-				Severity:    SeverityWarning,
-				Message:     fmt.Sprintf("Actionable issues decreased by %d (%.1f%%)", -delta, -pct),
-				BaselineVal: float64(blAction),
-				CurrentVal:  float64(curAction),
-				Delta:       float64(delta),
-				DetectedAt:  time.Now().UTC(),
-			})
-		} else if pct >= c.config.ActionableIncreaseInfoPct || pct <= -c.config.ActionableIncreaseInfoPct {
+		// bt-46p6.6: demoted to info-only (actionable count is informational, not actionable)
+		if pct <= -c.config.ActionableDecreaseWarningPct ||
+			pct >= c.config.ActionableIncreaseInfoPct || pct <= -c.config.ActionableIncreaseInfoPct {
+			msg := fmt.Sprintf("Actionable issues changed by %+d (%.1f%%)", delta, pct)
+			if delta < 0 {
+				msg = fmt.Sprintf("Actionable issues decreased by %d (%.1f%%)", -delta, -pct)
+			}
 			result.Alerts = append(result.Alerts, Alert{
 				Type:        AlertActionableChange,
 				Severity:    SeverityInfo,
-				Message:     fmt.Sprintf("Actionable issues changed by %+d (%.1f%%)", delta, pct),
+				Message:     msg,
 				BaselineVal: float64(blAction),
 				CurrentVal:  float64(curAction),
 				Delta:       float64(delta),
@@ -416,6 +415,21 @@ func (c *Calculator) checkStaleness(result *Result) {
 		warn := float64(warnDays)
 		crit := float64(critDays)
 
+		// Priority-aware scaling (bt-46p6.6): P0-P1 tighter, P3-P4 looser
+		switch {
+		case issue.Priority <= 1: // P0-P1: half the threshold
+			warn *= 0.5
+			crit *= 0.5
+		case issue.Priority == 2: // P2: use base thresholds
+			// no adjustment
+		case issue.Priority == 3: // P3: double the threshold
+			warn *= 2
+			crit *= 2
+		default: // P4+: info-only, set thresholds very high so only info fires
+			warn *= 3
+			crit = warn + 1 // effectively unreachable for critical
+		}
+
 		// Tighten thresholds for in-progress items
 		if issue.Status == model.StatusInProgress && inProgressMult > 0 {
 			warn *= inProgressMult
@@ -424,7 +438,12 @@ func (c *Calculator) checkStaleness(result *Result) {
 
 		days := now.Sub(lastActive).Hours() / 24.0
 		severity := Severity("")
-		if days >= crit {
+		if issue.Priority >= 4 {
+			// P4+: info-only, never critical/warning
+			if days >= warn {
+				severity = SeverityInfo
+			}
+		} else if days >= crit {
 			severity = SeverityCritical
 		} else if days >= warn {
 			severity = SeverityWarning
@@ -493,10 +512,19 @@ func (c *Calculator) checkBlockingCascade(result *Result) {
 		// Calculate downstream priority sum for urgency scoring (bv-165)
 		// Lower priority values = higher importance (P0=critical, P4=backlog)
 		prioritySum := 0
+		hasHighPriDownstream := false
 		for _, unblockedID := range unblocks {
 			if unblockedIssue, ok := issueMap[unblockedID]; ok {
 				prioritySum += unblockedIssue.Priority
+				if unblockedIssue.Priority <= 1 {
+					hasHighPriDownstream = true
+				}
 			}
+		}
+
+		// bt-46p6.6: promote to warning when downstream includes P0-P1 issues
+		if severity == SeverityInfo && hasHighPriDownstream {
+			severity = SeverityWarning
 		}
 
 		result.Alerts = append(result.Alerts, Alert{
@@ -508,6 +536,73 @@ func (c *Calculator) checkBlockingCascade(result *Result) {
 			Details:               unblocks,
 			UnblocksCount:         count,
 			DownstreamPrioritySum: prioritySum,
+		})
+	}
+}
+
+// checkAbandonedClaims detects in_progress issues with an owner that have gone
+// inactive beyond a priority-scaled threshold.
+// Distinct from stale_issue: this specifically targets claimed work that stalled.
+func (c *Calculator) checkAbandonedClaims(result *Result) {
+	if c.config.IsAlertDisabled(string(AlertAbandonedClaim)) {
+		return
+	}
+	if len(c.issues) == 0 {
+		return
+	}
+
+	baseDays := c.config.AbandonedWarningDays
+	if baseDays <= 0 {
+		return
+	}
+
+	now := time.Now().UTC()
+	for _, issue := range c.issues {
+		// Only in_progress issues with an assigned owner
+		if issue.Status != model.StatusInProgress || issue.Assignee == "" {
+			continue
+		}
+
+		lastActive := issue.UpdatedAt
+		if lastActive.IsZero() {
+			lastActive = issue.CreatedAt
+		}
+		if lastActive.IsZero() {
+			continue
+		}
+
+		// Priority-scaled thresholds: P0-P1 tighter, P3-P4 looser
+		threshold := float64(baseDays)
+		switch {
+		case issue.Priority <= 1: // P0-P1
+			threshold = float64(baseDays) * 0.5
+		case issue.Priority == 2: // P2
+			// use base threshold as-is
+		default: // P3-P4
+			threshold = float64(baseDays) * 1.5
+		}
+
+		days := now.Sub(lastActive).Hours() / 24.0
+		if days < threshold {
+			continue
+		}
+
+		severity := SeverityInfo
+		if issue.Priority <= 1 {
+			severity = SeverityWarning
+		}
+
+		result.Alerts = append(result.Alerts, Alert{
+			Type:     AlertAbandonedClaim,
+			Severity: severity,
+			Message:  fmt.Sprintf("Issue %s claimed by %s but inactive for %.0f days", issue.ID, issue.Assignee, days),
+			IssueID:  issue.ID,
+			DetectedAt: now,
+			Details: []string{
+				fmt.Sprintf("owner=%s", issue.Assignee),
+				fmt.Sprintf("priority=P%d", issue.Priority),
+				fmt.Sprintf("last_update=%s", lastActive.Format(time.RFC3339)),
+			},
 		})
 	}
 }

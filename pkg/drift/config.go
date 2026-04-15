@@ -45,6 +45,9 @@ type Config struct {
 	BlockingCascadeInfo    int `yaml:"blocking_cascade_info_threshold" json:"blocking_cascade_info_threshold"`
 	BlockingCascadeWarning int `yaml:"blocking_cascade_warning_threshold" json:"blocking_cascade_warning_threshold"`
 
+	// Abandoned claim thresholds (days since last update for in_progress+assigned issues)
+	AbandonedWarningDays int `yaml:"abandoned_warning_days" json:"abandoned_warning_days"`
+
 	// Alert type enable/disable flags (bv-167)
 	// Disabled alert types will not generate alerts
 	DisabledAlerts []string `yaml:"disabled_alerts,omitempty" json:"disabled_alerts,omitempty"`
@@ -80,6 +83,9 @@ func DefaultConfig() *Config {
 		InProgressStaleMultiplier:    0.5, // In-progress thresholds are half as long
 		BlockingCascadeInfo:          3,   // Info alert when unblocks >=3
 		BlockingCascadeWarning:       5,   // Warning when unblocks >=5
+		AbandonedWarningDays:         14,  // Warn when in_progress+assigned issue inactive 14+ days
+		// bt-46p6.6: node/edge count disabled by default (too noisy, catches normal growth)
+		DisabledAlerts: []string{string(AlertNodeCountChange), string(AlertEdgeCountChange)},
 	}
 }
 
@@ -160,6 +166,9 @@ func (c *Config) Validate() error {
 	}
 	if c.InProgressStaleMultiplier == 0 {
 		c.InProgressStaleMultiplier = DefaultConfig().InProgressStaleMultiplier
+	}
+	if c.AbandonedWarningDays == 0 {
+		c.AbandonedWarningDays = DefaultConfig().AbandonedWarningDays
 	}
 
 	if c.DensityWarningPct < 0 || c.DensityWarningPct > 1000 {
