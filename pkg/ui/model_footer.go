@@ -442,15 +442,13 @@ func (m *Model) extractDatasetWarning() (string, DatasetLevel) {
 }
 
 func (m *Model) extractAlertCounts() (total, critical, warning int) {
-	for _, a := range m.alerts {
-		if !m.dismissedAlerts[alertKey(a)] {
-			total++
-			switch a.Severity {
-			case drift.SeverityCritical:
-				critical++
-			case drift.SeverityWarning:
-				warning++
-			}
+	for _, a := range m.visibleAlerts() {
+		total++
+		switch a.Severity {
+		case drift.SeverityCritical:
+			critical++
+		case drift.SeverityWarning:
+			warning++
 		}
 	}
 	return

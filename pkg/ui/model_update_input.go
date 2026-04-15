@@ -12,7 +12,6 @@ import (
 
 	"github.com/seanmartinsmith/beadstui/pkg/agents"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
-	"github.com/seanmartinsmith/beadstui/pkg/drift"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/viewport"
@@ -211,40 +210,55 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 	// Handle alerts panel modal if open (bv-168)
 	if m.activeModal == ModalAlerts {
-		// Build list of active (non-dismissed) alerts
-		var activeAlerts []drift.Alert
-		for _, a := range m.alerts {
-			if !m.dismissedAlerts[alertKey(a)] {
-				activeAlerts = append(activeAlerts, a)
-			}
-		}
+		activeAlerts := m.visibleAlerts()
 		s := msg.String()
 		switch s {
 		case "j", "down":
 			if m.alertsCursor < len(activeAlerts)-1 {
 				m.alertsCursor++
-				// Scroll down if cursor moves past visible area
-				visLines := m.alertsVisibleLines()
-				if visLines > 0 && m.alertsCursor >= m.alertsScrollOffset+visLines {
-					m.alertsScrollOffset = m.alertsCursor - visLines + 1
-				}
 			}
 			return m, nil
 		case "k", "up":
 			if m.alertsCursor > 0 {
 				m.alertsCursor--
-				// Scroll up if cursor moves above visible area
-				if m.alertsCursor < m.alertsScrollOffset {
-					m.alertsScrollOffset = m.alertsCursor
-				}
 			}
+			return m, nil
+		case "right", "l":
+			// Page down
+			pageSize := m.alertsVisibleLines()
+			currentPageStart := (m.alertsCursor / pageSize) * pageSize
+			target := currentPageStart + pageSize + pageSize - 1 // bottom of next page
+			if target >= len(activeAlerts) {
+				target = len(activeAlerts) - 1
+			}
+			m.alertsCursor = target
+			return m, nil
+		case "left", "h":
+			// Page up
+			pageSize := m.alertsVisibleLines()
+			currentPageStart := (m.alertsCursor / pageSize) * pageSize
+			target := currentPageStart - pageSize // top of previous page
+			if target < 0 {
+				target = 0
+			}
+			m.alertsCursor = target
 			return m, nil
 		case "enter":
 			// Jump to the issue referenced by the selected alert
 			if m.alertsCursor < len(activeAlerts) {
 				issueID := activeAlerts[m.alertsCursor].IssueID
 				if issueID != "" {
-					// Find the issue in the list and select it
+					// If issue's project is filtered out, add it to activeRepos so it becomes visible
+					if m.workspaceMode && m.activeRepos != nil {
+						if issue, ok := m.data.issueMap[issueID]; ok {
+							repoKey := IssueRepoKey(*issue)
+							if repoKey != "" && !m.activeRepos[repoKey] {
+								m.activeRepos[repoKey] = true
+								m.applyFilter()
+							}
+						}
+					}
+					// Find the issue in the (now potentially updated) list
 					for i, item := range m.list.Items() {
 						if it, ok := item.(IssueItem); ok && it.Issue.ID == issueID {
 							m.list.Select(i)
@@ -260,36 +274,25 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			if m.alertsCursor < len(activeAlerts) {
 				key := alertKey(activeAlerts[m.alertsCursor])
 				m.dismissedAlerts[key] = true
-				// Adjust cursor if needed
-				remaining := 0
-				for _, a := range m.alerts {
-					if !m.dismissedAlerts[alertKey(a)] {
-						remaining++
-					}
-				}
+				// Adjust cursor against updated visible count
+				remaining := len(m.visibleAlerts())
 				if m.alertsCursor >= remaining {
 					m.alertsCursor = remaining - 1
 				}
 				if m.alertsCursor < 0 {
 					m.alertsCursor = 0
 				}
-				// Scroll offset may need adjusting
-				if m.alertsScrollOffset > m.alertsCursor {
-					m.alertsScrollOffset = m.alertsCursor
-				}
-				// Close panel if no alerts left
 				if remaining == 0 {
 					m.closeModal()
 				}
 			}
 			return m, nil
 		case "C":
-			// Clear all alerts
+			// Clear all visible alerts
 			for _, a := range activeAlerts {
 				m.dismissedAlerts[alertKey(a)] = true
 			}
 			m.alertsCursor = 0
-			m.alertsScrollOffset = 0
 			m.closeModal()
 			return m, nil
 		case "esc", "q", "!":
@@ -885,21 +888,14 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 		case "!":
 			// Toggle alerts panel (bv-168)
-			// Only show if there are active alerts
-			activeCount := 0
-			for _, a := range m.alerts {
-				if !m.dismissedAlerts[alertKey(a)] {
-					activeCount++
-				}
-			}
-			if activeCount > 0 {
+			// Only show if there are visible alerts (respects project filter)
+			if len(m.visibleAlerts()) > 0 {
 				if m.activeModal == ModalAlerts {
 					m.closeModal()
 				} else {
 					m.openModal(ModalAlerts)
 				}
-				m.alertsCursor = 0       // Reset cursor when opening
-				m.alertsScrollOffset = 0 // Reset scroll position
+				m.alertsCursor = 0 // Reset cursor when opening
 			} else {
 				m.statusMsg = "No active alerts"
 				m.statusIsError = false
@@ -1101,27 +1097,15 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 func (m Model) handleMouseWheel(msg tea.MouseWheelMsg) (Model, tea.Cmd) {
 	// Intercept mouse wheel when alerts panel is open
 	if m.activeModal == ModalAlerts {
-		var activeAlerts []drift.Alert
-		for _, a := range m.alerts {
-			if !m.dismissedAlerts[alertKey(a)] {
-				activeAlerts = append(activeAlerts, a)
-			}
-		}
+		activeAlerts := m.visibleAlerts()
 		switch msg.Button {
 		case tea.MouseWheelUp:
 			if m.alertsCursor > 0 {
 				m.alertsCursor--
-				if m.alertsCursor < m.alertsScrollOffset {
-					m.alertsScrollOffset = m.alertsCursor
-				}
 			}
 		case tea.MouseWheelDown:
 			if m.alertsCursor < len(activeAlerts)-1 {
 				m.alertsCursor++
-				visLines := m.alertsVisibleLines()
-				if visLines > 0 && m.alertsCursor >= m.alertsScrollOffset+visLines {
-					m.alertsScrollOffset = m.alertsCursor - visLines + 1
-				}
 			}
 		}
 		return m, nil

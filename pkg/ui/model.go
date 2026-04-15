@@ -543,9 +543,8 @@ type Model struct {
 	alertsCritical     int
 	alertsWarning      int
 	alertsInfo         int
-	alertsCursor       int
-	alertsScrollOffset int
-	dismissedAlerts    map[string]bool
+	alertsCursor    int
+	dismissedAlerts map[string]bool
 
 	// Sprint view (bv-161)
 	sprints        []model.Sprint
@@ -1337,7 +1336,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// (we handle sizing ourselves to account for header/footer)
 	// Only forward keyboard messages to list when list has focus (bv-hmkz fix)
 	// This prevents j/k keys in detail view from changing list selection
-	if m.focused == focusList {
+	if m.focused == focusList && m.activeModal == ModalNone {
 		if _, isWindowSize := msg.(tea.WindowSizeMsg); !isWindowSize {
 			m.list, cmd = m.list.Update(msg)
 			cmds = append(cmds, cmd)

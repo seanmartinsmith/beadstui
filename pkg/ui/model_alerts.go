@@ -80,13 +80,47 @@ func alertKey(a drift.Alert) string {
 	return fmt.Sprintf("%s:%s:%s", a.Type, a.Severity, a.IssueID)
 }
 
-// alertsVisibleLines returns the number of alert items that fit in the
-// viewport, accounting for panel chrome (borders, summary, footer, padding).
+// visibleAlerts returns alerts filtered by active repo filter and dismissed state.
+// In workspace mode with a project filter, only alerts for selected projects are shown.
+func (m Model) visibleAlerts() []drift.Alert {
+	var out []drift.Alert
+	for _, a := range m.alerts {
+		if m.dismissedAlerts[alertKey(a)] {
+			continue
+		}
+		// Filter by active repo when in workspace mode with a project filter
+		if m.workspaceMode && m.activeRepos != nil && a.IssueID != "" {
+			issue, ok := m.data.issueMap[a.IssueID]
+			if ok {
+				repoKey := IssueRepoKey(*issue)
+				if repoKey != "" && !m.activeRepos[repoKey] {
+					continue
+				}
+			}
+		}
+		out = append(out, a)
+	}
+	return out
+}
+
+// alertsPanelHeight returns the fixed outer height of the alerts panel
+// (including borders). Capped at ~70% of terminal height.
+func (m Model) alertsPanelHeight() int {
+	h := m.height * 7 / 10
+	if h < 12 {
+		h = 12
+	}
+	return h
+}
+
+// alertsVisibleLines returns the number of alert items that fit in one page,
+// accounting for all panel chrome so the content never overflows.
+// Chrome: summary(1) + above-indicator(1) + detail-reserve(2) + below-indicator(1)
+//         + page-indicator(1) + blank(1) + footer(1) = 8 lines
+// Panel borders consume 2 of the outer height.
 func (m Model) alertsVisibleLines() int {
-	// Cap panel at ~70% of terminal height
-	panelMax := m.height * 7 / 10
-	// Subtract chrome: top border(1) + summary(1) + blank(1) + blank(1) + footer(1) + bottom border(1) = 6
-	lines := panelMax - 6
+	innerHeight := m.alertsPanelHeight() - 2 // subtract top/bottom border
+	lines := innerHeight - 8                 // subtract chrome
 	if lines < 3 {
 		lines = 3
 	}
@@ -100,13 +134,7 @@ func (m Model) renderAlertsPanel() string {
 
 	panelWidth := min(80, m.width-4)
 
-	// Filter out dismissed alerts
-	var visibleAlerts []drift.Alert
-	for _, a := range m.alerts {
-		if !m.dismissedAlerts[alertKey(a)] {
-			visibleAlerts = append(visibleAlerts, a)
-		}
-	}
+	visibleAlerts := m.visibleAlerts()
 
 	// Inner content width (panel width minus borders and padding)
 	innerWidth := panelWidth - 4 // 2 border + 2 padding
@@ -125,51 +153,53 @@ func (m Model) renderAlertsPanel() string {
 		sb.WriteString(lipgloss.NewStyle().Foreground(ColorSuccess).Render(" No active alerts"))
 		sb.WriteString("\n")
 	} else {
-		// Summary line
+		// Summary line with counts from the visible (filtered) set
+		critical, warning, info := 0, 0, 0
+		for _, a := range visibleAlerts {
+			switch a.Severity {
+			case drift.SeverityCritical:
+				critical++
+			case drift.SeverityWarning:
+				warning++
+			case drift.SeverityInfo:
+				info++
+			}
+		}
 		summaryStyle := lipgloss.NewStyle().Foreground(t.Secondary)
 		summary := fmt.Sprintf("%d total", len(visibleAlerts))
-		if m.alertsCritical > 0 {
-			summary += fmt.Sprintf(" • %d critical", m.alertsCritical)
+		if critical > 0 {
+			summary += fmt.Sprintf(" • %d critical", critical)
 		}
-		if m.alertsWarning > 0 {
-			summary += fmt.Sprintf(" • %d warning", m.alertsWarning)
+		if warning > 0 {
+			summary += fmt.Sprintf(" • %d warning", warning)
 		}
-		if m.alertsInfo > 0 {
-			summary += fmt.Sprintf(" • %d info", m.alertsInfo)
+		if info > 0 {
+			summary += fmt.Sprintf(" • %d info", info)
 		}
 		sb.WriteString(" ")
 		sb.WriteString(summaryStyle.Render(summary))
 		sb.WriteString("\n")
 
-		// Scrollable alert list
-		visLines := m.alertsVisibleLines()
-		scrollOffset := m.alertsScrollOffset
-
-		// Clamp scroll offset
-		if scrollOffset > len(visibleAlerts)-visLines {
-			scrollOffset = len(visibleAlerts) - visLines
-		}
-		if scrollOffset < 0 {
-			scrollOffset = 0
-		}
-
-		endIdx := scrollOffset + visLines
-		if endIdx > len(visibleAlerts) {
-			endIdx = len(visibleAlerts)
+		// Page-aligned visible window (cursor position determines page)
+		pageSize := m.alertsVisibleLines()
+		start := (m.alertsCursor / pageSize) * pageSize
+		end := start + pageSize
+		if end > len(visibleAlerts) {
+			end = len(visibleAlerts)
 		}
 
 		// Scroll indicator: above
-		if scrollOffset > 0 {
+		if start > 0 {
 			hint := lipgloss.NewStyle().Foreground(t.Muted).Render(
-				fmt.Sprintf(" ▴ %d more above", scrollOffset))
+				fmt.Sprintf(" ▴ %d more above", start))
 			sb.WriteString(hint)
 			sb.WriteString("\n")
 		} else {
 			sb.WriteString("\n")
 		}
 
-		// Render visible window of alerts (centered)
-		for i := scrollOffset; i < endIdx; i++ {
+		// Render visible page of alerts (centered)
+		for i := start; i < end; i++ {
 			a := visibleAlerts[i]
 			selected := i == m.alertsCursor
 
@@ -194,8 +224,9 @@ func (m Model) renderAlertsPanel() string {
 				cursor = "▸ "
 			}
 
-			// Alert line
-			line := fmt.Sprintf("%s%s %s", cursor, severityIcon, a.Message)
+			// Alert line (sanitize newlines to prevent panel expansion)
+			msg := strings.ReplaceAll(a.Message, "\n", " ")
+			line := fmt.Sprintf("%s%s %s", cursor, severityIcon, msg)
 			if lipgloss.Width(line) > innerWidth {
 				line = truncateRunesHelper(line, innerWidth, "…")
 			}
@@ -214,13 +245,19 @@ func (m Model) renderAlertsPanel() string {
 			sb.WriteString(rendered)
 			sb.WriteString("\n")
 
-			// Detail for selected alert: issue title (wraps to ~2 lines max)
+			// Detail for selected alert: issue title (exactly 2 lines, for fixed height)
 			if selected && a.IssueID != "" {
 				if title, ok := issueTitles[a.IssueID]; ok && title != "" {
 					titleStyle := lipgloss.NewStyle().Foreground(t.Muted).Italic(true)
-					detailMaxWidth := innerWidth - 8 // indent on each side
+					detailMaxWidth := innerWidth - 8
 					wrappedStr := wrapText(title, detailMaxWidth)
-					for _, wline := range strings.Split(wrappedStr, "\n") {
+					detailLines := strings.Split(wrappedStr, "\n")
+					// Cap at 2 lines, truncate if longer
+					if len(detailLines) > 2 {
+						detailLines[1] = truncateRunesHelper(detailLines[1], detailMaxWidth, "…")
+						detailLines = detailLines[:2]
+					}
+					for _, wline := range detailLines {
 						styled := titleStyle.Render("    " + wline)
 						styledWidth := lipgloss.Width(styled)
 						dPad := (innerWidth - styledWidth) / 2
@@ -231,22 +268,51 @@ func (m Model) renderAlertsPanel() string {
 						sb.WriteString(styled)
 						sb.WriteString("\n")
 					}
+					// Pad to exactly 2 detail lines
+					for i := len(detailLines); i < 2; i++ {
+						sb.WriteString("\n")
+					}
+				} else {
+					// No title found - still emit 2 blank lines
+					sb.WriteString("\n\n")
 				}
+			} else if selected {
+				// Selected but no issue ID - emit 2 blank lines
+				sb.WriteString("\n\n")
 			}
 		}
 
+		// Pad remaining lines to fixed page height (visual stability)
+		for i := end - start; i < pageSize; i++ {
+			sb.WriteString("\n")
+		}
+
 		// Scroll indicator: below
-		remaining := len(visibleAlerts) - endIdx
+		remaining := len(visibleAlerts) - end
 		if remaining > 0 {
 			hint := lipgloss.NewStyle().Foreground(t.Muted).Render(
 				fmt.Sprintf(" ▾ %d more below", remaining))
 			sb.WriteString(hint)
+		}
+
+		// Page indicator
+		if len(visibleAlerts) > pageSize {
+			page := m.alertsCursor/pageSize + 1
+			totalPages := (len(visibleAlerts) + pageSize - 1) / pageSize
+			pageStyle := lipgloss.NewStyle().Foreground(t.Secondary).Italic(true)
+			sb.WriteString("\n")
+			sb.WriteString(pageStyle.Render(
+				fmt.Sprintf(" %d/%d (%d alerts)", page, totalPages, len(visibleAlerts))))
 		}
 	}
 
 	sb.WriteString("\n")
 	sb.WriteString(lipgloss.NewStyle().Foreground(t.Muted).Italic(true).Render(
 		" enter: open • c: clear • C: clear all • esc: close"))
+	if len(visibleAlerts) > m.alertsVisibleLines() {
+		sb.WriteString(lipgloss.NewStyle().Foreground(t.Muted).Italic(true).Render(
+			" • ←/→: page"))
+	}
 
 	// Pad each content line for inner padding
 	paddedContent := padContentLines(sb.String(), 1)
@@ -255,17 +321,12 @@ func (m Model) renderAlertsPanel() string {
 	panel := RenderTitledPanel(paddedContent, PanelOpts{
 		Title:       "Alerts!",
 		Width:       panelWidth,
+		Height:      m.alertsPanelHeight(),
 		BorderColor: t.Blocked,
 		TitleColor:  t.Blocked,
 	})
 
-	return lipgloss.Place(
-		m.width,
-		m.height-1,
-		lipgloss.Center,
-		lipgloss.Center,
-		panel,
-	)
+	return panel
 }
 
 // padContentLines adds horizontal padding to each line of content.

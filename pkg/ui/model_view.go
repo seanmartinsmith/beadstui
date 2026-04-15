@@ -66,7 +66,7 @@ func (m Model) View() tea.View {
 			body = m.renderLabelDrilldown()
 		}
 	case ModalAlerts:
-		body = m.renderAlertsPanel()
+		// Handled as overlay after background renders (below)
 	case ModalTimeTravelInput:
 		body = m.renderTimeTravelPrompt()
 	case ModalBQLQuery:
@@ -143,6 +143,9 @@ func (m Model) View() tea.View {
 	}
 	if m.activeModal == ModalLabelPicker {
 		body = OverlayCenter(body, m.labelPicker.View(), m.width, m.height-1)
+	}
+	if m.activeModal == ModalAlerts {
+		body = OverlayCenter(body, m.renderAlertsPanel(), m.width, m.height-1)
 	}
 
 	footer := m.renderFooter()
