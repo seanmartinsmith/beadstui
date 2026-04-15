@@ -172,7 +172,7 @@ func (m RepoPickerModel) SelectedRepos() map[string]bool {
 const pickerHPad = 3 // horizontal padding inside box
 
 // footer hint text (no padding - added during render)
-const pickerFooter = "space: toggle \u2022 a: all \u2022 enter: apply \u2022 esc: cancel"
+const pickerFooter = "toggle: space all: a \u2022 apply: enter"
 
 // View renders the repo picker overlay.
 func (m *RepoPickerModel) View() string {

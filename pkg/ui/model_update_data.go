@@ -120,6 +120,7 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 	// Recompute alerts for refreshed dataset
 	m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.data.issues, m.data.analysis, m.data.analyzer)
 	m.dismissedAlerts = make(map[string]bool)
+
 	if m.activeModal == ModalAlerts {
 		m.closeModal()
 	}
@@ -658,6 +659,7 @@ func (m Model) handleFileChanged(msg FileChangedMsg) (Model, tea.Cmd) {
 		recordTiming("alerts", time.Since(alertsStart))
 	}
 	m.dismissedAlerts = make(map[string]bool)
+
 	if m.activeModal == ModalAlerts {
 		m.closeModal()
 	}

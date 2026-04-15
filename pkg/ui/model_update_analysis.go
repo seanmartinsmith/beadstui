@@ -241,6 +241,7 @@ func (m Model) handlePhase2Ready(msg Phase2ReadyMsg) (Model, tea.Cmd) {
 	// Refresh alerts with full Phase 2 metrics
 	m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.data.issues, m.data.analysis, m.data.analyzer)
 
+
 	// Invalidate label health cache
 	m.labelHealthCached = false
 	if m.focused == focusLabelDashboard {

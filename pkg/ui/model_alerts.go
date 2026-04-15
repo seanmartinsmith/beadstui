@@ -3,7 +3,9 @@ package ui
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/baseline"
@@ -80,8 +82,8 @@ func alertKey(a drift.Alert) string {
 	return fmt.Sprintf("%s:%s:%s", a.Type, a.Severity, a.IssueID)
 }
 
-// visibleAlerts returns alerts filtered by active repo filter and dismissed state.
-// In workspace mode with a project filter, only alerts for selected projects are shown.
+// visibleAlerts returns alerts filtered by dismissed state, repo filter,
+// and stackable alert filters (severity, type, project, sort).
 func (m Model) visibleAlerts() []drift.Alert {
 	var out []drift.Alert
 	for _, a := range m.alerts {
@@ -98,9 +100,107 @@ func (m Model) visibleAlerts() []drift.Alert {
 				}
 			}
 		}
+		// Stackable filters (bt-46p6.5)
+		if m.alertFilterSeverity != "" && string(a.Severity) != m.alertFilterSeverity {
+			continue
+		}
+		if m.alertFilterType != "" && string(a.Type) != m.alertFilterType {
+			continue
+		}
+		if m.alertFilterProject != "" && a.IssueID != "" {
+			issue, ok := m.data.issueMap[a.IssueID]
+			if !ok || IssueRepoKey(*issue) != m.alertFilterProject {
+				continue
+			}
+		}
 		out = append(out, a)
 	}
+
+	// Sort (bt-46p6.5) - use issue UpdatedAt for meaningful ordering
+	// (DetectedAt is always time.Now() so it's useless for sorting)
+	if m.alertSortOrder != 0 {
+		// Pre-build time lookup to avoid repeated map hits in comparator
+		times := make([]time.Time, len(out))
+		for i, a := range out {
+			times[i] = m.alertIssueTime(a)
+		}
+		sort.Slice(out, func(i, j int) bool {
+			if m.alertSortOrder == 1 { // oldest first
+				return times[i].Before(times[j])
+			}
+			return times[i].After(times[j]) // newest first
+		})
+	}
 	return out
+}
+
+// alertProjectKey returns the project prefix for an alert's issue.
+func (m Model) alertProjectKey(a drift.Alert) string {
+	if a.IssueID == "" {
+		return ""
+	}
+	if issue, ok := m.data.issueMap[a.IssueID]; ok {
+		return IssueRepoKey(*issue)
+	}
+	return ""
+}
+
+// alertActiveTypes returns the set of alert types present in the current (unfiltered) alerts.
+func (m Model) alertActiveTypes() []string {
+	seen := make(map[string]bool)
+	var types []string
+	for _, a := range m.alerts {
+		if m.dismissedAlerts[alertKey(a)] {
+			continue
+		}
+		t := string(a.Type)
+		if !seen[t] {
+			seen[t] = true
+			types = append(types, t)
+		}
+	}
+	sort.Strings(types)
+	return types
+}
+
+// alertActiveProjects returns project prefixes present in the current alerts.
+func (m Model) alertActiveProjects() []string {
+	seen := make(map[string]bool)
+	var projects []string
+	for _, a := range m.alerts {
+		if m.dismissedAlerts[alertKey(a)] {
+			continue
+		}
+		p := m.alertProjectKey(a)
+		if p != "" && !seen[p] {
+			seen[p] = true
+			projects = append(projects, p)
+		}
+	}
+	sort.Strings(projects)
+	return projects
+}
+
+// alertIssueTime returns the issue's UpdatedAt for sort ordering.
+// Falls back to DetectedAt for alerts without an issue reference.
+func (m Model) alertIssueTime(a drift.Alert) time.Time {
+	if a.IssueID != "" {
+		if issue, ok := m.data.issueMap[a.IssueID]; ok {
+			if !issue.UpdatedAt.IsZero() {
+				return issue.UpdatedAt
+			}
+			return issue.CreatedAt
+		}
+	}
+	return a.DetectedAt
+}
+
+// resetAlertFilters clears all alert filter state.
+func (m *Model) resetAlertFilters() {
+	m.alertFilterSeverity = ""
+	m.alertFilterType = ""
+	m.alertFilterProject = ""
+	m.alertSortOrder = 0
 }
 
 // alertsPanelHeight returns the fixed outer height of the alerts panel
@@ -115,12 +215,12 @@ func (m Model) alertsPanelHeight() int {
 
 // alertsVisibleLines returns the number of alert items that fit in one page,
 // accounting for all panel chrome so the content never overflows.
-// Chrome: summary(1) + above-indicator(1) + detail-reserve(2) + below-indicator(1)
-//         + page-indicator(1) + blank(1) + footer(1) = 8 lines
+// Chrome: summary(1) + blank(1) + above+filter(1) + detail-reserve(1)
+//         + below+page(1) + blank(1) + footer(1) = 7 lines
 // Panel borders consume 2 of the outer height.
 func (m Model) alertsVisibleLines() int {
 	innerHeight := m.alertsPanelHeight() - 2 // subtract top/bottom border
-	lines := innerHeight - 8                 // subtract chrome
+	lines := innerHeight - 7                 // subtract chrome
 	if lines < 3 {
 		lines = 3
 	}
@@ -165,20 +265,48 @@ func (m Model) renderAlertsPanel() string {
 				info++
 			}
 		}
-		summaryStyle := lipgloss.NewStyle().Foreground(t.Secondary)
-		summary := fmt.Sprintf("%d total", len(visibleAlerts))
+		totalStyle := lipgloss.NewStyle().Foreground(t.Secondary)
+		critStyle := lipgloss.NewStyle().Foreground(t.Blocked).Bold(true)
+		warnStyle := lipgloss.NewStyle().Foreground(t.Feature)
+		infoStyle := lipgloss.NewStyle().Foreground(t.Secondary)
+		sepStyle := lipgloss.NewStyle().Foreground(t.Muted)
+		sep := sepStyle.Render(" • ")
+
+		sb.WriteString(" ")
+		sb.WriteString(totalStyle.Render(fmt.Sprintf("%d total", len(visibleAlerts))))
 		if critical > 0 {
-			summary += fmt.Sprintf(" • %d critical", critical)
+			sb.WriteString(sep)
+			sb.WriteString(critStyle.Render(fmt.Sprintf("%d critical", critical)))
 		}
 		if warning > 0 {
-			summary += fmt.Sprintf(" • %d warning", warning)
+			sb.WriteString(sep)
+			sb.WriteString(warnStyle.Render(fmt.Sprintf("%d warning", warning)))
 		}
 		if info > 0 {
-			summary += fmt.Sprintf(" • %d info", info)
+			sb.WriteString(sep)
+			sb.WriteString(infoStyle.Render(fmt.Sprintf("%d info", info)))
 		}
-		sb.WriteString(" ")
-		sb.WriteString(summaryStyle.Render(summary))
-		sb.WriteString("\n")
+		sb.WriteString("\n\n")
+
+		// Build filter label for display on the "above" indicator line
+		var filterParts []string
+		if m.alertFilterSeverity != "" {
+			filterParts = append(filterParts, m.alertFilterSeverity)
+		}
+		if m.alertFilterType != "" {
+			filterParts = append(filterParts, alertTypeLabel(drift.AlertType(m.alertFilterType)))
+		}
+		if m.alertFilterProject != "" {
+			filterParts = append(filterParts, m.alertFilterProject)
+		}
+		sortNames := []string{"", "oldest", "newest"}
+		if m.alertSortOrder > 0 {
+			filterParts = append(filterParts, sortNames[m.alertSortOrder])
+		}
+		filterLabel := ""
+		if len(filterParts) > 0 {
+			filterLabel = "filter: " + strings.Join(filterParts, " • ")
+		}
 
 		// Page-aligned visible window (cursor position determines page)
 		pageSize := m.alertsVisibleLines()
@@ -188,15 +316,23 @@ func (m Model) renderAlertsPanel() string {
 			end = len(visibleAlerts)
 		}
 
-		// Scroll indicator: above
+		// Above indicator line: "▴ N more above" left, filter label right
+		aboveHint := ""
 		if start > 0 {
-			hint := lipgloss.NewStyle().Foreground(t.Muted).Render(
-				fmt.Sprintf(" ▴ %d more above", start))
-			sb.WriteString(hint)
-			sb.WriteString("\n")
-		} else {
-			sb.WriteString("\n")
+			aboveHint = fmt.Sprintf(" ▴ %d more above", start)
 		}
+		if aboveHint != "" || filterLabel != "" {
+			leftPart := lipgloss.NewStyle().Foreground(t.Muted).Render(aboveHint)
+			rightPart := lipgloss.NewStyle().Foreground(t.Feature).Italic(true).Render(filterLabel)
+			leftW := lipgloss.Width(leftPart)
+			rightW := lipgloss.Width(rightPart)
+			gap := innerWidth - leftW - rightW
+			if gap < 1 {
+				gap = 1
+			}
+			sb.WriteString(leftPart + strings.Repeat(" ", gap) + rightPart)
+		}
+		sb.WriteString("\n")
 
 		// Render visible page of alerts (centered)
 		for i := start; i < end; i++ {
@@ -218,23 +354,23 @@ func (m Model) renderAlertsPanel() string {
 				severityIcon = "○"
 			}
 
-			// Cursor indicator
+			// Cursor indicator (neutral color so it stands out from severity)
 			cursor := "  "
 			if selected {
-				cursor = "▸ "
+				cursor = lipgloss.NewStyle().Foreground(t.Muted).Bold(true).Render("▸ ")
 			}
 
 			// Alert line (sanitize newlines to prevent panel expansion)
 			msg := strings.ReplaceAll(a.Message, "\n", " ")
 			typeTag := fmt.Sprintf("[%s]", alertTypeLabel(a.Type))
-			line := fmt.Sprintf("%s%s %s %s", cursor, severityIcon, typeTag, msg)
-			if lipgloss.Width(line) > innerWidth {
-				line = truncateRunesHelper(line, innerWidth, "…")
+			line := fmt.Sprintf("%s %s %s", severityIcon, typeTag, msg)
+			if lipgloss.Width(cursor)+lipgloss.Width(line) > innerWidth {
+				line = truncateRunesHelper(line, innerWidth-lipgloss.Width(cursor), "…")
 			}
 			if selected {
-				line = lipgloss.NewStyle().Bold(true).Render(line)
+				severityStyle = severityStyle.Bold(true)
 			}
-			rendered := severityStyle.Render(line)
+			rendered := cursor + severityStyle.Render(line)
 
 			// Center the alert line
 			lineWidth := lipgloss.Width(rendered)
@@ -246,40 +382,22 @@ func (m Model) renderAlertsPanel() string {
 			sb.WriteString(rendered)
 			sb.WriteString("\n")
 
-			// Detail for selected alert: issue title (exactly 2 lines, for fixed height)
+			// Detail for selected alert: issue title (1 line, truncated)
 			if selected && a.IssueID != "" {
 				if title, ok := issueTitles[a.IssueID]; ok && title != "" {
 					titleStyle := lipgloss.NewStyle().Foreground(t.Muted).Italic(true)
 					detailMaxWidth := innerWidth - 8
-					wrappedStr := wrapText(title, detailMaxWidth)
-					detailLines := strings.Split(wrappedStr, "\n")
-					// Cap at 2 lines, truncate if longer
-					if len(detailLines) > 2 {
-						detailLines[1] = truncateRunesHelper(detailLines[1], detailMaxWidth, "…")
-						detailLines = detailLines[:2]
+					title = truncateRunesHelper(title, detailMaxWidth, "…")
+					styled := titleStyle.Render("    " + title)
+					styledWidth := lipgloss.Width(styled)
+					dPad := (innerWidth - styledWidth) / 2
+					if dPad < 0 {
+						dPad = 0
 					}
-					for _, wline := range detailLines {
-						styled := titleStyle.Render("    " + wline)
-						styledWidth := lipgloss.Width(styled)
-						dPad := (innerWidth - styledWidth) / 2
-						if dPad < 0 {
-							dPad = 0
-						}
-						sb.WriteString(strings.Repeat(" ", dPad))
-						sb.WriteString(styled)
-						sb.WriteString("\n")
-					}
-					// Pad to exactly 2 detail lines
-					for i := len(detailLines); i < 2; i++ {
-						sb.WriteString("\n")
-					}
-				} else {
-					// No title found - still emit 2 blank lines
-					sb.WriteString("\n\n")
+					sb.WriteString(strings.Repeat(" ", dPad))
+					sb.WriteString(styled)
+					sb.WriteString("\n")
 				}
-			} else if selected {
-				// Selected but no issue ID - emit 2 blank lines
-				sb.WriteString("\n\n")
 			}
 		}
 
@@ -288,32 +406,41 @@ func (m Model) renderAlertsPanel() string {
 			sb.WriteString("\n")
 		}
 
-		// Scroll indicator: below
+		// Below indicator line: "▾ N more below" left, page indicator right
+		belowHint := ""
 		remaining := len(visibleAlerts) - end
 		if remaining > 0 {
-			hint := lipgloss.NewStyle().Foreground(t.Muted).Render(
-				fmt.Sprintf(" ▾ %d more below", remaining))
-			sb.WriteString(hint)
+			belowHint = fmt.Sprintf(" ▾ %d more below", remaining)
 		}
-
-		// Page indicator
+		pageLabel := ""
 		if len(visibleAlerts) > pageSize {
 			page := m.alertsCursor/pageSize + 1
 			totalPages := (len(visibleAlerts) + pageSize - 1) / pageSize
-			pageStyle := lipgloss.NewStyle().Foreground(t.Secondary).Italic(true)
-			sb.WriteString("\n")
-			sb.WriteString(pageStyle.Render(
-				fmt.Sprintf(" %d/%d (%d alerts)", page, totalPages, len(visibleAlerts))))
+			pageLabel = fmt.Sprintf("%d/%d (%d alerts)", page, totalPages, len(visibleAlerts))
+		}
+		if belowHint != "" || pageLabel != "" {
+			leftPart := lipgloss.NewStyle().Foreground(t.Muted).Render(belowHint)
+			rightPart := lipgloss.NewStyle().Foreground(t.Secondary).Italic(true).Render(pageLabel)
+			leftW := lipgloss.Width(leftPart)
+			rightW := lipgloss.Width(rightPart)
+			gap := innerWidth - leftW - rightW
+			if gap < 1 {
+				gap = 1
+			}
+			sb.WriteString(leftPart + strings.Repeat(" ", gap) + rightPart)
 		}
 	}
 
-	sb.WriteString("\n")
-	sb.WriteString(lipgloss.NewStyle().Foreground(t.Muted).Italic(true).Render(
-		" enter: open • c: clear • C: clear all • esc: close"))
-	if len(visibleAlerts) > m.alertsVisibleLines() {
-		sb.WriteString(lipgloss.NewStyle().Foreground(t.Muted).Italic(true).Render(
-			" • ←/→: page"))
+	// Footer: centered help text (with breathing room above)
+	helpStyle := lipgloss.NewStyle().Foreground(t.Muted).Italic(true)
+	helpText := helpStyle.Render("filter: s/t/p/o (\u21e7:prev) reset: r • open: enter clear: c (\u21e7:all)")
+	helpW := lipgloss.Width(helpText)
+	helpPad := (innerWidth - helpW) / 2
+	if helpPad < 0 {
+		helpPad = 0
 	}
+	sb.WriteString("\n\n")
+	sb.WriteString(strings.Repeat(" ", helpPad) + helpText)
 
 	// Pad each content line for inner padding
 	paddedContent := padContentLines(sb.String(), 1)

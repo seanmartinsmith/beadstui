@@ -381,7 +381,7 @@ func (m *LabelPickerModel) View() string {
 	lineWidth := labelPickerHPad + 2 + 2 + 1 + maxLabelWidth + labelPickerHPad
 
 	// Footer - always use the longer version for stable width
-	footerText := "space: toggle \u2022 \u2190/\u2192: page \u2022 enter: apply \u2022 esc: close"
+	footerText := "toggle: space page: \u2190/\u2192 \u2022 apply: enter"
 	footerLineWidth := labelPickerHPad + len(footerText) + labelPickerHPad
 
 	// Input line width

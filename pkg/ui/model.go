@@ -546,6 +546,12 @@ type Model struct {
 	alertsCursor    int
 	dismissedAlerts map[string]bool
 
+	// Alert filters (bt-46p6.5): stackable severity/type/project/sort
+	alertFilterSeverity string // "" = all, or "critical"/"warning"/"info"
+	alertFilterType     string // "" = all, or an AlertType string
+	alertFilterProject  string // "" = all, or a project prefix
+	alertSortOrder      int    // 0=default, 1=oldest-first, 2=newest-first
+
 	// Sprint view (bv-161)
 	sprints        []model.Sprint
 	selectedSprint *model.Sprint

@@ -274,7 +274,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			if m.alertsCursor < len(activeAlerts) {
 				key := alertKey(activeAlerts[m.alertsCursor])
 				m.dismissedAlerts[key] = true
-				// Adjust cursor against updated visible count
+	
 				remaining := len(m.visibleAlerts())
 				if m.alertsCursor >= remaining {
 					m.alertsCursor = remaining - 1
@@ -292,10 +292,154 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			for _, a := range activeAlerts {
 				m.dismissedAlerts[alertKey(a)] = true
 			}
+
 			m.alertsCursor = 0
 			m.closeModal()
 			return m, nil
+		case "s":
+			// Cycle severity filter: all → critical → warning → info → all
+			switch m.alertFilterSeverity {
+			case "":
+				m.alertFilterSeverity = "critical"
+			case "critical":
+				m.alertFilterSeverity = "warning"
+			case "warning":
+				m.alertFilterSeverity = "info"
+			default:
+				m.alertFilterSeverity = ""
+			}
+
+			m.alertsCursor = 0
+			return m, nil
+		case "t":
+			// Cycle type filter through active types
+			types := m.alertActiveTypes()
+			if len(types) == 0 {
+				return m, nil
+			}
+			if m.alertFilterType == "" {
+				m.alertFilterType = types[0]
+			} else {
+				idx := -1
+				for i, t := range types {
+					if t == m.alertFilterType {
+						idx = i
+						break
+					}
+				}
+				if idx < 0 || idx >= len(types)-1 {
+					m.alertFilterType = "" // wrap to all
+				} else {
+					m.alertFilterType = types[idx+1]
+				}
+			}
+
+			m.alertsCursor = 0
+			return m, nil
+		case "p":
+			// Cycle project filter through active projects
+			projects := m.alertActiveProjects()
+			if len(projects) == 0 {
+				return m, nil
+			}
+			if m.alertFilterProject == "" {
+				m.alertFilterProject = projects[0]
+			} else {
+				idx := -1
+				for i, p := range projects {
+					if p == m.alertFilterProject {
+						idx = i
+						break
+					}
+				}
+				if idx < 0 || idx >= len(projects)-1 {
+					m.alertFilterProject = "" // wrap to all
+				} else {
+					m.alertFilterProject = projects[idx+1]
+				}
+			}
+
+			m.alertsCursor = 0
+			return m, nil
+		case "S":
+			// Cycle severity filter BACKWARDS: all → info → warning → critical → all
+			switch m.alertFilterSeverity {
+			case "":
+				m.alertFilterSeverity = "info"
+			case "info":
+				m.alertFilterSeverity = "warning"
+			case "warning":
+				m.alertFilterSeverity = "critical"
+			default:
+				m.alertFilterSeverity = ""
+			}
+			m.alertsCursor = 0
+			return m, nil
+		case "T":
+			// Cycle type filter BACKWARDS through active types
+			types := m.alertActiveTypes()
+			if len(types) == 0 {
+				return m, nil
+			}
+			if m.alertFilterType == "" {
+				m.alertFilterType = types[len(types)-1]
+			} else {
+				idx := -1
+				for i, t := range types {
+					if t == m.alertFilterType {
+						idx = i
+						break
+					}
+				}
+				if idx <= 0 {
+					m.alertFilterType = "" // wrap to all
+				} else {
+					m.alertFilterType = types[idx-1]
+				}
+			}
+			m.alertsCursor = 0
+			return m, nil
+		case "P":
+			// Cycle project filter BACKWARDS through active projects
+			projects := m.alertActiveProjects()
+			if len(projects) == 0 {
+				return m, nil
+			}
+			if m.alertFilterProject == "" {
+				m.alertFilterProject = projects[len(projects)-1]
+			} else {
+				idx := -1
+				for i, p := range projects {
+					if p == m.alertFilterProject {
+						idx = i
+						break
+					}
+				}
+				if idx <= 0 {
+					m.alertFilterProject = "" // wrap to all
+				} else {
+					m.alertFilterProject = projects[idx-1]
+				}
+			}
+			m.alertsCursor = 0
+			return m, nil
+		case "o":
+			// Cycle sort: default → oldest → newest → default
+			m.alertSortOrder = (m.alertSortOrder + 1) % 3
+			m.alertsCursor = 0
+			return m, nil
+		case "O":
+			// Cycle sort BACKWARDS: default → newest → oldest → default
+			m.alertSortOrder = (m.alertSortOrder + 2) % 3
+			m.alertsCursor = 0
+			return m, nil
+		case "r", "R":
+			// Reset all filters
+			m.resetAlertFilters()
+			m.alertsCursor = 0
+			return m, nil
 		case "esc", "q", "!":
+			m.resetAlertFilters()
 			m.closeModal()
 			return m, nil
 		}
@@ -896,6 +1040,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 					m.openModal(ModalAlerts)
 				}
 				m.alertsCursor = 0 // Reset cursor when opening
+				m.resetAlertFilters() // also recomputes cache
 			} else {
 				m.statusMsg = "No active alerts"
 				m.statusIsError = false
