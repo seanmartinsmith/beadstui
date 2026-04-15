@@ -986,6 +986,14 @@ func init() {
 	robotBQLCmd.Flags().String("query", "", "BQL query string")
 	robotCmd.AddCommand(robotBQLCmd)
 
+	// list
+	robotListCmd.Flags().String("status", "", "Filter by status: open,blocked,in_progress,closed (comma-separated)")
+	robotListCmd.Flags().String("priority", "", "Filter by priority: single (e.g. '0') or range (e.g. '0-1')")
+	robotListCmd.Flags().String("type", "", "Filter by issue type: bug, feature, task, epic, chore")
+	robotListCmd.Flags().String("has-label", "", "Filter to issues with this label (exact match)")
+	robotListCmd.Flags().Int("limit", 100, "Max issues to return (0 = unlimited)")
+	robotCmd.AddCommand(robotListCmd)
+
 	// history
 	robotHistoryCmd.Flags().String("bead", "", "Show history for specific bead ID")
 	robotHistoryCmd.Flags().String("since", "", "Limit history to commits after this date/ref")
