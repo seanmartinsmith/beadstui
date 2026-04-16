@@ -355,15 +355,21 @@ func (r *DoltReader) GetIssueByID(id string) (*model.Issue, error) {
 	return &issues[0], nil
 }
 
-// GetLastModified returns the most recent update time.
+// GetLastModified returns the most recent modification time across issues and comments.
+// Comments don't bump issues.updated_at, so we check both tables to detect
+// comment-only changes (bt-ju7o).
 func (r *DoltReader) GetLastModified() (time.Time, error) {
-	var updatedAt sql.NullTime
-	err := r.db.QueryRow("SELECT MAX(updated_at) FROM issues").Scan(&updatedAt)
+	var modTime sql.NullTime
+	err := r.db.QueryRow(`
+		SELECT GREATEST(
+			COALESCE((SELECT MAX(updated_at) FROM issues), '1970-01-01'),
+			COALESCE((SELECT MAX(created_at) FROM comments), '1970-01-01')
+		)`).Scan(&modTime)
 	if err != nil {
 		return time.Time{}, err
 	}
-	if !updatedAt.Valid {
+	if !modTime.Valid {
 		return time.Time{}, nil
 	}
-	return updatedAt.Time, nil
+	return modTime.Time, nil
 }

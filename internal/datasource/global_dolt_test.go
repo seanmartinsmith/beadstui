@@ -155,6 +155,9 @@ func TestBuildLastModifiedQuery(t *testing.T) {
 		if !strings.Contains(query, "`"+db+"`.issues") {
 			t.Errorf("should reference %s.issues", db)
 		}
+		if !strings.Contains(query, "`"+db+"`.comments") {
+			t.Errorf("should reference %s.comments for comment change detection (bt-ju7o)", db)
+		}
 	}
 }
 

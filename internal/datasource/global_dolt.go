@@ -374,7 +374,9 @@ func buildCommentsQuery(databases []string) (string, error) {
 	return strings.Join(parts, " UNION ALL ") + " ORDER BY created_at", nil
 }
 
-// buildLastModifiedQuery generates a query for the aggregate MAX(updated_at) across all databases.
+// buildLastModifiedQuery generates a query for the aggregate MAX modification time
+// across all databases. Checks both issues.updated_at and comments.created_at since
+// comments don't bump the parent issue's updated_at (bt-ju7o).
 func buildLastModifiedQuery(databases []string) (string, error) {
 	if len(databases) == 0 {
 		return "", fmt.Errorf("no databases provided")
@@ -384,6 +386,7 @@ func buildLastModifiedQuery(databases []string) (string, error) {
 	for _, db := range databases {
 		quoted := backtickQuote(db)
 		parts = append(parts, fmt.Sprintf("SELECT MAX(updated_at) AS m FROM %s.issues", quoted))
+		parts = append(parts, fmt.Sprintf("SELECT MAX(created_at) AS m FROM %s.comments", quoted))
 	}
 
 	return "SELECT MAX(m) FROM (" + strings.Join(parts, " UNION ALL ") + ") t", nil
