@@ -509,10 +509,6 @@ func writeIntPtrHash(w io.Writer, v *int) {
 	_, _ = w.Write([]byte{0})
 }
 
-func writeInt64Hash(w io.Writer, v int64) {
-	_, _ = io.WriteString(w, strconv.FormatInt(v, 10))
-	_, _ = w.Write([]byte{0})
-}
 
 func writeTimeHash(w io.Writer, t time.Time) {
 	if !t.IsZero() {

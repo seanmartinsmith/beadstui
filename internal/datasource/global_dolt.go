@@ -574,8 +574,14 @@ func scanGlobalIssue(rows *sql.Rows) (*model.Issue, error) {
 }
 
 // loadAllLabels batch-loads labels for all issues via UNION ALL.
+// Only queries databases that have a labels table (bt-hqym).
 func (r *GlobalDoltReader) loadAllLabels(issueMap map[string]*model.Issue) error {
-	query, err := buildLabelsQuery(r.databases)
+	dbs := databasesWithTable(r.db, r.databases, "labels")
+	if len(dbs) == 0 {
+		return nil
+	}
+
+	query, err := buildLabelsQuery(dbs)
 	if err != nil {
 		return err
 	}
@@ -599,8 +605,14 @@ func (r *GlobalDoltReader) loadAllLabels(issueMap map[string]*model.Issue) error
 }
 
 // loadAllDependencies batch-loads dependencies for all issues via UNION ALL.
+// Only queries databases that have a dependencies table (bt-hqym).
 func (r *GlobalDoltReader) loadAllDependencies(issueMap map[string]*model.Issue) error {
-	query, err := buildDependenciesQuery(r.databases)
+	dbs := databasesWithTable(r.db, r.databases, "dependencies")
+	if len(dbs) == 0 {
+		return nil
+	}
+
+	query, err := buildDependenciesQuery(dbs)
 	if err != nil {
 		return err
 	}
