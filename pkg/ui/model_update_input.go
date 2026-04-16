@@ -1231,8 +1231,16 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m = m.handleListKeys(msg)
 
 		case focusDetail:
-			m.viewport, cmd = m.viewport.Update(msg)
-			cmds = append(cmds, cmd)
+			// Tab/Esc return focus to list in split view (bt-ju7o)
+			switch msg.String() {
+			case "tab", "esc":
+				if m.isSplitView {
+					m.focused = focusList
+				}
+			default:
+				m.viewport, cmd = m.viewport.Update(msg)
+				cmds = append(cmds, cmd)
+			}
 		}
 	}
 	return m, tea.Batch(cmds...)

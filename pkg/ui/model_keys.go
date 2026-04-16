@@ -916,6 +916,11 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 			m.viewport.GotoTop() // Reset scroll position for new issue
 			m.updateViewportContent()
 		}
+	case "tab":
+		// Switch focus to detail panel in split view (bt-ju7o)
+		if m.isSplitView {
+			m.focused = focusDetail
+		}
 	case "home":
 		m.list.Select(0)
 	case "G", "end":
