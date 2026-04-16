@@ -309,8 +309,8 @@ func TestComputeIssueFingerprint_Deterministic(t *testing.T) {
 			{DependsOnID: "A", Type: model.DepRelated, CreatedAt: ts.Add(time.Minute), CreatedBy: "bob"},
 		},
 		Comments: []*model.Comment{
-			{ID: 2, IssueID: "A", Author: "bob", Text: "second", CreatedAt: ts.Add(2 * time.Minute)},
-			{ID: 1, IssueID: "A", Author: "alice", Text: "first", CreatedAt: ts},
+			{ID: "2", IssueID: "A", Author: "bob", Text: "second", CreatedAt: ts.Add(2 * time.Minute)},
+			{ID: "1", IssueID: "A", Author: "alice", Text: "first", CreatedAt: ts},
 		},
 	}
 	issueB := issueA

@@ -224,7 +224,7 @@ func TestDependency_Struct(t *testing.T) {
 func TestComment_Struct(t *testing.T) {
 	now := time.Now()
 	comment := &Comment{
-		ID:        1,
+		ID:        "1",
 		IssueID:   "A",
 		Author:    "user",
 		Text:      "hello",
@@ -710,7 +710,7 @@ func TestIssue_Clone(t *testing.T) {
 			{IssueID: "TEST-1", DependsOnID: "TEST-2", Type: DepBlocks},
 		},
 		Comments: []*Comment{
-			{ID: 1, IssueID: "TEST-1", Author: "user", Text: "comment"},
+			{ID: "1", IssueID: "TEST-1", Author: "user", Text: "comment"},
 		},
 		AwaitType:  &awaitType,
 		AwaitID:    &awaitID,

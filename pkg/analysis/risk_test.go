@@ -185,13 +185,13 @@ func TestComputeRiskSignals_ActivityChurn(t *testing.T) {
 		CreatedAt: now.Add(-7 * 24 * time.Hour), // 7 days old
 		UpdatedAt: now.Add(-1 * time.Hour),
 		Comments: []*model.Comment{
-			{ID: 1, IssueID: "HIGH-CHURN", Text: "Comment 1", CreatedAt: now.Add(-6 * 24 * time.Hour)},
-			{ID: 2, IssueID: "HIGH-CHURN", Text: "Comment 2", CreatedAt: now.Add(-5 * 24 * time.Hour)},
-			{ID: 3, IssueID: "HIGH-CHURN", Text: "Comment 3", CreatedAt: now.Add(-4 * 24 * time.Hour)},
-			{ID: 4, IssueID: "HIGH-CHURN", Text: "Comment 4", CreatedAt: now.Add(-3 * 24 * time.Hour)},
-			{ID: 5, IssueID: "HIGH-CHURN", Text: "Comment 5", CreatedAt: now.Add(-2 * 24 * time.Hour)},
-			{ID: 6, IssueID: "HIGH-CHURN", Text: "Comment 6", CreatedAt: now.Add(-1 * 24 * time.Hour)},
-			{ID: 7, IssueID: "HIGH-CHURN", Text: "Comment 7", CreatedAt: now},
+			{ID: "1", IssueID: "HIGH-CHURN", Text: "Comment 1", CreatedAt: now.Add(-6 * 24 * time.Hour)},
+			{ID: "2", IssueID: "HIGH-CHURN", Text: "Comment 2", CreatedAt: now.Add(-5 * 24 * time.Hour)},
+			{ID: "3", IssueID: "HIGH-CHURN", Text: "Comment 3", CreatedAt: now.Add(-4 * 24 * time.Hour)},
+			{ID: "4", IssueID: "HIGH-CHURN", Text: "Comment 4", CreatedAt: now.Add(-3 * 24 * time.Hour)},
+			{ID: "5", IssueID: "HIGH-CHURN", Text: "Comment 5", CreatedAt: now.Add(-2 * 24 * time.Hour)},
+			{ID: "6", IssueID: "HIGH-CHURN", Text: "Comment 6", CreatedAt: now.Add(-1 * 24 * time.Hour)},
+			{ID: "7", IssueID: "HIGH-CHURN", Text: "Comment 7", CreatedAt: now},
 		},
 	}
 

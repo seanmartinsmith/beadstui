@@ -225,7 +225,7 @@ func TestIssuePoolResetsFields(t *testing.T) {
 	*issue.EstimatedMinutes = 42
 	issue.ExternalRef = &ext
 	issue.Dependencies = append(issue.Dependencies, &model.Dependency{IssueID: "id-1"})
-	issue.Comments = append(issue.Comments, &model.Comment{ID: 1, Text: "note"})
+	issue.Comments = append(issue.Comments, &model.Comment{ID: "1", Text: "note"})
 	issue.Labels = append(issue.Labels, "label-a")
 
 	loader.PutIssue(issue)

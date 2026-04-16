@@ -160,6 +160,40 @@ func EnumerateDatabases(db *sql.DB, repoFilter string) ([]string, error) {
 	return databases, nil
 }
 
+// databasesWithTable returns the subset of databases that contain the named table.
+// Used to avoid UNION ALL failures when a table doesn't exist in every database
+// (e.g. older beads projects without a comments table) (bt-ju7o).
+func databasesWithTable(db *sql.DB, databases []string, tableName string) []string {
+	// Build IN list using same string interpolation pattern as other global queries.
+	// Parameterized queries can be unreliable against Dolt's information_schema.
+	var inParts []string
+	for _, d := range databases {
+		inParts = append(inParts, "'"+escapeSQLString(d)+"'")
+	}
+
+	query := fmt.Sprintf(
+		`SELECT DISTINCT TABLE_SCHEMA FROM information_schema.tables
+		WHERE TABLE_NAME = '%s' AND TABLE_SCHEMA IN (%s)`,
+		escapeSQLString(tableName), strings.Join(inParts, ","))
+
+	rows, err := db.Query(query)
+	if err != nil {
+		slog.Warn("databasesWithTable query failed", "table", tableName, "error", err)
+		return nil
+	}
+	defer rows.Close()
+
+	var result []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			continue
+		}
+		result = append(result, name)
+	}
+	return result
+}
+
 // FilterSystemDatabases removes system/internal databases from a list.
 // Exported for testing.
 func FilterSystemDatabases(names []string) []string {
@@ -594,8 +628,14 @@ func (r *GlobalDoltReader) loadAllDependencies(issueMap map[string]*model.Issue)
 }
 
 // loadAllComments batch-loads comments for all issues via UNION ALL.
+// Only queries databases that have a comments table (bt-ju7o).
 func (r *GlobalDoltReader) loadAllComments(issueMap map[string]*model.Issue) error {
-	query, err := buildCommentsQuery(r.databases)
+	dbs := databasesWithTable(r.db, r.databases, "comments")
+	if len(dbs) == 0 {
+		return nil // no databases have comments
+	}
+
+	query, err := buildCommentsQuery(dbs)
 	if err != nil {
 		return err
 	}

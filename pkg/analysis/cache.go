@@ -264,7 +264,7 @@ func ComputeDataHash(issues []model.Issue) string {
 					continue
 				}
 				comments = append(comments, commentKey{
-					id:        strconv.FormatInt(comment.ID, 10),
+					id:        comment.ID,
 					author:    comment.Author,
 					text:      comment.Text,
 					createdAt: comment.CreatedAt.UTC().Format(time.RFC3339Nano),
@@ -426,7 +426,7 @@ func computeIssueContentHash(issue model.Issue) string {
 			return comments[i].CreatedAt.Before(comments[j].CreatedAt)
 		})
 		for _, comment := range comments {
-			writeInt64Hash(h, comment.ID)
+			writeStringHash(h, comment.ID)
 			writeStringHash(h, comment.IssueID)
 			writeStringHash(h, comment.Author)
 			writeStringHash(h, comment.Text)

@@ -413,8 +413,8 @@ func TestExport_WithComments(t *testing.T) {
 	issue := makeTestIssue("comments-1", "Issue with comments", model.StatusOpen, 2, model.TypeTask)
 	now := time.Now()
 	issue.Comments = []*model.Comment{
-		{ID: 1, IssueID: "comments-1", Author: "alice", Text: "First comment", CreatedAt: now.Add(-time.Hour)},
-		{ID: 2, IssueID: "comments-1", Author: "bob", Text: "Second comment", CreatedAt: now},
+		{ID: "1", IssueID: "comments-1", Author: "alice", Text: "First comment", CreatedAt: now.Add(-time.Hour)},
+		{ID: "2", IssueID: "comments-1", Author: "bob", Text: "Second comment", CreatedAt: now},
 	}
 
 	exp := NewSQLiteExporter([]*model.Issue{issue}, nil, nil, nil)

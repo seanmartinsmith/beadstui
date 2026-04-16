@@ -1,6 +1,7 @@
 package model
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -278,11 +279,28 @@ func (d DependencyType) IsGraphEdge() bool {
 
 // Comment represents a comment on an issue
 type Comment struct {
-	ID        int64     `json:"id"`
+	ID        string    `json:"id"` // UUID in Dolt, was int64 for SQLite (bt-ju7o)
 	IssueID   string    `json:"issue_id"`
 	Author    string    `json:"author"`
 	Text      string    `json:"text"`
 	CreatedAt time.Time `json:"created_at"`
+}
+
+// UnmarshalJSON handles both string and numeric IDs for backward compatibility
+// with JSONL fixtures that used int64 IDs (bt-ju7o).
+func (c *Comment) UnmarshalJSON(data []byte) error {
+	type Alias Comment // prevent recursion
+	aux := &struct {
+		ID json.Number `json:"id"`
+		*Alias
+	}{
+		Alias: (*Alias)(c),
+	}
+	if err := json.Unmarshal(data, aux); err != nil {
+		return err
+	}
+	c.ID = aux.ID.String()
+	return nil
 }
 
 // Sprint represents a time-boxed period of work
