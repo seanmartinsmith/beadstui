@@ -593,10 +593,10 @@ func (c *Calculator) checkAbandonedClaims(result *Result) {
 		}
 
 		result.Alerts = append(result.Alerts, Alert{
-			Type:     AlertAbandonedClaim,
-			Severity: severity,
-			Message:  fmt.Sprintf("Issue %s claimed by %s but inactive for %.0f days", issue.ID, issue.Assignee, days),
-			IssueID:  issue.ID,
+			Type:       AlertAbandonedClaim,
+			Severity:   severity,
+			Message:    fmt.Sprintf("Issue %s claimed by %s but inactive for %.0f days", issue.ID, issue.Assignee, days),
+			IssueID:    issue.ID,
 			DetectedAt: now,
 			Details: []string{
 				fmt.Sprintf("owner=%s", issue.Assignee),

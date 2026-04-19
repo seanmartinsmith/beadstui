@@ -12,15 +12,15 @@ import (
 // pflag vars and are accessed directly by handlers.
 type robotCtx struct {
 	issues            []model.Issue
-	issuesForSearch   []model.Issue        // pre-label-scope issues for search
-	analyzer          *analysis.Analyzer   // lazily created if nil
-	enc               robotEncoder         // output encoder (json or toon)
-	cwd               string               // working directory
-	beadsPath         string               // path to beads file (for file-based sources)
-	repoName          string               // project/repo name
-	dataHash          string               // stable hash of issue data
+	issuesForSearch   []model.Issue         // pre-label-scope issues for search
+	analyzer          *analysis.Analyzer    // lazily created if nil
+	enc               robotEncoder          // output encoder (json or toon)
+	cwd               string                // working directory
+	beadsPath         string                // path to beads file (for file-based sources)
+	repoName          string                // project/repo name
+	dataHash          string                // stable hash of issue data
 	labelScopeContext *analysis.LabelHealth // label health context when --label is used
-	projectDir        string               // project root (for baselines)
+	projectDir        string                // project root (for baselines)
 }
 
 // newRobotCtx constructs a robotCtx from loaded/computed state.

@@ -18,9 +18,9 @@ type appContext struct {
 	currentProjectDB string
 
 	// Resolved state from loading
-	dataHash       string
-	asOfResolved   string // resolved commit SHA when --as-of is used
-	loadDuration   float64 // seconds
+	dataHash     string
+	asOfResolved string  // resolved commit SHA when --as-of is used
+	loadDuration float64 // seconds
 
 	// Common flags
 	globalMode bool

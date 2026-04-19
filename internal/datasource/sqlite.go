@@ -33,7 +33,7 @@ func NewSQLiteReader(source DataSource) (*SQLiteReader, error) {
 
 	// Set pragmas for read performance
 	pragmas := []string{
-		"PRAGMA cache_size = -64000",  // 64MB cache
+		"PRAGMA cache_size = -64000",   // 64MB cache
 		"PRAGMA mmap_size = 268435456", // 256MB mmap
 		"PRAGMA temp_store = MEMORY",
 	}

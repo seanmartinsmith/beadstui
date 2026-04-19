@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/seanmartinsmith/beadstui/pkg/cass"
 	tea "charm.land/bubbletea/v2"
+	"github.com/seanmartinsmith/beadstui/pkg/cass"
 )
 
 // testTheme is defined in history_test.go and reused here

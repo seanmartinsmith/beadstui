@@ -11,9 +11,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"charm.land/bubbles/v2/viewport"
 	"charm.land/lipgloss/v2"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // TreeState represents the persistent state of the tree view (bv-zv7p).

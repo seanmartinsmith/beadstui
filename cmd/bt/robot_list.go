@@ -41,11 +41,11 @@ var robotListCmd = &cobra.Command{
 		dataHash := analysis.ComputeDataHash(issues)
 		output := struct {
 			RobotEnvelope
-			Query     listQuery    `json:"query"`
-			Total     int          `json:"total"`
-			Truncated bool         `json:"truncated"`
-			Limit     int          `json:"limit"`
-			Count     int          `json:"count"`
+			Query     listQuery     `json:"query"`
+			Total     int           `json:"total"`
+			Truncated bool          `json:"truncated"`
+			Limit     int           `json:"limit"`
+			Count     int           `json:"count"`
 			Issues    []model.Issue `json:"issues"`
 		}{
 			RobotEnvelope: NewRobotEnvelope(dataHash),

@@ -81,16 +81,16 @@ type ViewMode int
 
 const (
 	ViewList           ViewMode = iota // Default list view
-	ViewBoard                         // Kanban board
-	ViewGraph                         // Dependency graph
-	ViewTree                          // Hierarchical tree view
-	ViewActionable                    // Actionable/execution plan
-	ViewHistory                       // Git history correlation
-	ViewSprint                        // Sprint dashboard
-	ViewInsights                      // Insights panel
-	ViewFlowMatrix                    // Cross-label flow matrix
-	ViewLabelDashboard                // Label health dashboard
-	ViewAttention                     // Attention scores view
+	ViewBoard                          // Kanban board
+	ViewGraph                          // Dependency graph
+	ViewTree                           // Hierarchical tree view
+	ViewActionable                     // Actionable/execution plan
+	ViewHistory                        // Git history correlation
+	ViewSprint                         // Sprint dashboard
+	ViewInsights                       // Insights panel
+	ViewFlowMatrix                     // Cross-label flow matrix
+	ViewLabelDashboard                 // Label health dashboard
+	ViewAttention                      // Attention scores view
 )
 
 // ModalType identifies which modal overlay (if any) is currently active.
@@ -98,22 +98,22 @@ const (
 type ModalType int
 
 const (
-	ModalNone              ModalType = iota // No modal active
-	ModalHelp                               // Help overlay
-	ModalQuitConfirm                        // Quit confirmation dialog
-	ModalRecipePicker                       // Recipe/filter picker
-	ModalBQLQuery                           // BQL query input
-	ModalLabelPicker                        // Label filter picker
-	ModalRepoPicker                         // Repository/project picker
-	ModalTimeTravelInput                    // Time-travel date input prompt
-	ModalAgentPrompt                        // AGENTS.md integration prompt
-	ModalTutorial                           // Interactive tutorial
-	ModalCassSession                        // Cass session preview
-	ModalUpdate                             // Self-update dialog
-	ModalAlerts                             // Alerts panel
-	ModalLabelHealthDetail                  // Label health detail drill-down
-	ModalLabelDrilldown                     // Label issue drill-down
-	ModalLabelGraphAnalysis                 // Label graph analysis
+	ModalNone               ModalType = iota // No modal active
+	ModalHelp                                // Help overlay
+	ModalQuitConfirm                         // Quit confirmation dialog
+	ModalRecipePicker                        // Recipe/filter picker
+	ModalBQLQuery                            // BQL query input
+	ModalLabelPicker                         // Label filter picker
+	ModalRepoPicker                          // Repository/project picker
+	ModalTimeTravelInput                     // Time-travel date input prompt
+	ModalAgentPrompt                         // AGENTS.md integration prompt
+	ModalTutorial                            // Interactive tutorial
+	ModalCassSession                         // Cass session preview
+	ModalUpdate                              // Self-update dialog
+	ModalAlerts                              // Alerts panel
+	ModalLabelHealthDetail                   // Label health detail drill-down
+	ModalLabelDrilldown                      // Label issue drill-down
+	ModalLabelGraphAnalysis                  // Label graph analysis
 )
 
 // modalActive returns true when any modal overlay is open.
@@ -400,11 +400,11 @@ type AnalysisCache struct {
 	countReady        int
 	countBlocked      int
 	countClosed       int
-	triageScores      map[string]float64                // issueID -> triage score
-	triageReasons     map[string]analysis.TriageReasons  // issueID -> reasons
-	unblocksMap       map[string][]string                // issueID -> IDs that would be unblocked
-	quickWinSet       map[string]bool                    // issueID -> true if quick win
-	blockerSet        map[string]bool                    // issueID -> true if significant blocker
+	triageScores      map[string]float64                          // issueID -> triage score
+	triageReasons     map[string]analysis.TriageReasons           // issueID -> reasons
+	unblocksMap       map[string][]string                         // issueID -> IDs that would be unblocked
+	quickWinSet       map[string]bool                             // issueID -> true if quick win
+	blockerSet        map[string]bool                             // issueID -> true if significant blocker
 	priorityHints     map[string]*analysis.PriorityRecommendation // issueID -> recommendation
 	showPriorityHints bool
 }
@@ -422,9 +422,9 @@ type DataState struct {
 	watcher             *watcher.Watcher       // File watcher for live reload
 	instanceLock        *instance.Lock         // Multi-instance coordination lock
 	snapshot            *DataSnapshot
-	snapshotInitPending bool             // true until first BackgroundWorker snapshot received
+	snapshotInitPending bool              // true until first BackgroundWorker snapshot received
 	backgroundWorker    *BackgroundWorker // manages async data loading (nil if background mode disabled)
-	workerSpinnerIdx    int              // Spinner frame for background worker activity
+	workerSpinnerIdx    int               // Spinner frame for background worker activity
 	lastForceRefresh    time.Time
 }
 
@@ -539,10 +539,10 @@ type Model struct {
 	WorkspaceState
 
 	// Alerts panel (bv-168, modal visibility via activeModal)
-	alerts             []drift.Alert
-	alertsCritical     int
-	alertsWarning      int
-	alertsInfo         int
+	alerts          []drift.Alert
+	alertsCritical  int
+	alertsWarning   int
+	alertsInfo      int
 	alertsCursor    int
 	dismissedAlerts map[string]bool
 
@@ -913,9 +913,9 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 	bgEnabled := (beadsPath != "" || isDolt) && (backgroundModeRequested || isDolt)
 	if bgEnabled {
 		bw, err := NewBackgroundWorker(WorkerConfig{
-			BeadsPath:  beadsPath,
-			BeadsDir:   workerBeadsDir,
-			DataSource: ds,
+			BeadsPath:     beadsPath,
+			BeadsDir:      workerBeadsDir,
+			DataSource:    ds,
 			DebounceDelay: 200 * time.Millisecond,
 		})
 		if err != nil {
@@ -1336,7 +1336,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		ApplyThemeToGlobals(tf)
 		ApplyThemeToThemeStruct(&m.theme, tf)
 	}
-
 
 	// Update list for navigation, but NOT for WindowSizeMsg
 	// (we handle sizing ourselves to account for header/footer)

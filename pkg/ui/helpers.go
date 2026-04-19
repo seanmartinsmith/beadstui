@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/mattn/go-runewidth"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // FormatTimeRel returns a relative time string (e.g., "2h ago", "3d ago")

@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/seanmartinsmith/beadstui/pkg/model"
 	tea "charm.land/bubbletea/v2"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 func TestHandleSprintKeys_Exit(t *testing.T) {
@@ -418,9 +418,9 @@ func TestHandleSprintKeys_EscExit(t *testing.T) {
 	m := Model{
 		mode:    ViewSprint,
 		focused: focusDetail,
-		theme:        DefaultTheme(),
-		width:        100,
-		height:       40,
+		theme:   DefaultTheme(),
+		width:   100,
+		height:  40,
 	}
 
 	m = m.handleSprintKeys(tea.KeyPressMsg{Code: tea.KeyEsc})

@@ -277,7 +277,7 @@ func (g *GraphModel) SelectByID(id string) bool {
 	for i, sortedID := range g.sortedIDs {
 		if sortedID == id {
 			g.selectedIdx = i
-	
+
 			return true
 		}
 	}
@@ -1071,7 +1071,9 @@ func (g *GraphModel) loadSwarmData(epicID string) error {
 		g.estSessions = 0
 		// bd swarm validate returns JSON {"error":"..."} on stdout even on failure.
 		// Parse it to show a meaningful message instead of raw "exit status 1".
-		var errResp struct{ Error string `json:"error"` }
+		var errResp struct {
+			Error string `json:"error"`
+		}
 		if json.Unmarshal(out, &errResp) == nil && errResp.Error != "" {
 			if strings.Contains(errResp.Error, "not an epic") {
 				return fmt.Errorf("swarm view requires an epic — select an epic and try again")

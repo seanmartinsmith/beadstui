@@ -167,9 +167,9 @@ type workerMetrics struct {
 // off the UI thread.
 type BackgroundWorker struct {
 	// Configuration
-	beadsPath  string
-	beadsDir   string // .beads directory; used for port resolution and reconnect
-	dataSource *datasource.DataSource
+	beadsPath         string
+	beadsDir          string // .beads directory; used for port resolution and reconnect
+	dataSource        *datasource.DataSource
 	debounceDelay     time.Duration
 	heartbeatInterval time.Duration
 	watchdogInterval  time.Duration
@@ -190,9 +190,9 @@ type BackgroundWorker struct {
 	recoveryCount     int
 	recovering        bool
 	generation        uint64
-	lastHash          string // Content hash of last processed snapshot (for dedup)
-	forceNext         bool   // Force the next snapshot build even if content hash matches
-	lastDoltPollOK    time.Time // Last successful Dolt poll (even if no changes detected)
+	lastHash          string                      // Content hash of last processed snapshot (for dedup)
+	forceNext         bool                        // Force the next snapshot build even if content hash matches
+	lastDoltPollOK    time.Time                   // Last successful Dolt poll (even if no changes detected)
 	doltReconnectFn   func(beadsDir string) error // Called to restart Dolt on consecutive poll failures (bt-07jp)
 	currentRecipe     *recipe.Recipe
 	currentRecipeID   string // Recipe identifier for snapshot rebuild keys
@@ -256,9 +256,9 @@ type IdleGCConfig struct {
 
 // WorkerConfig configures the BackgroundWorker.
 type WorkerConfig struct {
-	BeadsPath  string
-	BeadsDir   string                 // .beads directory path; used for port resolution and reconnect
-	DataSource *datasource.DataSource // Optional: enables Dolt polling when set
+	BeadsPath     string
+	BeadsDir      string                 // .beads directory path; used for port resolution and reconnect
+	DataSource    *datasource.DataSource // Optional: enables Dolt polling when set
 	DebounceDelay time.Duration
 	MessageBuffer int // Buffer size for worker -> UI messages (default: 8)
 
@@ -337,9 +337,9 @@ func NewBackgroundWorker(cfg WorkerConfig) (*BackgroundWorker, error) {
 	}
 
 	w := &BackgroundWorker{
-		beadsPath:  cfg.BeadsPath,
-		beadsDir:   cfg.BeadsDir,
-		dataSource: cfg.DataSource,
+		beadsPath:         cfg.BeadsPath,
+		beadsDir:          cfg.BeadsDir,
+		dataSource:        cfg.DataSource,
 		debounceDelay:     cfg.DebounceDelay,
 		heartbeatInterval: cfg.HeartbeatInterval,
 		watchdogInterval:  cfg.WatchdogInterval,
@@ -1853,10 +1853,10 @@ type DoltVerifiedMsg struct {
 // DoltConnectionStatusMsg notifies the UI about Dolt server connectivity changes.
 // Sent on first failure and on recovery - not on every poll attempt.
 type DoltConnectionStatusMsg struct {
-	Connected        bool   // True if connection was restored
-	Error            error  // Non-nil on failure
-	ConsecutiveFails int    // How many consecutive failures so far
-	BackoffSeconds   int    // Current backoff interval
+	Connected        bool  // True if connection was restored
+	Error            error // Non-nil on failure
+	ConsecutiveFails int   // How many consecutive failures so far
+	BackoffSeconds   int   // Current backoff interval
 }
 
 // Phase2UpdateMsg is sent when Phase 2 analysis completes.

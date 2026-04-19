@@ -500,4 +500,3 @@ func padContentLines(content string, pad int) string {
 	}
 	return strings.Join(lines, "\n")
 }
-

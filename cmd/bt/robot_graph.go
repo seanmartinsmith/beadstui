@@ -379,4 +379,3 @@ func generateRobotSchemas() RobotSchemas {
 		Commands:      commands,
 	}
 }
-

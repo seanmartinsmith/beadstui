@@ -142,4 +142,3 @@ func HasEmbeddedAssets() bool {
 	_, err := ViewerAssetsFS.ReadFile("viewer_assets/index.html")
 	return err == nil
 }
-

@@ -7,8 +7,8 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/bql"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 
-	"github.com/atotto/clipboard"
 	tea "charm.land/bubbletea/v2"
+	"github.com/atotto/clipboard"
 )
 
 // handleBoardKeys handles keyboard input when the board is focused (bv-yg39)

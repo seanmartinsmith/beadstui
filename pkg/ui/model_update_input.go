@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/seanmartinsmith/beadstui/pkg/agents"
-	"github.com/seanmartinsmith/beadstui/pkg/analysis"
-	tea "charm.land/bubbletea/v2"
 	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/viewport"
+	tea "charm.land/bubbletea/v2"
+	"github.com/seanmartinsmith/beadstui/pkg/agents"
+	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 )
 
 // handleKeyPress processes keyboard input.
@@ -274,7 +274,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			if m.alertsCursor < len(activeAlerts) {
 				key := alertKey(activeAlerts[m.alertsCursor])
 				m.dismissedAlerts[key] = true
-	
+
 				remaining := len(m.visibleAlerts())
 				if m.alertsCursor >= remaining {
 					m.alertsCursor = remaining - 1
@@ -1039,7 +1039,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				} else {
 					m.openModal(ModalAlerts)
 				}
-				m.alertsCursor = 0 // Reset cursor when opening
+				m.alertsCursor = 0    // Reset cursor when opening
 				m.resetAlertFilters() // also recomputes cache
 			} else {
 				m.statusMsg = "No active alerts"

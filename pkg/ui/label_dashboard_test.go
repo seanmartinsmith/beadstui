@@ -3,8 +3,8 @@ package ui
 import (
 	"testing"
 
-	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	tea "charm.land/bubbletea/v2"
+	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 )
 
 // createTheme creates a theme for testing

@@ -3,8 +3,8 @@ package ui
 import (
 	"testing"
 
-	"github.com/seanmartinsmith/beadstui/pkg/model"
 	tea "charm.land/bubbletea/v2"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // Cover additional branches in Model.Update for quit/help/tab handling and update notices.

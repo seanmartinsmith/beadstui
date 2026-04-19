@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/mattn/go-runewidth"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 func TestComputeAttentionView_Empty(t *testing.T) {

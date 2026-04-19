@@ -54,16 +54,16 @@ type WorkerLevel int
 
 const (
 	WorkerLevelNone     WorkerLevel = iota
-	WorkerLevelInfo                         // spinner, recovery
-	WorkerLevelWarning                      // transient error, aging
-	WorkerLevelCritical                     // dead worker, persistent error, stale
+	WorkerLevelInfo                 // spinner, recovery
+	WorkerLevelWarning              // transient error, aging
+	WorkerLevelCritical             // dead worker, persistent error, stale
 )
 
 // DatasetLevel indicates the severity of the dataset size warning.
 type DatasetLevel int
 
 const (
-	DatasetLevelNone     DatasetLevel = iota
+	DatasetLevelNone DatasetLevel = iota
 	DatasetLevelWarning
 	DatasetLevelCritical
 )

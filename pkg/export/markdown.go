@@ -729,4 +729,3 @@ func truncateString(s string, maxLen int) string {
 	}
 	return string(runes[:maxLen-1]) + "…"
 }
-

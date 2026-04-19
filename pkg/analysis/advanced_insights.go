@@ -180,9 +180,9 @@ type CycleBreakItem struct {
 // DefaultUsageHints returns agent-friendly guidance for each feature.
 func DefaultUsageHints() map[string]string {
 	return map[string]string{
-		"topk_set":      "Best k issues to complete for max downstream unlock. Work these in order.",
-		"coverage_set":  "Small vertex cover touching all dependency edges. Use for breadth coverage.",
-		"k_paths":       "K-shortest critical paths. Focus on issues appearing in multiple paths.",
+		"topk_set":     "Best k issues to complete for max downstream unlock. Work these in order.",
+		"coverage_set": "Small vertex cover touching all dependency edges. Use for breadth coverage.",
+		"k_paths":      "K-shortest critical paths. Focus on issues appearing in multiple paths.",
 		"parallel_cut": "Issues that enable parallel work. Complete to maximize team throughput.",
 		"cycle_break":  "Structural fix suggestions. Apply BEFORE working on cycle members.",
 	}

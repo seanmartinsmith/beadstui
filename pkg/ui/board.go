@@ -1583,7 +1583,7 @@ func (b *BoardModel) renderDetailPanel(width, height int) string {
 	issue := b.SelectedIssue()
 
 	// Update viewport dimensions
-	vpWidth := width - 4                // Account for panel border + visual margin
+	vpWidth := width - 4   // Account for panel border + visual margin
 	vpHeight := height - 2 // Account for scroll hint (border + title handled by panel)
 	if vpWidth < 20 {
 		vpWidth = 20

@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
-
 )
 
 func TestTutorialProgressPath(t *testing.T) {

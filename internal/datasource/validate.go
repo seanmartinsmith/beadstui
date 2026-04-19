@@ -9,8 +9,8 @@ import (
 	"os"
 	"strings"
 
-	json "github.com/goccy/go-json"
 	_ "github.com/go-sql-driver/mysql"
+	json "github.com/goccy/go-json"
 	_ "modernc.org/sqlite"
 )
 

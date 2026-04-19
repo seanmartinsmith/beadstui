@@ -41,16 +41,16 @@ func TestFooterData_ErrorStatusBar(t *testing.T) {
 
 func TestFooterData_NormalFooter(t *testing.T) {
 	fd := FooterData{
-		Width:      120,
-		FilterText: "OPEN",
-		FilterIcon: "📂",
-		HintText:   "L:labels • h:detail",
-		CountOpen:  10,
-		CountReady: 5,
+		Width:        120,
+		FilterText:   "OPEN",
+		FilterIcon:   "📂",
+		HintText:     "L:labels • h:detail",
+		CountOpen:    10,
+		CountReady:   5,
 		CountBlocked: 2,
-		CountClosed: 3,
-		TotalItems: 20,
-		KeyHints:   []string{"⏎ details", "? help"},
+		CountClosed:  3,
+		TotalItems:   20,
+		KeyHints:     []string{"⏎ details", "? help"},
 	}
 	out := fd.Render()
 	if !strings.Contains(out, "OPEN") {

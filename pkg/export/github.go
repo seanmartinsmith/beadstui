@@ -702,10 +702,10 @@ func WriteGitHubActionsWorkflow(bundlePath string) error {
 
 // GitHubActionsStatus represents the status of GitHub Actions for a repository.
 type GitHubActionsStatus struct {
-	WorkflowRunning  bool
-	WorkflowQueued   bool
-	LastRunStatus    string
-	LastRunCreatedAt string
+	WorkflowRunning     bool
+	WorkflowQueued      bool
+	LastRunStatus       string
+	LastRunCreatedAt    string
 	PossiblyRateLimited bool
 }
 
@@ -726,9 +726,9 @@ func CheckGitHubActionsStatus(repoFullName string) (*GitHubActionsStatus, error)
 
 	// Parse the JSON output
 	var run struct {
-		Status    string `json:"status"`
+		Status     string `json:"status"`
 		Conclusion string `json:"conclusion"`
-		CreatedAt string `json:"created_at"`
+		CreatedAt  string `json:"created_at"`
 	}
 	if err := json.Unmarshal(output, &run); err != nil {
 		return status, nil // Can't parse, assume OK

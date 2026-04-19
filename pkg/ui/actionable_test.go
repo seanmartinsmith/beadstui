@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
-
 )
 
 func newTestTheme() Theme {

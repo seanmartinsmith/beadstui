@@ -42,7 +42,6 @@ func GetContextHelp(ctx Context) string {
 func RenderContextHelp(ctx Context, theme Theme, width, height int) string {
 	content := GetContextHelp(ctx)
 
-
 	// Modal dimensions - compact
 	modalWidth := 60
 	if modalWidth > width-4 {

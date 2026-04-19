@@ -4,8 +4,8 @@ import (
 	"image/color"
 	"testing"
 
-	"github.com/charmbracelet/colorprofile"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/colorprofile"
 )
 
 func TestDefaultTheme(t *testing.T) {

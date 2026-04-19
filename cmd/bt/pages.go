@@ -1052,4 +1052,3 @@ func generateREADME(bundlePath, title, pagesURL string, issues []model.Issue, tr
 	readmePath := filepath.Join(bundlePath, "README.md")
 	return os.WriteFile(readmePath, []byte(b.String()), 0644)
 }
-

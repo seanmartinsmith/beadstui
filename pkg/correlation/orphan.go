@@ -35,10 +35,10 @@ var (
 		{regexp.MustCompile(`\b(resolve|resolves|resolved)\b`), 10},
 		{regexp.MustCompile(`\b(implement|implements|implemented)\b`), 8},
 		{regexp.MustCompile(`\b(add|adds|added)\b`), 5},
-		{regexp.MustCompile(`#\d+`), 15},               // Issue number reference
-		{regexp.MustCompile(`\b[a-z]{2,5}-\d+\b`), 20}, // JIRA-style ID (lowercase since message is lowercased)
+		{regexp.MustCompile(`#\d+`), 15},                    // Issue number reference
+		{regexp.MustCompile(`\b[a-z]{2,5}-\d+\b`), 20},      // JIRA-style ID (lowercase since message is lowercased)
 		{regexp.MustCompile(`\b(?:bv|bt)-[a-z0-9]+\b`), 25}, // bv-xxx or bt-xxx pattern
-		{regexp.MustCompile(`\bbeads?[-_]?\d+\b`), 25}, // bead-123 pattern
+		{regexp.MustCompile(`\bbeads?[-_]?\d+\b`), 25},      // bead-123 pattern
 	}
 
 	// Pattern for extracting specific bead IDs from messages

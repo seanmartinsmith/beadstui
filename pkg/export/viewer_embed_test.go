@@ -171,4 +171,3 @@ func TestCopyEmbeddedAssets_NoTitle(t *testing.T) {
 		t.Error("Default title should be preserved when no custom title provided")
 	}
 }
-

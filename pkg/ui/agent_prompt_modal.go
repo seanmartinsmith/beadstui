@@ -3,9 +3,9 @@ package ui
 import (
 	"strings"
 
-	"github.com/seanmartinsmith/beadstui/pkg/agents"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/seanmartinsmith/beadstui/pkg/agents"
 )
 
 // AgentPromptResult represents the user's choice on the AGENTS.md prompt.
@@ -257,7 +257,6 @@ func (m AgentPromptModal) CenterModal(termWidth, termHeight int) string {
 	if padLeft < 0 {
 		padLeft = 0
 	}
-
 
 	// Create centered version
 	centered := lipgloss.NewStyle().

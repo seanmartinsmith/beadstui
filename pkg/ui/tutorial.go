@@ -228,7 +228,6 @@ func (m TutorialModel) View() string {
 	// Mark as viewed
 	m.progress[currentPage.ID] = true
 
-
 	// Calculate dimensions
 	contentWidth := m.width - 6 // padding and borders
 	if m.tocVisible {
@@ -764,7 +763,6 @@ func (m TutorialModel) CenterTutorial(termWidth, termHeight int) string {
 	if padLeft < 0 {
 		padLeft = 0
 	}
-
 
 	centered := lipgloss.NewStyle().
 		MarginTop(padTop).

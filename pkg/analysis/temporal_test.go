@@ -85,8 +85,8 @@ func TestComputeSnapshotMetrics(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "a", Status: model.StatusOpen},
 		{ID: "b", Status: model.StatusBlocked},
-		{ID: "c", Status: model.StatusClosed, ClosedAt: &threeDaysAgo},  // within 7d
-		{ID: "d", Status: model.StatusClosed, ClosedAt: &tenDaysAgo},    // outside 7d
+		{ID: "c", Status: model.StatusClosed, ClosedAt: &threeDaysAgo}, // within 7d
+		{ID: "d", Status: model.StatusClosed, ClosedAt: &tenDaysAgo},   // outside 7d
 		{ID: "e", Status: model.StatusTombstone},
 		{ID: "f", Status: model.StatusInProgress},
 	}

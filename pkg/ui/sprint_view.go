@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/seanmartinsmith/beadstui/pkg/model"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // renderSprintDashboard renders the sprint view with progress, burndown, and at-risk items (bv-161)

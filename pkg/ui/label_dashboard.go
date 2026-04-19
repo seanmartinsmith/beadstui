@@ -5,9 +5,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 )
 
 // LabelDashboardModel renders a lightweight table of label health

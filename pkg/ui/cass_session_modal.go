@@ -333,7 +333,6 @@ func (m CassSessionModal) CenterModal(termWidth, termHeight int) string {
 		padLeft = 0
 	}
 
-
 	// Create centered version
 	centered := lipgloss.NewStyle().
 		MarginTop(padTop).

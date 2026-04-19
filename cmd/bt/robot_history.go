@@ -937,8 +937,8 @@ func (rc *robotCtx) runCausality(beadID string, historyLimit int) {
 	}
 	output := CausalityEnvelope{
 		CausalityResult: result,
-		OutputFormat:     robotOutputFormat,
-		Version:          version.Version,
+		OutputFormat:    robotOutputFormat,
+		Version:         version.Version,
 	}
 
 	encoder := rc.newEncoder()

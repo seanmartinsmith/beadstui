@@ -199,7 +199,7 @@ func TestIsOverdue(t *testing.T) {
 	future := time.Now().Add(48 * time.Hour)
 
 	tests := []struct {
-		name string
+		name  string
 		issue model.Issue
 		want  bool
 	}{

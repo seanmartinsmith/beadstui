@@ -502,4 +502,3 @@ func TestExport_DisableRobotOutputs(t *testing.T) {
 		t.Error("meta.json should not exist when robot outputs are disabled")
 	}
 }
-

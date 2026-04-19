@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/seanmartinsmith/beadstui/pkg/cass"
-	"github.com/seanmartinsmith/beadstui/pkg/correlation"
 	"charm.land/bubbles/v2/textinput"
 	"charm.land/lipgloss/v2"
+	"github.com/seanmartinsmith/beadstui/pkg/cass"
+	"github.com/seanmartinsmith/beadstui/pkg/correlation"
 )
 
 // historyFocus tracks which pane has focus in the history view

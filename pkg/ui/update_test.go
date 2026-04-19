@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"charm.land/bubbles/v2/list"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
-	"charm.land/bubbles/v2/list"
 )
 
 // exercise Phase2Ready and FileChanged branches of Update for coverage.

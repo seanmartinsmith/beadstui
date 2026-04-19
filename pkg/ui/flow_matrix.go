@@ -6,10 +6,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/seanmartinsmith/beadstui/pkg/analysis"
-	"github.com/seanmartinsmith/beadstui/pkg/model"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/seanmartinsmith/beadstui/pkg/analysis"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // FlowMatrixModel renders an interactive dependency flow dashboard
@@ -885,4 +885,3 @@ func (m *FlowMatrixModel) SelectedDrilldownIssue() *model.Issue {
 	}
 	return &m.drilldownIssues[m.drilldownCursor]
 }
-

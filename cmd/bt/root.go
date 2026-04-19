@@ -47,21 +47,21 @@ var (
 	flagRepo      string
 
 	// TUI-specific flags on root command.
-	flagCPUProfile       string
-	flagRecipe           string
-	flagBQL              string
-	flagAsOf             string
-	flagDiffSince        string
-	flagWorkspace        string
-	flagBackgroundMode   bool
-	flagNoBackgroundMode bool
-	flagDebugRender      string
-	flagDebugWidth       int
-	flagDebugHeight      int
-	flagProfileStartup   bool
-	flagProfileJSON      bool
+	flagCPUProfile        string
+	flagRecipe            string
+	flagBQL               string
+	flagAsOf              string
+	flagDiffSince         string
+	flagWorkspace         string
+	flagBackgroundMode    bool
+	flagNoBackgroundMode  bool
+	flagDebugRender       string
+	flagDebugWidth        int
+	flagDebugHeight       int
+	flagProfileStartup    bool
+	flagProfileJSON       bool
 	flagForceFullAnalysis bool
-	flagNoHooks          bool
+	flagNoHooks           bool
 
 	// Search flags
 	flagSearch        string

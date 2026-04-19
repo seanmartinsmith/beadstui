@@ -21,8 +21,8 @@ type SnapshotMetrics struct {
 	BlockedCount int       `json:"blocked_count"`
 	ClosedCount  int       `json:"closed_count"`
 	TotalCount   int       `json:"total_count"`
-	Velocity7d   int       `json:"velocity_7d"`  // Issues closed in the 7 days before this snapshot
-	CycleCount   int       `json:"cycle_count"`   // Dependency cycles at this point
+	Velocity7d   int       `json:"velocity_7d"` // Issues closed in the 7 days before this snapshot
+	CycleCount   int       `json:"cycle_count"` // Dependency cycles at this point
 }
 
 // ComputeSnapshotMetrics computes metrics for a set of issues at a given timestamp.
