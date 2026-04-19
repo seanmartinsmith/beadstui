@@ -25,7 +25,7 @@ func newTestIssueItem(id string) IssueItem {
 			Assignee:  "alice",
 			Labels:    []string{"one", "two"},
 			Comments: []*model.Comment{
-				{ID: 1, IssueID: id, Author: "bob", Text: "hello", CreatedAt: now},
+				{ID: "1", IssueID: id, Author: "bob", Text: "hello", CreatedAt: now},
 			},
 			CreatedAt: now,
 		},

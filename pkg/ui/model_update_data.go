@@ -12,12 +12,12 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/debug"
 	"github.com/seanmartinsmith/beadstui/pkg/loader"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
-	tea "charm.land/bubbletea/v2"
-	"charm.land/bubbles/v2/list"
 )
 
 // handleSnapshotReady processes a new snapshot from the background worker.
@@ -57,10 +57,7 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 		}
 	}
 
-	// Preserve list filter state across snapshot swap (bt-4kuh).
-	// SetItems() resets the built-in filter, so we save and restore it.
-	prevFilterState := m.list.FilterState()
-	prevFilterValue := m.list.FilterValue()
+	// Filter state is preserved inside setListItems (bt-nzsy).
 
 	// Preserve board selection by issue ID (bv-6n4c).
 	var boardSelectedID string
@@ -168,7 +165,7 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 				filteredIssues = append(filteredIssues, issue)
 			}
 
-			m.list.SetItems(filteredItems)
+			m.setListItems(filteredItems)
 			m.updateSemanticIDs(filteredItems)
 			m.board.SetIssues(filteredIssues)
 
@@ -248,7 +245,7 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 		}
 
 		m.sortFilteredItems(filteredItems, filteredIssues)
-		m.list.SetItems(filteredItems)
+		m.setListItems(filteredItems)
 		m.updateSemanticIDs(filteredItems)
 		if m.data.snapshot != nil && m.data.snapshot.BoardState != nil && (!m.workspaceMode || m.activeRepos == nil) && len(filteredIssues) == len(m.data.snapshot.Issues) {
 			m.board.SetSnapshot(m.data.snapshot)
@@ -261,9 +258,11 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 			m.graphView.SetIssues(filteredIssues, &m.data.snapshot.Insights)
 		}
 
-		// Restore selection if possible
+		// Restore selection by ID against the visible (possibly filtered) view.
+		// Indexing into the unfiltered set would drive Paginator.Page out of
+		// bounds when the filter narrows results (bt-nzsy follow-up).
 		if selectedID != "" {
-			for i, it := range filteredItems {
+			for i, it := range m.list.VisibleItems() {
 				if item, ok := it.(IssueItem); ok && item.Issue.ID == selectedID {
 					m.list.Select(i)
 					break
@@ -272,16 +271,15 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 		}
 
 		// Keep selection in bounds
-		if len(filteredItems) > 0 && m.list.Index() >= len(filteredItems) {
+		if visible := m.list.VisibleItems(); len(visible) > 0 && m.list.Index() >= len(visible) {
 			m.list.Select(0)
 		}
 	}
 
 	// Restore selection in recipe mode (applyRecipe rebuilds list items)
 	if m.filter.activeRecipe != nil && selectedID != "" {
-		items := m.list.Items()
-		for i := range items {
-			if item, ok := items[i].(IssueItem); ok && item.Issue.ID == selectedID {
+		for i, it := range m.list.VisibleItems() {
+			if item, ok := it.(IssueItem); ok && item.Issue.ID == selectedID {
 				m.list.Select(i)
 				break
 			}
@@ -356,14 +354,6 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 		cmds = append(cmds, WaitForPhase2Cmd(msg.Snapshot.Analysis))
 	}
 
-	// Restore list filter if it was active before the snapshot swap (bt-4kuh).
-	// SetItems() resets the built-in Bubbles filter, so we re-apply the saved
-	// filter text and state to keep search results visible across poll refreshes.
-	if prevFilterState == list.Filtering || prevFilterState == list.FilterApplied {
-		m.list.SetFilterText(prevFilterValue)
-		m.list.SetFilterState(prevFilterState)
-	}
-
 	if m.data.backgroundWorker != nil {
 		cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.data.backgroundWorker))
 	}
@@ -405,17 +395,8 @@ func (m Model) handleDataSourceReload(msg DataSourceReloadMsg) (Model, tea.Cmd) 
 		return m, tea.Batch(cmds...)
 	}
 
-	// Preserve list filter state across datasource reload (bt-4kuh).
-	prevFilterState := m.list.FilterState()
-	prevFilterValue := m.list.FilterValue()
-
+	// Filter state is preserved inside setListItems (bt-nzsy).
 	m.replaceIssues(msg.Issues)
-
-	// Restore list filter if it was active before the reload (bt-4kuh).
-	if prevFilterState == list.Filtering || prevFilterState == list.FilterApplied {
-		m.list.SetFilterText(prevFilterValue)
-		m.list.SetFilterState(prevFilterState)
-	}
 
 	cmds = append(cmds, m.setTransientStatus(
 		fmt.Sprintf("Reloaded %d issues", len(msg.Issues)), 3*time.Second))
@@ -556,10 +537,7 @@ func (m Model) handleFileChanged(msg FileChangedMsg) (Model, tea.Cmd) {
 		}
 	}
 
-	// Preserve list filter state across file reload (bt-4kuh).
-	// SetItems() resets the built-in filter, so we save and restore it.
-	prevFilterState := m.list.FilterState()
-	prevFilterValue := m.list.FilterValue()
+	// Filter state is preserved inside setListItems (bt-nzsy).
 
 	// Apply default sorting (Open first, Priority, Date)
 	var sortStart time.Time
@@ -706,11 +684,11 @@ func (m Model) handleFileChanged(msg FileChangedMsg) (Model, tea.Cmd) {
 		m.semanticHybridBuilding = true
 		cmds = append(cmds, BuildHybridMetricsCmd(m.issuesForAsync()))
 	}
-	m.list.SetItems(items)
+	m.setListItems(items)
 
-	// Restore selection position
+	// Restore selection by ID against the visible (possibly filtered) view.
 	if selectedID != "" {
-		for i, item := range m.list.Items() {
+		for i, item := range m.list.VisibleItems() {
 			if issueItem, ok := item.(IssueItem); ok && issueItem.Issue.ID == selectedID {
 				m.list.Select(i)
 				break
@@ -791,12 +769,6 @@ func (m Model) handleFileChanged(msg FileChangedMsg) (Model, tea.Cmd) {
 	if m.filter.activeBQLExpr != nil && strings.HasPrefix(m.filter.currentFilter, "bql:") {
 		queryStr := strings.TrimPrefix(m.filter.currentFilter, "bql:")
 		m.applyBQL(m.filter.activeBQLExpr, queryStr)
-	}
-
-	// Restore list filter if it was active before the file reload (bt-4kuh).
-	if prevFilterState == list.Filtering || prevFilterState == list.FilterApplied {
-		m.list.SetFilterText(prevFilterValue)
-		m.list.SetFilterState(prevFilterState)
 	}
 
 	// Reload sprints (bv-161)

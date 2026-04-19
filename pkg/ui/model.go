@@ -1171,7 +1171,7 @@ func (m *Model) replaceIssues(newIssues []model.Issue) {
 	}
 	m.semanticHybridReady = false
 	m.semanticHybridBuilding = false
-	m.list.SetItems(items)
+	m.setListItems(items)
 
 	// Invalidate label-derived caches
 	m.labelHealthCached = false

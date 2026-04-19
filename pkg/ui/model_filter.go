@@ -14,6 +14,25 @@ import (
 	"charm.land/bubbles/v2/viewport"
 )
 
+// setListItems sets list items while preserving any active Bubbles filter
+// (bt-nzsy). list.Model.SetItems clears the internal filteredItems slice when
+// a filter is active but does not re-run the match, so downstream renders show
+// "No items." until the user mutates the filter text to trigger a re-match.
+// SetFilterText synchronously re-runs the filter against the new items.
+//
+// All refresh paths that replace list items MUST go through this wrapper.
+// A guard test (TestNoRawListSetItems) fails if m.list.SetItems is called
+// directly outside this function.
+func (m *Model) setListItems(items []list.Item) {
+	prevState := m.list.FilterState()
+	prevValue := m.list.FilterValue()
+	m.list.SetItems(items)
+	if prevState == list.Filtering || prevState == list.FilterApplied {
+		m.list.SetFilterText(prevValue)
+		m.list.SetFilterState(prevState)
+	}
+}
+
 // getDiffStatus returns the diff status for an issue if time-travel mode is active
 func (m Model) getDiffStatus(id string) DiffStatus {
 	if !m.timeTravelMode {
@@ -58,8 +77,8 @@ func (m *Model) clearAllFilters() {
 	m.filter.currentFilter = "all"
 	m.filter.labelFilter = ""
 	m.filter.sortMode = SortDefault
-	m.setActiveRecipe(nil) // Clear any active recipe filter
-	m.filter.activeBQLExpr = nil  // Clear BQL state
+	m.setActiveRecipe(nil)       // Clear any active recipe filter
+	m.filter.activeBQLExpr = nil // Clear BQL state
 	// Reset the fuzzy search filter by resetting the filter state
 	m.list.ResetFilter()
 	m.applyFilter()
@@ -270,7 +289,7 @@ func (m *Model) applyFilter() {
 	// Apply sort mode (bv-3ita)
 	m.sortFilteredItems(filteredItems, filteredIssues)
 
-	m.list.SetItems(filteredItems)
+	m.setListItems(filteredItems)
 	m.updateSemanticIDs(filteredItems)
 	if m.data.snapshot != nil && m.data.snapshot.BoardState != nil && m.filter.currentFilter == "all" && (!m.workspaceMode || m.activeRepos == nil) && len(filteredIssues) == len(m.data.snapshot.Issues) {
 		m.board.SetSnapshot(m.data.snapshot)
@@ -300,7 +319,17 @@ func (m *Model) refreshListItemsPhase2() {
 		return
 	}
 
-	selectedIdx := m.list.Index()
+	// Capture selection by item ID (not index). After setListItems runs, the
+	// Bubbles paginator is reset to Page 0 and VisibleItems may be filtered;
+	// restoring via index would drive Page out of bounds and panic during render
+	// (bt-nzsy follow-up).
+	var selectedID string
+	if sel := m.list.SelectedItem(); sel != nil {
+		if it, ok := sel.(IssueItem); ok {
+			selectedID = it.Issue.ID
+		}
+	}
+
 	for i := range items {
 		item, ok := items[i].(IssueItem)
 		if !ok {
@@ -325,9 +354,17 @@ func (m *Model) refreshListItemsPhase2() {
 		items[i] = item
 	}
 
-	m.list.SetItems(items)
-	if selectedIdx >= 0 && selectedIdx < len(items) {
-		m.list.Select(selectedIdx)
+	m.setListItems(items)
+
+	// Restore selection by ID against the (possibly filtered) view.
+	if selectedID != "" {
+		visible := m.list.VisibleItems()
+		for i, it := range visible {
+			if issueItem, ok := it.(IssueItem); ok && issueItem.Issue.ID == selectedID {
+				m.list.Select(i)
+				break
+			}
+		}
 	}
 	m.updateViewportContent()
 }
@@ -625,7 +662,7 @@ func (m *Model) applyRecipe(r *recipe.Recipe) {
 		})
 	}
 
-	m.list.SetItems(filteredItems)
+	m.setListItems(filteredItems)
 	m.updateSemanticIDs(filteredItems)
 	m.board.SetIssues(filteredIssues)
 	// Generate insights for graph view (for metric rankings and sorting)
@@ -1107,7 +1144,7 @@ func (m *Model) applyBQL(query *bql.Query, queryStr string) {
 		filteredItems = append(filteredItems, item)
 	}
 
-	m.list.SetItems(filteredItems)
+	m.setListItems(filteredItems)
 	m.updateSemanticIDs(filteredItems)
 	m.filter.currentFilter = "bql:" + queryStr
 
