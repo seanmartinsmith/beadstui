@@ -30,6 +30,10 @@ func generateRobotDocs(topic string) map[string]interface{} {
 			"json": "Default structured output",
 			"toon": "Token-optimized notation (saves ~30-50% tokens)",
 		},
+		"output_shapes": map[string]string{
+			"compact": "Default. Index projection: id/title/status/priority/type/labels/relationship counts. Envelope carries \"schema\": \"compact.v1\". Drills in via `bd show <id>`.",
+			"full":    "Pre-compact shape with description/design/acceptance_criteria/notes/comments/close_reason. Envelope omits `schema` (byte-identical to pre-bt-mhwy.1 output).",
+		},
 	}
 
 	type cmdDoc struct {
@@ -217,6 +221,7 @@ func generateRobotDocs(topic string) map[string]interface{} {
 
 	envVars := map[string]string{
 		"BT_OUTPUT_FORMAT":    "Default output format: json or toon (overridden by --format)",
+		"BT_OUTPUT_SHAPE":     "Default output shape: compact or full (overridden by --shape / --compact / --full)",
 		"TOON_DEFAULT_FORMAT": "Fallback format if BT_OUTPUT_FORMAT not set",
 		"TOON_STATS":          "Set to 1 to show JSON vs TOON token estimates on stderr",
 		"TOON_KEY_FOLDING":    "TOON key folding mode",
@@ -291,6 +296,10 @@ func generateRobotSchemas() RobotSchemas {
 			"version": map[string]interface{}{
 				"type":        "string",
 				"description": "bt version that generated this output",
+			},
+			"schema": map[string]interface{}{
+				"type":        "string",
+				"description": "Projection schema carried in the payload (e.g., compact.v1). Absent when the payload is the full/default shape. See bt-mhwy.1 and pkg/view/schemas/compact_issue.v1.json.",
 			},
 		},
 		"required": []string{"generated_at", "data_hash"},

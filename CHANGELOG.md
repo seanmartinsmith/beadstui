@@ -6,6 +6,46 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-20 - Compact output for robot subcommands (bt-mhwy.1)
+
+**Default `bt robot list` output shape changes from full issues to compact projections.** 3 commits, 1 new package (`pkg/view/`), 1 bellwether integration, 1 compact projection for `robot diff`, 70+ new tests.
+
+### Breaking change (pre-alpha)
+
+- **Default `bt robot list` shape is now `compact`.** Full-body output is opt-in via `--full` (or `--shape=full`, or `BT_OUTPUT_SHAPE=full`). Rationale: `bt robot list --global` dropped from 383KB to 38KB on a 100-issue sample (~90% reduction) — agents were burning context windows on `description`/`design`/`acceptance_criteria`/`notes`/`comments`/`close_reason` bodies they never read.
+
+### What shipped
+
+- **`pkg/view/` package** (Commit 1) - Home for graph-derived consumer-facing projections. `CompactIssue` is the first resident. Ships with a reusable golden-file harness (`projections_test.go`), a committed JSON Schema (`schemas/compact_issue.v1.json`), and projection-pattern conventions in `doc.go`. Future projections (portfolio records, pair records, reference records) follow the same file-per-projection, schema-versioned pattern.
+
+- **`robot list` bellwether** (Commit 2) - Persistent `--shape` / `--compact` / `--full` flags on `robotCmd` (inherited by every subcommand) with `BT_OUTPUT_SHAPE` env var. New `schema` field on `RobotEnvelope` (`omitempty`) carries `"compact.v1"` in compact mode and is absent in full mode, keeping `--full` byte-identical to pre-change output. Compact projection computed over the full pre-filter issue set so reverse-graph counts (`children_count`, `unblocks_count`, `is_blocked`) reflect the real graph regardless of `--status` / `--priority` / `--type` / `--has-label` / `--limit`.
+
+- **`robot diff` compact projection** (Commit 3) - Projects the four `[]model.Issue` slots on `analysis.SnapshotDiff` (`new_issues`, `closed_issues`, `removed_issues`, `reopened_issues`) into `[]view.CompactIssue` when `shape=compact`. Reverse-graph counts computed over the UNION of historical and current issues so `children_count` / `unblocks_count` / `is_blocked` stay accurate across snapshots. `--full` keeps the original `*analysis.SnapshotDiff` wire shape.
+
+- **15 other robot subcommands** - `triage`, `next`, `insights`, `plan`, `priority`, `alerts`, `search`, `suggest`, `drift`, `blocker-chain`, `impact-network`, `causality`, `related`, `impact`, `orphans` all inherit the persistent `--shape` flag and accept it without flag-parse errors. These subcommands' outputs use purpose-built wrapper types (`Recommendation`, `TopPick`, `PlanItem`, `EnhancedPriorityRecommendation`, `BlockerChainEntry`, `NetworkNode`, `RelatedWorkBead`, `AffectedBead`, `CausalChain`, `OrphanCandidate`) that are already compact-by-construction and emit no fat body fields, so no per-subcommand projection was needed.
+
+### Flag resolution order
+
+1. `--shape=compact` / `--shape=full` (explicit)
+2. `--compact` / `--full` (alias; errors if combined with conflicting `--shape`)
+3. `BT_OUTPUT_SHAPE` env var
+4. `compact` default
+
+### Tests
+
+- `pkg/view/compact_issue_test.go` — unit (7 cases): nil/empty safety, field copying, labels aliasing, reverse-map correctness, `is_blocked` semantics across open/closed/in-progress/external blockers, `relates_count` local-only, metadata bridge, schema-constant check.
+- `pkg/view/projections_test.go` — golden-file harness exercising 5 fixtures (minimal, fully-populated, blocked, epic-with-children, global-multiproject). Regenerate with `GENERATE_GOLDEN=1`.
+- `cmd/bt/robot_compact_flag_test.go` — 14 flag-resolution cases (defaults, explicit, aliases, env, conflicts, bad values).
+- `cmd/bt/robot_list_compact_test.go` — contract suite: no forbidden body fields leak, `--full` restores bodies, all flag/env permutations resolve consistently, reverse-graph counts (`is_blocked`, `parent_id`, `blockers_count`, `relates_count`), `--full` key regression.
+- `cmd/bt/robot_all_subcommands_test.go` — 64 subtests across 16 subcommands × 4 flag permutations verifying flag acceptance, plus compact/full contract tests for `robot diff`.
+
+### Blocks / unblocks
+
+- **Unblocks**: bt-mhwy.2 (pairs), bt-mhwy.3 (refs), bt-mhwy.4 (portfolio), bt-mhwy.5 (external dep resolution), bt-mhwy.6 (provenance surfacing).
+- **Prerequisites** (both landed earlier this session): bt-uc6k (schema-drift audit), bt-mhwy.0 (column catchup for `metadata` + `closed_by_session`).
+
+---
+
 ## 2026-04-14 - Quick wins, footer extraction, label picker redesign
 
 **Bug fixes + footer decomposition + label picker UX overhaul.** 17 commits, 4 bugs fixed, 1 refactor, 12 new tests.

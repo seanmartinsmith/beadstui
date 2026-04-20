@@ -32,14 +32,15 @@ Note: Charm v2 migration was originally a separate future phase but was complete
 **Status**: Partially done
 **Priority**: P1
 **Bead**: bt-0cht
-**Foundation**: `docs/audit/cli-ergonomics-audit.md`
+**Foundation**: `docs/audit/cli-ergonomics-audit.md`, `docs/design/2026-04-20-bt-mhwy-1-compact-output.md`
 
-The robot API is bt's primary agent interface. Phase 3 (Cobra migration) resolved the CLI structure issues. Robot log suppression fixed (2026-04-10). Remaining items are envelope consistency and documentation.
+The robot API is bt's primary agent interface. Phase 3 (Cobra migration) resolved the CLI structure issues. Robot log suppression fixed (2026-04-10). Compact output landed 2026-04-20 (bt-mhwy.1): default `bt robot list` dropped from 383KB to 38KB on 100 issues. Remaining items are envelope consistency and documentation.
 
 Scope:
 - [x] Migrate CLI from pflag to cobra subcommands (Phase 3, 2026-04-10)
 - [x] Suppress log output in robot mode to prevent JSON corruption (2026-04-10)
 - [x] Fix --robot-bql envelope (session 18, 2026-04-03)
+- [x] Compact output shape default across 17 robot subcommands; `pkg/view/` projection package with versioned schema (bt-mhwy.1, 2026-04-20)
 - [ ] Fix envelope bypass in robot-search, robot-diff
 - [ ] Add positional arg warning/support
 - [ ] Document all 18 missing env vars in --robot-docs env
