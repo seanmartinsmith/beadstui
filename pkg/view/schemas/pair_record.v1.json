@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/seanmartinsmith/beadstui/pkg/view/schemas/pair_record.v1.json",
+  "title": "PairRecord v1",
+  "description": "Cross-project paired bead set. One record per group of issues sharing an ID suffix (e.g. zsy8 from bt-zsy8 + bd-zsy8) across distinct ID prefixes. Canonical member is the first-created bead; the rest are mirrors. Drift flags surface divergence of the mirrors from canonical.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "suffix",
+    "canonical",
+    "mirrors"
+  ],
+  "properties": {
+    "suffix": {
+      "type": "string",
+      "description": "ID suffix shared by every member of the paired set (everything after the first hyphen, e.g. 'zsy8' or 'mhwy.2')."
+    },
+    "canonical": {
+      "$ref": "#/$defs/pairMember",
+      "description": "First-created member of the paired set. Tie-broken by ID prefix ascending, then by full ID ascending."
+    },
+    "mirrors": {
+      "type": "array",
+      "description": "Remaining members of the paired set, sorted by ID prefix ascending.",
+      "items": { "$ref": "#/$defs/pairMember" }
+    },
+    "drift": {
+      "type": "array",
+      "description": "Ordered list of dimensions where any mirror diverges from canonical. Omitted for in-sync pairs. Fixed output order: status, priority, closed_open, title.",
+      "items": {
+        "type": "string",
+        "enum": ["status", "priority", "closed_open", "title"]
+      }
+    }
+  },
+  "$defs": {
+    "pairMember": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "status", "priority"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "status": {
+          "type": "string",
+          "description": "Issue status (open, in_progress, blocked, deferred, pinned, hooked, review, closed, tombstone)."
+        },
+        "priority": { "type": "integer", "minimum": 0, "maximum": 4 },
+        "source_repo": {
+          "type": "string",
+          "description": "Project/repo the member was loaded from. Populated by global-mode loaders; omitted for empty values."
+        }
+      }
+    }
+  }
+}

@@ -869,6 +869,24 @@ var robotPortfolioCmd = &cobra.Command{
 	},
 }
 
+// bt robot pairs
+var robotPairsCmd = &cobra.Command{
+	Use:   "pairs",
+	Short: "Detect cross-project paired beads (same ID suffix, different prefixes)",
+	Long: "Returns one PairRecord per paired set — canonical bead (first-created) plus mirrors, " +
+		"with drift flags for status, priority, closed/open, and title mismatches. " +
+		"Requires --global because pair detection is inherently cross-project. " +
+		"--shape is accepted but no-op; envelope.schema is always pair.v1.",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		rc, err := robotPreRun()
+		if err != nil {
+			return err
+		}
+		rc.runPairs()
+		return nil
+	},
+}
+
 // bt robot forecast
 var robotForecastCmd = &cobra.Command{
 	Use:   "forecast [bead-id|all]",
@@ -1114,6 +1132,9 @@ func init() {
 
 	// portfolio
 	robotCmd.AddCommand(robotPortfolioCmd)
+
+	// pairs
+	robotCmd.AddCommand(robotPairsCmd)
 
 	// forecast
 	robotForecastCmd.Flags().String("forecast-label", "", "Filter forecast by label")

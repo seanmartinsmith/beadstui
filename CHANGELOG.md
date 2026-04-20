@@ -6,6 +6,43 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-20 - Pairs subcommand (bt-mhwy.2)
+
+**New `bt robot pairs --global` subcommand surfaces cross-project paired beads.** When `bt-zsy8` and `bd-zsy8` describe the same logical work from two projects, pairs detects the relationship, picks a canonical, and reports which dimensions have drifted. Agents can create paired IDs today (`bd create --id=<prefix>-<suffix>`) — this is the missing read path.
+
+### What shipped
+
+- **`pkg/view/pair_record.go`** — new projection (`pair.v1`). `ComputePairRecords(issues)` is a pure function: buckets by ID suffix, filters to groups with ≥2 distinct prefixes, sorts by `CreatedAt` (tie-broken by prefix, then full ID) to pick canonical, compares mirrors against canonical for drift, returns records sorted by suffix. `PairRecord` carries `{suffix, canonical, mirrors, drift?}`; `PairMember` is a 5-field compact slot (id/title/status/priority/source_repo).
+
+- **Drift dimensions (v1, fixed output order)**: `status`, `priority`, `closed_open`, `title`. `closed_open` is a sharper sub-signal that always co-occurs with `status` when either side straddles the closed boundary, letting agents filter directly for "one side shipped, other didn't." Title drift is exact string equality — deliberate "no fuzzy" interpretation of the AC (matches bt-mhwy.5's philosophy).
+
+- **`pkg/analysis.SplitID`** (promoted from private `splitID`) — pair detection is the second legitimate consumer of the same primitive. Reimplementing in `pkg/view` would have risked the two definitions drifting. Exporting costs nothing: one private call site, one test, mechanical rename.
+
+- **`cmd/bt/robot_pairs.go`** — `rc.runPairs()` handler with a pure `pairsOutput()` helper that builds the wire payload without hitting stdout or `os.Exit`. The separation lets in-process contract tests exercise the projection end-to-end: binary-level `--global` tests can't run in `BT_TEST_MODE=1` (which deliberately blocks Dolt discovery).
+
+- **Mandatory `--global`** — pair detection is definitionally empty without cross-project data; invoking without `--global` exits 1 with a clean error message rather than silently emitting `[]` (which would collide with the legitimate "no pairs exist" signal). With `--global` set and no pairs in the data, emits `"pairs": []` and exits 0 per the AC.
+
+- **Cobra wiring** in `cmd/bt/cobra_robot.go` — `robotPairsCmd` registered alongside portfolio. No new flags. `--shape` is inherited but no-op (envelope.schema is unconditionally `pair.v1`).
+
+Full rationale: `docs/design/2026-04-20-bt-mhwy-2-pairs.md`.
+
+### Tests
+
+- `pkg/view/pair_record_test.go` — 10 unit cases: empty/nil safety, in-sync single pair, drift across each dimension + fixed output order, 3-way pair ordering, canonical tie-break, same-prefix anomaly dropped, malformed IDs silently skipped, dotted suffix (`bt-mhwy.2` + `bd-mhwy.2`), records sorted by suffix, schema constant.
+- `pkg/view/projections_test.go` — 4 new golden fixtures via `TestPairRecordGolden`: `pair_empty`, `pair_single_in_sync`, `pair_single_drifted`, `pair_multi_way`. Plus `TestPairRecordSchemaFileExists` for the committed JSON Schema.
+- `cmd/bt/robot_pairs_test.go` — contract: `--global` enforcement (binary), envelope required fields, `schema == "pair.v1"`, drift detection across all 4 dimensions, empty array on no pairs, pairs sorted by suffix, canonical = first-created with prefix-sorted mirrors.
+- `cmd/bt/robot_all_subcommands_test.go` — pairs added to flag-acceptance matrix (4 permutations; `--global` carried since pairs requires it).
+
+### Smoke
+
+`bt robot pairs --global` against the real shared server returns 29 paired sets across 14+ projects, including the known `bt-zsy8`/`bd-zsy8` pair. 24 of the 29 surface drift — mostly title divergence (expected: mirrored beads typically get project-scoped titles). Three-way pairs (`byk`, `fjip`, `g5q`) surface cleanly with canonical + 2 mirrors.
+
+### Cross-project constellation (status)
+
+Shipped in this session series: **bt-mhwy.5** (external dep resolution) → **bt-mhwy.4** (portfolio) → **bt-mhwy.2** (pairs). Next in sequence per the epic: `bt-mhwy.3` (refs — cross-project reference resolution, consumes the pair pattern), then `bt-mhwy.6` (provenance surfacing).
+
+---
+
 ## 2026-04-20 - Portfolio subcommand (bt-mhwy.4)
 
 **New `bt robot portfolio` subcommand answers "which project needs attention?" at the org level.** One PortfolioRecord per project with counts, priority breakdown, velocity with trend, composite health score, top blocker, and stalest issue.

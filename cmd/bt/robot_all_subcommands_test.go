@@ -92,6 +92,10 @@ func TestRobotSubcommandsAcceptShapeFlag(t *testing.T) {
 		{"impact", []string{"robot", "impact", "README.md"}},
 		{"orphans", []string{"robot", "orphans"}},
 		{"portfolio", []string{"robot", "portfolio"}},
+		// pairs requires --global by design; the matrix only probes flag
+		// parsing. --global with BT_TEST_MODE=1 fails at Dolt discovery,
+		// which runAccepts tolerates as a runtime (non flag-parse) error.
+		{"pairs", []string{"robot", "pairs", "--global"}},
 	}
 
 	for _, tc := range cases {

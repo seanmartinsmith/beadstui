@@ -35,6 +35,11 @@ type portfolioFixture struct {
 
 const portfolioFixturePrefix = "portfolio_"
 
+// pairFixturePrefix identifies pair projection fixtures. Pair fixtures reuse
+// the projectionFixture shape (issue slice in, projection out) because
+// ComputePairRecords takes the same single input as CompactAll.
+const pairFixturePrefix = "pair_"
+
 // TestCompactIssueGolden runs every non-portfolio fixture through CompactAll
 // and asserts the JSON-serialized output matches the committed golden file at
 // testdata/golden/<name>.json.
@@ -60,6 +65,9 @@ func TestCompactIssueGolden(t *testing.T) {
 			continue
 		}
 		if strings.HasPrefix(entry.Name(), portfolioFixturePrefix) {
+			continue
+		}
+		if strings.HasPrefix(entry.Name(), pairFixturePrefix) {
 			continue
 		}
 		name := strings.TrimSuffix(entry.Name(), ".json")
@@ -198,6 +206,91 @@ func TestPortfolioRecordSchemaFileExists(t *testing.T) {
 // projection contract.
 func TestCompactIssueSchemaFileExists(t *testing.T) {
 	path := filepath.Join("schemas", "compact_issue.v1.json")
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("schema file missing: %v", err)
+	}
+	if info.Size() == 0 {
+		t.Errorf("schema file is empty: %s", path)
+	}
+}
+
+// TestPairRecordGolden runs every pair_*.json fixture through
+// ComputePairRecords and asserts the JSON-serialized output matches the
+// committed golden file. Separate harness (not folded into the compact one)
+// because pair records have a different projection shape even though they
+// share the same fixture layout.
+//
+// Regenerate with:
+//
+//	GENERATE_GOLDEN=1 go test ./pkg/view/ -run TestPairRecordGolden
+func TestPairRecordGolden(t *testing.T) {
+	const fixturesDir = "testdata/fixtures"
+	const goldenDir = "testdata/golden"
+
+	entries, err := os.ReadDir(fixturesDir)
+	if err != nil {
+		t.Fatalf("read fixtures dir: %v", err)
+	}
+
+	regenerate := os.Getenv("GENERATE_GOLDEN") == "1"
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		if !strings.HasPrefix(entry.Name(), pairFixturePrefix) {
+			continue
+		}
+		name := strings.TrimSuffix(entry.Name(), ".json")
+
+		t.Run(name, func(t *testing.T) {
+			fixturePath := filepath.Join(fixturesDir, entry.Name())
+			goldenPath := filepath.Join(goldenDir, entry.Name())
+
+			raw, err := os.ReadFile(fixturePath)
+			if err != nil {
+				t.Fatalf("read fixture: %v", err)
+			}
+			var fx projectionFixture
+			if err := json.Unmarshal(raw, &fx); err != nil {
+				t.Fatalf("parse fixture: %v", err)
+			}
+
+			got := ComputePairRecords(fx.Issues)
+			gotJSON, err := json.MarshalIndent(got, "", "  ")
+			if err != nil {
+				t.Fatalf("marshal projection: %v", err)
+			}
+			gotJSON = append(gotJSON, '\n')
+
+			if regenerate {
+				if err := os.MkdirAll(goldenDir, 0o755); err != nil {
+					t.Fatalf("mkdir golden dir: %v", err)
+				}
+				if err := os.WriteFile(goldenPath, gotJSON, 0o644); err != nil {
+					t.Fatalf("write golden: %v", err)
+				}
+				t.Logf("Regenerated %s", goldenPath)
+				return
+			}
+
+			want, err := os.ReadFile(goldenPath)
+			if err != nil {
+				t.Fatalf("read golden (regenerate with GENERATE_GOLDEN=1): %v", err)
+			}
+			if !bytes.Equal(gotJSON, want) {
+				t.Errorf("pair projection drift for %s\n--- got ---\n%s\n--- want ---\n%s",
+					name, string(gotJSON), string(want))
+			}
+		})
+	}
+}
+
+// TestPairRecordSchemaFileExists — a committed JSON schema is part of the
+// projection contract.
+func TestPairRecordSchemaFileExists(t *testing.T) {
+	path := filepath.Join("schemas", "pair_record.v1.json")
 	info, err := os.Stat(path)
 	if err != nil {
 		t.Fatalf("schema file missing: %v", err)

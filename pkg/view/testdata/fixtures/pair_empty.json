@@ -1,0 +1,25 @@
+{
+  "description": "Single-project issue set with no cross-prefix suffix matches. ComputePairRecords returns nil → JSON null.",
+  "issues": [
+    {
+      "id": "bt-a",
+      "title": "isolated bt issue",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-15T10:00:00Z",
+      "updated_at": "2026-04-15T10:00:00Z"
+    },
+    {
+      "id": "bt-b",
+      "title": "another isolated bt issue",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-16T10:00:00Z",
+      "updated_at": "2026-04-16T10:00:00Z"
+    }
+  ]
+}

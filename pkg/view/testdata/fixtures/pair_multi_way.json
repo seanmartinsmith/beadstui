@@ -1,0 +1,55 @@
+{
+  "description": "Two paired sets surfacing deterministic ordering. Suffix 'abc' is a 3-way pair (bd canonical by CreatedAt, mirrors bt/cass sorted by prefix ascending). Suffix 'zsy8' is a 2-way pair with status drift. Records are sorted by suffix ascending so 'abc' precedes 'zsy8'.",
+  "issues": [
+    {
+      "id": "bt-abc",
+      "title": "3-way shared work",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-16T10:00:00Z",
+      "updated_at": "2026-04-16T10:00:00Z"
+    },
+    {
+      "id": "bd-abc",
+      "title": "3-way shared work",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "source_repo": "bd",
+      "created_at": "2026-04-15T10:00:00Z",
+      "updated_at": "2026-04-15T10:00:00Z"
+    },
+    {
+      "id": "cass-abc",
+      "title": "3-way shared work",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "source_repo": "cass",
+      "created_at": "2026-04-17T10:00:00Z",
+      "updated_at": "2026-04-17T10:00:00Z"
+    },
+    {
+      "id": "bt-zsy8",
+      "title": "Cross-project shared work",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-15T10:00:00Z",
+      "updated_at": "2026-04-15T10:00:00Z"
+    },
+    {
+      "id": "bd-zsy8",
+      "title": "Cross-project shared work",
+      "status": "in_progress",
+      "priority": 1,
+      "issue_type": "task",
+      "source_repo": "bd",
+      "created_at": "2026-04-16T10:00:00Z",
+      "updated_at": "2026-04-16T10:00:00Z"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+[
+  {
+    "suffix": "abc",
+    "canonical": {
+      "id": "bd-abc",
+      "title": "3-way shared work",
+      "status": "open",
+      "priority": 1,
+      "source_repo": "bd"
+    },
+    "mirrors": [
+      {
+        "id": "bt-abc",
+        "title": "3-way shared work",
+        "status": "open",
+        "priority": 1,
+        "source_repo": "bt"
+      },
+      {
+        "id": "cass-abc",
+        "title": "3-way shared work",
+        "status": "open",
+        "priority": 1,
+        "source_repo": "cass"
+      }
+    ]
+  },
+  {
+    "suffix": "zsy8",
+    "canonical": {
+      "id": "bt-zsy8",
+      "title": "Cross-project shared work",
+      "status": "open",
+      "priority": 1,
+      "source_repo": "bt"
+    },
+    "mirrors": [
+      {
+        "id": "bd-zsy8",
+        "title": "Cross-project shared work",
+        "status": "in_progress",
+        "priority": 1,
+        "source_repo": "bd"
+      }
+    ],
+    "drift": [
+      "status"
+    ]
+  }
+]

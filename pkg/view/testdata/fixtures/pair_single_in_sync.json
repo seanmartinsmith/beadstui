@@ -1,0 +1,25 @@
+{
+  "description": "One paired set (bt-zsy8 + bd-zsy8) with identical status, priority, and title. Drift field is omitted.",
+  "issues": [
+    {
+      "id": "bt-zsy8",
+      "title": "Cross-project shared work",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-15T10:00:00Z",
+      "updated_at": "2026-04-15T10:00:00Z"
+    },
+    {
+      "id": "bd-zsy8",
+      "title": "Cross-project shared work",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "source_repo": "bd",
+      "created_at": "2026-04-16T10:00:00Z",
+      "updated_at": "2026-04-16T10:00:00Z"
+    }
+  ]
+}

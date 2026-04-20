@@ -31,7 +31,7 @@ func ResolveExternalDeps(issues []model.Issue) []model.Issue {
 	// of two so misses cost a single lookup.
 	byIDPrefix := make(map[string]map[string]string, 8)
 	for _, issue := range issues {
-		prefix, suffix, ok := splitID(issue.ID)
+		prefix, suffix, ok := SplitID(issue.ID)
 		if !ok {
 			continue
 		}
@@ -95,9 +95,11 @@ func ResolveExternalDeps(issues []model.Issue) []model.Issue {
 	return out
 }
 
-// splitID parses "bt-mhwy.5" into ("bt", "mhwy.5", true). Returns false when
-// the ID has no hyphen or has an empty prefix/suffix.
-func splitID(id string) (prefix, suffix string, ok bool) {
+// SplitID parses "bt-mhwy.5" into ("bt", "mhwy.5", true). Returns false when
+// the ID has no hyphen or has an empty prefix/suffix. Exported because pair
+// detection in pkg/view is a second legitimate consumer of the same primitive
+// and a duplicated parse would drift silently across packages.
+func SplitID(id string) (prefix, suffix string, ok bool) {
 	idx := strings.IndexByte(id, '-')
 	if idx <= 0 || idx == len(id)-1 {
 		return "", "", false

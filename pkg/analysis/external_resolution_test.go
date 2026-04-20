@@ -260,9 +260,9 @@ func TestSplitID(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.in, func(t *testing.T) {
-			prefix, suffix, ok := splitID(tc.in)
+			prefix, suffix, ok := SplitID(tc.in)
 			if ok != tc.wantOK || prefix != tc.wantPrefix || suffix != tc.wantSuffix {
-				t.Errorf("splitID(%q) = (%q, %q, %v), want (%q, %q, %v)",
+				t.Errorf("SplitID(%q) = (%q, %q, %v), want (%q, %q, %v)",
 					tc.in, prefix, suffix, ok, tc.wantPrefix, tc.wantSuffix, tc.wantOK)
 			}
 		})

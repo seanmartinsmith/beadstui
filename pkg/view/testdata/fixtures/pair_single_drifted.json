@@ -1,0 +1,26 @@
+{
+  "description": "One paired set where the mirror (bd-zsy8) has drifted across status (open↔closed), priority (0↔2), closed_open (open↔closed), and title (differs). All four drift flags surface in fixed order.",
+  "issues": [
+    {
+      "id": "bt-zsy8",
+      "title": "original title",
+      "status": "open",
+      "priority": 0,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-15T10:00:00Z",
+      "updated_at": "2026-04-15T10:00:00Z"
+    },
+    {
+      "id": "bd-zsy8",
+      "title": "drifted title",
+      "status": "closed",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bd",
+      "created_at": "2026-04-16T10:00:00Z",
+      "updated_at": "2026-04-20T10:00:00Z",
+      "closed_at": "2026-04-20T10:00:00Z"
+    }
+  ]
+}
