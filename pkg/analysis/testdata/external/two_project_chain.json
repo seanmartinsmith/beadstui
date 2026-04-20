@@ -1,0 +1,53 @@
+{
+  "description": "Cross-project chain: bt-a is blocked by external:cass:x. cass-x exists and is blocked by cass-y. Post-resolution the analyzer should see bt-a -> cass-x -> cass-y as a single traversable chain.",
+  "issues": [
+    {
+      "id": "bt-a",
+      "title": "bt: consumer",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-10T10:00:00Z",
+      "updated_at": "2026-04-20T10:00:00Z",
+      "dependencies": [
+        {
+          "issue_id": "bt-a",
+          "depends_on_id": "external:cass:x",
+          "type": "blocks",
+          "created_at": "2026-04-10T10:00:00Z",
+          "created_by": "sms"
+        }
+      ]
+    },
+    {
+      "id": "cass-x",
+      "title": "cass: middle of chain",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "source_repo": "cass",
+      "created_at": "2026-04-05T10:00:00Z",
+      "updated_at": "2026-04-20T10:00:00Z",
+      "dependencies": [
+        {
+          "issue_id": "cass-x",
+          "depends_on_id": "cass-y",
+          "type": "blocks",
+          "created_at": "2026-04-05T10:00:00Z",
+          "created_by": "sms"
+        }
+      ]
+    },
+    {
+      "id": "cass-y",
+      "title": "cass: root blocker",
+      "status": "open",
+      "priority": 0,
+      "issue_type": "task",
+      "source_repo": "cass",
+      "created_at": "2026-04-01T10:00:00Z",
+      "updated_at": "2026-04-20T10:00:00Z"
+    }
+  ]
+}

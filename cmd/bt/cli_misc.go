@@ -164,7 +164,7 @@ func (rc *robotCtx) runAgentBrief(outputDir string) {
 	fmt.Println("  → triage.json")
 
 	// Generate insights
-	analyzer := analysis.NewAnalyzer(rc.issues)
+	analyzer := analysis.NewAnalyzer(rc.analysisIssues())
 	stats := analyzer.Analyze()
 	insights := stats.GenerateInsights(50)
 	insightsJSON, err := json.MarshalIndent(insights, "", "  ")
@@ -430,7 +430,7 @@ func (rc *robotCtx) runDiffSince(diffSince string, robotDiff bool, asOf, asOfRes
 
 	// Create snapshots
 	fromSnapshot := analysis.NewSnapshotAt(historicalIssues, time.Time{}, revision)
-	toSnapshot := analysis.NewSnapshot(rc.issues)
+	toSnapshot := analysis.NewSnapshot(rc.analysisIssues())
 
 	// Compute diff
 	diff := analysis.CompareSnapshots(fromSnapshot, toSnapshot)
@@ -513,7 +513,7 @@ func (rc *robotCtx) runDiffSince(diffSince string, robotDiff bool, asOf, asOfRes
 
 // runRobotGraph handles --robot-graph (bv-136).
 func (rc *robotCtx) runRobotGraph(graphFormat, labelScope, graphRoot string, graphDepth int) {
-	analyzer := analysis.NewAnalyzer(rc.issues)
+	analyzer := analysis.NewAnalyzer(rc.analysisIssues())
 	stats := analyzer.Analyze()
 
 	// Determine format
@@ -551,7 +551,7 @@ func (rc *robotCtx) runRobotGraph(graphFormat, labelScope, graphRoot string, gra
 
 // runExportGraph handles --export-graph (bv-94) - PNG/SVG/HTML export.
 func (rc *robotCtx) runExportGraph(exportGraphPath, labelScope, graphTitle, graphPreset string) {
-	analyzer := analysis.NewAnalyzer(rc.issues)
+	analyzer := analysis.NewAnalyzer(rc.analysisIssues())
 	stats := analyzer.Analyze()
 
 	// Apply label filter if specified

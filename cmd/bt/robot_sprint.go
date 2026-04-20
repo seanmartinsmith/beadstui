@@ -145,7 +145,7 @@ func (rc *robotCtx) runForecast(forecastTarget, forecastLabel, forecastSprint st
 	}
 
 	// Build graph stats for depth calculation
-	analyzer := analysis.NewAnalyzer(rc.issues)
+	analyzer := analysis.NewAnalyzer(rc.analysisIssues())
 	graphStats := analyzer.Analyze()
 
 	// Filter issues by label and sprint if specified
@@ -295,7 +295,7 @@ func (rc *robotCtx) runForecast(forecastTarget, forecastLabel, forecastSprint st
 // runCapacity handles --robot-capacity (bv-160).
 func (rc *robotCtx) runCapacity(capacityAgents int, capacityLabel string) {
 	// Build graph stats for analysis
-	analyzer := analysis.NewAnalyzer(rc.issues)
+	analyzer := analysis.NewAnalyzer(rc.analysisIssues())
 	graphStats := analyzer.Analyze()
 
 	// Filter issues by label if specified

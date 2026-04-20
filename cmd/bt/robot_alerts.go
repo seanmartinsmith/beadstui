@@ -19,7 +19,7 @@ func (rc *robotCtx) runAlerts(alertSeverity, alertType, alertLabel string) {
 		os.Exit(1)
 	}
 
-	analyzer := analysis.NewAnalyzer(rc.issues)
+	analyzer := analysis.NewAnalyzer(rc.analysisIssues())
 	stats := analyzer.Analyze()
 
 	openCount, closedCount, blockedCount := 0, 0, 0

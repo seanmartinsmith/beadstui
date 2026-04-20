@@ -68,3 +68,20 @@ func (rc *robotCtx) compactSchema() string {
 	}
 	return ""
 }
+
+// analysisIssues returns the issue slice to feed the analysis engine. In
+// global mode, external:<project>:<id> deps are resolved against the global
+// set before returning so cross-project blockers become real graph edges. In
+// single-project mode returns rc.issues unchanged so wire output stays
+// byte-identical to pre-resolution history.
+//
+// Composition rule: this is the single point that returns the graph-ready
+// slice. Future preprocessing (label normalization, ID aliasing, etc.)
+// composes INSIDE this function — it wraps the existing chain, it does not
+// add a sibling rc.Xissues() helper. One pipeline, not N helpers.
+func (rc *robotCtx) analysisIssues() []model.Issue {
+	if !flagGlobal {
+		return rc.issues
+	}
+	return analysis.ResolveExternalDeps(rc.issues)
+}
