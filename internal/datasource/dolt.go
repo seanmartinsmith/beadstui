@@ -2,6 +2,7 @@ package datasource
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -9,6 +10,20 @@ import (
 
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
+
+// parseIssueMetadata decodes an upstream-beads JSON metadata blob into the
+// map-of-RawMessage form carried on Issue.Metadata. Empty / invalid blobs
+// return nil — callers leave the field zero rather than surface a scan error.
+func parseIssueMetadata(raw sql.NullString) map[string]json.RawMessage {
+	if !raw.Valid || raw.String == "" || raw.String == "{}" {
+		return nil
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(raw.String), &m); err != nil {
+		return nil
+	}
+	return m
+}
 
 // DoltReader provides read access to a Dolt SQL server.
 type DoltReader struct {
@@ -86,6 +101,9 @@ func (r *DoltReader) LoadIssuesFiltered(filter func(*model.Issue) bool) ([]model
 		var timeoutNs sql.NullInt64
 		var ephemeral, isTemplate sql.NullBool
 
+		// Session provenance columns (bt-mhwy.0)
+		var metadataRaw, closedBySession sql.NullString
+
 		err := rows.Scan(
 			&issue.ID, &issue.Title, &description, &issue.Status, &issue.Priority, &issueType,
 			&assignee, &estimatedMinutes, &createdAt, &updatedAt,
@@ -95,6 +113,7 @@ func (r *DoltReader) LoadIssuesFiltered(filter func(*model.Issue) bool) ([]model
 			&closeReason,
 			&awaitType, &awaitID, &timeoutNs,
 			&ephemeral, &isTemplate, &molType,
+			&metadataRaw, &closedBySession,
 		)
 		if err != nil {
 			continue
@@ -186,6 +205,12 @@ func (r *DoltReader) LoadIssuesFiltered(filter func(*model.Issue) bool) ([]model
 		if molType.Valid && molType.String != "" {
 			s := molType.String
 			issue.MolType = &s
+		}
+
+		// Session provenance (bt-mhwy.0)
+		issue.Metadata = parseIssueMetadata(metadataRaw)
+		if closedBySession.Valid && closedBySession.String != "" {
+			issue.ClosedBySession = closedBySession.String
 		}
 
 		// Labels come from a separate table in Dolt

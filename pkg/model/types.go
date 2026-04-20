@@ -44,6 +44,13 @@ type Issue struct {
 	Ephemeral  *bool   `json:"ephemeral,omitempty"`
 	IsTemplate *bool   `json:"is_template,omitempty"`
 	MolType    *string `json:"mol_type,omitempty"`
+
+	// Session provenance (bt-mhwy.0)
+	// Metadata holds upstream beads' JSON metadata blob. Bridge surface for
+	// session IDs until bd-34v lands first-class columns:
+	// metadata["created_by_session"], metadata["claimed_by_session"].
+	Metadata        map[string]json.RawMessage `json:"metadata,omitempty"`
+	ClosedBySession string                     `json:"closed_by_session,omitempty"`
 }
 
 // Clone creates a deep copy of the issue
@@ -110,6 +117,15 @@ func (i Issue) Clone() Issue {
 	if i.Labels != nil {
 		clone.Labels = make([]string, len(i.Labels))
 		copy(clone.Labels, i.Labels)
+	}
+
+	if i.Metadata != nil {
+		clone.Metadata = make(map[string]json.RawMessage, len(i.Metadata))
+		for k, v := range i.Metadata {
+			cp := make(json.RawMessage, len(v))
+			copy(cp, v)
+			clone.Metadata[k] = cp
+		}
 	}
 
 	if i.Dependencies != nil {

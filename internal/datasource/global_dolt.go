@@ -467,6 +467,9 @@ func scanGlobalIssue(rows *sql.Rows) (*model.Issue, error) {
 	var timeoutNs sql.NullInt64
 	var ephemeral, isTemplate sql.NullBool
 
+	// Session provenance columns (bt-mhwy.0)
+	var metadataRaw, closedBySession sql.NullString
+
 	err := rows.Scan(
 		&issue.ID, &issue.Title, &description, &issue.Status, &issue.Priority, &issueType,
 		&assignee, &estimatedMinutes, &createdAt, &updatedAt,
@@ -476,6 +479,7 @@ func scanGlobalIssue(rows *sql.Rows) (*model.Issue, error) {
 		&closeReason,
 		&awaitType, &awaitID, &timeoutNs,
 		&ephemeral, &isTemplate, &molType,
+		&metadataRaw, &closedBySession,
 		&globalSource,
 	)
 	if err != nil {
@@ -565,6 +569,12 @@ func scanGlobalIssue(rows *sql.Rows) (*model.Issue, error) {
 	if molType.Valid && molType.String != "" {
 		s := molType.String
 		issue.MolType = &s
+	}
+
+	// Session provenance (bt-mhwy.0)
+	issue.Metadata = parseIssueMetadata(metadataRaw)
+	if closedBySession.Valid && closedBySession.String != "" {
+		issue.ClosedBySession = closedBySession.String
 	}
 
 	// SourceRepo always comes from the database name in global mode
