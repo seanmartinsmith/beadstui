@@ -25,6 +25,10 @@ type RobotEnvelope struct {
 	DataHash     string `json:"data_hash"`               // Fingerprint of source data
 	OutputFormat string `json:"output_format,omitempty"` // "json" or "toon"
 	Version      string `json:"version,omitempty"`       // bv version (e.g., "1.0.0")
+	// Schema identifies the projection shape carried in the payload, e.g.,
+	// "compact.v1". Empty (and omitted from the wire) when the payload is
+	// the default full shape, so historical full outputs stay byte-identical.
+	Schema string `json:"schema,omitempty"`
 }
 
 // NewRobotEnvelope creates a standard envelope for robot output.

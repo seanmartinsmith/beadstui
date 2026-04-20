@@ -28,6 +28,12 @@ var robotCmd = &cobra.Command{
 		if err := rootPersistentPreRun(cmd); err != nil {
 			return err
 		}
+		// Resolve output shape (flag > alias > env > compact default).
+		shape, err := resolveRobotOutputShape(robotFlagShape, robotFlagCompact, robotFlagFull)
+		if err != nil {
+			return err
+		}
+		robotOutputShape = shape
 		// Mark robot mode.
 		_ = os.Setenv("BT_ROBOT", "1")
 		log.SetOutput(io.Discard)
@@ -67,6 +73,9 @@ func init() {
 	pf.StringVar(&robotFlagDiffSince, "diff-since", "", "Show changes since historical point")
 	pf.StringVarP(&robotFlagRecipe, "recipe", "r", "", "Apply named recipe filter")
 	pf.StringVar(&robotFlagBQL, "bql", "", "BQL query to pre-filter issues")
+	pf.StringVar(&robotFlagShape, "shape", "", "Output shape: compact (default) or full (env: BT_OUTPUT_SHAPE)")
+	pf.BoolVar(&robotFlagCompact, "compact", false, "Alias for --shape=compact")
+	pf.BoolVar(&robotFlagFull, "full", false, "Alias for --shape=full")
 }
 
 // robotPreRun loads issues and applies common robot pre-processing (label scope, recipe, BQL).

@@ -10,10 +10,15 @@ import (
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/view"
 )
 
 // robotListCmd outputs filtered issues as JSON/TOON for agent consumption.
 // Simpler alternative to robot bql for the common 80% case.
+//
+// Output shape defaults to compact (view.CompactIssue) so large result sets
+// don't burn an agent's context window; pass --full to restore the
+// pre-compact shape with description/design/notes bodies preserved.
 var robotListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "Output filtered issue list as JSON",
@@ -39,16 +44,38 @@ var robotListCmd = &cobra.Command{
 		}
 
 		dataHash := analysis.ComputeDataHash(issues)
+		envelope := NewRobotEnvelope(dataHash)
+
+		var payload any = issues
+		if robotOutputShape == robotShapeCompact {
+			envelope.Schema = view.CompactIssueSchemaV1
+			// Compact over the full pre-filter set so reverse-map counts
+			// (children, unblocks, is_blocked) reflect the real graph,
+			// then project only the filtered subset by ID.
+			allCompact := view.CompactAll(appCtx.issues)
+			byID := make(map[string]view.CompactIssue, len(allCompact))
+			for _, c := range allCompact {
+				byID[c.ID] = c
+			}
+			filtered := make([]view.CompactIssue, 0, len(issues))
+			for _, iss := range issues {
+				if c, ok := byID[iss.ID]; ok {
+					filtered = append(filtered, c)
+				}
+			}
+			payload = filtered
+		}
+
 		output := struct {
 			RobotEnvelope
-			Query     listQuery     `json:"query"`
-			Total     int           `json:"total"`
-			Truncated bool          `json:"truncated"`
-			Limit     int           `json:"limit"`
-			Count     int           `json:"count"`
-			Issues    []model.Issue `json:"issues"`
+			Query     listQuery `json:"query"`
+			Total     int       `json:"total"`
+			Truncated bool      `json:"truncated"`
+			Limit     int       `json:"limit"`
+			Count     int       `json:"count"`
+			Issues    any       `json:"issues"`
 		}{
-			RobotEnvelope: NewRobotEnvelope(dataHash),
+			RobotEnvelope: envelope,
 			Query: listQuery{
 				Status:   statusFilter,
 				Priority: priorityFilter,
@@ -62,7 +89,7 @@ var robotListCmd = &cobra.Command{
 			Truncated: truncated,
 			Limit:     limit,
 			Count:     len(issues),
-			Issues:    issues,
+			Issues:    payload,
 		}
 		enc := newRobotEncoder(os.Stdout)
 		if err := enc.Encode(output); err != nil {

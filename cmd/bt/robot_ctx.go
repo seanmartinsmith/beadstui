@@ -5,6 +5,7 @@ import (
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/view"
 )
 
 // robotCtx holds loaded/computed state shared across robot command handlers.
@@ -41,4 +42,29 @@ func newRobotCtx(issues, issuesForSearch []model.Issue, dataHash, cwd, beadsPath
 // newEncoder creates a fresh robot encoder writing to stdout.
 func (rc *robotCtx) newEncoder() robotEncoder {
 	return newRobotEncoder(os.Stdout)
+}
+
+// projectIssues returns the issue slice in the currently selected output
+// shape. Under --shape=compact (the default) it returns []view.CompactIssue
+// computed in a single O(n) pass over the dependency graph. Under
+// --shape=full it returns the input slice untouched so the wire bytes stay
+// byte-identical to pre-compact output.
+//
+// The return type is `any` on purpose: anonymous robot output structs tag
+// `issues` once with the JSON key and the shape flips freely between modes.
+func (rc *robotCtx) projectIssues(issues []model.Issue) any {
+	if robotOutputShape == robotShapeCompact {
+		return view.CompactAll(issues)
+	}
+	return issues
+}
+
+// compactSchema returns the schema identifier for the current shape, or ""
+// when shape=full. The returned value is meant for RobotEnvelope.Schema,
+// which is omitempty — full-mode envelopes stay byte-identical to history.
+func (rc *robotCtx) compactSchema() string {
+	if robotOutputShape == robotShapeCompact {
+		return view.CompactIssueSchemaV1
+	}
+	return ""
 }
