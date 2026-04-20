@@ -15,6 +15,7 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/loader"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/version"
+	"github.com/seanmartinsmith/beadstui/pkg/view"
 )
 
 // runFeedback handles --feedback-accept, --feedback-ignore, --feedback-reset, --feedback-show (bv-90).
@@ -298,6 +299,104 @@ func (rc *robotCtx) runEmitScript(scriptLimit int, scriptFormat string) {
 	os.Exit(0)
 }
 
+// compactDiffOutput mirrors analysis.SnapshotDiff on the wire but replaces
+// the four issue-slot slices with []view.CompactIssue so large diffs don't
+// burn an agent's context on full issue bodies. The remaining fields
+// (graph changes, metric deltas, summary, modified issues) carry over
+// untouched so agents that jq on structured diffs keep working.
+type compactDiffOutput struct {
+	FromTimestamp  time.Time                `json:"from_timestamp"`
+	ToTimestamp    time.Time                `json:"to_timestamp"`
+	FromRevision   string                   `json:"from_revision,omitempty"`
+	ToRevision     string                   `json:"to_revision,omitempty"`
+	NewIssues      []view.CompactIssue      `json:"new_issues"`
+	ClosedIssues   []view.CompactIssue      `json:"closed_issues"`
+	RemovedIssues  []view.CompactIssue      `json:"removed_issues"`
+	ReopenedIssues []view.CompactIssue      `json:"reopened_issues"`
+	ModifiedIssues []analysis.ModifiedIssue `json:"modified_issues"`
+	NewCycles      [][]string               `json:"new_cycles"`
+	ResolvedCycles [][]string               `json:"resolved_cycles"`
+	MetricDeltas   analysis.MetricDeltas    `json:"metric_deltas"`
+	Summary        analysis.DiffSummary     `json:"summary"`
+}
+
+// unionIssuesByID returns the deduplicated set of issues across two
+// snapshots keyed by ID, with the "to" snapshot taking precedence on
+// overlap so the compact projection reflects the latest state.
+func unionIssuesByID(from, to []model.Issue) []model.Issue {
+	out := make([]model.Issue, 0, len(from)+len(to))
+	seen := make(map[string]int, len(from)+len(to))
+	for _, iss := range from {
+		seen[iss.ID] = len(out)
+		out = append(out, iss)
+	}
+	for _, iss := range to {
+		if idx, ok := seen[iss.ID]; ok {
+			out[idx] = iss
+			continue
+		}
+		seen[iss.ID] = len(out)
+		out = append(out, iss)
+	}
+	return out
+}
+
+// compactByID keys a compact projection slice by issue ID for O(1) lookup.
+func compactByID(in []view.CompactIssue) map[string]view.CompactIssue {
+	out := make(map[string]view.CompactIssue, len(in))
+	for _, c := range in {
+		out[c.ID] = c
+	}
+	return out
+}
+
+// pickCompact selects the compact projection for each issue in `src`,
+// falling back to an on-the-fly single-issue compaction when an ID isn't
+// in the pre-computed map (should not happen given unionIssuesByID feeds
+// CompactAll, but safe).
+func pickCompact(src []model.Issue, byID map[string]view.CompactIssue) []view.CompactIssue {
+	if len(src) == 0 {
+		return nil
+	}
+	out := make([]view.CompactIssue, 0, len(src))
+	for i := range src {
+		if c, ok := byID[src[i].ID]; ok {
+			out = append(out, c)
+			continue
+		}
+		// Fallback: compact this one issue alone. Reverse-map counts for
+		// this fallback will be zero, which is acceptable for a case that
+		// shouldn't occur in practice.
+		for _, c := range view.CompactAll([]model.Issue{src[i]}) {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+// compactSnapshotDiff projects the four issue-slot slices on a SnapshotDiff
+// while preserving all other fields verbatim.
+func compactSnapshotDiff(diff *analysis.SnapshotDiff, byID map[string]view.CompactIssue) compactDiffOutput {
+	if diff == nil {
+		return compactDiffOutput{}
+	}
+	return compactDiffOutput{
+		FromTimestamp:  diff.FromTimestamp,
+		ToTimestamp:    diff.ToTimestamp,
+		FromRevision:   diff.FromRevision,
+		ToRevision:     diff.ToRevision,
+		NewIssues:      pickCompact(diff.NewIssues, byID),
+		ClosedIssues:   pickCompact(diff.ClosedIssues, byID),
+		RemovedIssues:  pickCompact(diff.RemovedIssues, byID),
+		ReopenedIssues: pickCompact(diff.ReopenedIssues, byID),
+		ModifiedIssues: diff.ModifiedIssues,
+		NewCycles:      diff.NewCycles,
+		ResolvedCycles: diff.ResolvedCycles,
+		MetricDeltas:   diff.MetricDeltas,
+		Summary:        diff.Summary,
+	}
+}
+
 // runDiffSince handles --diff-since and --robot-diff.
 func (rc *robotCtx) runDiffSince(diffSince string, robotDiff bool, asOf, asOfResolved string) {
 	envRobot := os.Getenv("BT_ROBOT") == "1"
@@ -338,28 +437,72 @@ func (rc *robotCtx) runDiffSince(diffSince string, robotDiff bool, asOf, asOfRes
 
 	if robotDiff {
 		// JSON output
-		output := struct {
-			GeneratedAt      string                 `json:"generated_at"`
-			ResolvedRevision string                 `json:"resolved_revision"`
-			AsOf             string                 `json:"as_of,omitempty"`        // "to" snapshot ref (if --as-of used)
-			AsOfCommit       string                 `json:"as_of_commit,omitempty"` // Resolved commit SHA for "to"
-			FromDataHash     string                 `json:"from_data_hash"`
-			ToDataHash       string                 `json:"to_data_hash"`
-			Diff             *analysis.SnapshotDiff `json:"diff"`
-		}{
-			GeneratedAt:      time.Now().UTC().Format(time.RFC3339),
-			ResolvedRevision: revision,
-			AsOf:             asOf,
-			AsOfCommit:       asOfResolved,
-			FromDataHash:     analysis.ComputeDataHash(historicalIssues),
-			ToDataHash:       rc.dataHash,
-			Diff:             diff,
-		}
+		generated := time.Now().UTC().Format(time.RFC3339)
+		fromHash := analysis.ComputeDataHash(historicalIssues)
 
-		encoder := rc.newEncoder()
-		if err := encoder.Encode(output); err != nil {
-			fmt.Fprintf(os.Stderr, "Error encoding diff: %v\n", err)
-			os.Exit(1)
+		if robotOutputShape == robotShapeCompact {
+			// Compact mode: project each []Issue slot into []CompactIssue
+			// using the UNION of from+to issues as the graph context so
+			// reverse-map counts (children, unblocks, is_blocked) stay
+			// accurate across snapshots.
+			union := unionIssuesByID(historicalIssues, rc.issues)
+			compactMap := compactByID(view.CompactAll(union))
+
+			output := struct {
+				RobotEnvelope
+				GeneratedAt      string            `json:"generated_at"`
+				ResolvedRevision string            `json:"resolved_revision"`
+				AsOf             string            `json:"as_of,omitempty"`
+				AsOfCommit       string            `json:"as_of_commit,omitempty"`
+				FromDataHash     string            `json:"from_data_hash"`
+				ToDataHash       string            `json:"to_data_hash"`
+				Diff             compactDiffOutput `json:"diff"`
+			}{
+				RobotEnvelope: RobotEnvelope{
+					GeneratedAt:  generated,
+					DataHash:     rc.dataHash,
+					OutputFormat: robotOutputFormat,
+					Version:      version.Version,
+					Schema:       view.CompactIssueSchemaV1,
+				},
+				GeneratedAt:      generated,
+				ResolvedRevision: revision,
+				AsOf:             asOf,
+				AsOfCommit:       asOfResolved,
+				FromDataHash:     fromHash,
+				ToDataHash:       rc.dataHash,
+				Diff:             compactSnapshotDiff(diff, compactMap),
+			}
+
+			encoder := rc.newEncoder()
+			if err := encoder.Encode(output); err != nil {
+				fmt.Fprintf(os.Stderr, "Error encoding diff: %v\n", err)
+				os.Exit(1)
+			}
+		} else {
+			output := struct {
+				GeneratedAt      string                 `json:"generated_at"`
+				ResolvedRevision string                 `json:"resolved_revision"`
+				AsOf             string                 `json:"as_of,omitempty"`        // "to" snapshot ref (if --as-of used)
+				AsOfCommit       string                 `json:"as_of_commit,omitempty"` // Resolved commit SHA for "to"
+				FromDataHash     string                 `json:"from_data_hash"`
+				ToDataHash       string                 `json:"to_data_hash"`
+				Diff             *analysis.SnapshotDiff `json:"diff"`
+			}{
+				GeneratedAt:      generated,
+				ResolvedRevision: revision,
+				AsOf:             asOf,
+				AsOfCommit:       asOfResolved,
+				FromDataHash:     fromHash,
+				ToDataHash:       rc.dataHash,
+				Diff:             diff,
+			}
+
+			encoder := rc.newEncoder()
+			if err := encoder.Encode(output); err != nil {
+				fmt.Fprintf(os.Stderr, "Error encoding diff: %v\n", err)
+				os.Exit(1)
+			}
 		}
 	} else {
 		// Human-readable output
