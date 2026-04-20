@@ -1,0 +1,65 @@
+{
+  "description": "Cross-project slice: two issues each from bt and bd, with source_repo set and a cross-project blocker edge from bt-1 onto bd-1. The external target bd-1 is open, so bt-1 is blocked. Exercises source_repo surfacing and multi-project reverse maps.",
+  "issues": [
+    {
+      "id": "bt-1",
+      "title": "bt: build the thing",
+      "status": "open",
+      "priority": 0,
+      "issue_type": "feature",
+      "source_repo": "bt",
+      "labels": ["area:cli"],
+      "created_at": "2026-04-10T10:00:00Z",
+      "updated_at": "2026-04-20T10:00:00Z",
+      "dependencies": [
+        {
+          "issue_id": "bt-1",
+          "depends_on_id": "bd-1",
+          "type": "blocks",
+          "created_at": "2026-04-10T10:00:00Z",
+          "created_by": "sms"
+        }
+      ]
+    },
+    {
+      "id": "bt-2",
+      "title": "bt: polish the thing",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-11T10:00:00Z",
+      "updated_at": "2026-04-11T10:00:00Z",
+      "dependencies": [
+        {
+          "issue_id": "bt-2",
+          "depends_on_id": "bt-1",
+          "type": "related",
+          "created_at": "2026-04-11T10:00:00Z",
+          "created_by": "sms"
+        }
+      ]
+    },
+    {
+      "id": "bd-1",
+      "title": "bd: upstream change",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "feature",
+      "source_repo": "beads",
+      "created_at": "2026-04-05T10:00:00Z",
+      "updated_at": "2026-04-20T10:00:00Z"
+    },
+    {
+      "id": "bd-2",
+      "title": "bd: unrelated",
+      "status": "closed",
+      "priority": 3,
+      "issue_type": "task",
+      "source_repo": "beads",
+      "created_at": "2026-04-01T10:00:00Z",
+      "updated_at": "2026-04-02T10:00:00Z",
+      "closed_at": "2026-04-02T10:00:00Z"
+    }
+  ]
+}

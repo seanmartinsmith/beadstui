@@ -1,0 +1,70 @@
+{
+  "description": "Epic with three children. Each child stores a parent-child dep pointing at the epic. Compact must surface children_count=3 on the epic and parent_id on each child.",
+  "issues": [
+    {
+      "id": "epic-parent",
+      "title": "Epic parent",
+      "status": "open",
+      "priority": 0,
+      "issue_type": "epic",
+      "labels": ["area:cli"],
+      "created_at": "2026-04-01T10:00:00Z",
+      "updated_at": "2026-04-20T12:00:00Z"
+    },
+    {
+      "id": "child-a",
+      "title": "Child A",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "created_at": "2026-04-02T10:00:00Z",
+      "updated_at": "2026-04-02T10:00:00Z",
+      "dependencies": [
+        {
+          "issue_id": "child-a",
+          "depends_on_id": "epic-parent",
+          "type": "parent-child",
+          "created_at": "2026-04-02T10:00:00Z",
+          "created_by": "sms"
+        }
+      ]
+    },
+    {
+      "id": "child-b",
+      "title": "Child B",
+      "status": "in_progress",
+      "priority": 1,
+      "issue_type": "task",
+      "created_at": "2026-04-03T10:00:00Z",
+      "updated_at": "2026-04-19T10:00:00Z",
+      "dependencies": [
+        {
+          "issue_id": "child-b",
+          "depends_on_id": "epic-parent",
+          "type": "parent-child",
+          "created_at": "2026-04-03T10:00:00Z",
+          "created_by": "sms"
+        }
+      ]
+    },
+    {
+      "id": "child-c",
+      "title": "Child C",
+      "status": "closed",
+      "priority": 2,
+      "issue_type": "task",
+      "created_at": "2026-04-04T10:00:00Z",
+      "updated_at": "2026-04-18T10:00:00Z",
+      "closed_at": "2026-04-18T10:00:00Z",
+      "dependencies": [
+        {
+          "issue_id": "child-c",
+          "depends_on_id": "epic-parent",
+          "type": "parent-child",
+          "created_at": "2026-04-04T10:00:00Z",
+          "created_by": "sms"
+        }
+      ]
+    }
+  ]
+}

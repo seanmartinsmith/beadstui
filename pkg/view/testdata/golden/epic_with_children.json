@@ -1,0 +1,65 @@
+[
+  {
+    "id": "epic-parent",
+    "title": "Epic parent",
+    "status": "open",
+    "priority": 0,
+    "issue_type": "epic",
+    "labels": [
+      "area:cli"
+    ],
+    "blockers_count": 0,
+    "unblocks_count": 0,
+    "children_count": 3,
+    "relates_count": 0,
+    "is_blocked": false,
+    "created_at": "2026-04-01T10:00:00Z",
+    "updated_at": "2026-04-20T12:00:00Z"
+  },
+  {
+    "id": "child-a",
+    "title": "Child A",
+    "status": "open",
+    "priority": 1,
+    "issue_type": "task",
+    "parent_id": "epic-parent",
+    "blockers_count": 0,
+    "unblocks_count": 0,
+    "children_count": 0,
+    "relates_count": 0,
+    "is_blocked": false,
+    "created_at": "2026-04-02T10:00:00Z",
+    "updated_at": "2026-04-02T10:00:00Z"
+  },
+  {
+    "id": "child-b",
+    "title": "Child B",
+    "status": "in_progress",
+    "priority": 1,
+    "issue_type": "task",
+    "parent_id": "epic-parent",
+    "blockers_count": 0,
+    "unblocks_count": 0,
+    "children_count": 0,
+    "relates_count": 0,
+    "is_blocked": false,
+    "created_at": "2026-04-03T10:00:00Z",
+    "updated_at": "2026-04-19T10:00:00Z"
+  },
+  {
+    "id": "child-c",
+    "title": "Child C",
+    "status": "closed",
+    "priority": 2,
+    "issue_type": "task",
+    "parent_id": "epic-parent",
+    "blockers_count": 0,
+    "unblocks_count": 0,
+    "children_count": 0,
+    "relates_count": 0,
+    "is_blocked": false,
+    "created_at": "2026-04-04T10:00:00Z",
+    "updated_at": "2026-04-18T10:00:00Z",
+    "closed_at": "2026-04-18T10:00:00Z"
+  }
+]

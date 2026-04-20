@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/seanmartinsmith/beadstui/pkg/view/schemas/compact_issue.v1.json",
+  "title": "CompactIssue v1",
+  "description": "Index projection of a beads Issue for agent consumption. Omits fat text bodies and replaces dependency edges with scalar counts plus a single parent id.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "title",
+    "status",
+    "priority",
+    "issue_type",
+    "blockers_count",
+    "unblocks_count",
+    "children_count",
+    "relates_count",
+    "is_blocked",
+    "created_at",
+    "updated_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Stable project-scoped issue identifier (e.g., bt-mhwy)."
+    },
+    "title": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "in_progress",
+        "blocked",
+        "deferred",
+        "pinned",
+        "hooked",
+        "review",
+        "closed",
+        "tombstone"
+      ]
+    },
+    "priority": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4
+    },
+    "issue_type": {
+      "type": "string",
+      "description": "Bead type. Common values: bug, feature, task, epic, chore. Any non-empty string is accepted to support ecosystem extensions."
+    },
+    "labels": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "assignee": {
+      "type": "string"
+    },
+    "source_repo": {
+      "type": "string",
+      "description": "Originating repository in global/multi-project queries."
+    },
+    "parent_id": {
+      "type": "string",
+      "description": "If present, the id of the parent issue linked via a parent-child dependency."
+    },
+    "blockers_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Count of blocking dependencies stored on this issue."
+    },
+    "unblocks_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Count of other issues that depend on this one via a blocking edge."
+    },
+    "children_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Count of issues whose parent-child edge points at this issue."
+    },
+    "relates_count": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Count of related-to edges stored on this issue (local only; does not mirror reverse edges)."
+    },
+    "is_blocked": {
+      "type": "boolean",
+      "description": "True when at least one incoming blocker is still open or in_progress. Closed blockers do not block."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "due_date": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "closed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "created_by_session": {
+      "type": "string",
+      "description": "Session identifier of the creator agent, sourced from metadata.created_by_session (bridge surface until upstream first-class column lands)."
+    },
+    "claimed_by_session": {
+      "type": "string",
+      "description": "Session identifier of the claiming agent, sourced from metadata.claimed_by_session."
+    },
+    "closed_by_session": {
+      "type": "string",
+      "description": "Session identifier of the closing agent, sourced from the first-class closed_by_session column."
+    }
+  }
+}
