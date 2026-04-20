@@ -852,6 +852,23 @@ var robotOrphansCmd = &cobra.Command{
 	},
 }
 
+// bt robot portfolio
+var robotPortfolioCmd = &cobra.Command{
+	Use:   "portfolio",
+	Short: "Output per-project health aggregates as JSON",
+	Long: "Returns one PortfolioRecord per project with counts, priority breakdown (P0/P1 open), velocity with trend, composite health score, top blocker, and stalest issue. " +
+		"Use --global to aggregate across every project on the shared Dolt server. " +
+		"Output is already compact-by-construction; --shape is accepted but no-op (envelope.schema is always portfolio.v1).",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		rc, err := robotPreRun()
+		if err != nil {
+			return err
+		}
+		rc.runPortfolio()
+		return nil
+	},
+}
+
 // bt robot forecast
 var robotForecastCmd = &cobra.Command{
 	Use:   "forecast [bead-id|all]",
@@ -1094,6 +1111,9 @@ func init() {
 	// orphans
 	robotOrphansCmd.Flags().Int("min-score", 30, "Minimum suspicion score (0-100)")
 	robotCmd.AddCommand(robotOrphansCmd)
+
+	// portfolio
+	robotCmd.AddCommand(robotPortfolioCmd)
 
 	// forecast
 	robotForecastCmd.Flags().String("forecast-label", "", "Filter forecast by label")

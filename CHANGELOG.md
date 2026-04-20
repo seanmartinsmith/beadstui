@@ -6,6 +6,41 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-20 - Portfolio subcommand (bt-mhwy.4)
+
+**New `bt robot portfolio` subcommand answers "which project needs attention?" at the org level.** One PortfolioRecord per project with counts, priority breakdown, velocity with trend, composite health score, top blocker, and stalest issue.
+
+### What shipped
+
+- **`pkg/view/portfolio_record.go`** — new projection (`portfolio.v1`). `ComputePortfolioRecord(project, projectIssues, allIssues, pagerank, now)` is a pure function; `allIssues` lets the Blocked count see cross-project blockers under `--global` after bt-mhwy.5 external dep resolution.
+
+- **Shared reverse-map helpers** — extracted `buildChildrenMap`, `buildUnblocksMap`, `buildOpenBlockersMap` from `CompactAll`'s single-pass loop. Both `CompactAll` and `ComputePortfolioRecord` consume them; behavior-identical refactor (CompactIssue golden fixtures unchanged).
+
+- **`cmd/bt/robot_portfolio.go`** — `rc.runPortfolio()` handler. Groups issues by `SourceRepo` under `--global`; single-project mode emits exactly one record keyed by `rc.repoName` (falls back to a uniform SourceRepo, then `"local"`). Empty SourceRepo in global mode buckets to `"unknown"` so agents never lose data.
+
+- **Cobra wiring** in `cmd/bt/cobra_robot.go` — `robotPortfolioCmd` registered alongside other robot subcommands. No new flags. `--shape` is inherited but no-op (envelope.schema is unconditionally `portfolio.v1` because the payload IS a versioned projection).
+
+### Design
+
+- **Health formula**: equal-weight mean of `closure_ratio`, `(1 − blocker_ratio)`, `(1 − stale_norm)` with clamping to `[0,1]` and 3-decimal rounding. Simple, explainable, no magic weights.
+- **Trend classifier**: recent 2-week window vs prior 4-week window normalized to 2-week-equivalent, with ±20% thresholds — smoother than raw week-over-week.
+- **Top blocker**: PageRank among project-scoped open/in_progress issues with `unblocks_count > 0` — excludes isolated leaves with high PageRank that aren't holding anyone hostage.
+
+Full rationale in `docs/design/2026-04-20-bt-mhwy-4-portfolio.md`.
+
+### Tests
+
+- `pkg/view/portfolio_record_test.go` — unit tests for empty project, counts, trend classifier with boundary cases (±20%), health-score formula, top-blocker isolated-leaf filter, stalest selection.
+- `pkg/view/projections_test.go` — 4 new golden fixtures exercised via `TestPortfolioRecordGolden`: empty, single healthy, single unhealthy, multi-project (cross-project blocker).
+- `cmd/bt/robot_portfolio_test.go` — contract: envelope shape, `schema == "portfolio.v1"` across all `--shape` variants, `--shape=compact` ≡ `--shape=full` byte-identical (no-op), single-project mode returns exactly one record, projects sorted by name.
+- `cmd/bt/robot_all_subcommands_test.go` — portfolio added to the flag-acceptance matrix (4 permutations).
+
+### Smoke
+
+`bt robot portfolio --global` ranks 15 real projects side-by-side with sensible health scores (0.464–0.985), per-project trends, and cross-project TopBlocker detection.
+
+---
+
 ## 2026-04-20 - Compact output for robot subcommands (bt-mhwy.1)
 
 **Default `bt robot list` output shape changes from full issues to compact projections.** 3 commits, 1 new package (`pkg/view/`), 1 bellwether integration, 1 compact projection for `robot diff`, 70+ new tests.

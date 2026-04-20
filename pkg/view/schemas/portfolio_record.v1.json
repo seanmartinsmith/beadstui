@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/seanmartinsmith/beadstui/pkg/view/schemas/portfolio_record.v1.json",
+  "title": "PortfolioRecord v1",
+  "description": "Per-project health aggregate for agent consumption. One record per project, carrying counts, priority breakdown, velocity with trend, composite health score, top blocker, and stalest issue.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "project",
+    "counts",
+    "priority",
+    "velocity",
+    "health_score"
+  ],
+  "properties": {
+    "project": {
+      "type": "string",
+      "description": "Project key. Normally the SourceRepo. 'unknown' for global-mode issues with empty SourceRepo; 'local' fallback for single-project mode with no repo name."
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["open", "blocked", "in_progress", "closed_30d"],
+      "properties": {
+        "open": { "type": "integer", "minimum": 0 },
+        "blocked": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of open/in_progress issues with at least one open/in_progress incoming blocker. Matches IsBlocked semantics from compact_issue.v1."
+        },
+        "in_progress": { "type": "integer", "minimum": 0 },
+        "closed_30d": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Closures in the last 30 days. Matches Velocity.Closures30d."
+        }
+      }
+    },
+    "priority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["p0", "p1"],
+      "properties": {
+        "p0": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of OPEN issues with priority 0."
+        },
+        "p1": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Count of OPEN issues with priority 1."
+        }
+      }
+    },
+    "velocity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["closures_7d", "closures_30d", "trend"],
+      "properties": {
+        "closures_7d": { "type": "integer", "minimum": 0 },
+        "closures_30d": { "type": "integer", "minimum": 0 },
+        "trend": {
+          "type": "string",
+          "enum": ["up", "down", "flat"],
+          "description": "Derived from weekly closures: 'up' if recent 2-week window >=20% above prior 4-week window normalized; 'down' if <=-20%; 'flat' otherwise (including no-prior-activity)."
+        },
+        "estimated": {
+          "type": "boolean",
+          "description": "True when closure dates were approximated from updated_at because closed_at was missing."
+        }
+      }
+    },
+    "health_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Composite health in [0,1], rounded to 3 decimals. Equal-weight mean of closure_ratio, (1-blocker_ratio), (1-stale_norm)."
+    },
+    "top_blocker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "priority"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "priority": { "type": "integer", "minimum": 0, "maximum": 4 },
+        "pagerank": { "type": "number" }
+      },
+      "description": "Project-scoped open/in_progress issue with highest PageRank among those blocking at least one other issue. Omitted when no candidates exist."
+    },
+    "stalest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "priority", "age_days"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "priority": { "type": "integer", "minimum": 0, "maximum": 4 },
+        "age_days": { "type": "integer", "minimum": 0 }
+      },
+      "description": "Open/in_progress issue with the oldest updated_at. Omitted when no open issues exist."
+    }
+  }
+}

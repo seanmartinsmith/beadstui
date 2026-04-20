@@ -7,21 +7,37 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
-// projectionFixture is the JSON-on-disk shape used by the golden harness.
-// Each fixture lists the source issues fed into a projection constructor;
-// the golden file records the expected projection output.
+// projectionFixture is the JSON-on-disk shape used by the CompactIssue golden
+// harness. Each fixture lists the source issues fed into CompactAll; the
+// golden file records the expected projection output.
 type projectionFixture struct {
 	Description string        `json:"description"`
 	Issues      []model.Issue `json:"issues"`
 }
 
-// TestCompactIssueGolden runs every fixture in testdata/fixtures through
-// CompactAll and asserts the JSON-serialized output matches the committed
-// golden file at testdata/golden/<name>.json.
+// portfolioFixture is the fixture shape for PortfolioRecord golden tests. It
+// carries richer inputs than projectionFixture because ComputePortfolioRecord
+// depends on project scope, cross-project allIssues, a PageRank map, and a
+// deterministic `now`.
+type portfolioFixture struct {
+	Description   string             `json:"description"`
+	Project       string             `json:"project"`
+	Now           time.Time          `json:"now"`
+	ProjectIssues []model.Issue      `json:"project_issues"`
+	AllIssues     []model.Issue      `json:"all_issues,omitempty"`
+	PageRank      map[string]float64 `json:"pagerank,omitempty"`
+}
+
+const portfolioFixturePrefix = "portfolio_"
+
+// TestCompactIssueGolden runs every non-portfolio fixture through CompactAll
+// and asserts the JSON-serialized output matches the committed golden file at
+// testdata/golden/<name>.json.
 //
 // To regenerate golden files when the projection intentionally changes:
 //
@@ -41,6 +57,9 @@ func TestCompactIssueGolden(t *testing.T) {
 
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		if strings.HasPrefix(entry.Name(), portfolioFixturePrefix) {
 			continue
 		}
 		name := strings.TrimSuffix(entry.Name(), ".json")
@@ -86,6 +105,92 @@ func TestCompactIssueGolden(t *testing.T) {
 					name, string(gotJSON), string(want))
 			}
 		})
+	}
+}
+
+// TestPortfolioRecordGolden runs every portfolio_*.json fixture through
+// ComputePortfolioRecord. Separate from the CompactIssue harness because the
+// portfolio fixture carries richer inputs than the compact one.
+//
+// Regenerate with:
+//
+//	GENERATE_GOLDEN=1 go test ./pkg/view/ -run TestPortfolioRecordGolden
+func TestPortfolioRecordGolden(t *testing.T) {
+	const fixturesDir = "testdata/fixtures"
+	const goldenDir = "testdata/golden"
+
+	entries, err := os.ReadDir(fixturesDir)
+	if err != nil {
+		t.Fatalf("read fixtures dir: %v", err)
+	}
+
+	regenerate := os.Getenv("GENERATE_GOLDEN") == "1"
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		if !strings.HasPrefix(entry.Name(), portfolioFixturePrefix) {
+			continue
+		}
+		name := strings.TrimSuffix(entry.Name(), ".json")
+
+		t.Run(name, func(t *testing.T) {
+			fixturePath := filepath.Join(fixturesDir, entry.Name())
+			goldenPath := filepath.Join(goldenDir, entry.Name())
+
+			raw, err := os.ReadFile(fixturePath)
+			if err != nil {
+				t.Fatalf("read fixture: %v", err)
+			}
+			var fx portfolioFixture
+			if err := json.Unmarshal(raw, &fx); err != nil {
+				t.Fatalf("parse fixture: %v", err)
+			}
+			if fx.AllIssues == nil {
+				fx.AllIssues = fx.ProjectIssues
+			}
+
+			got := ComputePortfolioRecord(fx.Project, fx.ProjectIssues, fx.AllIssues, fx.PageRank, fx.Now)
+			gotJSON, err := json.MarshalIndent(got, "", "  ")
+			if err != nil {
+				t.Fatalf("marshal projection: %v", err)
+			}
+			gotJSON = append(gotJSON, '\n')
+
+			if regenerate {
+				if err := os.MkdirAll(goldenDir, 0o755); err != nil {
+					t.Fatalf("mkdir golden dir: %v", err)
+				}
+				if err := os.WriteFile(goldenPath, gotJSON, 0o644); err != nil {
+					t.Fatalf("write golden: %v", err)
+				}
+				t.Logf("Regenerated %s", goldenPath)
+				return
+			}
+
+			want, err := os.ReadFile(goldenPath)
+			if err != nil {
+				t.Fatalf("read golden (regenerate with GENERATE_GOLDEN=1): %v", err)
+			}
+			if !bytes.Equal(gotJSON, want) {
+				t.Errorf("portfolio projection drift for %s\n--- got ---\n%s\n--- want ---\n%s",
+					name, string(gotJSON), string(want))
+			}
+		})
+	}
+}
+
+// TestPortfolioRecordSchemaFileExists — a committed JSON schema is part of
+// the projection contract.
+func TestPortfolioRecordSchemaFileExists(t *testing.T) {
+	path := filepath.Join("schemas", "portfolio_record.v1.json")
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("schema file missing: %v", err)
+	}
+	if info.Size() == 0 {
+		t.Errorf("schema file is empty: %s", path)
 	}
 }
 

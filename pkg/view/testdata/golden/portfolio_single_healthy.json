@@ -1,0 +1,31 @@
+{
+  "project": "bt",
+  "counts": {
+    "open": 3,
+    "blocked": 2,
+    "in_progress": 1,
+    "closed_30d": 4
+  },
+  "priority": {
+    "p0": 1,
+    "p1": 1
+  },
+  "velocity": {
+    "closures_7d": 3,
+    "closures_30d": 4,
+    "trend": "up"
+  },
+  "health_score": 0.568,
+  "top_blocker": {
+    "id": "bt-open1",
+    "title": "P0 blocker keeping work hostage",
+    "priority": 0,
+    "pagerank": 0.35
+  },
+  "stalest": {
+    "id": "bt-open3",
+    "title": "Stale open issue",
+    "priority": 2,
+    "age_days": 36
+  }
+}

@@ -91,6 +91,7 @@ func TestRobotSubcommandsAcceptShapeFlag(t *testing.T) {
 		{"related", []string{"robot", "related", "child-1"}},
 		{"impact", []string{"robot", "impact", "README.md"}},
 		{"orphans", []string{"robot", "orphans"}},
+		{"portfolio", []string{"robot", "portfolio"}},
 	}
 
 	for _, tc := range cases {

@@ -1,0 +1,19 @@
+{
+  "project": "empty",
+  "counts": {
+    "open": 0,
+    "blocked": 0,
+    "in_progress": 0,
+    "closed_30d": 0
+  },
+  "priority": {
+    "p0": 0,
+    "p1": 0
+  },
+  "velocity": {
+    "closures_7d": 0,
+    "closures_30d": 0,
+    "trend": "flat"
+  },
+  "health_score": 1
+}

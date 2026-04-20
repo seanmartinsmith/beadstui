@@ -1,0 +1,31 @@
+{
+  "project": "bt",
+  "counts": {
+    "open": 4,
+    "blocked": 3,
+    "in_progress": 0,
+    "closed_30d": 0
+  },
+  "priority": {
+    "p0": 1,
+    "p1": 2
+  },
+  "velocity": {
+    "closures_7d": 0,
+    "closures_30d": 0,
+    "trend": "flat"
+  },
+  "health_score": 0.272,
+  "top_blocker": {
+    "id": "bt-block",
+    "title": "Ancient blocker",
+    "priority": 0,
+    "pagerank": 0.5
+  },
+  "stalest": {
+    "id": "bt-block",
+    "title": "Ancient blocker",
+    "priority": 0,
+    "age_days": 78
+  }
+}

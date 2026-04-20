@@ -41,6 +41,8 @@ Scope:
 - [x] Suppress log output in robot mode to prevent JSON corruption (2026-04-10)
 - [x] Fix --robot-bql envelope (session 18, 2026-04-03)
 - [x] Compact output shape default across 17 robot subcommands; `pkg/view/` projection package with versioned schema (bt-mhwy.1, 2026-04-20)
+- [x] External dep resolution for cross-project graph analysis (bt-mhwy.5, 2026-04-20)
+- [x] Portfolio subcommand — per-project health aggregates (bt-mhwy.4, 2026-04-20)
 - [ ] Fix envelope bypass in robot-search, robot-diff
 - [ ] Add positional arg warning/support
 - [ ] Document all 18 missing env vars in --robot-docs env

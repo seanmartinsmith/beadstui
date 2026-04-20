@@ -1,0 +1,8 @@
+{
+  "description": "Empty project: no issues. Verifies nil TopBlocker/Stalest and the zero-state health score semantics (closure_ratio=1.0 by convention, blocker_ratio=0, stale_norm=0 → score=1.0).",
+  "project": "empty",
+  "now": "2026-04-20T00:00:00Z",
+  "project_issues": [],
+  "all_issues": [],
+  "pagerank": {}
+}

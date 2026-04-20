@@ -61,48 +61,81 @@ func CompactAll(issues []model.Issue) []CompactIssue {
 		return nil
 	}
 
-	// Reverse maps keyed by issue ID (target of an edge).
-	childrenCount := make(map[string]int, len(issues))
-	unblocksCount := make(map[string]int, len(issues))
-	openBlockers := make(map[string]int, len(issues))
-	statusByID := make(map[string]model.Status, len(issues))
+	childrenCount := buildChildrenMap(issues)
+	unblocksCount := buildUnblocksMap(issues)
+	openBlockers := buildOpenBlockersMap(issues)
 
+	out := make([]CompactIssue, 0, len(issues))
+	for i := range issues {
+		out = append(out, compactOne(&issues[i], childrenCount, unblocksCount, openBlockers))
+	}
+	return out
+}
+
+// buildChildrenMap returns parentID -> count of issues declaring that parent
+// via a parent-child dependency stored on the child.
+func buildChildrenMap(issues []model.Issue) map[string]int {
+	out := make(map[string]int, len(issues))
+	for i := range issues {
+		for _, dep := range issues[i].Dependencies {
+			if dep == nil {
+				continue
+			}
+			if dep.Type == model.DepParentChild {
+				out[dep.DependsOnID]++
+			}
+		}
+	}
+	return out
+}
+
+// buildUnblocksMap returns targetID -> count of issues blocked by targetID
+// (incoming blocking edges on targetID). Shared by CompactAll's UnblocksCount
+// field and by portfolio's TopBlocker candidate filter.
+func buildUnblocksMap(issues []model.Issue) map[string]int {
+	out := make(map[string]int, len(issues))
+	for i := range issues {
+		for _, dep := range issues[i].Dependencies {
+			if dep == nil {
+				continue
+			}
+			if dep.Type.IsBlocking() {
+				out[dep.DependsOnID]++
+			}
+		}
+	}
+	return out
+}
+
+// buildOpenBlockersMap returns srcID -> count of its incoming blockers whose
+// target is open or in_progress. Unknown targets (external/cross-project
+// refs) are treated as blocking so agents see the hazard — matches the
+// is_blocked semantics documented on CompactIssue.
+//
+// Shared by CompactAll's IsBlocked field and by portfolio's Blocked count.
+func buildOpenBlockersMap(issues []model.Issue) map[string]int {
+	statusByID := make(map[string]model.Status, len(issues))
 	for i := range issues {
 		statusByID[issues[i].ID] = issues[i].Status
 	}
-
+	out := make(map[string]int, len(issues))
 	for i := range issues {
 		src := &issues[i]
 		for _, dep := range src.Dependencies {
 			if dep == nil {
 				continue
 			}
-			switch {
-			case dep.Type == model.DepParentChild:
-				// Child -> parent edge stored on the child; increment the
-				// parent's children counter.
-				childrenCount[dep.DependsOnID]++
-			case dep.Type.IsBlocking():
-				// src depends on dep.DependsOnID => dep.DependsOnID
-				// unblocks src when closed.
-				unblocksCount[dep.DependsOnID]++
-				if targetStatus, ok := statusByID[dep.DependsOnID]; ok {
-					if targetStatus == model.StatusOpen || targetStatus == model.StatusInProgress {
-						openBlockers[src.ID]++
-					}
-				} else {
-					// Unknown target (e.g., external/cross-project ref):
-					// err on the side of blocked=true so agents see the
-					// hazard.
-					openBlockers[src.ID]++
+			if !dep.Type.IsBlocking() {
+				continue
+			}
+			if targetStatus, ok := statusByID[dep.DependsOnID]; ok {
+				if targetStatus == model.StatusOpen || targetStatus == model.StatusInProgress {
+					out[src.ID]++
 				}
+			} else {
+				out[src.ID]++
 			}
 		}
-	}
-
-	out := make([]CompactIssue, 0, len(issues))
-	for i := range issues {
-		out = append(out, compactOne(&issues[i], childrenCount, unblocksCount, openBlockers))
 	}
 	return out
 }
