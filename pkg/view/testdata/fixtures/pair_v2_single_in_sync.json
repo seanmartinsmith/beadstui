@@ -1,0 +1,34 @@
+{
+  "description": "One paired set (bt-zsy8 + bd-zsy8) linked by an explicit cross-prefix related dep. Status/priority/closed-open match, so drift is omitted. intent_source is 'dep' — the only v2 channel.",
+  "issues": [
+    {
+      "id": "bt-zsy8",
+      "title": "Cross-project shared work",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-15T10:00:00Z",
+      "updated_at": "2026-04-15T10:00:00Z",
+      "dependencies": [
+        {
+          "issue_id": "bt-zsy8",
+          "depends_on_id": "bd-zsy8",
+          "type": "related",
+          "created_at": "2026-04-15T10:00:00Z",
+          "created_by": "sms"
+        }
+      ]
+    },
+    {
+      "id": "bd-zsy8",
+      "title": "Cross-project shared work",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "source_repo": "bd",
+      "created_at": "2026-04-16T10:00:00Z",
+      "updated_at": "2026-04-16T10:00:00Z"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+[
+  {
+    "suffix": "zsy8",
+    "canonical": {
+      "id": "bt-zsy8",
+      "title": "Cross-project shared work",
+      "status": "open",
+      "priority": 1,
+      "source_repo": "bt"
+    },
+    "mirrors": [
+      {
+        "id": "bd-zsy8",
+        "title": "Cross-project shared work",
+        "status": "open",
+        "priority": 1,
+        "source_repo": "bd"
+      }
+    ],
+    "intent_source": "dep"
+  }
+]

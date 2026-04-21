@@ -1,0 +1,27 @@
+[
+  {
+    "suffix": "zsy8",
+    "canonical": {
+      "id": "bt-zsy8",
+      "title": "original title",
+      "status": "open",
+      "priority": 0,
+      "source_repo": "bt"
+    },
+    "mirrors": [
+      {
+        "id": "bd-zsy8",
+        "title": "drifted title",
+        "status": "closed",
+        "priority": 2,
+        "source_repo": "bd"
+      }
+    ],
+    "drift": [
+      "status",
+      "priority",
+      "closed_open"
+    ],
+    "intent_source": "dep"
+  }
+]

@@ -1,0 +1,92 @@
+{
+  "description": "4-way connected component modeled on the real Gastown pair (bt-byk + cass-byk + tpane-byk + cnvs-byk). Edges form a chain bt→cass→tpane→cnvs with no direct bt-tpane or bt-cnvs dep — BFS still collapses all four into one record because transitive reachability is the identity rule. Canonical is bt-byk (earliest CreatedAt); mirrors sort by CreatedAt (cass < tpane < cnvs) per the v1-inherited ordering. Also verifies a separate cross-prefix suffix collision (bt-other + bd-other with no dep) does NOT surface as a record. Drift surfaces status (tpane in_progress) + priority (cnvs=1 vs canonical=0); title drift intentionally absent in v2.",
+  "issues": [
+    {
+      "id": "bt-byk",
+      "title": "Gastown coordination",
+      "status": "open",
+      "priority": 0,
+      "issue_type": "feature",
+      "source_repo": "bt",
+      "created_at": "2026-04-10T10:00:00Z",
+      "updated_at": "2026-04-10T10:00:00Z",
+      "dependencies": [
+        {
+          "issue_id": "bt-byk",
+          "depends_on_id": "cass-byk",
+          "type": "related",
+          "created_at": "2026-04-10T10:00:00Z",
+          "created_by": "sms"
+        }
+      ]
+    },
+    {
+      "id": "cass-byk",
+      "title": "Gastown coordination",
+      "status": "open",
+      "priority": 0,
+      "issue_type": "feature",
+      "source_repo": "cass",
+      "created_at": "2026-04-11T10:00:00Z",
+      "updated_at": "2026-04-11T10:00:00Z",
+      "dependencies": [
+        {
+          "issue_id": "cass-byk",
+          "depends_on_id": "tpane-byk",
+          "type": "related",
+          "created_at": "2026-04-11T10:00:00Z",
+          "created_by": "sms"
+        }
+      ]
+    },
+    {
+      "id": "tpane-byk",
+      "title": "Gastown coordination",
+      "status": "in_progress",
+      "priority": 0,
+      "issue_type": "feature",
+      "source_repo": "tpane",
+      "created_at": "2026-04-12T10:00:00Z",
+      "updated_at": "2026-04-12T10:00:00Z",
+      "dependencies": [
+        {
+          "issue_id": "tpane-byk",
+          "depends_on_id": "cnvs-byk",
+          "type": "related",
+          "created_at": "2026-04-12T10:00:00Z",
+          "created_by": "sms"
+        }
+      ]
+    },
+    {
+      "id": "cnvs-byk",
+      "title": "Gastown coordination",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "feature",
+      "source_repo": "cnvs",
+      "created_at": "2026-04-13T10:00:00Z",
+      "updated_at": "2026-04-13T10:00:00Z"
+    },
+    {
+      "id": "bt-other",
+      "title": "unrelated suffix collision",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-14T10:00:00Z",
+      "updated_at": "2026-04-14T10:00:00Z"
+    },
+    {
+      "id": "bd-other",
+      "title": "unrelated suffix collision",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bd",
+      "created_at": "2026-04-15T10:00:00Z",
+      "updated_at": "2026-04-15T10:00:00Z"
+    }
+  ]
+}

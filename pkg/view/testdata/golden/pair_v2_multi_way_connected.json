@@ -1,0 +1,40 @@
+[
+  {
+    "suffix": "byk",
+    "canonical": {
+      "id": "bt-byk",
+      "title": "Gastown coordination",
+      "status": "open",
+      "priority": 0,
+      "source_repo": "bt"
+    },
+    "mirrors": [
+      {
+        "id": "cass-byk",
+        "title": "Gastown coordination",
+        "status": "open",
+        "priority": 0,
+        "source_repo": "cass"
+      },
+      {
+        "id": "tpane-byk",
+        "title": "Gastown coordination",
+        "status": "in_progress",
+        "priority": 0,
+        "source_repo": "tpane"
+      },
+      {
+        "id": "cnvs-byk",
+        "title": "Gastown coordination",
+        "status": "open",
+        "priority": 1,
+        "source_repo": "cnvs"
+      }
+    ],
+    "drift": [
+      "status",
+      "priority"
+    ],
+    "intent_source": "dep"
+  }
+]

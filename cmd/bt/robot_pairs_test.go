@@ -441,3 +441,147 @@ func TestOrphanedPairs_EmptyOnNoPairs(t *testing.T) {
 		t.Errorf("single-prefix set should emit zero orphans; got %v", got)
 	}
 }
+
+// pairsFixtureIssuesWithDep returns pairsFixtureIssues with a cross-prefix
+// related dep stamped from bt-abc → bd-abc, and from bt-zsy8 → bd-zsy8.
+// Drives the v2 dispatch tests: both pairs become intent-linked, so v2
+// emits exactly two records.
+func pairsFixtureIssuesWithDep() []model.Issue {
+	issues := pairsFixtureIssues()
+	for i := range issues {
+		switch issues[i].ID {
+		case "bt-abc":
+			issues[i].Dependencies = []*model.Dependency{{
+				IssueID: "bt-abc", DependsOnID: "bd-abc",
+				Type: model.DepRelated, CreatedAt: time.Time{},
+			}}
+		case "bt-zsy8":
+			issues[i].Dependencies = []*model.Dependency{{
+				IssueID: "bt-zsy8", DependsOnID: "bd-zsy8",
+				Type: model.DepRelated, CreatedAt: time.Time{},
+			}}
+		}
+	}
+	return issues
+}
+
+// TestRobotPairs_SchemaV2Default — pairsOutputV2 produces the v2 wire
+// shape: envelope.schema = pair.v2, every record carries intent_source
+// = "dep", and title drift is absent from the drift enum. Named
+// "SchemaV2Default" per the plan even though the CLI default stays v1
+// until Phase 3 ships ref.v2 (coordination note in runPairs).
+func TestRobotPairs_SchemaV2Default(t *testing.T) {
+	raw, err := json.Marshal(pairsOutputV2(pairsFixtureIssuesWithDep(), "test-hash"))
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var envelope struct {
+		Schema string              `json:"schema"`
+		Pairs  []view.PairRecordV2 `json:"pairs"`
+	}
+	if err := json.Unmarshal(raw, &envelope); err != nil {
+		t.Fatalf("parse: %v\nraw=%s", err, raw)
+	}
+
+	if envelope.Schema != "pair.v2" {
+		t.Errorf("schema = %q, want pair.v2", envelope.Schema)
+	}
+	if len(envelope.Pairs) != 2 {
+		t.Fatalf("len(pairs) = %d, want 2 (abc + zsy8 both dep-linked)", len(envelope.Pairs))
+	}
+
+	for i, rec := range envelope.Pairs {
+		if rec.IntentSource != "dep" {
+			t.Errorf("pairs[%d].intent_source = %q, want dep", i, rec.IntentSource)
+		}
+		for _, flag := range rec.Drift {
+			if flag == "title" {
+				t.Errorf("pairs[%d] drift includes title; v2 must drop it. drift=%v", i, rec.Drift)
+			}
+		}
+	}
+
+	// The zsy8 pair drifts across status, priority, and closed_open in
+	// the fixture. Assert the v2 drift list matches (title is skipped).
+	var zsy8 *view.PairRecordV2
+	for i := range envelope.Pairs {
+		if envelope.Pairs[i].Suffix == "zsy8" {
+			zsy8 = &envelope.Pairs[i]
+			break
+		}
+	}
+	if zsy8 == nil {
+		t.Fatalf("zsy8 record missing")
+	}
+	want := []string{"status", "priority", "closed_open"}
+	if !sameStringSlice(zsy8.Drift, want) {
+		t.Errorf("zsy8 drift = %v, want %v", zsy8.Drift, want)
+	}
+}
+
+// TestRobotPairs_SchemaV1Fallback — pairsOutput (v1) keeps its v1 shape
+// unchanged after v2 ships. envelope.schema = pair.v1; drift enum
+// retains `title`; no intent_source field. Guard against accidentally
+// sharing helpers between v1 and v2.
+func TestRobotPairs_SchemaV1Fallback(t *testing.T) {
+	raw, err := json.Marshal(pairsOutput(pairsFixtureIssues(), "test-hash"))
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	var payload map[string]any
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if payload["schema"] != "pair.v1" {
+		t.Errorf("schema = %q, want pair.v1", payload["schema"])
+	}
+
+	pairs, ok := payload["pairs"].([]any)
+	if !ok {
+		t.Fatalf("pairs not array: %T", payload["pairs"])
+	}
+	// v1 keeps suffix-alone identity — both fixture pairs surface.
+	if len(pairs) != 2 {
+		t.Errorf("len(pairs) = %d, want 2 (v1 suffix-match rule)", len(pairs))
+	}
+
+	// zsy8 in the v1 payload carries title drift (mirror title differs).
+	for _, raw := range pairs {
+		rec, _ := raw.(map[string]any)
+		if rec["suffix"] != "zsy8" {
+			continue
+		}
+		if _, hasIntent := rec["intent_source"]; hasIntent {
+			t.Errorf("v1 record must not carry intent_source; got %v", rec["intent_source"])
+		}
+		drift, _ := rec["drift"].([]any)
+		var sawTitle bool
+		for _, f := range drift {
+			if f == "title" {
+				sawTitle = true
+			}
+		}
+		if !sawTitle {
+			t.Errorf("v1 zsy8 drift should include title; got %v", drift)
+		}
+	}
+}
+
+// TestPairsOutputV2_EmptyReturnsArray — v2 also emits `"pairs": []`
+// rather than `null` for empty inputs, mirroring the v1 envelope contract.
+func TestPairsOutputV2_EmptyReturnsArray(t *testing.T) {
+	raw, err := json.Marshal(pairsOutputV2(nil, "test-hash"))
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if !bytes.Contains(raw, []byte(`"pairs":[]`)) {
+		t.Errorf("expected empty array for pairs; got %s", raw)
+	}
+	// Suffix match without dep edge also emits [] under v2.
+	raw, _ = json.Marshal(pairsOutputV2(pairsFixtureIssues(), "test-hash"))
+	if !bytes.Contains(raw, []byte(`"pairs":[]`)) {
+		t.Errorf("suffix-only set must emit [] under v2; got %s", raw)
+	}
+}

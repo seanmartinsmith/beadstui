@@ -54,6 +54,27 @@ func pairsOutput(issues []model.Issue, dataHash string) any {
 	}
 }
 
+// pairsOutputV2 is the wire payload for `bt robot pairs --schema=v2`. Same
+// shape rules as pairsOutput: empty result surfaces as `"pairs": []`, never
+// `null`; the envelope's `schema` field carries pair.v2 so consumers can
+// pin. Title drift is dropped; intent_source: "dep" accompanies every
+// record.
+func pairsOutputV2(issues []model.Issue, dataHash string) any {
+	pairs := view.ComputePairRecordsV2(issues)
+	if pairs == nil {
+		pairs = []view.PairRecordV2{}
+	}
+	envelope := NewRobotEnvelope(dataHash)
+	envelope.Schema = view.PairRecordSchemaV2
+	return struct {
+		RobotEnvelope
+		Pairs []view.PairRecordV2 `json:"pairs"`
+	}{
+		RobotEnvelope: envelope,
+		Pairs:         pairs,
+	}
+}
+
 // OrphanedPair is one row of the --orphaned JSONL checklist: a
 // v1-detected pair whose members lack the cross-prefix dep edge that
 // v2 requires as the intent signal. Agents consume this to drive
@@ -171,10 +192,14 @@ func suggestDepAdd(members []string) string {
 // set is single-project and pair detection is definitionally empty;
 // we error cleanly rather than silently emit `[]`.
 //
-// --schema dispatch: v1 (default in Phase 1) routes to pairsOutput.
-// v2 errors with a "Phase 2 scope" notice until ComputePairRecordsV2
-// ships. --orphaned is v1-only; under v2 it errors with a clear
-// message.
+// --schema dispatch: v1 (default in Phase 1/2) routes to pairsOutput. v2
+// routes to pairsOutputV2 (intent-based, ships in Phase 2 of bt-gkyn).
+// --orphaned is v1-only; under v2 pairsValidate rejects the combination
+// before we land here.
+//
+// Default-flip coordination: robotSchemaDefault stays v1 until Phase 3
+// (bt-vxu9 ref.v2) ships — flipping earlier breaks `bt robot refs --global`
+// default invocations while the v2 ref reader is still a stub.
 func (rc *robotCtx) runPairs(schema string) {
 	if !flagGlobal {
 		fmt.Fprintln(os.Stderr, "Error: bt robot pairs requires --global (pair detection needs cross-project data)")
@@ -189,13 +214,22 @@ func (rc *robotCtx) runPairs(schema string) {
 		}
 		rc.emitPairsV1()
 	case robotSchemaV2:
-		fmt.Fprintln(os.Stderr, "Error: --schema=v2 not yet implemented (Phase 2 of bt-gkyn ships pair.v2 reader). Use --schema=v1.")
-		os.Exit(1)
+		rc.emitPairsV2()
 	}
 }
 
 func (rc *robotCtx) emitPairsV1() {
 	output := pairsOutput(rc.analysisIssues(), rc.dataHash)
+	enc := rc.newEncoder()
+	if err := enc.Encode(output); err != nil {
+		fmt.Fprintf(os.Stderr, "Error encoding pairs: %v\n", err)
+		os.Exit(1)
+	}
+	os.Exit(0)
+}
+
+func (rc *robotCtx) emitPairsV2() {
+	output := pairsOutputV2(rc.analysisIssues(), rc.dataHash)
 	enc := rc.newEncoder()
 	if err := enc.Encode(output); err != nil {
 		fmt.Fprintf(os.Stderr, "Error encoding pairs: %v\n", err)

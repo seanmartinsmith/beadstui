@@ -1,0 +1,35 @@
+{
+  "description": "One paired set linked by a cross-prefix dep where the mirror (bd-zsy8) has drifted on status (open→closed), priority (0→2), and closed_open (open→closed). Titles also differ, but v2 intentionally drops 'title' from the drift enum (no-signal on real corpus per bt-gkyn) — the expected drift list is exactly [status, priority, closed_open].",
+  "issues": [
+    {
+      "id": "bt-zsy8",
+      "title": "original title",
+      "status": "open",
+      "priority": 0,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-15T10:00:00Z",
+      "updated_at": "2026-04-15T10:00:00Z",
+      "dependencies": [
+        {
+          "issue_id": "bt-zsy8",
+          "depends_on_id": "bd-zsy8",
+          "type": "related",
+          "created_at": "2026-04-15T10:00:00Z",
+          "created_by": "sms"
+        }
+      ]
+    },
+    {
+      "id": "bd-zsy8",
+      "title": "drifted title",
+      "status": "closed",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bd",
+      "created_at": "2026-04-16T10:00:00Z",
+      "updated_at": "2026-04-20T10:00:00Z",
+      "closed_at": "2026-04-20T10:00:00Z"
+    }
+  ]
+}
