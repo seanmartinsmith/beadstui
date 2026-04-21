@@ -29,6 +29,10 @@ type RobotEnvelope struct {
 	// "compact.v1". Empty (and omitted from the wire) when the payload is
 	// the default full shape, so historical full outputs stay byte-identical.
 	Schema string `json:"schema,omitempty"`
+	// SigilMode identifies the sigil detector mode for ref.v2 payloads
+	// (strict|verb|permissive). Omitted on the wire for all other schemas
+	// so existing envelope goldens stay byte-identical.
+	SigilMode string `json:"sigil_mode,omitempty"`
 }
 
 // NewRobotEnvelope creates a standard envelope for robot output.

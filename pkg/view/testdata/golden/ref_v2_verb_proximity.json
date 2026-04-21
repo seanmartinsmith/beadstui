@@ -1,0 +1,31 @@
+[
+  {
+    "source": "bt-src",
+    "target": "bd-closed",
+    "location": "description",
+    "flags": [
+      "stale",
+      "cross_project"
+    ],
+    "sigil_kind": "verb"
+  },
+  {
+    "source": "bt-src",
+    "target": "bd-missing",
+    "location": "notes",
+    "flags": [
+      "broken",
+      "cross_project"
+    ],
+    "sigil_kind": "verb"
+  },
+  {
+    "source": "bt-src",
+    "target": "bd-target",
+    "location": "description",
+    "flags": [
+      "cross_project"
+    ],
+    "sigil_kind": "verb"
+  }
+]

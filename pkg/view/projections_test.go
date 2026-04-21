@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
@@ -50,6 +51,12 @@ const pairV2FixturePrefix = "pair_v2_"
 // the projectionFixture shape because ComputeRefRecords also takes a single
 // []model.Issue input.
 const refFixturePrefix = "ref_"
+
+// refV2FixturePrefix identifies the v2 subset of ref fixtures. v2 fixtures
+// share the projectionFixture shape but route through ComputeRefRecordsV2
+// with a sigil mode inferred from the filename (ref_v2_<mode>_...). Kept
+// separate from the v1 harness so each stays mode-specific.
+const refV2FixturePrefix = "ref_v2_"
 
 // TestCompactIssueGolden runs every non-portfolio fixture through CompactAll
 // and asserts the JSON-serialized output matches the committed golden file at
@@ -428,6 +435,10 @@ func TestRefRecordGolden(t *testing.T) {
 		if !strings.HasPrefix(entry.Name(), refFixturePrefix) {
 			continue
 		}
+		// v2 fixtures share the ref_ prefix but go through the v2 harness.
+		if strings.HasPrefix(entry.Name(), refV2FixturePrefix) {
+			continue
+		}
 		name := strings.TrimSuffix(entry.Name(), ".json")
 
 		t.Run(name, func(t *testing.T) {
@@ -483,5 +494,109 @@ func TestRefRecordSchemaFileExists(t *testing.T) {
 	}
 	if info.Size() == 0 {
 		t.Errorf("schema file is empty: %s", path)
+	}
+}
+
+// TestRefRecordV2SchemaFileExists — v2 has its own wire contract; the
+// committed schema file is part of the projection contract. Phase 1 of
+// bt-vxu9 already landed this file.
+func TestRefRecordV2SchemaFileExists(t *testing.T) {
+	path := filepath.Join("schemas", "ref_record.v2.json")
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("schema file missing: %v", err)
+	}
+	if info.Size() == 0 {
+		t.Errorf("schema file is empty: %s", path)
+	}
+}
+
+// sigilModeFromFixtureName extracts the sigil mode from a ref_v2_<mode>_...
+// fixture name. Panics with a clear message when the fixture name does not
+// match the expected shape — regenerating a new fixture with an unsupported
+// mode should fail loudly.
+func sigilModeFromFixtureName(t *testing.T, name string) analysis.SigilMode {
+	t.Helper()
+	rest := strings.TrimPrefix(name, refV2FixturePrefix)
+	switch {
+	case strings.HasPrefix(rest, "strict_"):
+		return analysis.SigilModeStrict
+	case strings.HasPrefix(rest, "verb_"):
+		return analysis.SigilModeVerb
+	case strings.HasPrefix(rest, "permissive_"):
+		return analysis.SigilModePermissive
+	}
+	t.Fatalf("fixture %q does not encode a sigil mode (expected ref_v2_{strict|verb|permissive}_...)", name)
+	return analysis.SigilModeStrict
+}
+
+// TestRefRecordV2Golden runs every ref_v2_{mode}_*.json fixture through
+// ComputeRefRecordsV2 with the mode inferred from the filename. Goldens
+// encode the expected per-mode output.
+//
+// Regenerate with:
+//
+//	GENERATE_GOLDEN=1 go test ./pkg/view/ -run TestRefRecordV2Golden
+func TestRefRecordV2Golden(t *testing.T) {
+	const fixturesDir = "testdata/fixtures"
+	const goldenDir = "testdata/golden"
+
+	entries, err := os.ReadDir(fixturesDir)
+	if err != nil {
+		t.Fatalf("read fixtures dir: %v", err)
+	}
+
+	regenerate := os.Getenv("GENERATE_GOLDEN") == "1"
+
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".json") {
+			continue
+		}
+		if !strings.HasPrefix(entry.Name(), refV2FixturePrefix) {
+			continue
+		}
+		name := strings.TrimSuffix(entry.Name(), ".json")
+
+		t.Run(name, func(t *testing.T) {
+			mode := sigilModeFromFixtureName(t, name)
+			fixturePath := filepath.Join(fixturesDir, entry.Name())
+			goldenPath := filepath.Join(goldenDir, entry.Name())
+
+			raw, err := os.ReadFile(fixturePath)
+			if err != nil {
+				t.Fatalf("read fixture: %v", err)
+			}
+			var fx projectionFixture
+			if err := json.Unmarshal(raw, &fx); err != nil {
+				t.Fatalf("parse fixture: %v", err)
+			}
+
+			got := ComputeRefRecordsV2(fx.Issues, mode)
+			gotJSON, err := json.MarshalIndent(got, "", "  ")
+			if err != nil {
+				t.Fatalf("marshal projection: %v", err)
+			}
+			gotJSON = append(gotJSON, '\n')
+
+			if regenerate {
+				if err := os.MkdirAll(goldenDir, 0o755); err != nil {
+					t.Fatalf("mkdir golden dir: %v", err)
+				}
+				if err := os.WriteFile(goldenPath, gotJSON, 0o644); err != nil {
+					t.Fatalf("write golden: %v", err)
+				}
+				t.Logf("Regenerated %s", goldenPath)
+				return
+			}
+
+			want, err := os.ReadFile(goldenPath)
+			if err != nil {
+				t.Fatalf("read golden (regenerate with GENERATE_GOLDEN=1): %v", err)
+			}
+			if !bytes.Equal(gotJSON, want) {
+				t.Errorf("ref v2 projection drift for %s\n--- got ---\n%s\n--- want ---\n%s",
+					name, string(gotJSON), string(want))
+			}
+		})
 	}
 }

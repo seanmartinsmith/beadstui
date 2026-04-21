@@ -1,0 +1,46 @@
+{
+  "description": "Verb mode, formatting strip. `**see** bd-target` counts as 3-char verb, so bd-target falls inside the 32-char proximity window even with bold wrappers. Plain `bd-isolated` nearby has no verb and is dropped. Inline-code `bd-code` emits inline_code (strict sigil kept in verb mode).",
+  "issues": [
+    {
+      "id": "bt-src",
+      "title": "formatting strip scenarios",
+      "description": "**see** bd-target remains in reach.\nbd-isolated has no verb on its line.\nLater: `bd-code` wraps inline.",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-15T10:00:00Z",
+      "updated_at": "2026-04-15T10:00:00Z"
+    },
+    {
+      "id": "bd-target",
+      "title": "bold-wrapped verb target",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bd",
+      "created_at": "2026-04-14T10:00:00Z",
+      "updated_at": "2026-04-14T10:00:00Z"
+    },
+    {
+      "id": "bd-isolated",
+      "title": "no-verb target",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bd",
+      "created_at": "2026-04-14T10:00:00Z",
+      "updated_at": "2026-04-14T10:00:00Z"
+    },
+    {
+      "id": "bd-code",
+      "title": "inline code target",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bd",
+      "created_at": "2026-04-14T10:00:00Z",
+      "updated_at": "2026-04-14T10:00:00Z"
+    }
+  ]
+}

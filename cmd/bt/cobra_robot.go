@@ -918,7 +918,7 @@ var robotRefsCmd = &cobra.Command{
 		"cross_project (always present; v1 surfaces cross-project refs only). " +
 		"Requires --global. --schema=v1 is the Phase 1 default; --sigils is v2-only.",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		schema, _, err := refsValidate(robotFlagSchema, robotFlagSigils)
+		schema, sigils, err := refsValidate(robotFlagSchema, robotFlagSigils)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
@@ -927,7 +927,7 @@ var robotRefsCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		rc.runRefs(schema)
+		rc.runRefs(schema, sigils)
 		return nil
 	},
 }

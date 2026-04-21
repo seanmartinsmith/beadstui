@@ -14,18 +14,18 @@ graph data and surface it through versioned projections:
   multi-project corpora because suffixes collide across unrelated work. Kept
   for one release as `--schema=v1`.
 - `pair.v2` — intent-based. Requires a cross-prefix dep edge (`bd dep add`)
-  between members of the paired group. Emitted once `ComputePairRecordsV2`
-  ships in Phase 2 of bt-gkyn.
+  between members of the paired group. Shipped in Phase 2 of bt-gkyn.
 - `ref.v1` — prefix-scoping heuristic over prose. ~30% false-positive rate on
   broken-flag. Kept as `--schema=v1`.
 - `ref.v2` — intent-based via syntactic sigils. Tunable mode:
-  `--sigils=strict|verb|permissive` (default `verb`). Emitted once the sigil
-  detector ships in Phase 3 of bt-vxu9.
+  `--sigils=strict|verb|permissive` (default `verb`). Shipped in Phase 3 of
+  bt-vxu9.
 
 ## Flags and env vars
 
-- `--schema v1|v2` (pairs + refs) / `BT_OUTPUT_SCHEMA`. Phase 1 default: v1.
-  Flips to v2 once v2 readers ship.
+- `--schema v1|v2` (pairs + refs) / `BT_OUTPUT_SCHEMA`. Default: **v2** as of
+  Phase 3 of bt-vxu9 (both v2 readers live). `--schema=v1` remains as an
+  opt-in fallback for one release.
 - `--sigils strict|verb|permissive` (refs only) / `BT_SIGIL_MODE`. Requires
   `--schema=v2`; paired with `--schema=v1` errors with a clear resolution.
 - `--orphaned` (pairs only, v1). Emits a JSONL checklist (stdout) + summary

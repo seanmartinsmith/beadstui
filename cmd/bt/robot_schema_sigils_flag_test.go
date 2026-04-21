@@ -16,7 +16,7 @@ func TestResolveSchemaVersion(t *testing.T) {
 		want    string
 		wantErr string
 	}{
-		{"default empty falls to v1", "", "", robotSchemaV1, ""},
+		{"default empty falls to v2", "", "", robotSchemaV2, ""},
 		{"env v1 is honored", "", "v1", robotSchemaV1, ""},
 		{"env v2 is honored", "", "v2", robotSchemaV2, ""},
 		{"env is case-insensitive", "", "V2", robotSchemaV2, ""},

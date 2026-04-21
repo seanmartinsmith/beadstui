@@ -1,0 +1,56 @@
+{
+  "description": "Permissive mode. Every bead-shaped ID outside code regions surfaces as bare_mention. bd-target (bare), bd-link (inside markdown link — permissive treats as bare), and bd-far (still emits — no verb proximity needed). Intra-project bt-other is dropped by the cross-project filter.",
+  "issues": [
+    {
+      "id": "bt-src",
+      "title": "permissive bare mentions",
+      "description": "bd-target is mentioned. [bd-link](https://example.com) is another one. Much later prose mentions bd-far without any verb, and bt-other stays intra-project.",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-15T10:00:00Z",
+      "updated_at": "2026-04-15T10:00:00Z"
+    },
+    {
+      "id": "bt-other",
+      "title": "intra-project",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-15T10:00:00Z",
+      "updated_at": "2026-04-15T10:00:00Z"
+    },
+    {
+      "id": "bd-target",
+      "title": "bare target",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bd",
+      "created_at": "2026-04-14T10:00:00Z",
+      "updated_at": "2026-04-14T10:00:00Z"
+    },
+    {
+      "id": "bd-link",
+      "title": "markdown link target (permissive treats as bare)",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bd",
+      "created_at": "2026-04-14T10:00:00Z",
+      "updated_at": "2026-04-14T10:00:00Z"
+    },
+    {
+      "id": "bd-far",
+      "title": "far from any verb",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bd",
+      "created_at": "2026-04-14T10:00:00Z",
+      "updated_at": "2026-04-14T10:00:00Z"
+    }
+  ]
+}

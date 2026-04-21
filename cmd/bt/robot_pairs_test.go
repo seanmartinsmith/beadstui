@@ -273,13 +273,14 @@ func TestPairsValidate(t *testing.T) {
 		wantSchema string
 		wantErr    string
 	}{
-		{"default empty resolves to v1", "", false, "", robotSchemaV1, ""},
+		{"default empty resolves to v2", "", false, "", robotSchemaV2, ""},
 		{"schema v1 explicit", "v1", false, "", robotSchemaV1, ""},
 		{"schema v2 explicit", "v2", false, "", robotSchemaV2, ""},
 		{"orphaned under v1 ok", "v1", true, "", robotSchemaV1, ""},
-		{"orphaned default (v1) ok", "", true, "", robotSchemaV1, ""},
+		{"orphaned default (v2) errors", "", true, "", "", "--orphaned requires --schema=v1"},
 		{"orphaned under v2 errors", "v2", true, "", "", "--orphaned requires --schema=v1"},
 		{"env v2 + orphaned errors", "", true, "v2", "", "--orphaned requires --schema=v1"},
+		{"env v1 + orphaned ok", "", true, "v1", robotSchemaV1, ""},
 		{"invalid schema errors", "bogus", false, "", "", `invalid --schema "bogus"`},
 	}
 	for _, tc := range cases {

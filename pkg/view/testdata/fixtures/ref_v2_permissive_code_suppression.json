@@ -1,0 +1,56 @@
+{
+  "description": "Permissive mode, code exclusion. bd-prose (outside code) emits as bare_mention. bd-inline (inside inline code) is suppressed. bd-fenced (inside a fenced block) is suppressed. bd-postfence (after a closed fence) emits.",
+  "issues": [
+    {
+      "id": "bt-src",
+      "title": "permissive code suppression",
+      "description": "see bd-prose first.\n\n`bd-inline` does not count.\n\n```\nbd-fenced inside a block\n```\n\nAfter the fence closes, bd-postfence emits.",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-15T10:00:00Z",
+      "updated_at": "2026-04-15T10:00:00Z"
+    },
+    {
+      "id": "bd-prose",
+      "title": "prose target",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bd",
+      "created_at": "2026-04-14T10:00:00Z",
+      "updated_at": "2026-04-14T10:00:00Z"
+    },
+    {
+      "id": "bd-inline",
+      "title": "inline code target (suppressed)",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bd",
+      "created_at": "2026-04-14T10:00:00Z",
+      "updated_at": "2026-04-14T10:00:00Z"
+    },
+    {
+      "id": "bd-fenced",
+      "title": "fenced target (suppressed)",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bd",
+      "created_at": "2026-04-14T10:00:00Z",
+      "updated_at": "2026-04-14T10:00:00Z"
+    },
+    {
+      "id": "bd-postfence",
+      "title": "post-fence target",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bd",
+      "created_at": "2026-04-14T10:00:00Z",
+      "updated_at": "2026-04-14T10:00:00Z"
+    }
+  ]
+}

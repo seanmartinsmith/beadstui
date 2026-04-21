@@ -17,12 +17,12 @@ const (
 
 // robotSchemaDefault is the default --schema value when nothing is set.
 //
-// Phase 1 of bt-gkyn/bt-vxu9 ships the flag surface but NOT the v2
-// readers (Phase 2 lands ComputePairRecordsV2; Phase 3 lands v2 ref).
-// Until those ship, the default stays v1 so `bt robot pairs --global`
-// and `bt robot refs --global` keep emitting pair.v1 / ref.v1. Phase 2
-// flips this to robotSchemaV2 in a one-line change.
-const robotSchemaDefault = robotSchemaV1
+// Flipped to v2 in Phase 3 of bt-vxu9 once both v2 readers
+// (ComputePairRecordsV2 from Phase 2 + ComputeRefRecordsV2 from Phase 3)
+// exist. `--schema=v1` remains available as an opt-in fallback for one
+// release while downstream consumers migrate; removal is tracked in a
+// follow-up bead.
+const robotSchemaDefault = robotSchemaV2
 
 // Flag-bound values populated by cobra. Resolved against the env var
 // and default in resolveSchemaVersion.

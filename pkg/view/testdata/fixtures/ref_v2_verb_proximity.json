@@ -1,0 +1,48 @@
+{
+  "description": "Verb mode. bt-src shows three verb-proximity matches: see bd-target, closes bd-closed (stale), and blocks bd-missing (broken). bd-far is genuinely out of proximity (no verb within 32 chars on its own line) and is therefore dropped — verb mode requires a sigil.",
+  "issues": [
+    {
+      "id": "bt-src",
+      "title": "verb proximity scenarios",
+      "description": "see bd-target for context.\nbd-far has no verb on its line and is dropped.\ncloses bd-closed landed last week.",
+      "notes": "blocks bd-missing per triage",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-15T10:00:00Z",
+      "updated_at": "2026-04-15T10:00:00Z"
+    },
+    {
+      "id": "bd-target",
+      "title": "live cross-project target",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bd",
+      "created_at": "2026-04-14T10:00:00Z",
+      "updated_at": "2026-04-14T10:00:00Z"
+    },
+    {
+      "id": "bd-closed",
+      "title": "stale cross-project target",
+      "status": "closed",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bd",
+      "created_at": "2026-04-10T10:00:00Z",
+      "updated_at": "2026-04-18T10:00:00Z",
+      "closed_at": "2026-04-18T10:00:00Z"
+    },
+    {
+      "id": "bd-far",
+      "title": "far from any verb",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bd",
+      "created_at": "2026-04-14T10:00:00Z",
+      "updated_at": "2026-04-14T10:00:00Z"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "description": "Strict mode, dep-scoped. bt-src has a resolvable external dep (cass-x is in the set, emits no record) and a broken external dep (external:cass:missing emits SigilKindExternalDep). Prose contains no sigils so nothing else surfaces.",
+  "issues": [
+    {
+      "id": "bt-src",
+      "title": "source bead with external deps",
+      "description": "tracked via external: form only, no prose sigils here.",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-15T10:00:00Z",
+      "updated_at": "2026-04-15T10:00:00Z",
+      "dependencies": [
+        {
+          "issue_id": "bt-src",
+          "depends_on_id": "external:cass:x",
+          "type": "blocks",
+          "created_at": "2026-04-15T10:00:00Z"
+        },
+        {
+          "issue_id": "bt-src",
+          "depends_on_id": "external:cass:missing",
+          "type": "blocks",
+          "created_at": "2026-04-15T10:00:00Z"
+        }
+      ]
+    },
+    {
+      "id": "cass-x",
+      "title": "resolvable external target",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "cass",
+      "created_at": "2026-04-14T10:00:00Z",
+      "updated_at": "2026-04-14T10:00:00Z"
+    }
+  ]
+}

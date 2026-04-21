@@ -46,6 +46,8 @@ Scope:
 - [x] Pairs subcommand — cross-project paired bead detection with drift flags (bt-mhwy.2, 2026-04-20)
 - [x] Refs subcommand — cross-project reference validation with broken/stale/orphaned_child flags (bt-mhwy.3, 2026-04-21)
 - [x] Source filter — persistent `--source <project>[,<project>...]` robot flag scopes output to projects (bt-mhwy.6, 2026-04-21)
+- [x] Pairs v2 — intent-based identity via cross-prefix dep edges (BFS over connected components); `--schema=v2` routing (bt-gkyn, 2026-04-21)
+- [x] Refs v2 — intent-based identity via syntactic sigils (hand-rolled tokenizer + three recognizer modes); default `--schema` flipped to v2 for both pairs and refs (bt-vxu9, 2026-04-21)
 - [ ] Fix envelope bypass in robot-search, robot-diff
 - [ ] Add positional arg warning/support
 - [ ] Document all 18 missing env vars in --robot-docs env

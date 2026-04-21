@@ -2,9 +2,11 @@ package view
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
@@ -314,5 +316,312 @@ func TestComputeRefRecords_SortedOutput(t *testing.T) {
 func TestRefRecord_SchemaConstant(t *testing.T) {
 	if RefRecordSchemaV1 != "ref.v1" {
 		t.Errorf("RefRecordSchemaV1 = %q, want ref.v1", RefRecordSchemaV1)
+	}
+	if RefRecordSchemaV2 != "ref.v2" {
+		t.Errorf("RefRecordSchemaV2 = %q, want ref.v2", RefRecordSchemaV2)
+	}
+}
+
+// hasV2Record reports whether any record matches (source, target, kind).
+// Flags/location are not compared so tests stay focused on the
+// sigil-detection story.
+func hasV2Record(recs []RefRecordV2, source, target, kind string) bool {
+	for _, r := range recs {
+		if r.Source == source && r.Target == target && r.SigilKind == kind {
+			return true
+		}
+	}
+	return false
+}
+
+func TestComputeRefRecordsV2_Empty(t *testing.T) {
+	for _, mode := range []analysis.SigilMode{analysis.SigilModeStrict, analysis.SigilModeVerb, analysis.SigilModePermissive} {
+		if got := ComputeRefRecordsV2(nil, mode); got != nil {
+			t.Errorf("mode=%v: nil input returned %+v; want nil", mode, got)
+		}
+		if got := ComputeRefRecordsV2([]model.Issue{}, mode); got != nil {
+			t.Errorf("mode=%v: empty input returned %+v; want nil", mode, got)
+		}
+	}
+}
+
+func TestComputeRefRecordsV2_StrictMarkdownLink(t *testing.T) {
+	issues := []model.Issue{
+		mkRefIssue("bt-src", model.StatusOpen, "see [bd-target](https://example.com/bd-target) for context", ""),
+		mkRefIssue("bd-target", model.StatusOpen, "", ""),
+	}
+	got := ComputeRefRecordsV2(issues, analysis.SigilModeStrict)
+	if !hasV2Record(got, "bt-src", "bd-target", "markdown_link") {
+		t.Errorf("missing markdown_link record; got %+v", got)
+	}
+}
+
+func TestComputeRefRecordsV2_StrictInlineCode(t *testing.T) {
+	issues := []model.Issue{
+		mkRefIssue("bt-src", model.StatusOpen, "wrap `bd-target` as inline code", ""),
+		mkRefIssue("bd-target", model.StatusOpen, "", ""),
+	}
+	got := ComputeRefRecordsV2(issues, analysis.SigilModeStrict)
+	if !hasV2Record(got, "bt-src", "bd-target", "inline_code") {
+		t.Errorf("missing inline_code record; got %+v", got)
+	}
+}
+
+func TestComputeRefRecordsV2_StrictRefKeyword(t *testing.T) {
+	issues := []model.Issue{
+		mkRefIssue("bt-src", model.StatusOpen, "REF: bd-target per decision", ""),
+		mkRefIssue("bd-target", model.StatusOpen, "", ""),
+	}
+	got := ComputeRefRecordsV2(issues, analysis.SigilModeStrict)
+	if !hasV2Record(got, "bt-src", "bd-target", "ref_keyword") {
+		t.Errorf("missing ref_keyword record; got %+v", got)
+	}
+}
+
+func TestComputeRefRecordsV2_StrictSkipsBareMention(t *testing.T) {
+	issues := []model.Issue{
+		mkRefIssue("bt-src", model.StatusOpen, "bd-target is mentioned without sigil", ""),
+		mkRefIssue("bd-target", model.StatusOpen, "", ""),
+	}
+	got := ComputeRefRecordsV2(issues, analysis.SigilModeStrict)
+	if got != nil {
+		t.Errorf("strict mode should not emit for bare mention; got %+v", got)
+	}
+}
+
+func TestComputeRefRecordsV2_VerbProximity(t *testing.T) {
+	issues := []model.Issue{
+		mkRefIssue("bt-src", model.StatusOpen, "see bd-target for resolution", ""),
+		mkRefIssue("bd-target", model.StatusOpen, "", ""),
+	}
+	got := ComputeRefRecordsV2(issues, analysis.SigilModeVerb)
+	if !hasV2Record(got, "bt-src", "bd-target", "verb") {
+		t.Errorf("missing verb record; got %+v", got)
+	}
+}
+
+func TestComputeRefRecordsV2_VerbProximityBoundary32(t *testing.T) {
+	// 32-char gap: verb ends at index 3 ("see"), 30 filler + space + space
+	// puts bd-target at index 35 (32 chars after verb.end).
+	filler := strings.Repeat("x", 30)
+	body := "see " + filler + " bd-target"
+	issues := []model.Issue{
+		mkRefIssue("bt-src", model.StatusOpen, body, ""),
+		mkRefIssue("bd-target", model.StatusOpen, "", ""),
+	}
+	got := ComputeRefRecordsV2(issues, analysis.SigilModeVerb)
+	if !hasV2Record(got, "bt-src", "bd-target", "verb") {
+		t.Errorf("32-char proximity should match; got %+v", got)
+	}
+
+	// 33 chars: no match.
+	body33 := "see " + strings.Repeat("x", 31) + " bd-target"
+	issues[0] = mkRefIssue("bt-src", model.StatusOpen, body33, "")
+	got = ComputeRefRecordsV2(issues, analysis.SigilModeVerb)
+	if hasV2Record(got, "bt-src", "bd-target", "verb") {
+		t.Errorf("33-char proximity should not match; got %+v", got)
+	}
+}
+
+func TestComputeRefRecordsV2_VerbMarkdownFormattingStripped(t *testing.T) {
+	// `**see**` occupies 7 source chars but counts as 3 in stripped space.
+	issues := []model.Issue{
+		mkRefIssue("bt-src", model.StatusOpen, "**see** bd-target immediately", ""),
+		mkRefIssue("bd-target", model.StatusOpen, "", ""),
+	}
+	got := ComputeRefRecordsV2(issues, analysis.SigilModeVerb)
+	if !hasV2Record(got, "bt-src", "bd-target", "verb") {
+		t.Errorf("bold-wrapped verb should still match; got %+v", got)
+	}
+}
+
+func TestComputeRefRecordsV2_MultipleVerbsOneIDCollapsed(t *testing.T) {
+	// Two verbs bracket one ID — dedup keeps exactly one record.
+	issues := []model.Issue{
+		mkRefIssue("bt-src", model.StatusOpen, "see bd-target closes", ""),
+		mkRefIssue("bd-target", model.StatusOpen, "", ""),
+	}
+	got := ComputeRefRecordsV2(issues, analysis.SigilModeVerb)
+	matches := 0
+	for _, r := range got {
+		if r.Source == "bt-src" && r.Target == "bd-target" {
+			matches++
+		}
+	}
+	if matches != 1 {
+		t.Errorf("want 1 (source,target) record; got %d: %+v", matches, got)
+	}
+}
+
+func TestComputeRefRecordsV2_PermissiveBareMention(t *testing.T) {
+	issues := []model.Issue{
+		mkRefIssue("bt-src", model.StatusOpen, "bd-target is mentioned without sigil", ""),
+		mkRefIssue("bd-target", model.StatusOpen, "", ""),
+	}
+	got := ComputeRefRecordsV2(issues, analysis.SigilModePermissive)
+	if !hasV2Record(got, "bt-src", "bd-target", "bare_mention") {
+		t.Errorf("permissive should emit bare_mention; got %+v", got)
+	}
+}
+
+func TestComputeRefRecordsV2_PermissiveSuppressesInlineCode(t *testing.T) {
+	issues := []model.Issue{
+		mkRefIssue("bt-src", model.StatusOpen, "`bd-target` inside inline code only", ""),
+		mkRefIssue("bd-target", model.StatusOpen, "", ""),
+	}
+	got := ComputeRefRecordsV2(issues, analysis.SigilModePermissive)
+	if got != nil {
+		t.Errorf("permissive must suppress inline-code-only IDs; got %+v", got)
+	}
+}
+
+func TestComputeRefRecordsV2_FencedCodeSuppressed(t *testing.T) {
+	body := "pre-fence prose\n```\nbd-target in fence\n```\npost-fence"
+	issues := []model.Issue{
+		mkRefIssue("bt-src", model.StatusOpen, body, ""),
+		mkRefIssue("bd-target", model.StatusOpen, "", ""),
+	}
+	for _, mode := range []analysis.SigilMode{analysis.SigilModeStrict, analysis.SigilModeVerb, analysis.SigilModePermissive} {
+		got := ComputeRefRecordsV2(issues, mode)
+		if hasV2Record(got, "bt-src", "bd-target", "") {
+			t.Errorf("mode=%v: fenced code must suppress; got %+v", mode, got)
+		}
+		for _, r := range got {
+			if r.Target == "bd-target" {
+				t.Errorf("mode=%v: fenced code leaked: %+v", mode, r)
+			}
+		}
+	}
+}
+
+func TestComputeRefRecordsV2_CrossProjectOnly(t *testing.T) {
+	// Intra-project ref (bt-src → bt-other) must not surface even under
+	// permissive mode — the cross-project filter is load-bearing.
+	issues := []model.Issue{
+		mkRefIssue("bt-src", model.StatusOpen, "see bt-other and bd-target", ""),
+		mkRefIssue("bt-other", model.StatusOpen, "", ""),
+		mkRefIssue("bd-target", model.StatusOpen, "", ""),
+	}
+	got := ComputeRefRecordsV2(issues, analysis.SigilModePermissive)
+	for _, r := range got {
+		if r.Target == "bt-other" {
+			t.Errorf("intra-project ref leaked: %+v", r)
+		}
+	}
+	if !hasV2Record(got, "bt-src", "bd-target", "bare_mention") {
+		t.Errorf("cross-project bd-target should emit: %+v", got)
+	}
+}
+
+func TestComputeRefRecordsV2_UnknownPrefixSkipped(t *testing.T) {
+	// `nope-xyz` matches the ID regex but no loaded prefix — drop.
+	issues := []model.Issue{
+		mkRefIssue("bt-src", model.StatusOpen, "see nope-xyz which is not a project", ""),
+	}
+	got := ComputeRefRecordsV2(issues, analysis.SigilModeVerb)
+	if got != nil {
+		t.Errorf("unknown-prefix id must not emit; got %+v", got)
+	}
+}
+
+func TestComputeRefRecordsV2_ExternalDepBroken(t *testing.T) {
+	src := mkRefIssue("bt-src", model.StatusOpen, "", "")
+	src.Dependencies = []*model.Dependency{
+		{IssueID: "bt-src", DependsOnID: "external:cass:missing", Type: model.DepBlocks},
+	}
+	got := ComputeRefRecordsV2([]model.Issue{src}, analysis.SigilModeStrict)
+	if len(got) != 1 {
+		t.Fatalf("want 1 record; got %+v", got)
+	}
+	if got[0].SigilKind != "external_dep" {
+		t.Errorf("sigil_kind = %q, want external_dep", got[0].SigilKind)
+	}
+	if got[0].Location != "deps" {
+		t.Errorf("location = %q, want deps", got[0].Location)
+	}
+}
+
+func TestComputeRefRecordsV2_ExternalDepResolved(t *testing.T) {
+	src := mkRefIssue("bt-src", model.StatusOpen, "", "")
+	src.Dependencies = []*model.Dependency{
+		{IssueID: "bt-src", DependsOnID: "external:cass:x", Type: model.DepBlocks},
+	}
+	issues := []model.Issue{src, mkRefIssue("cass-x", model.StatusOpen, "", "")}
+	got := ComputeRefRecordsV2(issues, analysis.SigilModeStrict)
+	for _, r := range got {
+		if r.Location == "deps" {
+			t.Errorf("resolvable external dep should not emit; got %+v", r)
+		}
+	}
+}
+
+func TestComputeRefRecordsV2_TruncatedFlag(t *testing.T) {
+	// Body >1MB triggers the DetectSigils truncation flag. ID must be
+	// within the first 1MB so it's still detected after the cap.
+	body := "see bd-target " + strings.Repeat("x", analysis.MaxSigilBodyBytes)
+	issues := []model.Issue{
+		mkRefIssue("bt-src", model.StatusOpen, body, ""),
+		mkRefIssue("bd-target", model.StatusOpen, "", ""),
+	}
+	got := ComputeRefRecordsV2(issues, analysis.SigilModeVerb)
+	if len(got) == 0 {
+		t.Fatalf("expected at least one record; got nil")
+	}
+	var r *RefRecordV2
+	for i := range got {
+		if got[i].Target == "bd-target" {
+			r = &got[i]
+			break
+		}
+	}
+	if r == nil {
+		t.Fatalf("bd-target missing; got %+v", got)
+	}
+	if !r.Truncated {
+		t.Errorf("truncated flag must be set for >1MB body; got %+v", *r)
+	}
+}
+
+func TestComputeRefRecordsV2_SortedOutput(t *testing.T) {
+	issues := []model.Issue{
+		mkRefIssue("bt-a", model.StatusOpen, "see bd-zzz", "also see bd-aaa"),
+		mkRefIssue("bt-b", model.StatusOpen, "see bd-aaa", ""),
+		mkRefIssue("bd-aaa", model.StatusOpen, "", ""),
+		mkRefIssue("bd-zzz", model.StatusOpen, "", ""),
+	}
+	got := ComputeRefRecordsV2(issues, analysis.SigilModeVerb)
+	for i := 1; i < len(got); i++ {
+		p, c := got[i-1], got[i]
+		if p.Source > c.Source {
+			t.Errorf("source not sorted at %d: %q > %q", i, p.Source, c.Source)
+		}
+		if p.Source == c.Source && p.Target > c.Target {
+			t.Errorf("target not sorted at %d: %q > %q", i, p.Target, c.Target)
+		}
+		if p.Source == c.Source && p.Target == c.Target && p.Location > c.Location {
+			t.Errorf("location not sorted at %d", i)
+		}
+	}
+}
+
+func TestComputeRefRecordsV2_FlagOrderUnchanged(t *testing.T) {
+	// v2 reuses computeRefFlags; orphaned_child + cross_project order
+	// must match v1 exactly.
+	parent := mkRefIssue("bd-parent", model.StatusClosed, "", "")
+	openTarget := mkRefIssue("bd-target", model.StatusOpen, "", "")
+	openTarget.Dependencies = []*model.Dependency{
+		{IssueID: "bd-target", DependsOnID: "bd-parent", Type: model.DepParentChild},
+	}
+	issues := []model.Issue{
+		mkRefIssue("bt-a", model.StatusOpen, "see bd-target", ""),
+		openTarget,
+		parent,
+	}
+	got := ComputeRefRecordsV2(issues, analysis.SigilModeVerb)
+	if len(got) != 1 {
+		t.Fatalf("want 1 record; got %d: %+v", len(got), got)
+	}
+	if !reflect.DeepEqual(got[0].Flags, []string{"orphaned_child", "cross_project"}) {
+		t.Errorf("flags = %v, want [orphaned_child, cross_project]", got[0].Flags)
 	}
 }

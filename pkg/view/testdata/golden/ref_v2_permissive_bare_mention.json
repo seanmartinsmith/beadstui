@@ -1,0 +1,29 @@
+[
+  {
+    "source": "bt-src",
+    "target": "bd-far",
+    "location": "description",
+    "flags": [
+      "cross_project"
+    ],
+    "sigil_kind": "bare_mention"
+  },
+  {
+    "source": "bt-src",
+    "target": "bd-link",
+    "location": "description",
+    "flags": [
+      "cross_project"
+    ],
+    "sigil_kind": "bare_mention"
+  },
+  {
+    "source": "bt-src",
+    "target": "bd-target",
+    "location": "description",
+    "flags": [
+      "cross_project"
+    ],
+    "sigil_kind": "bare_mention"
+  }
+]

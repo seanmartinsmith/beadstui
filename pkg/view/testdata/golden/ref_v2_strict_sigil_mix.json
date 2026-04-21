@@ -1,0 +1,29 @@
+[
+  {
+    "source": "bt-src",
+    "target": "bd-inline",
+    "location": "notes",
+    "flags": [
+      "cross_project"
+    ],
+    "sigil_kind": "inline_code"
+  },
+  {
+    "source": "bt-src",
+    "target": "bd-link",
+    "location": "description",
+    "flags": [
+      "cross_project"
+    ],
+    "sigil_kind": "markdown_link"
+  },
+  {
+    "source": "bt-src",
+    "target": "bd-ref",
+    "location": "comments",
+    "flags": [
+      "cross_project"
+    ],
+    "sigil_kind": "ref_keyword"
+  }
+]

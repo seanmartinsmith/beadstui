@@ -1,6 +1,8 @@
 package view
 
 import (
+	"fmt"
+	"log/slog"
 	"regexp"
 	"sort"
 	"strings"
@@ -14,6 +16,23 @@ import (
 // PortfolioRecord the payload is compact-by-construction, so the schema is
 // set unconditionally regardless of --shape.
 const RefRecordSchemaV1 = "ref.v1"
+
+// RefRecordSchemaV2 identifies the wire shape produced by ComputeRefRecordsV2.
+// v2 narrows the intent surface: prose refs require a sigil (markdown link,
+// inline code, ref: keyword, verb proximity, or a bare mention in permissive
+// mode) to emit. The active sigil mode rides in the envelope's sigil_mode
+// field so consumers can correlate record shape with detection policy. v1's
+// cross-project-only filter is retained — removing it regresses FP rate to
+// ~85% per prior dogfooding.
+const RefRecordSchemaV2 = "ref.v2"
+
+// Sigil-kind constants used on dep-derived v2 records. Prose sigils come
+// from pkg/analysis.SigilKind*; dep records mint their own kinds because
+// dep detection is about the dep-field shape, not prose tokenization.
+const (
+	sigilKindExternalDep = "external_dep"
+	sigilKindBareDep     = "bare_dep"
+)
 
 // RefRecord is one detected cross-project bead reference. Emitted per
 // (Source, Target, Location) tuple; duplicate mentions of the same target
@@ -308,4 +327,178 @@ func joinComments(comments []*model.Comment) string {
 		b.WriteString(c.Text)
 	}
 	return b.String()
+}
+
+// RefRecordV2 is the intent-based ref projection. Mirrors RefRecord's shape
+// but adds two fields: `SigilKind` names the syntactic evidence that
+// established intent (markdown_link, inline_code, ref_keyword, verb,
+// bare_mention, external_dep, bare_dep), and `Truncated` flags records
+// whose source body exceeded the 1MB per-body sigil-detection cap.
+type RefRecordV2 struct {
+	Source    string   `json:"source"`
+	Target    string   `json:"target"`
+	Location  string   `json:"location"`
+	Flags     []string `json:"flags"`
+	SigilKind string   `json:"sigil_kind"`
+	Truncated bool     `json:"truncated,omitempty"`
+}
+
+// ComputeRefRecordsV2 is the v2 reader: same cross-project scope + v1 flag
+// semantics as ComputeRefRecords, but prose scanning is delegated to
+// analysis.DetectSigils under the caller-chosen SigilMode. Records carry
+// the sigil_kind that established intent, plus a truncated flag when the
+// source body exceeded the 1MB sigil-detection cap.
+//
+// Panic safety: each issue's sigil detection is wrapped in a defer/recover
+// so a single malformed or adversarial body logs and skips rather than
+// crashing `--global` for the rest of the corpus. The recover path emits
+// no records for that issue.
+//
+// Nil/empty inputs return nil. Sort order matches v1:
+// (source, target, location) ascending.
+func ComputeRefRecordsV2(issues []model.Issue, mode analysis.SigilMode) []RefRecordV2 {
+	if len(issues) == 0 {
+		return nil
+	}
+
+	known := make(map[string]model.Issue, len(issues))
+	knownPrefixes := make(map[string]struct{}, 8)
+	for i := range issues {
+		known[issues[i].ID] = issues[i]
+		if prefix, _, ok := analysis.SplitID(issues[i].ID); ok {
+			knownPrefixes[prefix] = struct{}{}
+		}
+	}
+	parentClosed := buildClosedParentMap(issues, known)
+
+	var out []RefRecordV2
+	for i := range issues {
+		src := issues[i]
+		srcPrefix, _, ok := analysis.SplitID(src.ID)
+		if !ok {
+			continue
+		}
+		scanDepsV2(&out, src, srcPrefix, known)
+		scanIssueProseV2(&out, src, srcPrefix, known, knownPrefixes, parentClosed, mode)
+	}
+
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Source != out[j].Source {
+			return out[i].Source < out[j].Source
+		}
+		if out[i].Target != out[j].Target {
+			return out[i].Target < out[j].Target
+		}
+		return out[i].Location < out[j].Location
+	})
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// scanIssueProseV2 runs DetectSigils against each prose field on the source
+// issue and converts matches into RefRecordV2. Each field is wrapped in a
+// recover so an adversarial body in one field (or one issue) can't tank
+// the --global walk.
+func scanIssueProseV2(out *[]RefRecordV2, src model.Issue, srcPrefix string, known map[string]model.Issue, knownPrefixes map[string]struct{}, parentClosed map[string]bool, mode analysis.SigilMode) {
+	fields := []struct {
+		location string
+		body     string
+	}{
+		{refLocationDescription, src.Description},
+		{refLocationNotes, src.Notes},
+		{refLocationComments, joinComments(src.Comments)},
+	}
+	for _, f := range fields {
+		if f.body == "" {
+			continue
+		}
+		scanProseV2Safe(out, src, srcPrefix, f.body, f.location, known, knownPrefixes, parentClosed, mode)
+	}
+}
+
+// scanProseV2Safe wraps a single prose scan in a recover so a panic from
+// adversarial input skips the body with a debug log rather than killing
+// the whole projection run.
+func scanProseV2Safe(out *[]RefRecordV2, src model.Issue, srcPrefix, body, location string, known map[string]model.Issue, knownPrefixes map[string]struct{}, parentClosed map[string]bool, mode analysis.SigilMode) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Debug("ref.v2 sigil detection recovered from panic",
+				"issue", src.ID,
+				"location", location,
+				"panic", fmt.Sprintf("%v", r),
+			)
+		}
+	}()
+
+	matches := analysis.DetectSigils(body, mode)
+	if len(matches) == 0 {
+		return
+	}
+	seen := make(map[string]struct{}, len(matches))
+	for _, m := range matches {
+		prefix, _, ok := analysis.SplitID(m.ID)
+		if !ok {
+			continue
+		}
+		if prefix == srcPrefix {
+			continue
+		}
+		if _, knownPrefix := knownPrefixes[prefix]; !knownPrefix {
+			continue
+		}
+		if _, dup := seen[m.ID]; dup {
+			continue
+		}
+		seen[m.ID] = struct{}{}
+		*out = append(*out, RefRecordV2{
+			Source:    src.ID,
+			Target:    m.ID,
+			Location:  location,
+			Flags:     computeRefFlags(m.ID, known, parentClosed),
+			SigilKind: m.Kind,
+			Truncated: m.Truncated,
+		})
+	}
+}
+
+// scanDepsV2 mirrors scanDeps but emits RefRecordV2 with sigil_kind set.
+// Unresolved external: deps get SigilKindExternalDep. Same resolvability
+// rules as v1: if the canonical form exists in the known set, no record
+// fires.
+func scanDepsV2(out *[]RefRecordV2, src model.Issue, srcPrefix string, known map[string]model.Issue) {
+	const externalPrefix = "external:"
+	seen := make(map[string]struct{})
+	for _, dep := range src.Dependencies {
+		if dep == nil {
+			continue
+		}
+		if !strings.HasPrefix(dep.DependsOnID, externalPrefix) {
+			continue
+		}
+		project, suffix, ok := parseExternalRefDep(dep.DependsOnID)
+		if !ok {
+			continue
+		}
+		if project == srcPrefix {
+			continue
+		}
+		if _, dup := seen[dep.DependsOnID]; dup {
+			continue
+		}
+		seen[dep.DependsOnID] = struct{}{}
+
+		if _, resolvable := lookupExternalCanonical(project, suffix, known); resolvable {
+			continue
+		}
+
+		*out = append(*out, RefRecordV2{
+			Source:    src.ID,
+			Target:    dep.DependsOnID,
+			Location:  refLocationDeps,
+			Flags:     []string{refFlagBroken, refFlagCrossProject},
+			SigilKind: sigilKindExternalDep,
+		})
+	}
 }

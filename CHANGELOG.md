@@ -6,6 +6,54 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-21 - Refs v2 + sigils detector + default schema flip (bt-vxu9)
+
+**Ship the ref.v2 reader with a hand-rolled sigil tokenizer, and flip the default `--schema` from v1 to v2 for both `bt robot pairs` and `bt robot refs`.** Both v2 readers now live side-by-side with their v1 counterparts; `--schema=v1` remains as an opt-in fallback. Phase 3 of bt-vxu9 / bt-gkyn.
+
+### What shipped
+
+- **`pkg/analysis/sigils.go`** — hand-rolled iterative tokenizer. `DetectSigils(body, mode)` walks bytes once, emits `SigilMatch{ID, Kind, Offset, Truncated}`. Three recognizer sets:
+  - **strict**: markdown links `[bead-id](url)`, inline code `` `bead-id` ``, `ref:` / `refs:` keyword (case-insensitive, optional single space).
+  - **verb**: strict + fixed verb list (`see`, `paired with`, `blocks`, `closes`, `fixes`, `mirrors`) with same-line 32-char inclusive proximity. Markdown format chars (`*`, `_`, `~`) stripped before proximity counts.
+  - **permissive**: every bead-shaped ID outside fenced or inline code emits `bare_mention`.
+  - Fence stack capped at 32 frames; 1 MiB per-body cap with `truncated: true` flag propagated to every match.
+  - Verb-proximity post-pass uses a two-pointer sliding window so the proximity resolver is O(verbs + ids + matches) rather than O(V × I) — caught by the linear-scaling test on 100 KB inputs.
+- **`pkg/view/ref_record.go`** — `ComputeRefRecordsV2`, `RefRecordV2`, `RefRecordSchemaV2 = "ref.v2"`. Prose scan delegates to `analysis.DetectSigils` under the caller-chosen mode; each prose field is wrapped in `defer recover()` so one adversarial body logs + skips rather than crashing `--global` for the rest of the corpus. v1's cross-project-only filter is preserved — the load-bearing FP guard. `SigilKind` on each record carries the sigil that established intent; `Truncated` flags records from oversize bodies. Dep-derived records use new `external_dep` / `bare_dep` kinds.
+- **`cmd/bt/robot_refs.go`** — `refsOutputV2` and `emitRefsV2` mirror the pairs v2 inline-dispatch pattern. The Phase 1 stub `--schema=v2 not yet implemented` is gone.
+- **`cmd/bt/robot_output.go`** — envelope gains optional `sigil_mode` (omitted when empty). Existing envelope goldens stay byte-identical because the field is omitempty.
+- **`cmd/bt/robot_schema_flag.go`** — `robotSchemaDefault` flipped from `robotSchemaV1` to `robotSchemaV2`. This is the coordinated default-flip both v2 readers were waiting on.
+- **`.beads/conventions/cross-project.md`** — "Phase 1 default: v1" language replaced with "Default: v2 as of Phase 3 of bt-vxu9".
+
+### Tests
+
+- `pkg/analysis/sigils_test.go` — 28 unit tests per sigil kind + full pathological set (invalid UTF-8, lone surrogates, RTL override, ZWJ, 100 KB single-line, 100 K inline-code storm, 10 K nested fences, 10 K link sequence, 1 MB boundary, adversarial combined sweep). Linear-scaling test asserts runtime(100 KB) ≤ 15 × runtime(10 KB). Four benchmarks (`Benchmark_DetectSigils_{10KB,100KB,PathologicalNestedFences,PathologicalInlineCodeStorm}`).
+- `pkg/view/ref_record_test.go` — per-mode unit tests: strict markdown link / inline code / ref keyword; verb proximity inclusive-32 boundary; markdown-stripping (`**see**`); multiple-verbs-one-ID collapsed; permissive bare mention + inline-code suppression; fenced-code suppressed in all modes; cross-project filter; external-dep broken/resolved; truncated flag on >1 MB body; sorted output; flag-order invariant.
+- `pkg/view/testdata/fixtures/ref_v2_*.json` + matching goldens — 6 fixtures covering each mode × 2 scenarios; registered in `TestRefRecordV2Golden` with mode inferred from filename prefix.
+- `cmd/bt/robot_refs_test.go` — `TestRefsOutputV2_SchemaAndSigilMode`, `TestRefsOutputV2_SigilKindPresent`, `TestRefsOutputV2_CrossProjectOnly`, `TestRefsOutputV2_EmptyReturnsArray`, `TestRobotRefs_SigilModesResolveClean`, `TestRobotRefs_EnvVarOverride`. Existing validator tests updated for the flipped default.
+
+### Smoke (real shared Dolt corpus)
+
+- `bt robot refs --global` default → `schema: "ref.v2"`, `sigil_mode: "verb"`, 108 records.
+- `bt robot refs --global --schema=v1` → `ref.v1`, 531 records (unchanged).
+- `bt robot refs --global --sigils=strict` → 57 records (inline_code only on this corpus; 0 slug FPs for `-only`/`-side`/`-show`/`-level`).
+- `bt robot refs --global --sigils=permissive` → 485 records (still < v1 because fenced + inline code now excluded).
+- `BT_SIGIL_MODE=strict bt robot refs --global --sigils=verb` → verb wins.
+- `bt robot pairs --global` → `pair.v2`, 22 records (default flipped).
+- Total `--global` runtime ~175 ms, well under the 800 ms budget.
+
+### Risk
+
+Low. Both v1 readers untouched and test-covered. v2 readers isolated behind dispatch; `--schema=v1` retains the frozen wire shape for one release. Panic safety at the call site is belt-and-braces — the adversarial test sweep confirms `DetectSigils` itself doesn't panic, but the wrapper guards against future changes or unexpected gremlins in real data.
+
+### Follow-ups open
+
+- Phase 4 (convention doc expansion + labeling rubric) — landing separately.
+- Phase 5 (labeled corpus + FPR gate test) — needs human labeling judgment; filed for a dedicated session.
+- Phase 6 (close bt-gkyn and bt-vxu9 with real FPR numbers from Phase 5) — waits on Phase 5.
+- Remove `--schema=v1` fallback — a new follow-up bead triggers one release after this ship.
+
+---
+
 ## 2026-04-21 - Source filter (bt-mhwy.6)
 
 **New `--source <project>[,<project>...]` persistent robot flag scopes output to one or more source projects.** Agents can now ask "show me only bt + cass beads" without BQL or workspace-level setup. Closes bt-mhwy.6, the last of seven children of the mhwy epic.

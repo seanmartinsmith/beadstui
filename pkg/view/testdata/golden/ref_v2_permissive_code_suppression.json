@@ -1,0 +1,20 @@
+[
+  {
+    "source": "bt-src",
+    "target": "bd-postfence",
+    "location": "description",
+    "flags": [
+      "cross_project"
+    ],
+    "sigil_kind": "bare_mention"
+  },
+  {
+    "source": "bt-src",
+    "target": "bd-prose",
+    "location": "description",
+    "flags": [
+      "cross_project"
+    ],
+    "sigil_kind": "bare_mention"
+  }
+]

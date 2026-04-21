@@ -251,12 +251,13 @@ func TestRefsValidate(t *testing.T) {
 		wantSigils string
 		wantErr    string
 	}{
-		{"defaults resolve cleanly", "", "", "", "", robotSchemaV1, robotSigilVerb, ""},
+		{"defaults resolve cleanly", "", "", "", "", robotSchemaV2, robotSigilVerb, ""},
 		{"v1 + no sigils ok", "v1", "", "", "", robotSchemaV1, robotSigilVerb, ""},
 		{"v2 + strict ok", "v2", "strict", "", "", robotSchemaV2, robotSigilStrict, ""},
 		{"v2 env + verb sigils flag ok", "", "verb", "v2", "", robotSchemaV2, robotSigilVerb, ""},
 		{"v1 + explicit sigils errors", "v1", "strict", "", "", "", "", "--sigils requires --schema=v2"},
-		{"v1 default + env sigils errors", "", "", "", "strict", "", "", "--sigils requires --schema=v2"},
+		{"v1 env + env sigils errors", "", "", "v1", "strict", "", "", "--sigils requires --schema=v2"},
+		{"v2 default + env sigils ok", "", "", "", "strict", robotSchemaV2, robotSigilStrict, ""},
 		{"invalid sigils errors", "v2", "lax", "", "", "", "", `invalid --sigils "lax"`},
 		{"invalid schema errors before sigils check", "bogus", "strict", "", "", "", "", `invalid --schema "bogus"`},
 	}
@@ -363,5 +364,148 @@ func TestRobotRefs_EnvSigilsRequiresV2(t *testing.T) {
 	}
 	if !strings.Contains(string(out), "--sigils requires --schema=v2") {
 		t.Errorf("stderr missing conflict message; got:\n%s", out)
+	}
+}
+
+// TestRefsOutputV2_SchemaAndSigilMode — envelope.schema is "ref.v2" and
+// envelope.sigil_mode carries the resolved mode string. Uses refsOutputV2()
+// directly because --global binary tests cannot drive Dolt discovery under
+// BT_TEST_MODE=1.
+func TestRefsOutputV2_SchemaAndSigilMode(t *testing.T) {
+	for _, mode := range []string{robotSigilStrict, robotSigilVerb, robotSigilPermissive} {
+		mode := mode
+		t.Run(mode, func(t *testing.T) {
+			raw, err := json.Marshal(refsOutputV2(refsFixtureIssues(), "test-hash", mode))
+			if err != nil {
+				t.Fatalf("marshal: %v", err)
+			}
+			var payload map[string]any
+			if err := json.Unmarshal(raw, &payload); err != nil {
+				t.Fatalf("parse: %v\nraw=%s", err, raw)
+			}
+			for _, key := range []string{"generated_at", "data_hash", "version", "schema", "sigil_mode", "refs"} {
+				if _, ok := payload[key]; !ok {
+					t.Errorf("envelope missing %q in %q mode", key, mode)
+				}
+			}
+			if schema, _ := payload["schema"].(string); schema != "ref.v2" {
+				t.Errorf("schema = %q, want ref.v2", schema)
+			}
+			if sm, _ := payload["sigil_mode"].(string); sm != mode {
+				t.Errorf("sigil_mode = %q, want %q", sm, mode)
+			}
+		})
+	}
+}
+
+// TestRefsOutputV2_SigilKindPresent — every record under v2 carries
+// sigil_kind. Dep-derived records get external_dep; prose-derived records
+// get one of the prose kinds (kind depends on fixture and mode).
+func TestRefsOutputV2_SigilKindPresent(t *testing.T) {
+	raw, err := json.Marshal(refsOutputV2(refsFixtureIssues(), "test-hash", robotSigilVerb))
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var payload struct {
+		Refs []view.RefRecordV2 `json:"refs"`
+	}
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(payload.Refs) == 0 {
+		t.Fatalf("refs fixture should surface at least one v2 record")
+	}
+	for i, r := range payload.Refs {
+		if r.SigilKind == "" {
+			t.Errorf("refs[%d] missing sigil_kind: %+v", i, r)
+		}
+	}
+}
+
+// TestRefsOutputV2_CrossProjectOnly — v1's load-bearing cross-project
+// filter stays intact in v2. Intra-project refs must never surface
+// regardless of mode.
+func TestRefsOutputV2_CrossProjectOnly(t *testing.T) {
+	for _, mode := range []string{robotSigilStrict, robotSigilVerb, robotSigilPermissive} {
+		mode := mode
+		t.Run(mode, func(t *testing.T) {
+			raw, _ := json.Marshal(refsOutputV2(refsFixtureIssues(), "test-hash", mode))
+			var payload struct {
+				Refs []view.RefRecordV2 `json:"refs"`
+			}
+			if err := json.Unmarshal(raw, &payload); err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			for _, r := range payload.Refs {
+				if r.Target == "bt-local" {
+					t.Errorf("mode=%s: intra-project ref leaked: %+v", mode, r)
+				}
+			}
+		})
+	}
+}
+
+// TestRefsOutputV2_EmptyReturnsArray — zero refs = `[]` wire output.
+func TestRefsOutputV2_EmptyReturnsArray(t *testing.T) {
+	raw, err := json.Marshal(refsOutputV2(nil, "test-hash", robotSigilVerb))
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	if !bytes.Contains(raw, []byte(`"refs":[]`)) {
+		t.Errorf("expected empty array for refs; got %s", raw)
+	}
+}
+
+// TestRobotRefs_SigilModesResolveClean — exercises the flag-matrix for
+// --schema=v2 --sigils={strict,verb,permissive}. Each invocation must
+// parse cleanly (no flag-parse error). Runtime failure under BT_TEST_MODE=1
+// is tolerated — we assert stderr carries only runtime errors, never
+// flag-parse errors.
+func TestRobotRefs_SigilModesResolveClean(t *testing.T) {
+	dir := setupRefsFixture(t)
+	exe := buildTestBinary(t)
+	for _, mode := range []string{robotSigilStrict, robotSigilVerb, robotSigilPermissive} {
+		mode := mode
+		t.Run(mode, func(t *testing.T) {
+			cmd := exec.Command(exe, "robot", "refs", "--global", "--schema=v2", "--sigils="+mode)
+			cmd.Dir = dir
+			cmd.Env = append(os.Environ(), "BT_TEST_MODE=1", "BT_NO_BROWSER=1")
+			out, _ := cmd.CombinedOutput()
+			for _, bad := range []string{
+				"expected strict|verb|permissive",
+				"expected v1|v2",
+				"--sigils requires --schema=v2",
+			} {
+				if strings.Contains(string(out), bad) {
+					t.Errorf("mode=%s: unexpected flag-parse error %q; got:\n%s", mode, bad, out)
+				}
+			}
+		})
+	}
+}
+
+// TestRobotRefs_EnvVarOverride — BT_SIGIL_MODE is honored when --sigils
+// is not passed; --sigils beats BT_SIGIL_MODE when both are set.
+func TestRobotRefs_EnvVarOverride(t *testing.T) {
+	// env-only: env value is the resolved mode.
+	schema, sigils, err := refsValidate("", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	_ = schema
+	t.Setenv("BT_OUTPUT_SCHEMA", "v2")
+	t.Setenv("BT_SIGIL_MODE", "strict")
+	if _, sigils, err = refsValidate("", ""); err != nil {
+		t.Fatalf("env-only path failed: %v", err)
+	}
+	if sigils != robotSigilStrict {
+		t.Errorf("env-only: sigils=%q, want strict", sigils)
+	}
+	// flag-over-env: explicit --sigils wins.
+	if _, sigils, err = refsValidate("v2", "verb"); err != nil {
+		t.Fatalf("flag-over-env path failed: %v", err)
+	}
+	if sigils != robotSigilVerb {
+		t.Errorf("flag-over-env: sigils=%q, want verb", sigils)
 	}
 }
