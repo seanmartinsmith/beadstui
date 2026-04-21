@@ -96,6 +96,8 @@ func TestRobotSubcommandsAcceptShapeFlag(t *testing.T) {
 		// parsing. --global with BT_TEST_MODE=1 fails at Dolt discovery,
 		// which runAccepts tolerates as a runtime (non flag-parse) error.
 		{"pairs", []string{"robot", "pairs", "--global"}},
+		// refs requires --global by design; same runtime tolerance.
+		{"refs", []string{"robot", "refs", "--global"}},
 	}
 
 	for _, tc := range cases {

@@ -6,6 +6,47 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-21 - Refs subcommand (bt-mhwy.3)
+
+**New `bt robot refs --global` subcommand validates cross-project bead references in prose and dep fields.** Scans description, notes, comments, and unresolved `external:` dependencies for bead IDs whose prefix differs from the source's project, validates each against the global set, and emits flags for `broken` / `stale` / `orphaned_child`. Agents can now see stale cross-refs that rot silently.
+
+### What shipped
+
+- **`pkg/view/ref_record.go`** — new projection (`ref.v1`). `ComputeRefRecords(issues)` is a pure function: builds a known-issues map + known-prefix set + closed-parent-of-open-child map once, then scans each source issue's deps (unresolved `external:` form only — resolved ones become normal graph edges via `rc.analysisIssues()`), description, notes, and joined comments. Records sort by `(Source, Target, Location)` for diff stability. `RefRecord` carries `{source, target, location, flags}` with location ∈ `{description, notes, comments, deps}`.
+
+- **Cross-project only in v1** — same-prefix refs are intra-project and already handled by the dep graph. This is a scope tightening from the AC's literal "scan all refs" — eliminates the largest false-positive class (suffix collisions within a project).
+
+- **Prefix scoping** — on top of the cross-project filter, prose matches are restricted to prefixes present in the loaded issue set. Slug-shaped tokens like `round-trip`, `per-issue`, `cross-project`, `batch-closing` split into valid `(prefix, suffix)` but their "prefix" corresponds to no known project, so they drop out. Dogfooded: this cut the broken-ref false-positive rate from ~85% (naive regex) to ~30% (residual comes from placeholder text like `bt-xxx`, `cass-xyz` in docs).
+
+- **Flag order (fixed, for diff stability)**: `broken`, `stale`, `orphaned_child`, `cross_project`. Every v1 record carries `cross_project` because v1 only emits cross-project refs — kept explicit so v2 can relax the identity rule without changing the flag's meaning.
+
+- **URL stripping** — `https?://...` spans get replaced with whitespace before the regex runs, so `github.com/foo-bar/baz` doesn't fire `foo-bar`. Markdown-aware parsing (code blocks, inline code) deferred to v2.
+
+- **`cmd/bt/robot_refs.go`** — `rc.runRefs()` handler with a pure `refsOutput()` helper that builds the wire payload without hitting stdout or `os.Exit`. Same `BT_TEST_MODE=1`-driven pattern as pairs: binary-level `--global` tests can't run through Dolt discovery, so the helper lets in-process contract tests exercise the projection end-to-end.
+
+- **Mandatory `--global`** — without cross-project data, ref detection is definitionally empty. Exits 1 with a clean error message rather than silently emitting `[]`.
+
+- **Cobra wiring** in `cmd/bt/cobra_robot.go` — `robotRefsCmd` registered alongside `pairs`. No new flags. `--shape` is inherited but no-op (envelope.schema is unconditionally `ref.v1`).
+
+Full rationale: `docs/design/2026-04-20-bt-mhwy-3-refs.md`.
+
+### Tests
+
+- `pkg/view/ref_record_test.go` — 18 unit cases: empty/nil safety, same-prefix skipped, cross-project found, broken, stale, orphaned_child, external-dep resolved vs broken, dedup within a single location, multiple locations per source, malformed IDs silently skipped, URL stripping, word boundaries (`see bd-a.`, `(bd-a)`, `bd-a,` match; `abt-a`, `x-bd-a` don't), dotted suffix (`bd-mhwy.2`), flag-order across multiple co-occurring flags, deterministic sorting, schema constant, unknown-prefix skipped.
+- `pkg/view/projections_test.go` — 4 new golden fixtures exercised via `TestRefRecordGolden`: `ref_empty`, `ref_single_broken`, `ref_mixed` (broken + stale + orphaned_child + valid), `ref_external_deps` (resolvable vs broken `external:` forms). Plus `TestRefRecordSchemaFileExists` for the committed JSON Schema.
+- `cmd/bt/robot_refs_test.go` — contract: `--global` enforcement (binary), envelope required fields, `schema == "ref.v1"`, cross-project-only (intra-project ref in fixture must not leak), flag order across the full fixture, empty array on no refs, deterministic ordering.
+- `cmd/bt/robot_all_subcommands_test.go` — refs added to flag-acceptance matrix (4 permutations; `--global` carried).
+
+### Smoke
+
+`bt robot refs --global` against the real shared server returns 408 ref records across 20+ projects: 119 `broken`, 116 `stale`, 21 `orphaned_child`. Residual false-positive rate on `broken` (~30%) comes from placeholder text in docs (`bt-xxx`, `cass-xyz`, etc.) and slug-like suffixes under known prefixes (`-only`, `-side`, `-show`). Stale and orphaned_child flags are high-signal because the target actually exists — agents can filter to those for a cleaner pass. Sigil-based v2 identity (require `ref:` keyword or markdown link) is the natural next step and the follow-up bead filed in this session.
+
+### Cross-project constellation (status)
+
+Shipped in this session series: **bt-mhwy.5** (external dep resolution) → **bt-mhwy.4** (portfolio) → **bt-mhwy.2** (pairs) → **bt-mhwy.3** (refs). Six of seven mhwy children now closed. Remaining: **bt-mhwy.6** (provenance `--source` filter — scope shrunk by earlier children: `source_repo` already surfaces in compact/portfolio/pair output, so .6 is primarily the filter flag + schema docs).
+
+---
+
 ## 2026-04-20 - Pairs subcommand (bt-mhwy.2)
 
 **New `bt robot pairs --global` subcommand surfaces cross-project paired beads.** When `bt-zsy8` and `bd-zsy8` describe the same logical work from two projects, pairs detects the relationship, picks a canonical, and reports which dimensions have drifted. Agents can create paired IDs today (`bd create --id=<prefix>-<suffix>`) — this is the missing read path.

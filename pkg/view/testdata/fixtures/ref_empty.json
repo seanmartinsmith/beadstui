@@ -1,0 +1,26 @@
+{
+  "description": "Single-prefix set with only intra-project refs in prose. v1 scope (cross-project only) excludes these, so ComputeRefRecords returns nil → JSON null.",
+  "issues": [
+    {
+      "id": "bt-a",
+      "title": "refers to bt-b in description",
+      "description": "this mentions bt-b inline",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-15T10:00:00Z",
+      "updated_at": "2026-04-15T10:00:00Z"
+    },
+    {
+      "id": "bt-b",
+      "title": "another bt issue",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-16T10:00:00Z",
+      "updated_at": "2026-04-16T10:00:00Z"
+    }
+  ]
+}

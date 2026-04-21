@@ -1,0 +1,11 @@
+[
+  {
+    "source": "bt-broken",
+    "target": "external:cass:missing",
+    "location": "deps",
+    "flags": [
+      "broken",
+      "cross_project"
+    ]
+  }
+]

@@ -44,6 +44,7 @@ Scope:
 - [x] External dep resolution for cross-project graph analysis (bt-mhwy.5, 2026-04-20)
 - [x] Portfolio subcommand — per-project health aggregates (bt-mhwy.4, 2026-04-20)
 - [x] Pairs subcommand — cross-project paired bead detection with drift flags (bt-mhwy.2, 2026-04-20)
+- [x] Refs subcommand — cross-project reference validation with broken/stale/orphaned_child flags (bt-mhwy.3, 2026-04-21)
 - [ ] Fix envelope bypass in robot-search, robot-diff
 - [ ] Add positional arg warning/support
 - [ ] Document all 18 missing env vars in --robot-docs env

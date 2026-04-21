@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/seanmartinsmith/beadstui/pkg/view/schemas/ref_record.v1.json",
+  "title": "RefRecord v1",
+  "description": "One detected cross-project bead reference. Emitted per (source, target, location) tuple; duplicate mentions of the same target inside a single location collapse to one record, but the same target appearing in multiple locations emits multiple records. v1 surfaces cross-project references only — the identity rule may relax in v2.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "source",
+    "target",
+    "location",
+    "flags"
+  ],
+  "properties": {
+    "source": {
+      "type": "string",
+      "description": "Bead ID containing the reference."
+    },
+    "target": {
+      "type": "string",
+      "description": "Referenced bead ID. For unresolved external: deps this is the raw external:<project>:<suffix> string so agents can see the exact shape that failed to resolve."
+    },
+    "location": {
+      "type": "string",
+      "enum": ["description", "notes", "comments", "deps"],
+      "description": "Where inside the source bead the reference was found."
+    },
+    "flags": {
+      "type": "array",
+      "description": "Validation flags in fixed output order: broken, stale, orphaned_child, cross_project. Every v1 record carries cross_project because v1 only surfaces cross-project refs.",
+      "items": {
+        "type": "string",
+        "enum": ["broken", "stale", "orphaned_child", "cross_project"]
+      },
+      "minItems": 1
+    }
+  }
+}

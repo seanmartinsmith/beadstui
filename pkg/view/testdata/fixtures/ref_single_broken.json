@@ -1,0 +1,26 @@
+{
+  "description": "One cross-project prose ref whose target is absent from the global set. bd-anchor establishes 'bd' as a known prefix so the bd-missing ref can be validated as broken (prefix scoping drops refs to unknown prefixes).",
+  "issues": [
+    {
+      "id": "bt-a",
+      "title": "depends on cross-project context",
+      "description": "see bd-missing for the original decision",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-15T10:00:00Z",
+      "updated_at": "2026-04-15T10:00:00Z"
+    },
+    {
+      "id": "bd-anchor",
+      "title": "establishes bd as a known prefix",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bd",
+      "created_at": "2026-04-14T10:00:00Z",
+      "updated_at": "2026-04-14T10:00:00Z"
+    }
+  ]
+}

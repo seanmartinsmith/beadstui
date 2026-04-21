@@ -887,6 +887,25 @@ var robotPairsCmd = &cobra.Command{
 	},
 }
 
+// bt robot refs
+var robotRefsCmd = &cobra.Command{
+	Use:   "refs",
+	Short: "Detect cross-project bead references in prose and dep fields",
+	Long: "Scans description, notes, comments, and external: dependencies for cross-project bead IDs " +
+		"and validates each against the global set. Flags: broken (target missing), " +
+		"stale (target closed), orphaned_child (target's parent closed but target still open), " +
+		"cross_project (always present; v1 surfaces cross-project refs only). " +
+		"Requires --global. --shape accepted but no-op; envelope.schema is always ref.v1.",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		rc, err := robotPreRun()
+		if err != nil {
+			return err
+		}
+		rc.runRefs()
+		return nil
+	},
+}
+
 // bt robot forecast
 var robotForecastCmd = &cobra.Command{
 	Use:   "forecast [bead-id|all]",
@@ -1135,6 +1154,9 @@ func init() {
 
 	// pairs
 	robotCmd.AddCommand(robotPairsCmd)
+
+	// refs
+	robotCmd.AddCommand(robotRefsCmd)
 
 	// forecast
 	robotForecastCmd.Flags().String("forecast-label", "", "Filter forecast by label")

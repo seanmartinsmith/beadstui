@@ -1,0 +1,37 @@
+[
+  {
+    "source": "bt-orphan-src",
+    "target": "bd-orphan",
+    "location": "description",
+    "flags": [
+      "orphaned_child",
+      "cross_project"
+    ]
+  },
+  {
+    "source": "bt-src",
+    "target": "bd-closed",
+    "location": "notes",
+    "flags": [
+      "stale",
+      "cross_project"
+    ]
+  },
+  {
+    "source": "bt-src",
+    "target": "bd-missing",
+    "location": "description",
+    "flags": [
+      "broken",
+      "cross_project"
+    ]
+  },
+  {
+    "source": "bt-src",
+    "target": "cass-live",
+    "location": "description",
+    "flags": [
+      "cross_project"
+    ]
+  }
+]

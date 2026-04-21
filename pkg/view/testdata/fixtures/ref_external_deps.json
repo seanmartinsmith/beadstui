@@ -1,0 +1,51 @@
+{
+  "description": "external: deps interaction. bt-resolvable has external:cass:x which resolves (cass-x is in the set) and emits NO record. bt-broken has external:cass:missing which cannot resolve and emits [broken, cross_project] in location=deps.",
+  "issues": [
+    {
+      "id": "bt-resolvable",
+      "title": "has a resolvable external dep",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "dependencies": [
+        {
+          "issue_id": "bt-resolvable",
+          "depends_on_id": "external:cass:x",
+          "type": "blocks",
+          "created_at": "2026-04-15T10:00:00Z"
+        }
+      ],
+      "created_at": "2026-04-15T10:00:00Z",
+      "updated_at": "2026-04-15T10:00:00Z"
+    },
+    {
+      "id": "cass-x",
+      "title": "the target that resolves",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "cass",
+      "created_at": "2026-04-14T10:00:00Z",
+      "updated_at": "2026-04-14T10:00:00Z"
+    },
+    {
+      "id": "bt-broken",
+      "title": "has a broken external dep",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "dependencies": [
+        {
+          "issue_id": "bt-broken",
+          "depends_on_id": "external:cass:missing",
+          "type": "blocks",
+          "created_at": "2026-04-15T10:00:00Z"
+        }
+      ],
+      "created_at": "2026-04-15T10:00:00Z",
+      "updated_at": "2026-04-15T10:00:00Z"
+    }
+  ]
+}

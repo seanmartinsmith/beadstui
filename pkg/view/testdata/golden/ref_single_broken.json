@@ -1,0 +1,11 @@
+[
+  {
+    "source": "bt-a",
+    "target": "bd-missing",
+    "location": "description",
+    "flags": [
+      "broken",
+      "cross_project"
+    ]
+  }
+]
