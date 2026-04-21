@@ -1,0 +1,430 @@
+{
+  "description": "Labeled corpus for the pairs/refs v2 FPR gate (Phase 5 of bt-vxu9 / bt-gkyn). Synthesized from real shared-Dolt state: 5 intentional cross-project pairs (bt-zsy8/bd-zsy8; Gastown 4-way bt-byk+cass-byk+tpane-byk+cnvs-byk; dotfiles-2il/mkt-2il; dotfiles-x08/mkt-x08; 3-way bd-fjip/cass-fjip/mkt-fjip) plus 6 suffix-collision negatives picked from the 11 v1-detected collisions (153, 1hk, 52t, 9c9, cv6, dyg). Each intentional pair carries cross-prefix dep edges; collisions carry none. Prose samples exercise each --sigils mode (strict/verb/permissive) with both intentional references and negative cases (placeholder IDs, English slugs, fenced-code exclusions). Prefix naming reflects the public-repo exposure policy documented in docs/design/2026-04-21-pairs-refs-v2.md: only bt/bd/cass/mkt/dotfiles/tpane/cnvs/cctui/portfolio/sms/updoots appear; no further aliasing required. Sanitized via scripts/audit-corpus.sh before commit.",
+  "issues": [
+    {
+      "id": "bt-byk",
+      "title": "Gastown cross-project coordination",
+      "description": "Coordinating the Gastown workstream across bt, cass, tpane, and cnvs. see cass-byk for the canonical scope.",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "feature",
+      "source_repo": "bt",
+      "created_at": "2026-04-10T10:00:00Z",
+      "updated_at": "2026-04-10T10:00:00Z",
+      "dependencies": [
+        {"issue_id": "bt-byk", "depends_on_id": "cass-byk", "type": "related", "created_at": "2026-04-10T10:00:00Z", "created_by": "sms"}
+      ]
+    },
+    {
+      "id": "cass-byk",
+      "title": "Gastown cross-project coordination",
+      "description": "Canonical description for the Gastown workstream. paired with bt-byk; also blocks tpane-byk until the schema stabilizes.",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "feature",
+      "source_repo": "cass",
+      "created_at": "2026-04-11T10:00:00Z",
+      "updated_at": "2026-04-11T10:00:00Z",
+      "dependencies": [
+        {"issue_id": "cass-byk", "depends_on_id": "tpane-byk", "type": "related", "created_at": "2026-04-11T10:00:00Z", "created_by": "sms"}
+      ]
+    },
+    {
+      "id": "tpane-byk",
+      "title": "Gastown cross-project coordination",
+      "description": "tpane slice of the Gastown workstream. mirrors cass-byk shape.",
+      "status": "in_progress",
+      "priority": 1,
+      "issue_type": "feature",
+      "source_repo": "tpane",
+      "created_at": "2026-04-12T10:00:00Z",
+      "updated_at": "2026-04-12T10:00:00Z",
+      "dependencies": [
+        {"issue_id": "tpane-byk", "depends_on_id": "cnvs-byk", "type": "related", "created_at": "2026-04-12T10:00:00Z", "created_by": "sms"}
+      ]
+    },
+    {
+      "id": "cnvs-byk",
+      "title": "Gastown cross-project coordination",
+      "description": "canvas slice. Connected back through the bt->cass->tpane->cnvs chain.",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "feature",
+      "source_repo": "cnvs",
+      "created_at": "2026-04-13T10:00:00Z",
+      "updated_at": "2026-04-13T10:00:00Z"
+    },
+    {
+      "id": "bt-zsy8",
+      "title": "Cross-project bead pairing convention",
+      "description": "Documenting the --id suffix pattern for paired beads. See [bd-zsy8](https://example.invalid/beads/bd-zsy8) for the beads-side slice.",
+      "status": "closed",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-05T10:00:00Z",
+      "updated_at": "2026-04-18T10:00:00Z",
+      "closed_at": "2026-04-18T10:00:00Z",
+      "dependencies": [
+        {"issue_id": "bt-zsy8", "depends_on_id": "bd-zsy8", "type": "related", "created_at": "2026-04-05T10:00:00Z", "created_by": "sms"}
+      ]
+    },
+    {
+      "id": "bd-zsy8",
+      "title": "Cross-project bead pairing convention",
+      "description": "Upstream-side mirror. ref: bt-zsy8",
+      "status": "closed",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bd",
+      "created_at": "2026-04-06T10:00:00Z",
+      "updated_at": "2026-04-19T10:00:00Z",
+      "closed_at": "2026-04-19T10:00:00Z"
+    },
+    {
+      "id": "dotfiles-2il",
+      "title": "Unused skills audit",
+      "description": "Auditing installed skills against usage logs. Paired with `mkt-2il` on the marketplace side.",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "dotfiles",
+      "created_at": "2026-04-14T10:00:00Z",
+      "updated_at": "2026-04-14T10:00:00Z",
+      "dependencies": [
+        {"issue_id": "dotfiles-2il", "depends_on_id": "mkt-2il", "type": "related", "created_at": "2026-04-14T10:00:00Z", "created_by": "sms"}
+      ]
+    },
+    {
+      "id": "mkt-2il",
+      "title": "Unused skills audit",
+      "description": "Marketplace slice of the skills audit. Paired: `dotfiles-2il`.",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "mkt",
+      "created_at": "2026-04-14T10:30:00Z",
+      "updated_at": "2026-04-14T10:30:00Z"
+    },
+    {
+      "id": "dotfiles-x08",
+      "title": "Dotfiles spring cleaning",
+      "description": "Removing unused config. Paired with mkt-x08.",
+      "status": "open",
+      "priority": 3,
+      "issue_type": "task",
+      "source_repo": "dotfiles",
+      "created_at": "2026-04-15T10:00:00Z",
+      "updated_at": "2026-04-15T10:00:00Z",
+      "dependencies": [
+        {"issue_id": "dotfiles-x08", "depends_on_id": "mkt-x08", "type": "related", "created_at": "2026-04-15T10:00:00Z", "created_by": "sms"}
+      ]
+    },
+    {
+      "id": "mkt-x08",
+      "title": "Marketplace spring cleaning",
+      "description": "Trimming unused plugins. Mirrors dotfiles-x08.",
+      "status": "open",
+      "priority": 3,
+      "issue_type": "task",
+      "source_repo": "mkt",
+      "created_at": "2026-04-15T10:30:00Z",
+      "updated_at": "2026-04-15T10:30:00Z"
+    },
+    {
+      "id": "bd-fjip",
+      "title": "Session history column",
+      "description": "Upstream column for session provenance. Related: cass-fjip (client), mkt-fjip (hook surface).",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "feature",
+      "source_repo": "bd",
+      "created_at": "2026-04-08T10:00:00Z",
+      "updated_at": "2026-04-08T10:00:00Z",
+      "dependencies": [
+        {"issue_id": "bd-fjip", "depends_on_id": "cass-fjip", "type": "related", "created_at": "2026-04-08T10:00:00Z", "created_by": "sms"}
+      ]
+    },
+    {
+      "id": "cass-fjip",
+      "title": "Session history column",
+      "description": "Client-side consumer of bd-fjip. blocks mkt-fjip landing.",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "feature",
+      "source_repo": "cass",
+      "created_at": "2026-04-09T10:00:00Z",
+      "updated_at": "2026-04-09T10:00:00Z",
+      "dependencies": [
+        {"issue_id": "cass-fjip", "depends_on_id": "mkt-fjip", "type": "related", "created_at": "2026-04-09T10:00:00Z", "created_by": "sms"}
+      ]
+    },
+    {
+      "id": "mkt-fjip",
+      "title": "Session history column",
+      "description": "Hook surface for session provenance. mirrors bd-fjip in shape.",
+      "status": "open",
+      "priority": 1,
+      "issue_type": "feature",
+      "source_repo": "mkt",
+      "created_at": "2026-04-10T10:00:00Z",
+      "updated_at": "2026-04-10T10:00:00Z"
+    },
+    {
+      "id": "bt-153",
+      "title": "K-shortest critical paths analysis",
+      "description": "Graph analysis work for bt. Unrelated to any mkt issue despite the suffix collision.",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "feature",
+      "source_repo": "bt",
+      "created_at": "2026-03-20T10:00:00Z",
+      "updated_at": "2026-03-20T10:00:00Z"
+    },
+    {
+      "id": "mkt-153",
+      "title": "Rich description nudge hook",
+      "description": "Hook that prompts authors for richer descriptions. No relation to bt-153.",
+      "status": "open",
+      "priority": 3,
+      "issue_type": "feature",
+      "source_repo": "mkt",
+      "created_at": "2026-03-21T10:00:00Z",
+      "updated_at": "2026-03-21T10:00:00Z"
+    },
+    {
+      "id": "cnvs-1hk",
+      "title": "Canvas grid snap",
+      "description": "Grid snapping for canvas node placement. Coincident suffix only.",
+      "status": "open",
+      "priority": 3,
+      "issue_type": "task",
+      "source_repo": "cnvs",
+      "created_at": "2026-03-22T10:00:00Z",
+      "updated_at": "2026-03-22T10:00:00Z"
+    },
+    {
+      "id": "cass-1hk",
+      "title": "Watcher lag on large sessions",
+      "description": "Watcher diagnostics. No relation to cnvs-1hk.",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "bug",
+      "source_repo": "cass",
+      "created_at": "2026-03-23T10:00:00Z",
+      "updated_at": "2026-03-23T10:00:00Z"
+    },
+    {
+      "id": "bt-52t",
+      "title": "TUI status bar overflow",
+      "description": "Truncation in the bt TUI status bar. Different project entirely from updoots-52t.",
+      "status": "open",
+      "priority": 3,
+      "issue_type": "bug",
+      "source_repo": "bt",
+      "created_at": "2026-03-24T10:00:00Z",
+      "updated_at": "2026-03-24T10:00:00Z"
+    },
+    {
+      "id": "updoots-52t",
+      "title": "Vote totals cached too long",
+      "description": "Cache-invalidation bug in updoots vote aggregation.",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "bug",
+      "source_repo": "updoots",
+      "created_at": "2026-03-25T10:00:00Z",
+      "updated_at": "2026-03-25T10:00:00Z"
+    },
+    {
+      "id": "portfolio-9c9",
+      "title": "Animated hero section",
+      "description": "Scroll-driven hero animation on the portfolio site.",
+      "status": "open",
+      "priority": 3,
+      "issue_type": "task",
+      "source_repo": "portfolio",
+      "created_at": "2026-03-26T10:00:00Z",
+      "updated_at": "2026-03-26T10:00:00Z"
+    },
+    {
+      "id": "sms-9c9",
+      "title": "Nightly backup of Obsidian vault",
+      "description": "Cron that rsyncs the vault to a remote volume.",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "sms",
+      "created_at": "2026-03-27T10:00:00Z",
+      "updated_at": "2026-03-27T10:00:00Z"
+    },
+    {
+      "id": "cnvs-cv6",
+      "title": "Edge-router re-layout on resize",
+      "description": "Edge rerouting when container resizes.",
+      "status": "open",
+      "priority": 3,
+      "issue_type": "bug",
+      "source_repo": "cnvs",
+      "created_at": "2026-03-28T10:00:00Z",
+      "updated_at": "2026-03-28T10:00:00Z"
+    },
+    {
+      "id": "dotfiles-cv6",
+      "title": "Starship prompt slow on large repos",
+      "description": "Profiling the shell prompt on the beadstui checkout.",
+      "status": "open",
+      "priority": 3,
+      "issue_type": "bug",
+      "source_repo": "dotfiles",
+      "created_at": "2026-03-29T10:00:00Z",
+      "updated_at": "2026-03-29T10:00:00Z"
+    },
+    {
+      "id": "bt-dyg",
+      "title": "Diff view scroll lag",
+      "description": "Scroll perf in the bt diff view.",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "bug",
+      "source_repo": "bt",
+      "created_at": "2026-03-30T10:00:00Z",
+      "updated_at": "2026-03-30T10:00:00Z"
+    },
+    {
+      "id": "cctui-dyg",
+      "title": "Reload keybinding conflict",
+      "description": "Keybinding collision in cctui settings panel.",
+      "status": "open",
+      "priority": 3,
+      "issue_type": "bug",
+      "source_repo": "cctui",
+      "created_at": "2026-03-31T10:00:00Z",
+      "updated_at": "2026-03-31T10:00:00Z"
+    },
+    {
+      "id": "bt-refsrc1",
+      "title": "Ref source: strict-mode sigils",
+      "description": "Validating strict-mode detection. See [bd-zsy8](https://example.invalid/bd-zsy8) and inline-code `cass-byk`; also ref: mkt-2il. The string bt-xxx should be ignored (placeholder text, no matching target).",
+      "notes": "Additional ref in notes: refs: dotfiles-x08.",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-16T10:00:00Z",
+      "updated_at": "2026-04-16T10:00:00Z"
+    },
+    {
+      "id": "bt-refsrc2",
+      "title": "Ref source: verb-mode sigils",
+      "description": "Validating verb-proximity detection. This issue blocks bd-fjip until the column lands; paired with mkt-fjip for the hook surface. see cass-fjip for the client. An unrelated prose mention of mkt-x08-only should not fire a verb match because -only is an English slug.",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-17T10:00:00Z",
+      "updated_at": "2026-04-17T10:00:00Z"
+    },
+    {
+      "id": "bt-refsrc3",
+      "title": "Ref source: permissive-mode and exclusions",
+      "description": "Permissive mode recognizes bare mentions like bd-zsy8 or cass-byk in prose. Inside a fenced block the IDs should NOT fire:\n\n```\nbt-xxx and cass-xyz\n```\n\nAfter the fence the next bare id is mkt-fjip which should fire in permissive mode.",
+      "notes": "Intentional inline-code exclusion: the identifier `bt-suppressed` should not fire because it is inline code AND its suffix is not a real bead; but the sigil kind would be inline_code if it were.",
+      "status": "open",
+      "priority": 3,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-18T10:00:00Z",
+      "updated_at": "2026-04-18T10:00:00Z"
+    },
+    {
+      "id": "bt-refbroken",
+      "title": "Ref source: broken external dep",
+      "description": "Exercises scanDepsV2 with an unresolved external: dep.",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-19T10:00:00Z",
+      "updated_at": "2026-04-19T10:00:00Z",
+      "dependencies": [
+        {"issue_id": "bt-refbroken", "depends_on_id": "external:bd:nonexistent", "type": "related", "created_at": "2026-04-19T10:00:00Z", "created_by": "sms"}
+      ]
+    },
+    {
+      "id": "bt-refstale",
+      "title": "Ref source: closed target (stale)",
+      "description": "Mentions [bt-zsy8](https://example.invalid/bt-zsy8) which is closed. Should fire with stale flag.",
+      "status": "open",
+      "priority": 3,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-20T10:00:00Z",
+      "updated_at": "2026-04-20T10:00:00Z"
+    },
+    {
+      "id": "bt-refnegative",
+      "title": "Ref source: negatives only",
+      "description": "Contains only non-ref text. Mentions `sessions-only` and `-side` and the placeholder bt-xxx, none of which should emit under strict or verb mode.",
+      "status": "open",
+      "priority": 3,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-21T10:00:00Z",
+      "updated_at": "2026-04-21T10:00:00Z"
+    },
+    {
+      "id": "bt-xgba",
+      "title": "Remove --schema=v1 fallback one release after ship",
+      "description": "Bookkeeping follow-up. No cross-project prose.",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "source_repo": "bt",
+      "created_at": "2026-04-21T11:00:00Z",
+      "updated_at": "2026-04-21T11:00:00Z"
+    }
+  ],
+  "expected_pairs": [
+    {"suffix": "byk",  "members": ["bt-byk", "cass-byk", "tpane-byk", "cnvs-byk"], "intentional": true,  "reason": "Gastown 4-way cross-project coordination; chain of dep edges"},
+    {"suffix": "zsy8", "members": ["bt-zsy8", "bd-zsy8"],                           "intentional": true,  "reason": "Paired via --id workflow; shared close_reason history"},
+    {"suffix": "2il",  "members": ["dotfiles-2il", "mkt-2il"],                      "intentional": true,  "reason": "Unused skills audit; explicitly paired"},
+    {"suffix": "x08",  "members": ["dotfiles-x08", "mkt-x08"],                      "intentional": true,  "reason": "Spring cleaning; explicitly paired"},
+    {"suffix": "fjip", "members": ["bd-fjip", "cass-fjip", "mkt-fjip"],             "intentional": true,  "reason": "Session history 3-way; chain of dep edges"},
+    {"suffix": "153",  "members": ["bt-153", "mkt-153"],                            "intentional": false, "reason": "Unrelated work; auto-generated suffix collision"},
+    {"suffix": "1hk",  "members": ["cnvs-1hk", "cass-1hk"],                         "intentional": false, "reason": "Unrelated work; suffix collision"},
+    {"suffix": "52t",  "members": ["bt-52t", "updoots-52t"],                        "intentional": false, "reason": "Unrelated work; suffix collision"},
+    {"suffix": "9c9",  "members": ["portfolio-9c9", "sms-9c9"],                     "intentional": false, "reason": "Unrelated work; suffix collision"},
+    {"suffix": "cv6",  "members": ["cnvs-cv6", "dotfiles-cv6"],                     "intentional": false, "reason": "Unrelated work; suffix collision"},
+    {"suffix": "dyg",  "members": ["bt-dyg", "cctui-dyg"],                          "intentional": false, "reason": "Unrelated work; suffix collision"}
+  ],
+  "expected_refs": [
+    {"source": "bt-byk",       "target": "cass-byk",  "intentional": true,  "reason": "verb-mode: 'see cass-byk' in description"},
+    {"source": "cass-byk",     "target": "bt-byk",    "intentional": true,  "reason": "verb-mode: 'paired with bt-byk'"},
+    {"source": "cass-byk",     "target": "tpane-byk", "intentional": true,  "reason": "verb-mode: 'blocks tpane-byk'"},
+    {"source": "tpane-byk",    "target": "cass-byk",  "intentional": true,  "reason": "verb-mode: 'mirrors cass-byk'"},
+    {"source": "bt-zsy8",      "target": "bd-zsy8",   "intentional": true,  "reason": "strict: markdown link [bd-zsy8](...)"},
+    {"source": "bd-zsy8",      "target": "bt-zsy8",   "intentional": true,  "reason": "strict: ref: keyword"},
+    {"source": "dotfiles-2il", "target": "mkt-2il",   "intentional": true,  "reason": "strict: inline code `mkt-2il` (and verb 'paired with')"},
+    {"source": "mkt-2il",      "target": "dotfiles-2il", "intentional": true, "reason": "strict: inline code `dotfiles-2il`"},
+    {"source": "dotfiles-x08", "target": "mkt-x08",   "intentional": true,  "reason": "verb: 'paired with mkt-x08'"},
+    {"source": "mkt-x08",      "target": "dotfiles-x08", "intentional": true, "reason": "verb: 'mirrors dotfiles-x08'"},
+    {"source": "bd-fjip",      "target": "cass-fjip", "intentional": true,  "reason": "verb: 'related: cass-fjip' / bare prose reference"},
+    {"source": "bd-fjip",      "target": "mkt-fjip",  "intentional": true,  "reason": "bare prose reference in description"},
+    {"source": "cass-fjip",    "target": "bd-fjip",   "intentional": true,  "reason": "verb: 'consumer of bd-fjip'"},
+    {"source": "cass-fjip",    "target": "mkt-fjip",  "intentional": true,  "reason": "verb: 'blocks mkt-fjip'"},
+    {"source": "mkt-fjip",     "target": "bd-fjip",   "intentional": true,  "reason": "verb: 'mirrors bd-fjip'"},
+    {"source": "bt-refsrc1",   "target": "bd-zsy8",   "intentional": true,  "reason": "strict: markdown link"},
+    {"source": "bt-refsrc1",   "target": "cass-byk",  "intentional": true,  "reason": "strict: inline code"},
+    {"source": "bt-refsrc1",   "target": "mkt-2il",   "intentional": true,  "reason": "strict: ref: keyword"},
+    {"source": "bt-refsrc1",   "target": "dotfiles-x08", "intentional": true, "reason": "strict: refs: keyword in notes"},
+    {"source": "bt-refsrc2",   "target": "bd-fjip",   "intentional": true,  "reason": "verb: 'blocks bd-fjip'"},
+    {"source": "bt-refsrc2",   "target": "mkt-fjip",  "intentional": true,  "reason": "verb: 'paired with mkt-fjip'"},
+    {"source": "bt-refsrc2",   "target": "cass-fjip", "intentional": true,  "reason": "verb: 'see cass-fjip'"},
+    {"source": "bt-refsrc3",   "target": "bd-zsy8",   "intentional": true,  "reason": "permissive: bare mention outside fence"},
+    {"source": "bt-refsrc3",   "target": "cass-byk",  "intentional": true,  "reason": "permissive: bare mention outside fence"},
+    {"source": "bt-refsrc3",   "target": "mkt-fjip",  "intentional": true,  "reason": "permissive: bare mention after fence"},
+    {"source": "bt-refbroken", "target": "external:bd:nonexistent", "intentional": true, "reason": "broken external dep — genuinely broken, flag is correct"},
+    {"source": "bt-refstale",  "target": "bt-zsy8",   "intentional": false, "reason": "Source and target share prefix 'bt' — cross-project filter drops this; included to verify same-prefix exclusion"}
+  ]
+}
