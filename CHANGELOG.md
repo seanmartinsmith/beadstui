@@ -6,6 +6,38 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-21 - Pairs/refs v2 docs + labeled corpus + FPR gate (bt-vxu9, Phases 4-5)
+
+**Closed the pairs+refs v2 plan: expanded the bt-side convention + design docs into cold-readable references, landed a 32-issue labeled corpus with a pre-commit sanitization gate, and shipped an FPR threshold test asserting the v2 readers stay under their agreed-on false-positive budgets.** Phases 4 + 5 + 6 of the plan; closes bt-vxu9.
+
+### What shipped
+
+- **`.beads/conventions/cross-project.md`** — Phase 1 skeleton replaced with per-mode sigil vocabulary, intent_source/sigil_kind semantics, when-to-pin `--schema=v1` scenarios, full invocation examples (default, v1 pin, sigil modes, `--orphaned`, env-var forms), and migration guidance pointing at bt-xgba for removal.
+- **`docs/design/2026-04-21-pairs-refs-v2.md`** — authoritative labeling rubric, BFS-over-connected-components rationale (vs union-find at N=400), per-mode sigil tables with concrete prose examples, "why schema-bump not envelope-additive", "why dep-edge as sole signal", "why verb default", rollback semantics, and file:line cites to shipped code. Flagged one dead-code observation (`hasVerbWithinProximity` at pkg/analysis/sigils.go:546 is unreferenced).
+- **`scripts/audit-corpus.sh`** — 117-line jq-based pre-commit scanner. Denylist: password/secret/token/api_key, AWS/GitHub/Slack token shapes, `.env`, `localhost:port`, Windows/macOS user paths, emails outside the sms@seanmartinsmith.com / @users.noreply.github.com allowlist. Hard-requires jq (no grep-over-JSON fallback — would false-positive on key names).
+- **`pkg/view/testdata/corpus/labeled_corpus.json`** — 32 sanitized issues modeled on real shared-Dolt state. 11 candidate pair records (5 intentional: byk 4-way / zsy8 / 2il / x08 / fjip 3-way; 6 suffix-collision negatives: 153 / 1hk / 52t / 9c9 / cv6 / dyg). 27 labeled ref candidates exercising each sigil mode with placeholder negatives (`bt-xxx`) and English-slug negatives (`-only`, `-side`) that strict/verb correctly suppress.
+- **`pkg/view/fpr_gate_test.go`** — three subtests: corpus-load (malformed fixture / missing truth / N<10 candidates / memory-delta >10 MiB all fail loudly); pair.v2 FPR gate at <10%; ref.v2 broken-flag FPR gated at ≤5% under verb mode with strict + permissive reporting informational readouts.
+
+### Measured numbers
+
+Baseline vs v2 on the labeled corpus:
+- **Pair FPR**: v1 ~83% (~24 of 29 dogfood pairs were suffix collisions) → **v2 0.00%** (5/5 emitted records intentional, far under 10% gate).
+- **Ref broken-flag FPR**: v1 ~30% (dogfood baseline) → **v2 0.00% across all three modes** (strict: 9 records total, 1 broken, 0/1 FP; verb: 21 records, 1 broken, 0/1 FP; permissive: 26 records, 1 broken, 0/1 FP).
+
+The single broken ref in each mode is the intentionally-broken `external:bd:nonexistent` dep on `bt-refbroken` — detector is correctly flagging a genuinely dangling external ref.
+
+### Risk
+
+Low. Phase 4 is docs-only; Phase 5 adds one test file + one fixture + one shell script. No production code touched. FPR gate is additive and runs alongside existing goldens; breakage would fail `go test ./pkg/view/` loudly without affecting readers.
+
+### Deferred follow-ups
+
+- **bt-xgba** (P2): remove `--schema=v1` fallback one release after ship. Filed Phase 3.
+- **--explain-refs observability mode** (bt-113x, P3, discovered-from bt-vxu9): emits rejection reasons per prose candidate span so FPR regressions are debuggable.
+- **`pkg/analysis/sigils.go:546` dead code** — unreferenced `hasVerbWithinProximity` helper from an earlier draft; actual resolution is inlined in `processLineSigil`. Flagged in bt-vxu9 close notes, not a separate bead (trivial cleanup).
+
+---
+
 ## 2026-04-21 - Refs v2 + sigils detector + default schema flip (bt-vxu9)
 
 **Ship the ref.v2 reader with a hand-rolled sigil tokenizer, and flip the default `--schema` from v1 to v2 for both `bt robot pairs` and `bt robot refs`.** Both v2 readers now live side-by-side with their v1 counterparts; `--schema=v1` remains as an opt-in fallback. Phase 3 of bt-vxu9 / bt-gkyn.
@@ -47,10 +79,8 @@ Low. Both v1 readers untouched and test-covered. v2 readers isolated behind disp
 
 ### Follow-ups open
 
-- Phase 4 (convention doc expansion + labeling rubric) — landing separately.
-- Phase 5 (labeled corpus + FPR gate test) — needs human labeling judgment; filed for a dedicated session.
-- Phase 6 (close bt-gkyn and bt-vxu9 with real FPR numbers from Phase 5) — waits on Phase 5.
-- Remove `--schema=v1` fallback — a new follow-up bead triggers one release after this ship.
+- Phases 4 + 5 + 6 shipped in a follow-up session (2026-04-21 evening). See the next entry.
+- Remove `--schema=v1` fallback — bt-xgba triggers one release after this ship.
 
 ---
 
