@@ -890,15 +890,20 @@ var robotPairsCmd = &cobra.Command{
 	Use:   "pairs",
 	Short: "Detect cross-project paired beads (same ID suffix, different prefixes)",
 	Long: "Returns one PairRecord per paired set — canonical bead (first-created) plus mirrors, " +
-		"with drift flags for status, priority, closed/open, and title mismatches. " +
+		"with drift flags for status, priority, and closed/open mismatches. " +
 		"Requires --global because pair detection is inherently cross-project. " +
-		"--shape is accepted but no-op; envelope.schema is always pair.v1.",
+		"--schema=v1 is the Phase 1 default; v2 flips the intent signal from suffix match to dep edge.",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		schema, err := pairsValidate(robotFlagSchema, robotFlagOrphaned)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 		rc, err := robotPreRun()
 		if err != nil {
 			return err
 		}
-		rc.runPairs()
+		rc.runPairs(schema)
 		return nil
 	},
 }
@@ -911,13 +916,18 @@ var robotRefsCmd = &cobra.Command{
 		"and validates each against the global set. Flags: broken (target missing), " +
 		"stale (target closed), orphaned_child (target's parent closed but target still open), " +
 		"cross_project (always present; v1 surfaces cross-project refs only). " +
-		"Requires --global. --shape accepted but no-op; envelope.schema is always ref.v1.",
+		"Requires --global. --schema=v1 is the Phase 1 default; --sigils is v2-only.",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		schema, _, err := refsValidate(robotFlagSchema, robotFlagSigils)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
 		rc, err := robotPreRun()
 		if err != nil {
 			return err
 		}
-		rc.runRefs()
+		rc.runRefs(schema)
 		return nil
 	},
 }
@@ -1169,9 +1179,13 @@ func init() {
 	robotCmd.AddCommand(robotPortfolioCmd)
 
 	// pairs
+	robotPairsCmd.Flags().StringVar(&robotFlagSchema, "schema", "", "Projection schema (v1|v2). Default v1 in Phase 1; flips to v2 once pair.v2 reader ships. Env: BT_OUTPUT_SCHEMA.")
+	robotPairsCmd.Flags().BoolVar(&robotFlagOrphaned, "orphaned", false, "Under --schema=v1, emit a JSONL checklist of v1-detected pairs missing the cross-prefix dep edge v2 requires. Read-only: lists the bd dep add commands to run manually.")
 	robotCmd.AddCommand(robotPairsCmd)
 
 	// refs
+	robotRefsCmd.Flags().StringVar(&robotFlagSchema, "schema", "", "Projection schema (v1|v2). Default v1 in Phase 1; flips to v2 once ref.v2 reader ships. Env: BT_OUTPUT_SCHEMA.")
+	robotRefsCmd.Flags().StringVar(&robotFlagSigils, "sigils", "", "Sigil recognition mode (strict|verb|permissive). Requires --schema=v2. Env: BT_SIGIL_MODE.")
 	robotCmd.AddCommand(robotRefsCmd)
 
 	// forecast

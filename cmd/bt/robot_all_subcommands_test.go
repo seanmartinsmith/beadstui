@@ -117,6 +117,49 @@ func TestRobotSubcommandsAcceptShapeFlag(t *testing.T) {
 	}
 }
 
+// TestRobotPairsRefsAcceptSchemaFlag — flag-matrix coverage for the
+// Phase 1 --schema scaffolding (bt-gkyn, bt-vxu9). Each subcommand
+// must parse --schema=v1 and --schema=v2 cleanly. v2 exits with a
+// "Phase N scope" runtime error, which runAccepts tolerates;
+// unexpected flag-parse errors still fail.
+func TestRobotPairsRefsAcceptSchemaFlag(t *testing.T) {
+	dir := setupListFixture(t)
+	exe := buildTestBinary(t)
+
+	cases := []struct {
+		name string
+		args []string
+	}{
+		{"pairs", []string{"robot", "pairs", "--global"}},
+		{"refs", []string{"robot", "refs", "--global"}},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name+"/schema-v1", func(t *testing.T) {
+			runAccepts(t, exe, dir, append(append([]string{}, tc.args...), "--schema=v1"))
+		})
+		t.Run(tc.name+"/schema-v2", func(t *testing.T) {
+			runAccepts(t, exe, dir, append(append([]string{}, tc.args...), "--schema=v2"))
+		})
+	}
+
+	// --sigils is refs-only. --schema=v2 is required by the conflict
+	// check; pairing it with v2 keeps the matrix row parseable even
+	// though v2 exits with a Phase 3 notice.
+	sigilsModes := []string{"strict", "verb", "permissive"}
+	for _, mode := range sigilsModes {
+		mode := mode
+		t.Run("refs/sigils-"+mode, func(t *testing.T) {
+			runAccepts(t, exe, dir, []string{"robot", "refs", "--global", "--schema=v2", "--sigils=" + mode})
+		})
+	}
+
+	// --orphaned is pairs-only and v1-only.
+	t.Run("pairs/orphaned-v1", func(t *testing.T) {
+		runAccepts(t, exe, dir, []string{"robot", "pairs", "--global", "--schema=v1", "--orphaned"})
+	})
+}
+
 // runAccepts runs the given subcommand and asserts it does NOT fail with
 // a cobra flag-parse error. Non-zero exits from missing data (e.g., no
 // search index built) are tolerated; flag errors are not.

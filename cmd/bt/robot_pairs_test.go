@@ -259,3 +259,185 @@ func sameStringSlice(a, b []string) bool {
 	}
 	return true
 }
+
+// TestPairsValidate covers the pure flag-validation helper for
+// `bt robot pairs`. Binary tests for --schema validation appear as
+// an integration layer below (where validation runs before the Dolt
+// discovery guard, so BT_TEST_MODE=1 tests reach the validator).
+func TestPairsValidate(t *testing.T) {
+	cases := []struct {
+		name       string
+		flagSchema string
+		flagOrph   bool
+		env        string
+		wantSchema string
+		wantErr    string
+	}{
+		{"default empty resolves to v1", "", false, "", robotSchemaV1, ""},
+		{"schema v1 explicit", "v1", false, "", robotSchemaV1, ""},
+		{"schema v2 explicit", "v2", false, "", robotSchemaV2, ""},
+		{"orphaned under v1 ok", "v1", true, "", robotSchemaV1, ""},
+		{"orphaned default (v1) ok", "", true, "", robotSchemaV1, ""},
+		{"orphaned under v2 errors", "v2", true, "", "", "--orphaned requires --schema=v1"},
+		{"env v2 + orphaned errors", "", true, "v2", "", "--orphaned requires --schema=v1"},
+		{"invalid schema errors", "bogus", false, "", "", `invalid --schema "bogus"`},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("BT_OUTPUT_SCHEMA", tc.env)
+			got, err := pairsValidate(tc.flagSchema, tc.flagOrph)
+			if tc.wantErr != "" {
+				if err == nil {
+					t.Fatalf("want error containing %q, got nil (schema=%q)", tc.wantErr, got)
+				}
+				if !strings.Contains(err.Error(), tc.wantErr) {
+					t.Errorf("error = %q, want contains %q", err.Error(), tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tc.wantSchema {
+				t.Errorf("schema = %q, want %q", got, tc.wantSchema)
+			}
+		})
+	}
+}
+
+// TestRobotPairs_SchemaInvalid — an unknown --schema value exits 1
+// with stderr listing valid values. Validation runs before
+// robotPreRun, so BT_TEST_MODE=1 doesn't mask the flag error.
+func TestRobotPairs_SchemaInvalid(t *testing.T) {
+	dir := setupPairsFixture(t)
+	exe := buildTestBinary(t)
+
+	cmd := exec.Command(exe, "robot", "pairs", "--global", "--schema=bogus")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "BT_TEST_MODE=1", "BT_NO_BROWSER=1")
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected non-zero exit for --schema=bogus; got success\nout=%s", out)
+	}
+	if !strings.Contains(string(out), "expected v1|v2") {
+		t.Errorf("stderr missing valid-values hint; got:\n%s", out)
+	}
+}
+
+// TestRobotPairs_OrphanedRequiresV1 — --orphaned is a v1-only helper
+// by definition (lists pairs failing the v2 rule); pairing it with
+// --schema=v2 errors at flag-validation time with a clear resolution.
+func TestRobotPairs_OrphanedRequiresV1(t *testing.T) {
+	dir := setupPairsFixture(t)
+	exe := buildTestBinary(t)
+
+	cmd := exec.Command(exe, "robot", "pairs", "--global", "--orphaned", "--schema=v2")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "BT_TEST_MODE=1", "BT_NO_BROWSER=1")
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected non-zero exit; got success\nout=%s", out)
+	}
+	if !strings.Contains(string(out), "--orphaned requires --schema=v1") {
+		t.Errorf("stderr missing resolution message; got:\n%s", out)
+	}
+}
+
+// TestOrphanedPairs_DetectsMissingDep — a cross-prefix pair with no
+// dep edge between members surfaces in --orphaned output. The
+// pairsFixtureIssues fixture has two pairs (abc, zsy8) with no deps,
+// so both should appear.
+func TestOrphanedPairs_DetectsMissingDep(t *testing.T) {
+	orphans := orphanedPairs(pairsFixtureIssues())
+	if len(orphans) != 2 {
+		t.Fatalf("len(orphans) = %d, want 2", len(orphans))
+	}
+
+	suffixes := map[string]bool{}
+	for _, o := range orphans {
+		suffixes[o.Suffix] = true
+		if len(o.Members) < 2 {
+			t.Errorf("orphan %q has %d members, want >=2", o.Suffix, len(o.Members))
+		}
+		if o.SuggestedCommand == "" {
+			t.Errorf("orphan %q missing suggested_command", o.Suffix)
+		}
+		if !strings.HasPrefix(o.SuggestedCommand, "bd dep add ") {
+			t.Errorf("orphan %q suggested_command = %q, want prefix 'bd dep add '", o.Suffix, o.SuggestedCommand)
+		}
+	}
+	for _, want := range []string{"abc", "zsy8"} {
+		if !suffixes[want] {
+			t.Errorf("orphan with suffix %q not found", want)
+		}
+	}
+}
+
+// TestOrphanedPairs_SkipsPairsWithDep — when at least one cross-prefix
+// dep edge exists inside a pair group, the pair is NOT orphaned and
+// stays out of output.
+func TestOrphanedPairs_SkipsPairsWithDep(t *testing.T) {
+	issues := pairsFixtureIssues()
+	// Stamp a cross-prefix related dep from bt-zsy8 -> bd-zsy8; the
+	// zsy8 pair should drop out of orphaned output. abc stays because
+	// it still has no dep.
+	for i := range issues {
+		if issues[i].ID == "bt-zsy8" {
+			issues[i].Dependencies = []*model.Dependency{
+				{
+					IssueID:     "bt-zsy8",
+					DependsOnID: "bd-zsy8",
+					Type:        model.DepRelated,
+					CreatedAt:   time.Now(),
+				},
+			}
+		}
+	}
+
+	orphans := orphanedPairs(issues)
+	for _, o := range orphans {
+		if o.Suffix == "zsy8" {
+			t.Errorf("zsy8 pair should be skipped; still appears in orphans")
+		}
+	}
+	if len(orphans) != 1 || orphans[0].Suffix != "abc" {
+		t.Errorf("want 1 orphan for suffix abc; got %v", orphans)
+	}
+}
+
+// TestOrphanedPairs_ReverseDepEdge — the dep edge counts regardless
+// of direction. bd-zsy8 -> bt-zsy8 is equivalent to the forward edge.
+func TestOrphanedPairs_ReverseDepEdge(t *testing.T) {
+	issues := pairsFixtureIssues()
+	for i := range issues {
+		if issues[i].ID == "bd-zsy8" {
+			issues[i].Dependencies = []*model.Dependency{
+				{
+					IssueID:     "bd-zsy8",
+					DependsOnID: "bt-zsy8",
+					Type:        model.DepRelated,
+					CreatedAt:   time.Now(),
+				},
+			}
+		}
+	}
+	orphans := orphanedPairs(issues)
+	for _, o := range orphans {
+		if o.Suffix == "zsy8" {
+			t.Errorf("reverse dep should be treated as intent; zsy8 still orphaned")
+		}
+	}
+}
+
+// TestOrphanedPairs_EmptyOnNoPairs — no v1-detected pairs in the set
+// means no orphaned output. Returns an empty/nil slice cleanly.
+func TestOrphanedPairs_EmptyOnNoPairs(t *testing.T) {
+	onlyBt := []model.Issue{
+		mkPairIssue("bt-a", "x", model.StatusOpen, 1, "bt", "2026-04-15T10:00:00Z"),
+		mkPairIssue("bt-b", "y", model.StatusOpen, 1, "bt", "2026-04-15T10:00:00Z"),
+	}
+	if got := orphanedPairs(onlyBt); len(got) != 0 {
+		t.Errorf("single-prefix set should emit zero orphans; got %v", got)
+	}
+}

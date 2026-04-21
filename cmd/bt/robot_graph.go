@@ -222,6 +222,8 @@ func generateRobotDocs(topic string) map[string]interface{} {
 	envVars := map[string]string{
 		"BT_OUTPUT_FORMAT":    "Default output format: json or toon (overridden by --format)",
 		"BT_OUTPUT_SHAPE":     "Default output shape: compact or full (overridden by --shape / --compact / --full)",
+		"BT_OUTPUT_SCHEMA":    "Default projection schema on `bt robot pairs` and `bt robot refs`: v1 or v2 (overridden by --schema)",
+		"BT_SIGIL_MODE":       "Default sigil recognition mode on `bt robot refs --schema=v2`: strict, verb, or permissive (overridden by --sigils)",
 		"TOON_DEFAULT_FORMAT": "Fallback format if BT_OUTPUT_FORMAT not set",
 		"TOON_STATS":          "Set to 1 to show JSON vs TOON token estimates on stderr",
 		"TOON_KEY_FOLDING":    "TOON key folding mode",
@@ -379,6 +381,41 @@ func generateRobotSchemas() RobotSchemas {
 		"robot-suggest":  {"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "Robot Suggest Output", "description": "Smart suggestions for duplicates, dependencies, labels, cycle breaks", "type": "object", "properties": map[string]interface{}{"generated_at": map[string]interface{}{"type": "string", "format": "date-time"}, "data_hash": map[string]interface{}{"type": "string"}, "suggestions": map[string]interface{}{"type": "array"}, "counts": map[string]interface{}{"type": "object"}}},
 		"robot-burndown": {"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "Robot Burndown Output", "description": "Sprint burndown data with scope changes and at-risk items", "type": "object", "properties": map[string]interface{}{"generated_at": map[string]interface{}{"type": "string", "format": "date-time"}, "data_hash": map[string]interface{}{"type": "string"}, "sprint_id": map[string]interface{}{"type": "string"}, "burndown": map[string]interface{}{"type": "array"}, "scope_changes": map[string]interface{}{"type": "array"}, "at_risk": map[string]interface{}{"type": "array"}}},
 		"robot-forecast": {"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "Robot Forecast Output", "description": "ETA predictions with dependency-aware scheduling", "type": "object", "properties": map[string]interface{}{"generated_at": map[string]interface{}{"type": "string", "format": "date-time"}, "data_hash": map[string]interface{}{"type": "string"}, "forecasts": map[string]interface{}{"type": "array"}, "methodology": map[string]interface{}{"type": "object"}}},
+		"robot-pairs": {
+			"$schema":     "https://json-schema.org/draft/2020-12/schema",
+			"title":       "Robot Pairs Output",
+			"description": "Cross-project paired beads sharing an ID suffix across prefixes. --schema=v1 surfaces every suffix collision (noisy); --schema=v2 requires a cross-prefix dep edge as intent signal. v2 adds intent_source. See pkg/view/schemas/pair_record.v{1,2}.json for full record shapes.",
+			"type":        "object",
+			"properties": map[string]interface{}{
+				"generated_at": map[string]interface{}{"type": "string", "format": "date-time"},
+				"data_hash":    map[string]interface{}{"type": "string"},
+				"schema":       map[string]interface{}{"type": "string", "enum": []string{"pair.v1", "pair.v2"}, "description": "Projection schema carried in the payload. Selected via --schema / BT_OUTPUT_SCHEMA. v1 retained for one release."},
+				"pairs":        map[string]interface{}{"type": "array", "description": "PairRecord items; see pair_record.v{1,2}.json for per-record shape."},
+			},
+			"required": []string{"generated_at", "data_hash", "schema", "pairs"},
+			"flags": map[string]interface{}{
+				"--schema":   map[string]interface{}{"type": "string", "enum": []string{"v1", "v2"}, "description": "Projection schema. Default v1 in Phase 1 of bt-gkyn; flips to v2 once pair.v2 reader ships."},
+				"--orphaned": map[string]interface{}{"type": "boolean", "description": "Under --schema=v1, emit a JSONL checklist (stdout) + summary (stderr) of v1-detected pairs missing the cross-prefix dep edge v2 requires. Read-only backfill helper."},
+			},
+		},
+		"robot-refs": {
+			"$schema":     "https://json-schema.org/draft/2020-12/schema",
+			"title":       "Robot Refs Output",
+			"description": "Cross-project bead references detected in deps, description, notes, and comments. --schema=v1 uses prefix-scoping heuristics; --schema=v2 requires a sigil per the tunable --sigils mode. v2 adds sigil_kind per record and sigil_mode on the envelope. See pkg/view/schemas/ref_record.v{1,2}.json for full record shapes.",
+			"type":        "object",
+			"properties": map[string]interface{}{
+				"generated_at": map[string]interface{}{"type": "string", "format": "date-time"},
+				"data_hash":    map[string]interface{}{"type": "string"},
+				"schema":       map[string]interface{}{"type": "string", "enum": []string{"ref.v1", "ref.v2"}, "description": "Projection schema carried in the payload. Selected via --schema / BT_OUTPUT_SCHEMA. v1 retained for one release."},
+				"sigil_mode":   map[string]interface{}{"type": "string", "enum": []string{"strict", "verb", "permissive"}, "description": "Active sigil mode. Present on v2 envelopes only."},
+				"refs":         map[string]interface{}{"type": "array", "description": "RefRecord items; see ref_record.v{1,2}.json for per-record shape."},
+			},
+			"required": []string{"generated_at", "data_hash", "schema", "refs"},
+			"flags": map[string]interface{}{
+				"--schema": map[string]interface{}{"type": "string", "enum": []string{"v1", "v2"}, "description": "Projection schema. Default v1 in Phase 1 of bt-vxu9; flips to v2 once ref.v2 reader ships."},
+				"--sigils": map[string]interface{}{"type": "string", "enum": []string{"strict", "verb", "permissive"}, "description": "Sigil recognition mode. Requires --schema=v2 (conflict errors if paired with --schema=v1)."},
+			},
+		},
 	}
 
 	return RobotSchemas{

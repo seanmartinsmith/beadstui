@@ -236,3 +236,132 @@ func TestRefsOutput_SortedOutput(t *testing.T) {
 		}
 	}
 }
+
+// TestRefsValidate covers the pure flag-validation helper for
+// `bt robot refs`. Binary tests (below) confirm the validator hook
+// fires before robotPreRun so BT_TEST_MODE=1 doesn't mask errors.
+func TestRefsValidate(t *testing.T) {
+	cases := []struct {
+		name       string
+		flagSchema string
+		flagSigils string
+		envSchema  string
+		envSigils  string
+		wantSchema string
+		wantSigils string
+		wantErr    string
+	}{
+		{"defaults resolve cleanly", "", "", "", "", robotSchemaV1, robotSigilVerb, ""},
+		{"v1 + no sigils ok", "v1", "", "", "", robotSchemaV1, robotSigilVerb, ""},
+		{"v2 + strict ok", "v2", "strict", "", "", robotSchemaV2, robotSigilStrict, ""},
+		{"v2 env + verb sigils flag ok", "", "verb", "v2", "", robotSchemaV2, robotSigilVerb, ""},
+		{"v1 + explicit sigils errors", "v1", "strict", "", "", "", "", "--sigils requires --schema=v2"},
+		{"v1 default + env sigils errors", "", "", "", "strict", "", "", "--sigils requires --schema=v2"},
+		{"invalid sigils errors", "v2", "lax", "", "", "", "", `invalid --sigils "lax"`},
+		{"invalid schema errors before sigils check", "bogus", "strict", "", "", "", "", `invalid --schema "bogus"`},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("BT_OUTPUT_SCHEMA", tc.envSchema)
+			t.Setenv("BT_SIGIL_MODE", tc.envSigils)
+			schema, sigils, err := refsValidate(tc.flagSchema, tc.flagSigils)
+			if tc.wantErr != "" {
+				if err == nil {
+					t.Fatalf("want error containing %q, got nil", tc.wantErr)
+				}
+				if !strings.Contains(err.Error(), tc.wantErr) {
+					t.Errorf("error = %q, want contains %q", err.Error(), tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if schema != tc.wantSchema {
+				t.Errorf("schema = %q, want %q", schema, tc.wantSchema)
+			}
+			if sigils != tc.wantSigils {
+				t.Errorf("sigils = %q, want %q", sigils, tc.wantSigils)
+			}
+		})
+	}
+}
+
+// TestRobotRefs_SchemaInvalid — an unknown --schema value exits 1
+// with stderr listing valid values.
+func TestRobotRefs_SchemaInvalid(t *testing.T) {
+	dir := setupRefsFixture(t)
+	exe := buildTestBinary(t)
+
+	cmd := exec.Command(exe, "robot", "refs", "--global", "--schema=bogus")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "BT_TEST_MODE=1", "BT_NO_BROWSER=1")
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected non-zero exit for --schema=bogus; got success\nout=%s", out)
+	}
+	if !strings.Contains(string(out), "expected v1|v2") {
+		t.Errorf("stderr missing valid-values hint; got:\n%s", out)
+	}
+}
+
+// TestRobotRefs_SigilsInvalid — an unknown --sigils value exits 1
+// with stderr listing valid values, even before the schema conflict
+// check runs.
+func TestRobotRefs_SigilsInvalid(t *testing.T) {
+	dir := setupRefsFixture(t)
+	exe := buildTestBinary(t)
+
+	cmd := exec.Command(exe, "robot", "refs", "--global", "--sigils=lax")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "BT_TEST_MODE=1", "BT_NO_BROWSER=1")
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected non-zero exit for --sigils=lax; got success\nout=%s", out)
+	}
+	if !strings.Contains(string(out), "expected strict|verb|permissive") {
+		t.Errorf("stderr missing valid-values hint; got:\n%s", out)
+	}
+}
+
+// TestRobotRefs_SigilsRequiresV2 — explicit --sigils with --schema=v1
+// (the Phase 1 default) errors with the resolution message instructing
+// the user to set --schema=v2 or omit --sigils.
+func TestRobotRefs_SigilsRequiresV2(t *testing.T) {
+	dir := setupRefsFixture(t)
+	exe := buildTestBinary(t)
+
+	cmd := exec.Command(exe, "robot", "refs", "--global", "--schema=v1", "--sigils=strict")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "BT_TEST_MODE=1", "BT_NO_BROWSER=1")
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected non-zero exit for --schema=v1 --sigils=strict; got success\nout=%s", out)
+	}
+	if !strings.Contains(string(out), "--sigils requires --schema=v2") {
+		t.Errorf("stderr missing resolution message; got:\n%s", out)
+	}
+	if !strings.Contains(string(out), "Run with --schema=v2") {
+		t.Errorf("stderr missing remediation hint; got:\n%s", out)
+	}
+}
+
+// TestRobotRefs_EnvSigilsRequiresV2 — BT_SIGIL_MODE set in env paired
+// with --schema=v1 triggers the same conflict error. The default
+// sigils mode (no env, no flag) does NOT trigger.
+func TestRobotRefs_EnvSigilsRequiresV2(t *testing.T) {
+	dir := setupRefsFixture(t)
+	exe := buildTestBinary(t)
+
+	cmd := exec.Command(exe, "robot", "refs", "--global", "--schema=v1")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "BT_TEST_MODE=1", "BT_NO_BROWSER=1", "BT_SIGIL_MODE=strict")
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected non-zero exit with BT_SIGIL_MODE + --schema=v1; got success\nout=%s", out)
+	}
+	if !strings.Contains(string(out), "--sigils requires --schema=v2") {
+		t.Errorf("stderr missing conflict message; got:\n%s", out)
+	}
+}

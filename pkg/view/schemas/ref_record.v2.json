@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/seanmartinsmith/beadstui/pkg/view/schemas/ref_record.v2.json",
+  "title": "RefRecord v2",
+  "description": "One detected cross-project bead reference, intent-based. Emitted per (source, target, location) tuple when the prose contains a sigil that establishes referential intent. The active sigil mode is surfaced in the envelope's `sigil_mode` field (strict|verb|permissive). v2 surfaces cross-project refs only (v1's load-bearing constraint; relaxing it regresses FP to ~85%).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "source",
+    "target",
+    "location",
+    "flags",
+    "sigil_kind"
+  ],
+  "properties": {
+    "source": {
+      "type": "string",
+      "description": "Bead ID containing the reference."
+    },
+    "target": {
+      "type": "string",
+      "description": "Referenced bead ID. For unresolved external: deps this is the raw external:<project>:<suffix> string so agents can see the exact shape that failed to resolve."
+    },
+    "location": {
+      "type": "string",
+      "enum": ["description", "notes", "comments", "deps"],
+      "description": "Where inside the source bead the reference was found."
+    },
+    "flags": {
+      "type": "array",
+      "description": "Validation flags in fixed output order: broken, stale, orphaned_child, cross_project. Every v2 record carries cross_project because the cross-project-only filter is load-bearing.",
+      "items": {
+        "type": "string",
+        "enum": ["broken", "stale", "orphaned_child", "cross_project"]
+      },
+      "minItems": 1
+    },
+    "sigil_kind": {
+      "type": "string",
+      "enum": [
+        "markdown_link",
+        "inline_code",
+        "ref_keyword",
+        "verb",
+        "external_dep",
+        "bare_dep",
+        "bare_mention"
+      ],
+      "description": "Syntactic evidence that established reference intent. `markdown_link` / `inline_code` / `ref_keyword` are strict-mode sigils. `verb` is added in verb mode. `bare_mention` is permissive-mode only. `external_dep` / `bare_dep` apply to refs found in dep fields, not prose."
+    },
+    "truncated": {
+      "type": "boolean",
+      "description": "Set to true when the source body exceeded the 1MB per-body cap and was truncated before sigil detection. Omitted (treated as false) otherwise."
+    }
+  }
+}
