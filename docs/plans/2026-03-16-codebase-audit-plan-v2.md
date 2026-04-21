@@ -61,7 +61,7 @@ These packages had active edits recently. Not conclusions about quality - just o
 Before launching teams, the orchestrator should:
 1. Read this audit plan for full context
 2. Read the brainstorm (`docs/brainstorms/2026-03-12-post-takeover-roadmap.md`) for goals/decisions
-3. Read `.claude/CLAUDE.md` and `AGENTS.md` for project conventions
+3. Read `AGENTS.md` for project conventions (auto-imported from root `CLAUDE.md`)
 4. Run `go build ./cmd/bt/` to confirm the build is clean
 5. Run `go test ./... 2>&1 | tail -30` to confirm tests pass (expect 0 failures, ~26 packages)
 6. Create `docs/audit/` directory for team reports

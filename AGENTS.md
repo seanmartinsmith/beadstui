@@ -1,6 +1,24 @@
 # AGENTS.md - beadstui
 
-> Guidelines for AI agents working in this Go codebase. See `.claude/CLAUDE.md` for session workflow, ADR spine, and end-of-session protocol.
+> Canonical guidelines for AI agents working in this Go codebase. Single source of truth for project conventions, session workflow, and ADR spine. Root `CLAUDE.md` is a thin shim that imports this file via `@AGENTS.md`.
+
+## Session Start - READ THIS FIRST
+
+Before doing ANY work in this project, read the active ADR:
+
+```
+docs/adr/002-stabilize-and-ship.md
+```
+
+This is the spine document. It tracks:
+- What decisions have been made vs what's still open
+- Which work streams exist and their status
+- Audit reports that inform each stream
+- Open design decisions that block implementation
+
+**Do not start implementation without checking the ADR.** If the user asks you to do something, orient against the ADR first to understand where it fits.
+
+After completing significant work, update `CHANGELOG.md` and any relevant ADR-002 stream statuses.
 
 ## Core Rules
 
@@ -18,7 +36,7 @@
 - **Binary**: `bt`
 - **Module**: `github.com/seanmartinsmith/beadstui`
 - **Language**: Go 1.25+ (check `go.mod`)
-- **TUI framework**: Charm Bracelet v1 (Bubble Tea, Lipgloss, Bubbles, Glamour)
+- **TUI framework**: Charm Bracelet v2 (Bubble Tea, Lipgloss, Bubbles, Glamour) — migration shipped via bt-ykqq / bt-k5zs / bt-zt9q, 2026-04-10
 - **Data backends**: JSONL, SQLite, Dolt (MySQL protocol)
 
 ## Key Directories
@@ -184,6 +202,25 @@ Beads for cross-session persistence. Tasks for within-session execution.
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
 <!-- END BEADS INTEGRATION -->
+
+## Planning Flow
+
+1. Check ADR-002 for current state and open questions
+2. Read relevant plan docs and audit reports before implementing
+3. Flag anything that contradicts the ADR or plan — don't silently adapt
+
+## End-of-Session Protocol (documentation side)
+
+The BEADS INTEGRATION block above mandates the push mechanics. This section layers documentation updates on top.
+
+Before ending a session where significant work was done:
+
+1. **Update `CHANGELOG.md`** — add a session entry summarizing what was done
+2. **Update ADR-002 stream statuses** — if a stream's status changed, reflect it
+3. **Record new open questions** — anything discovered that needs a decision
+4. **Update auto-memory** — if project state changed materially, update `~/.claude/projects/<this-project>/memory/MEMORY.md`
+
+If the session is ending abruptly (context limits, user stopping), at minimum do step 1 — a changelog entry is the bare minimum handoff.
 
 ## Workflow Formulas
 
