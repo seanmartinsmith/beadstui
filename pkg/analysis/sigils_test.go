@@ -422,23 +422,44 @@ func TestDetectSigils_LinearScaling(t *testing.T) {
 	// Warm-up to populate caches.
 	_ = DetectSigils(small, SigilModeVerb)
 
-	const reps = 5
+	// Loop each size until total runtime clears a 10ms floor so the ratio is
+	// well above Windows timer resolution (~15ms on some clocks). Doubling
+	// reps geometrically converges in ≤ ~20 iterations on any realistic CPU;
+	// cap at 1M to keep the test bounded if DetectSigils ever becomes
+	// effectively free. Same reps for both sizes so the ratio is unbiased.
+	const (
+		floor   = 10 * time.Millisecond
+		maxReps = 1_000_000
+	)
 	var smallTotal, largeTotal time.Duration
-	for i := 0; i < reps; i++ {
-		t0 := time.Now()
-		_ = DetectSigils(small, SigilModeVerb)
-		smallTotal += time.Since(t0)
-		t1 := time.Now()
-		_ = DetectSigils(large, SigilModeVerb)
-		largeTotal += time.Since(t1)
+	reps := 0
+	for r := 1; r <= maxReps; r *= 2 {
+		smallTotal, largeTotal = 0, 0
+		for i := 0; i < r; i++ {
+			t0 := time.Now()
+			_ = DetectSigils(small, SigilModeVerb)
+			smallTotal += time.Since(t0)
+			t1 := time.Now()
+			_ = DetectSigils(large, SigilModeVerb)
+			largeTotal += time.Since(t1)
+		}
+		reps = r
+		if smallTotal >= floor && largeTotal >= floor {
+			break
+		}
 	}
-	smallAvg := smallTotal / reps
-	largeAvg := largeTotal / reps
+	if smallTotal == 0 {
+		t.Fatalf("smallTotal stayed 0 after %d reps; test harness broken", reps)
+	}
+
+	smallAvg := smallTotal / time.Duration(reps)
+	largeAvg := largeTotal / time.Duration(reps)
 	// Allow 15x slack (10x size should be ~10x time, +50% noise budget).
 	if largeAvg > smallAvg*15 {
 		t.Errorf("scaling regression: small=%v large=%v (large > 15 × small)", smallAvg, largeAvg)
 	}
-	t.Logf("scaling: small=%v large=%v ratio=%.2f", smallAvg, largeAvg, float64(largeAvg)/float64(smallAvg))
+	t.Logf("scaling: small=%v large=%v ratio=%.2f (reps=%d)",
+		smallAvg, largeAvg, float64(largeAvg)/float64(smallAvg), reps)
 }
 
 // TestDetectSigils_NoPanic_AdversarialInputs combines the pathological

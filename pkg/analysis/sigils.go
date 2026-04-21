@@ -538,30 +538,6 @@ func matchVerb(line string, i int) int {
 	return 0
 }
 
-// hasVerbWithinProximity reports whether any verb hit is within
-// verbProximityChars of the given ID's stripped-space range (inclusive on
-// both endpoints). Works in both directions: verb-before-ID and
-// verb-after-ID. Measured in stripped-space chars since call site already
-// applied stripLine.
-func hasVerbWithinProximity(verbHits []verbHit, idStart, idEnd int) bool {
-	for _, v := range verbHits {
-		dist := 0
-		switch {
-		case v.end <= idStart:
-			dist = idStart - v.end
-		case idEnd <= v.start:
-			dist = v.start - idEnd
-		default:
-			// Overlapping — treat as adjacent (dist 0).
-			dist = 0
-		}
-		if dist <= verbProximityChars {
-			return true
-		}
-	}
-	return false
-}
-
 // looksLikeRefKeyword is a cheap gate before tryRefKeyword — matches only
 // when the next few bytes could plausibly start "ref:" or "refs:" under
 // case-insensitive comparison.
