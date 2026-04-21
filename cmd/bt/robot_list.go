@@ -34,7 +34,9 @@ var robotListCmd = &cobra.Command{
 		hasLabelFilter, _ := cmd.Flags().GetString("has-label")
 		limit, _ := cmd.Flags().GetInt("limit")
 
-		issues := filterIssuesForList(appCtx.issues, statusFilter, priorityFilter, typeFilter, hasLabelFilter)
+		// robot list bypasses robotPreRun, so --source must be applied here.
+		baseIssues := filterBySource(appCtx.issues, robotFlagSource)
+		issues := filterIssuesForList(baseIssues, statusFilter, priorityFilter, typeFilter, hasLabelFilter)
 
 		total := len(issues)
 		truncated := false
@@ -49,10 +51,10 @@ var robotListCmd = &cobra.Command{
 		var payload any = issues
 		if robotOutputShape == robotShapeCompact {
 			envelope.Schema = view.CompactIssueSchemaV1
-			// Compact over the full pre-filter set so reverse-map counts
-			// (children, unblocks, is_blocked) reflect the real graph,
-			// then project only the filtered subset by ID.
-			allCompact := view.CompactAll(appCtx.issues)
+			// Compact over the source-filtered set so reverse-map counts
+			// (children, unblocks, is_blocked) reflect the scoped graph,
+			// then project only the flag-filtered subset by ID.
+			allCompact := view.CompactAll(baseIssues)
 			byID := make(map[string]view.CompactIssue, len(allCompact))
 			for _, c := range allCompact {
 				byID[c.ID] = c
@@ -82,6 +84,7 @@ var robotListCmd = &cobra.Command{
 				Type:     typeFilter,
 				HasLabel: hasLabelFilter,
 				Repo:     flagRepo,
+				Source:   robotFlagSource,
 				Global:   flagGlobal,
 				Limit:    limit,
 			},
@@ -107,6 +110,7 @@ type listQuery struct {
 	Type     string `json:"type"`
 	HasLabel string `json:"has_label"`
 	Repo     string `json:"repo"`
+	Source   string `json:"source"`
 	Global   bool   `json:"global"`
 	Limit    int    `json:"limit"`
 }

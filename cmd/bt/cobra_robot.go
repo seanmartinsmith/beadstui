@@ -62,6 +62,13 @@ var robotFlagRecipe string
 // robotFlagBQL is the --bql flag for robot commands.
 var robotFlagBQL string
 
+// robotFlagSource is the --source flag: comma-separated list of project
+// prefixes to scope robot output to. bt-mhwy.6. Filtering happens in
+// robotPreRun (for handlers that call it) and inside robot list's RunE
+// (which bypasses robotPreRun). Unknown prefixes produce an empty result,
+// not an error — same contract as beads' other filter flags.
+var robotFlagSource string
+
 func init() {
 	rootCmd.AddCommand(robotCmd)
 
@@ -73,6 +80,7 @@ func init() {
 	pf.StringVar(&robotFlagDiffSince, "diff-since", "", "Show changes since historical point")
 	pf.StringVarP(&robotFlagRecipe, "recipe", "r", "", "Apply named recipe filter")
 	pf.StringVar(&robotFlagBQL, "bql", "", "BQL query to pre-filter issues")
+	pf.StringVar(&robotFlagSource, "source", "", "Filter issues by source project (comma-separated, e.g. 'cass,bt'). Matches ID prefix or SourceRepo. Unknown prefixes yield empty results.")
 	pf.StringVar(&robotFlagShape, "shape", "", "Output shape: compact (default) or full (env: BT_OUTPUT_SHAPE)")
 	pf.BoolVar(&robotFlagCompact, "compact", false, "Alias for --shape=compact")
 	pf.BoolVar(&robotFlagFull, "full", false, "Alias for --shape=full")
@@ -86,6 +94,14 @@ func robotPreRun() (*robotCtx, error) {
 	}
 
 	issues := appCtx.issues
+
+	// Apply --source filter. Runs before BQL/label scope so every downstream
+	// filter sees the already-narrowed set. Unknown projects produce empty
+	// results silently; callers can distinguish from "no matches" via the
+	// flag echo in list output.
+	if robotFlagSource != "" {
+		issues = filterBySource(issues, robotFlagSource)
+	}
 
 	// Apply --bql filter.
 	if robotFlagBQL != "" {

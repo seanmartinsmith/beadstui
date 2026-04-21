@@ -6,6 +6,36 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-21 - Source filter (bt-mhwy.6)
+
+**New `--source <project>[,<project>...]` persistent robot flag scopes output to one or more source projects.** Agents can now ask "show me only bt + cass beads" without BQL or workspace-level setup. Closes bt-mhwy.6, the last of seven children of the mhwy epic.
+
+### What shipped
+
+- **`--source` persistent flag** on `robotCmd` (cmd/bt/cobra_robot.go). Comma-separated projects; case-insensitive. Surfaced as `query.source` in the `robot list` envelope echo.
+- **`filterBySource` helper** (cmd/bt/helpers.go). Exact project-name matching on either the ID prefix (`SplitID(issue.ID)`) or the `SourceRepo` field. Unknown projects produce empty results (silent — the plan's stated behavior).
+- **Applied in two places**: inside `robotPreRun()` before the BQL / label-scope / recipe chain so `triage`, `next`, `insights`, `plan`, `priority`, `alerts`, `suggest`, etc. all filter consistently; inside `robot list`'s `RunE` separately because list bypasses `robotPreRun` and reads `appCtx.issues` directly. The compact reverse-map computation also uses the source-filtered slice so `children_count` / `unblocks_count` reflect the scoped graph.
+- **Docs in `robot_help.go`** — `--source` section explains the flag, notes the `source_repo` field surfaces in compact.v1 / pair.v1 / portfolio.v1, and shows two agent-friendly examples. The committed JSON schemas at `pkg/view/schemas/*.v1.json` already document `source_repo`, so the schema-side story is complete without new machinery.
+
+### Scope note
+
+bt-mhwy.6 shrank over the course of the mhwy series: `source_repo` was already surfacing in compact (.1), portfolio (.4), and pair (.2) output before this task ran, so .6 is primarily a CLI ergonomics feature rather than a data-exposure feature. The 2026-04-21 color comment on the bead spelled this out.
+
+### Tests
+
+- `cmd/bt/helpers_source_test.go` — 8 unit cases: empty filter, single prefix, comma-separated, unknown prefix yields empty, SourceRepo fallback, case-insensitive, whitespace trimming, empty tokens dropped.
+- `cmd/bt/robot_source_test.go` — 3 contract cases via the real binary: `--source=cass` filters down + echoes `query.source`, `--source=nonexistent` exits 0 with `count: 0`, `--source=bt,cass` matches both.
+
+### Smoke
+
+`bt robot list --source=bt --limit=3` returns 3 bt-* beads with `query.source: "bt"`. `--source=nonexistent` returns `count: 0` cleanly. `--source=cass,bt --limit=5 --global` mixes cass and bt records as expected. `bt robot triage --source=cass --global` scopes quick_ref counts to cass.
+
+### Cross-project constellation (status)
+
+**7 of 7 mhwy children closed.** Epic bt-mhwy delivered: compact output (.1), external dep resolution (.5), portfolio (.4), pairs (.2), refs (.3), source filter (.6). Remaining follow-ups: bt-gkyn (pairs v2 intent identity), bt-vxu9 (refs v2 sigil identity).
+
+---
+
 ## 2026-04-21 - Refs subcommand (bt-mhwy.3)
 
 **New `bt robot refs --global` subcommand validates cross-project bead references in prose and dep fields.** Scans description, notes, comments, and unresolved `external:` dependencies for bead IDs whose prefix differs from the source's project, validates each against the global set, and emits flags for `broken` / `stale` / `orphaned_child`. Agents can now see stale cross-refs that rot silently.

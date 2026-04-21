@@ -21,6 +21,68 @@ func timeNowUTCRFC3339() string {
 	return time.Now().UTC().Format(time.RFC3339)
 }
 
+// filterBySource filters issues to those whose ID prefix or SourceRepo field
+// matches one of the comma-separated projects in sourceFilter. Unlike
+// filterByRepo (which does flexible prefix matching for the UI), this does
+// exact project-name matching because the --source flag ships to agents who
+// need deterministic behavior. Empty sourceFilter is a no-op. Unknown
+// projects produce no matches (silent — "no results" is a valid answer for
+// --source, not an error condition).
+//
+// Matching rule per project <p>: keep the issue iff
+//   (a) SplitID(issue.ID) == (<p>, _), OR
+//   (b) issue.SourceRepo == <p>.
+// Case-insensitive on both sides.
+func filterBySource(issues []model.Issue, sourceFilter string) []model.Issue {
+	if sourceFilter == "" {
+		return issues
+	}
+	projects := splitSourceFilter(sourceFilter)
+	if len(projects) == 0 {
+		return issues
+	}
+	result := make([]model.Issue, 0, len(issues))
+	for _, issue := range issues {
+		if matchesSource(issue, projects) {
+			result = append(result, issue)
+		}
+	}
+	return result
+}
+
+// splitSourceFilter parses a comma-separated source list into a
+// lower-cased, trimmed, deduped set. Empty tokens are dropped.
+func splitSourceFilter(raw string) map[string]struct{} {
+	parts := strings.Split(raw, ",")
+	out := make(map[string]struct{}, len(parts))
+	for _, p := range parts {
+		p = strings.ToLower(strings.TrimSpace(p))
+		if p == "" {
+			continue
+		}
+		out[p] = struct{}{}
+	}
+	return out
+}
+
+// matchesSource reports whether an issue satisfies the parsed source set via
+// either its ID prefix or SourceRepo field.
+func matchesSource(issue model.Issue, projects map[string]struct{}) bool {
+	if idx := strings.IndexByte(issue.ID, '-'); idx > 0 {
+		prefix := strings.ToLower(issue.ID[:idx])
+		if _, ok := projects[prefix]; ok {
+			return true
+		}
+	}
+	if issue.SourceRepo != "" {
+		repo := strings.ToLower(issue.SourceRepo)
+		if _, ok := projects[repo]; ok {
+			return true
+		}
+	}
+	return false
+}
+
 // filterByRepo filters issues to only include those from a specific repository.
 // The filter matches issue IDs that start with the given prefix.
 // If the prefix doesn't end with a separator character, it normalizes by checking
