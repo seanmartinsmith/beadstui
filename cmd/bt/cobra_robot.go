@@ -384,7 +384,7 @@ var robotSuggestCmd = &cobra.Command{
 			return err
 		}
 		suggestType, _ := cmd.Flags().GetString("type")
-		confidence, _ := cmd.Flags().GetFloat64("confidence")
+		confidence, _ := cmd.Flags().GetFloat64("min-confidence")
 		bead, _ := cmd.Flags().GetString("bead")
 		rc.runSuggest(suggestType, confidence, bead)
 		return nil
@@ -1091,7 +1091,7 @@ func init() {
 
 	// suggest
 	robotSuggestCmd.Flags().String("type", "", "Filter suggestions by type: duplicate, dependency, label, cycle")
-	robotSuggestCmd.Flags().Float64("confidence", 0.0, "Minimum confidence for suggestions (0.0-1.0)")
+	robotSuggestCmd.Flags().Float64("min-confidence", 0.0, "Minimum confidence for suggestions (0.0-1.0)")
 	robotSuggestCmd.Flags().String("bead", "", "Filter suggestions for specific bead ID")
 	robotCmd.AddCommand(robotSuggestCmd)
 

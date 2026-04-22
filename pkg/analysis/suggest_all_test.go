@@ -513,7 +513,7 @@ func TestGenerateRobotSuggestOutput_UsageHints(t *testing.T) {
 		if strings.Contains(hint, "jq") {
 			foundJq = true
 		}
-		if strings.Contains(hint, "--suggest") {
+		if strings.Contains(hint, "--type") || strings.Contains(hint, "--min-confidence") || strings.Contains(hint, "--bead") {
 			foundFlag = true
 		}
 	}

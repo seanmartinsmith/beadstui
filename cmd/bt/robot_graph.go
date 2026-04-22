@@ -89,7 +89,7 @@ func generateRobotDocs(topic string) map[string]interface{} {
 		"robot-suggest": {
 			Flag: "--robot-suggest", Description: "Smart suggestions: potential duplicates, missing dependencies, label assignments, cycle warnings.",
 			KeyFields:   []string{"suggestions", "type", "confidence"},
-			Params:      []string{"--suggest-type duplicate|dependency|label|cycle", "--suggest-confidence 0.0-1.0", "--suggest-bead <id>"},
+			Params:      []string{"--type duplicate|dependency|label|cycle", "--min-confidence 0.0-1.0", "--bead <id>"},
 			NeedsIssues: true,
 		},
 		"robot-schema": {
@@ -220,6 +220,7 @@ func generateRobotDocs(topic string) map[string]interface{} {
 	}
 
 	envVars := map[string]string{
+		// Output format and shape
 		"BT_OUTPUT_FORMAT":    "Default output format: json or toon (overridden by --format)",
 		"BT_OUTPUT_SHAPE":     "Default output shape: compact or full (overridden by --shape / --compact / --full)",
 		"BT_OUTPUT_SCHEMA":    "Default projection schema on `bt robot pairs` and `bt robot refs`: v1 or v2 (overridden by --schema)",
@@ -230,8 +231,41 @@ func generateRobotDocs(topic string) map[string]interface{} {
 		"TOON_INDENT":         "TOON indentation level (0-16)",
 		"BT_PRETTY_JSON":      "Set to 1 for indented JSON output",
 		"BT_ROBOT":            "Set to 1 to force robot mode (clean stdout)",
-		"BT_SEARCH_MODE":      "Search mode: text or hybrid",
-		"BT_SEARCH_PRESET":    "Hybrid search preset name",
+
+		// Semantic search
+		"BT_SEARCH_MODE":      "Search ranking mode: text or hybrid",
+		"BT_SEARCH_PRESET":    "Hybrid search preset name (overridden by --preset)",
+		"BT_SEARCH_WEIGHTS":   "Hybrid search weights as JSON (overridden by --weights)",
+		"BT_SEMANTIC_EMBEDDER": "Embedding provider for semantic search (default: hash)",
+		"BT_SEMANTIC_MODEL":    "Embedding model identifier (provider-specific)",
+		"BT_SEMANTIC_DIM":      "Embedding vector dimension (default: provider default)",
+
+		// Data sources and Dolt connectivity
+		"BEADS_DIR":              "Directory containing beads data (overrides auto-discovery)",
+		"BEADS_DOLT_SERVER_HOST": "Dolt server host (beads-native, highest priority)",
+		"BEADS_DOLT_SERVER_PORT": "Dolt server port (beads-native, highest priority)",
+		"BEADS_DOLT_SERVER_USER": "Dolt server user (beads-native, highest priority)",
+		"BT_DOLT_PORT":           "bt-specific Dolt port override for testing or non-standard setups",
+		"BT_GLOBAL_DOLT_PORT":    "Global-mode Dolt port (overrides ~/.beads/shared-server/dolt-server.port)",
+
+		// Operational / runtime
+		"BT_CACHE_DIR":              "Base directory for the analysis cache (default: <project>/.bt/cache)",
+		"BT_DEBUG":                  "Set to 1 to enable debug logging to stderr",
+		"BT_METRICS":                "Set to 0 to disable internal timing-metric collection",
+		"BT_BACKGROUND_MODE":        "Internal: set by bt itself (1 when running in background/daemon mode)",
+		"BT_NO_BROWSER":             "Set to 1 to suppress browser-opening (tests, headless environments)",
+		"BT_NO_SAVED_CONFIG":        "Set to 1 to skip reading the saved export wizard configuration",
+		"BT_TEST_MODE":              "Set to 1 to enable test-mode guards (e.g. fail fast in global-mode Dolt discovery)",
+		"BT_STALE_DAYS":             "Staleness threshold in days for TUI highlighting (default: 14)",
+		"BT_INSIGHTS_MAP_LIMIT":     "Per-map size limit in `bt robot insights` output (reduces payload size)",
+		"BT_TEMPORAL_CACHE_TTL":     "Cache TTL for temporal analysis snapshots (e.g. '30m', '2h')",
+		"BT_TEMPORAL_MAX_SNAPSHOTS": "Maximum snapshots retained by the temporal analyzer",
+		"BT_TUI_AUTOCLOSE_MS":       "Auto-close the TUI after N milliseconds (used by tests / demos)",
+		"BT_WORKER_LOG_LEVEL":       "Background-worker log level: debug, info, warn, error",
+		"BT_WORKER_TRACE":           "Path to write a background-worker trace log (empty to disable)",
+
+		// Build-time (not read at runtime, but documented for completeness)
+		"BT_BUILD_HYBRID_WASM": "Build flag: set to non-empty to require wasm-pack when building the hybrid-search WASM module",
 	}
 
 	exitCodes := map[string]string{
