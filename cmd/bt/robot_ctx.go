@@ -14,7 +14,6 @@ import (
 type robotCtx struct {
 	issues            []model.Issue
 	issuesForSearch   []model.Issue         // pre-label-scope issues for search
-	analyzer          *analysis.Analyzer    // lazily created if nil
 	enc               robotEncoder          // output encoder (json or toon)
 	cwd               string                // working directory
 	beadsPath         string                // path to beads file (for file-based sources)

@@ -761,7 +761,8 @@ func (rc *robotCtx) runRelatedWork(beadID string, relatedMinRelevance, relatedMa
 
 // runBlockerChain handles --robot-blocker-chain (bv-nlo0).
 func (rc *robotCtx) runBlockerChain(issueID string) {
-	result := rc.analyzer.GetBlockerChain(issueID)
+	analyzer := analysis.NewAnalyzer(rc.analysisIssues())
+	result := analyzer.GetBlockerChain(issueID)
 
 	if result == nil {
 		fmt.Fprintf(os.Stderr, "Issue not found: %s\n", issueID)
