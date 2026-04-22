@@ -163,6 +163,21 @@ Full list: `bd list --status=open` (50 items)
 
 This is the end goal - making bt interactive, not just a viewer. CWD tracking for multi-project writes designed as part of bt-s4b7 project navigation work.
 
+### Stream 9: Release engineering (added 2026-04-22)
+**Status**: Pipeline wired, pre-tag gates open
+**Priority**: P2-P3
+**Beads**: bt-bntv, bt-4f7g, bt-lz7d, bt-brid
+**Foundation**: `.goreleaser.yaml`, `.github/workflows/release.yml`, smoke-test findings in 2026-04-22 CHANGELOG entry
+
+Goreleaser pipeline inherited from Jeffrey's era. Verified via `goreleaser release --snapshot --clean` (v2.15.4) on 2026-04-22 — cross-compile works (linux/darwin/windows × amd64/arm64, 5 binaries), archives + checksums + brew formula + scoop manifest generated. Real tag push (`git push origin v*`) triggers GitHub Release + brew/scoop publish via `.github/workflows/release.yml`.
+
+Pre-tag gates (must resolve before any real `v*` tag push):
+
+- [ ] **bt-bntv** (P2, bug): brew formula `test:` stanza calls `bt --version` which isn't a flag; `bt` uses `bt version` subcommand. Would fail `brew test` on formula validation.
+- [ ] **bt-4f7g** (P3, bug): `bt version` prints double-v (`vv0.0.0-next`) under snapshot mode. Cosmetic but fragile ldflags template.
+- [ ] **bt-lz7d** (P2, task): `.goreleaser.yaml` is v1-format; v2.15.4 flags three deprecations. Snapshot still succeeds but workflow pins `version: latest`.
+- [ ] **bt-brid** (P2, decision): verify `seanmartinsmith/homebrew-tap` and `seanmartinsmith/scoop-bucket` repos + `HOMEBREW_TAP_GITHUB_TOKEN` secret, OR strip brew/scoop config for v0.1 and defer.
+
 ### Stream 8: Cross-project features (added 2026-04-12)
 **Status**: Infrastructure shipped, features in progress
 **Priority**: P1-P2

@@ -29,6 +29,18 @@ Low. bt-yqgn is content + version bump with backward-compat marker detection. bt
 
 - `b76f2a1` chore(data): disable JSONL export, Dolt is canonical (bt-jlp)
 - `72544630` docs(agents): rewrite blurb v1 -> v2 (bt-yqgn)
+- `02c46407` docs(adr): close bt-if3w epic + cut hot-path styles; changelog for 2026-04-22
+
+### Release-readiness findings (goreleaser snapshot smoke test)
+
+Ran `goreleaser release --snapshot --clean` locally (goreleaser v2.15.4 via `go install`) to verify the release pipeline works post-rename. Cross-compile succeeded for linux/darwin/windows × amd64/arm64 (5 binaries, ~14 MiB each, ~40s). Archives + checksums + brew formula + scoop manifest all generated to `./dist/`. But four real issues surfaced that would bite a real tag push:
+
+- **bt-bntv** (P2, bug) — brew formula `test:` stanza calls `bt --version`. bt uses `bt version` (subcommand), not a flag. Would fail `brew test` on formula validation.
+- **bt-4f7g** (P3, bug) — `bt version` prints `bt vv0.0.0-next` (double-v) under goreleaser snapshot mode. Root cause: ldflags template `v{{.Version}}` combined with goreleaser v2's snapshot semantics where `.Version` already carries the `v`. Cosmetic; real tag builds likely fine but the template is fragile.
+- **bt-lz7d** (P2, task) — `.goreleaser.yaml` is v1-format; installed goreleaser is v2 and flags three deprecations (`snapshot.name_template`, `archives.format`, `brews` → `homebrew_casks`). Snapshot still succeeds, but `.github/workflows/release.yml` pins `version: latest`, so a future goreleaser major release could break CI without notice.
+- **bt-brid** (P2, task) — `.goreleaser.yaml` configures publishing to `seanmartinsmith/homebrew-tap` and `seanmartinsmith/scoop-bucket` repos. Neither has been verified to exist since the rename, and `HOMEBREW_TAP_GITHUB_TOKEN` hasn't been confirmed in repo secrets. Decision bead: publish for v0.1, strip for v0.1 and defer, or full-publishing later. Recommended strip for v0.1 (no users yet requesting brew/scoop install).
+
+All four are cross-linked via `relates-to`. No code changes made this session — findings filed for separate decisions/fixes before any `git push --tags v*` actually happens.
 
 ---
 
