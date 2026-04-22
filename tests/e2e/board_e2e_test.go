@@ -465,8 +465,8 @@ func TestBoardSearchIntegration(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Use --search with --robot-search (semantic search via hash embedder)
-	cmd := exec.CommandContext(ctx, bt, "--search", "authentication", "--robot-search")
+	// Semantic search via the robot subcommand (hash embedder).
+	cmd := exec.CommandContext(ctx, bt, "robot", "search", "authentication")
 	cmd.Dir = tempDir
 	cmd.Env = append(os.Environ(),
 		"BT_SEMANTIC_EMBEDDER=hash",

@@ -17,10 +17,9 @@ func TestRobotSearchHybridMode(t *testing.T) {
 {"id":"DEP-2","title":"Depends on AUTH-1","status":"open","priority":2,"issue_type":"task","dependencies":[{"issue_id":"DEP-2","depends_on_id":"AUTH-1","type":"blocks"}]}`)
 
 	cmd := exec.Command(bt,
-		"--search", "authentication",
-		"--search-mode", "hybrid",
-		"--search-preset", "default",
-		"--robot-search",
+		"robot", "search", "authentication",
+		"--mode", "hybrid",
+		"--preset", "default",
 	)
 	cmd.Dir = env
 	cmd.Env = append(os.Environ(),
@@ -78,10 +77,9 @@ func TestRobotSearchHybridPresetAffectsScores(t *testing.T) {
 
 	run := func(preset string) float64 {
 		cmd := exec.Command(bt,
-			"--search", "auth",
-			"--search-mode", "hybrid",
-			"--search-preset", preset,
-			"--robot-search",
+			"robot", "search", "auth",
+			"--mode", "hybrid",
+			"--preset", preset,
 		)
 		cmd.Dir = env
 		cmd.Env = append(os.Environ(),
@@ -124,7 +122,7 @@ func TestRobotSearchHybridBackwardCompatibility(t *testing.T) {
 	writeBeads(t, env, `{"id":"A","title":"Search target","description":"token token token","status":"open","priority":1,"issue_type":"task"}
 {"id":"B","title":"Other","description":"noise","status":"open","priority":2,"issue_type":"task"}`)
 
-	cmd := exec.Command(bt, "--search", "token", "--robot-search")
+	cmd := exec.Command(bt, "robot", "search", "token")
 	cmd.Dir = env
 	cmd.Env = append(os.Environ(),
 		"BT_SEMANTIC_EMBEDDER=hash",

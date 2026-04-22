@@ -672,17 +672,16 @@ func runSearchCommand(issues, issuesForSearch []model.Issue, robotSearch bool) {
 	if robotSearch {
 		dataHash := analysis.ComputeDataHash(issues)
 		out := robotSearchOutput{
-			GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-			DataHash:    dataHash,
-			Query:       flagSearch,
-			Provider:    embedCfg.Provider,
-			Model:       embedCfg.Model,
-			Dim:         embedder.Dim(),
-			IndexPath:   indexPath,
-			Index:       syncStats,
-			Loaded:      loaded,
-			Limit:       limit,
-			Mode:        searchCfg.Mode,
+			RobotEnvelope: NewRobotEnvelope(dataHash),
+			Query:         flagSearch,
+			Provider:      embedCfg.Provider,
+			Model:         embedCfg.Model,
+			Dim:           embedder.Dim(),
+			IndexPath:     indexPath,
+			Index:         syncStats,
+			Loaded:        loaded,
+			Limit:         limit,
+			Mode:          searchCfg.Mode,
 		}
 		if searchCfg.Mode == search.SearchModeHybrid {
 			out.Preset = resolvedPreset
@@ -718,7 +717,8 @@ func runSearchCommand(issues, issuesForSearch []model.Issue, robotSearch bool) {
 			}
 		}
 
-		if err := writeRobotSearchOutput(os.Stdout, out); err != nil {
+		enc := newRobotEncoder(os.Stdout)
+		if err := enc.Encode(out); err != nil {
 			fmt.Fprintf(os.Stderr, "Error encoding robot-search: %v\n", err)
 			os.Exit(1)
 		}

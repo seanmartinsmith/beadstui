@@ -14,7 +14,7 @@ func TestRobotSearchContract(t *testing.T) {
 	writeBeads(t, env, `{"id":"A","title":"Semantic search target","description":"interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken interstellarkraken","status":"open","priority":1,"issue_type":"task"}
 {"id":"B","title":"Unrelated docs","description":"readme changelog docs","status":"open","priority":2,"issue_type":"task"}`)
 
-	cmd := exec.Command(bt, "--search", "interstellarkraken", "--robot-search")
+	cmd := exec.Command(bt, "robot", "search", "interstellarkraken")
 	cmd.Dir = env
 	cmd.Env = append(os.Environ(),
 		"BT_SEMANTIC_EMBEDDER=hash",

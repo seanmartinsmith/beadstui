@@ -1,9 +1,7 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
 	"regexp"
 	"sort"
 	"strings"
@@ -19,28 +17,26 @@ type robotSearchResult struct {
 	ComponentScores map[string]float64 `json:"component_scores,omitempty"`
 }
 
+// robotSearchOutput is the envelope for `bt robot search`.
+// Embeds RobotEnvelope so output carries the standard envelope fields
+// (generated_at, data_hash, output_format, version) like every other
+// robot subcommand. Encoded via newRobotEncoder so --format toon and
+// the compact-JSON default are honoured.
 type robotSearchOutput struct {
-	GeneratedAt string                `json:"generated_at"`
-	DataHash    string                `json:"data_hash"`
-	Query       string                `json:"query"`
-	Provider    search.Provider       `json:"provider"`
-	Model       string                `json:"model,omitempty"`
-	Dim         int                   `json:"dim"`
-	IndexPath   string                `json:"index_path"`
-	Index       search.IndexSyncStats `json:"index"`
-	Loaded      bool                  `json:"loaded"`
-	Limit       int                   `json:"limit"`
-	Mode        search.SearchMode     `json:"mode"`
-	Preset      search.PresetName     `json:"preset,omitempty"`
-	Weights     *search.Weights       `json:"weights,omitempty"`
-	Results     []robotSearchResult   `json:"results"`
-	UsageHints  []string              `json:"usage_hints,omitempty"`
-}
-
-func writeRobotSearchOutput(w io.Writer, out robotSearchOutput) error {
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	return enc.Encode(out)
+	RobotEnvelope
+	Query      string                `json:"query"`
+	Provider   search.Provider       `json:"provider"`
+	Model      string                `json:"model,omitempty"`
+	Dim        int                   `json:"dim"`
+	IndexPath  string                `json:"index_path"`
+	Index      search.IndexSyncStats `json:"index"`
+	Loaded     bool                  `json:"loaded"`
+	Limit      int                   `json:"limit"`
+	Mode       search.SearchMode     `json:"mode"`
+	Preset     search.PresetName     `json:"preset,omitempty"`
+	Weights    *search.Weights       `json:"weights,omitempty"`
+	Results    []robotSearchResult   `json:"results"`
+	UsageHints []string              `json:"usage_hints,omitempty"`
 }
 
 func applySearchConfigOverrides(cfg search.SearchConfig, modeFlag, presetFlag, weightsFlag string) (search.SearchConfig, error) {
