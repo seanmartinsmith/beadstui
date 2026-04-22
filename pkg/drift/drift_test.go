@@ -183,10 +183,12 @@ func TestCalculatorPageRankChange(t *testing.T) {
 
 func TestCalculatorStalenessWarningAndCritical(t *testing.T) {
 	now := time.Now().UTC()
+	// Priority=2 avoids bt-46p6.6 priority-aware tightening; base thresholds
+	// (warn=14d, crit=30d, in_progress mult=0.5) are then observable directly.
 	issues := []model.Issue{
-		{ID: "OLD-WARN", Status: model.StatusOpen, UpdatedAt: now.Add(-16 * 24 * time.Hour)},
-		{ID: "OLD-CRIT", Status: model.StatusOpen, UpdatedAt: now.Add(-35 * 24 * time.Hour)},
-		{ID: "INPROG", Status: model.StatusInProgress, UpdatedAt: now.Add(-8 * 24 * time.Hour)},
+		{ID: "OLD-WARN", Status: model.StatusOpen, Priority: 2, UpdatedAt: now.Add(-16 * 24 * time.Hour)},
+		{ID: "OLD-CRIT", Status: model.StatusOpen, Priority: 2, UpdatedAt: now.Add(-35 * 24 * time.Hour)},
+		{ID: "INPROG", Status: model.StatusInProgress, Priority: 2, UpdatedAt: now.Add(-8 * 24 * time.Hour)},
 	}
 
 	bl := &baseline.Baseline{Stats: baseline.GraphStats{}}
@@ -218,11 +220,12 @@ func TestCalculatorStalenessWarningAndCritical(t *testing.T) {
 }
 
 func TestCalculatorBlockingCascade(t *testing.T) {
+	// Priority=2 downstream avoids bt-46p6.6 P0-P1 auto-promotion to warning.
 	issues := []model.Issue{
-		{ID: "A", Title: "Blocker A", Status: model.StatusOpen},
-		{ID: "B", Title: "Blocked by A", Status: model.StatusOpen, Dependencies: []*model.Dependency{{DependsOnID: "A", Type: model.DepBlocks}}},
-		{ID: "C", Title: "Also blocked by A", Status: model.StatusOpen, Dependencies: []*model.Dependency{{DependsOnID: "A", Type: model.DepBlocks}}},
-		{ID: "D", Title: "Independent", Status: model.StatusOpen},
+		{ID: "A", Title: "Blocker A", Status: model.StatusOpen, Priority: 2},
+		{ID: "B", Title: "Blocked by A", Status: model.StatusOpen, Priority: 2, Dependencies: []*model.Dependency{{DependsOnID: "A", Type: model.DepBlocks}}},
+		{ID: "C", Title: "Also blocked by A", Status: model.StatusOpen, Priority: 2, Dependencies: []*model.Dependency{{DependsOnID: "A", Type: model.DepBlocks}}},
+		{ID: "D", Title: "Independent", Status: model.StatusOpen, Priority: 2},
 	}
 	bl := &baseline.Baseline{Stats: baseline.GraphStats{}}
 	current := &baseline.Baseline{Stats: baseline.GraphStats{}}
@@ -781,9 +784,12 @@ func TestCheckActionable_InfoIncrease(t *testing.T) {
 	}
 }
 
-// TestCheckActionable_DecreaseWarning tests large decrease triggers warning
-func TestCheckActionable_DecreaseWarning(t *testing.T) {
-	t.Log("Testing checkActionable with 35% decrease (warning alert)")
+// TestCheckActionable_DecreaseInfoAboveWarnThreshold tests that a large decrease
+// still fires at info severity. Actionable-change alerts were demoted to info-only
+// in bt-46p6.6 (actionable count is informational, not actionable), so the 30%
+// warning threshold now only gates whether an alert fires, not its severity.
+func TestCheckActionable_DecreaseInfoAboveWarnThreshold(t *testing.T) {
+	t.Log("Testing checkActionable with 35% decrease (info alert, post bt-46p6.6)")
 
 	bl := &baseline.Baseline{
 		Stats: baseline.GraphStats{
@@ -792,7 +798,7 @@ func TestCheckActionable_DecreaseWarning(t *testing.T) {
 		},
 	}
 
-	// 35% decrease should trigger warning (default threshold is 30%)
+	// 35% decrease crosses the warning threshold (30%) - alert fires as info.
 	current := &baseline.Baseline{
 		Stats: baseline.GraphStats{
 			NodeCount:       100,
@@ -807,14 +813,14 @@ func TestCheckActionable_DecreaseWarning(t *testing.T) {
 	for _, alert := range result.Alerts {
 		if alert.Type == AlertActionableChange {
 			found = true
-			if alert.Severity != SeverityWarning {
-				t.Errorf("35%% decrease should be warning, got %s", alert.Severity)
+			if alert.Severity != SeverityInfo {
+				t.Errorf("35%% decrease should be info (info-only post bt-46p6.6), got %s", alert.Severity)
 			}
 			t.Logf("Got expected alert: %s", alert.Message)
 		}
 	}
 	if !found {
-		t.Error("expected actionable_change warning alert for 35% decrease")
+		t.Error("expected actionable_change info alert for 35% decrease")
 	}
 }
 
