@@ -22,13 +22,18 @@ func TestContainsBlurb(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:     "has blurb v1",
+			name:     "has legacy v1 blurb (bv- prefix, pre-rename)",
 			content:  "# My AGENTS.md\n\n<!-- bv-agent-instructions-v1 -->\nSome content\n<!-- end-bv-agent-instructions -->",
 			expected: true,
 		},
 		{
-			name:     "has blurb v2 (future)",
-			content:  "# My AGENTS.md\n\n<!-- bv-agent-instructions-v2 -->\nSome content\n<!-- end-bv-agent-instructions -->",
+			name:     "has current v2 blurb (bt- prefix)",
+			content:  "# My AGENTS.md\n\n<!-- bt-agent-instructions-v2 -->\nSome content\n<!-- end-bt-agent-instructions -->",
+			expected: true,
+		},
+		{
+			name:     "has future v3 blurb (bt- prefix)",
+			content:  "# My AGENTS.md\n\n<!-- bt-agent-instructions-v3 -->\nSome content\n<!-- end-bt-agent-instructions -->",
 			expected: true,
 		},
 	}
@@ -55,18 +60,18 @@ func TestGetBlurbVersion(t *testing.T) {
 			expected: 0,
 		},
 		{
-			name:     "version 1",
+			name:     "legacy v1 (bv- prefix)",
 			content:  "<!-- bv-agent-instructions-v1 -->",
 			expected: 1,
 		},
 		{
-			name:     "version 2 (future)",
-			content:  "<!-- bv-agent-instructions-v2 -->",
+			name:     "current v2 (bt- prefix)",
+			content:  "<!-- bt-agent-instructions-v2 -->",
 			expected: 2,
 		},
 		{
-			name:     "version 10 (multi-digit)",
-			content:  "<!-- bv-agent-instructions-v10 -->",
+			name:     "future v10 multi-digit (bt- prefix)",
+			content:  "<!-- bt-agent-instructions-v10 -->",
 			expected: 10,
 		},
 	}
@@ -176,9 +181,14 @@ func TestNeedsUpdate(t *testing.T) {
 			expected: false,
 		},
 		{
-			name:     "current version",
+			name:     "legacy v1 (bv- prefix) needs upgrade to v2",
 			content:  "<!-- bv-agent-instructions-v1 -->",
-			expected: false, // v1 is current, no update needed
+			expected: true, // v1 is now stale; v2 is current
+		},
+		{
+			name:     "current v2 (bt- prefix) no update",
+			content:  "<!-- bt-agent-instructions-v2 -->",
+			expected: false,
 		},
 	}
 
@@ -193,7 +203,7 @@ func TestNeedsUpdate(t *testing.T) {
 }
 
 func TestAgentBlurbContent(t *testing.T) {
-	// Verify blurb contains essential commands
+	// Verify blurb contains essential bd commands.
 	essentials := []string{
 		"bd ready",
 		"bd list",
@@ -201,22 +211,165 @@ func TestAgentBlurbContent(t *testing.T) {
 		"bd create",
 		"bd update",
 		"bd close",
-		"bd sync",
 		"bd dep add",
+		"bd prime",       // onboarding entrypoint
+		"bd dolt push",   // the actual sync idiom (replaces the mythical `bd sync`)
+		"bt robot",       // primary agent surface
+		"--global",       // cross-project aggregation
+		"--shape",        // output shape control
+		"CLAUDE_SESSION_ID", // session provenance
 	}
 
-	for _, cmd := range essentials {
-		if !strings.Contains(AgentBlurb, cmd) {
-			t.Errorf("AgentBlurb missing essential command: %s", cmd)
+	for _, s := range essentials {
+		if !strings.Contains(AgentBlurb, s) {
+			t.Errorf("AgentBlurb missing essential content: %q", s)
 		}
 	}
 
-	// Verify markers
+	// Verify markers.
 	if !strings.HasPrefix(AgentBlurb, BlurbStartMarker) {
 		t.Error("AgentBlurb should start with BlurbStartMarker")
 	}
 	if !strings.HasSuffix(strings.TrimSpace(AgentBlurb), BlurbEndMarker) {
 		t.Error("AgentBlurb should end with BlurbEndMarker")
+	}
+}
+
+// TestAgentBlurbNoBdSync is a regression guard: `bd sync` does not exist in the
+// beads CLI. The v1 blurb mistakenly told agents to run it; v2 must not.
+func TestAgentBlurbNoBdSync(t *testing.T) {
+	if strings.Contains(AgentBlurb, "bd sync") {
+		t.Error("AgentBlurb still references `bd sync` (not a real command — use `bd dolt push && git push`)")
+	}
+}
+
+// TestAgentBlurbNoLegacyBvMarkers is a regression guard: the canonical markers
+// were renamed from bv- to bt- in v2. The blurb body itself must use bt-.
+func TestAgentBlurbNoLegacyBvMarkers(t *testing.T) {
+	if strings.Contains(AgentBlurb, "<!-- bv-agent-instructions") {
+		t.Error("AgentBlurb still contains legacy bv- marker; canonical markers are bt-")
+	}
+	if strings.Contains(AgentBlurb, "<!-- end-bv-agent-instructions") {
+		t.Error("AgentBlurb still contains legacy bv- end marker; canonical markers are bt-")
+	}
+}
+
+// TestBlurbMarkersAreV2 locks down the version and marker contract so a future
+// accidental downgrade to v1 shape fails loudly.
+func TestBlurbMarkersAreV2(t *testing.T) {
+	if BlurbVersion != 2 {
+		t.Errorf("BlurbVersion = %d, want 2", BlurbVersion)
+	}
+	if BlurbStartMarker != "<!-- bt-agent-instructions-v2 -->" {
+		t.Errorf("BlurbStartMarker = %q, want bt-agent-instructions-v2", BlurbStartMarker)
+	}
+	if BlurbEndMarker != "<!-- end-bt-agent-instructions -->" {
+		t.Errorf("BlurbEndMarker = %q, want end-bt-agent-instructions", BlurbEndMarker)
+	}
+}
+
+// TestUpgradeV1ToV2 is the core migration integration test: a project with the
+// v1 (bv-) blurb already installed must cleanly upgrade to v2 (bt-) on next
+// bt run. This exercises the full detect-remove-append pipeline.
+func TestUpgradeV1ToV2(t *testing.T) {
+	// Synthesize a plausible v1-installed AGENTS.md. The blurb body is
+	// intentionally short — we only care that the markers are recognized and
+	// the whole region gets swapped for v2.
+	const v1Installed = `# AGENTS.md
+
+Project-specific rules live above the blurb.
+
+<!-- bv-agent-instructions-v1 -->
+
+Some v1 blurb content including bd sync references that shouldn't survive.
+
+bd sync  # THIS IS WRONG — should not appear in v2
+bd update <id> --status=in_progress  # v1 pattern, v2 prefers --claim
+
+<!-- end-bv-agent-instructions -->
+
+## Trailing project content
+
+Should be preserved after the upgrade.
+`
+
+	// Step 1: detection reports v1 present and needing update.
+	if !ContainsBlurb(v1Installed) {
+		t.Fatal("ContainsBlurb() did not detect v1 bv- blurb")
+	}
+	if got := GetBlurbVersion(v1Installed); got != 1 {
+		t.Fatalf("GetBlurbVersion() = %d, want 1", got)
+	}
+	if !NeedsUpdate(v1Installed) {
+		t.Fatal("NeedsUpdate() = false; v1 should need upgrade to v2")
+	}
+
+	// Step 2: run the upgrade.
+	upgraded := UpdateBlurb(v1Installed)
+
+	// Step 3: post-conditions.
+	if strings.Contains(upgraded, "bv-agent-instructions") {
+		t.Error("upgraded content still contains bv- markers; should be stripped")
+	}
+	if strings.Contains(upgraded, "end-bv-agent-instructions") {
+		t.Error("upgraded content still contains bv- end marker; should be stripped")
+	}
+	if !strings.Contains(upgraded, BlurbStartMarker) {
+		t.Error("upgraded content missing v2 bt- start marker")
+	}
+	if !strings.Contains(upgraded, BlurbEndMarker) {
+		t.Error("upgraded content missing v2 bt- end marker")
+	}
+	if got := GetBlurbVersion(upgraded); got != BlurbVersion {
+		t.Errorf("upgraded blurb version = %d, want %d", got, BlurbVersion)
+	}
+	if NeedsUpdate(upgraded) {
+		t.Error("NeedsUpdate() = true on freshly upgraded content; upgrade should be idempotent")
+	}
+	// The v1 bad advice must be gone; the surrounding project content must survive.
+	if strings.Contains(upgraded, "THIS IS WRONG") {
+		t.Error("upgrade did not strip v1 blurb body")
+	}
+	if !strings.Contains(upgraded, "# AGENTS.md") {
+		t.Error("upgrade did not preserve header")
+	}
+	if !strings.Contains(upgraded, "## Trailing project content") {
+		t.Error("upgrade did not preserve trailing section")
+	}
+	if !strings.Contains(upgraded, "Project-specific rules live above the blurb.") {
+		t.Error("upgrade did not preserve pre-blurb prose")
+	}
+
+	// Step 4: exactly one blurb, no duplicates.
+	if count := strings.Count(upgraded, BlurbStartMarker); count != 1 {
+		t.Errorf("upgraded content has %d v2 start markers, want 1", count)
+	}
+
+	// Step 5: a second upgrade pass is a no-op on semantics (still v2, still
+	// valid, still one blurb).
+	second := UpdateBlurb(upgraded)
+	if GetBlurbVersion(second) != BlurbVersion {
+		t.Error("second upgrade pass changed version")
+	}
+	if count := strings.Count(second, BlurbStartMarker); count != 1 {
+		t.Errorf("after second upgrade, %d v2 start markers, want 1", count)
+	}
+}
+
+// TestFreshInstallIsV2 confirms that a project with no blurb at all gets v2
+// directly (not v1) on first install.
+func TestFreshInstallIsV2(t *testing.T) {
+	fresh := "# My Project\n\nSome content.\n"
+	installed := AppendBlurb(fresh)
+
+	if GetBlurbVersion(installed) != BlurbVersion {
+		t.Errorf("fresh install version = %d, want %d", GetBlurbVersion(installed), BlurbVersion)
+	}
+	if !strings.Contains(installed, BlurbStartMarker) {
+		t.Error("fresh install missing v2 bt- start marker")
+	}
+	if strings.Contains(installed, "bv-agent-instructions") {
+		t.Error("fresh install contains legacy bv- markers")
 	}
 }
 
