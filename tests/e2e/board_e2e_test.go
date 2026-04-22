@@ -78,7 +78,7 @@ func TestBoardRobotTriageIncludesStatusCounts(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "robot", "triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -136,7 +136,7 @@ func TestBoardRobotPlanReturnsGroupedTracks(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bt, "--robot-plan")
+	cmd := exec.CommandContext(ctx, bt, "robot", "plan")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -178,7 +178,7 @@ func TestBoardFiltersByType(t *testing.T) {
 	defer cancel()
 
 	// Use robot-triage to verify types are tracked
-	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "robot", "triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -240,7 +240,7 @@ func TestBoardFiltersByPriority(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "robot", "triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -300,7 +300,7 @@ func TestBoardWithDependencies(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "robot", "triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -373,7 +373,7 @@ func TestBoardLargeDataset(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "robot", "triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -417,7 +417,7 @@ func TestBoardEmptyState(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "robot", "triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
