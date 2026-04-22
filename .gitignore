@@ -74,6 +74,9 @@ _tmp/
 # Beads / Dolt files (added by bd init)
 .beads-credential-key
 
+# JSONL export is redundant with Dolt sync (bt-jlp); disabled via export.auto=false
+.beads/issues.jsonl
+
 # Security audit working files
 security-audit-results.tsv
 
