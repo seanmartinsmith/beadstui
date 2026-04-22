@@ -83,3 +83,6 @@ security-audit-results.tsv
 # Git worktrees
 .worktrees/
 .claude/worktrees/
+
+# Claude Code runtime artifacts
+.claude/scheduled_tasks.lock
