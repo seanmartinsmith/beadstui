@@ -92,19 +92,26 @@ Phase 0.5 (2026-04-10) built the test foundation for the refactor. Cross-platfor
 - [ ] Stale golden files and test validation (bt-t82t Phase 4)
 
 ### Stream 4: Charm v2 migration
-**Status**: DONE
+**Status**: DONE (epic closed 2026-04-22)
 **Priority**: Complete
-**Completed**: 2026-04-09 through 2026-04-10
+**Completed**: 2026-04-09 through 2026-04-10; epic bt-if3w closed 2026-04-22
 
 Executed as a 4-phase refactor plan (`docs/plans/` has the execution plan):
 
 - [x] **Phase 0** (2026-04-09): Mechanical Charm v2 migration - import paths, API renames, compat bridge for AdaptiveColor. 76 files updated.
 - [x] **Phase 0.5** (2026-04-10): Test foundation - coverage for refactor safety net.
 - [x] **Phase 1** (2026-04-10): Model decomposition - ViewMode enum (1.1), DataState/FilterState extraction (1.2), ModalType enum (1.3), Update() handler decomposition (1.4).
+- [x] **Phase 1.5** (2026-04-10): Footer extraction as standalone component (bt-oim6).
 - [x] **Phase 2** (2026-04-10): Kill AdaptiveColor - 174 occurrences eliminated, all colors resolved to `color.Color` at load time. Dark mode detection via `tea.BackgroundColorMsg`. `adaptive_color.go` deleted.
 - [x] **Phase 3** (2026-04-10): Cobra CLI migration - main.go from 1,708 to 13 lines. 35+ robot subcommands migrated to `bt robot *`.
 
-**Deferred to Phase 4 (bt-t82t)**: Pre-compute hot-path styles, footer extraction as FooterData component.
+**Decision (2026-04-22)**: Epic bt-if3w closed. Residual hygiene decoupled from the epic frame and tracked as standalone P2 polish beads:
+
+- `bt-t82t` — Phase 4 cleanup: stale `bv-` references in live tutorial/history/UI text, golden file regen, `go test ./...` + `go vet ./...` validation, verify bt-0cht items naturally resolved by Cobra migration.
+- `bt-if3w.1` — Sprint view extraction as standalone component (`pkg/ui/sprint_view.go`), same pattern as the closed footer extraction (bt-oim6).
+- **Cut (YAGNI)**: Pre-compute hot-path styles. Noted as "needs profiling first" — no profiling evidence exists that it's a bottleneck. If profiling later shows otherwise, file a fresh bead.
+
+The two open beads compete against the broader backlog on their own merits rather than inheriting urgency from the epic frame. Gate bt-bo4a (8-day-old "what's in scope" gate) closed with this decision recorded.
 
 ### Stream 5: README and docs
 **Status**: Draft ready, needs review

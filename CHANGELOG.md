@@ -6,6 +6,32 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-22 - Blurb v2, JSONL sunset, refactor epic closeout (bt-yqgn, bt-jlp, bt-if3w)
+
+**Two shipped beads plus an epic close-out. Agents dispatched for in-flight work; decision debt on the pkg/ui refactor epic cleared.**
+
+### What shipped
+
+- **bt-yqgn** — `pkg/agents/blurb.go` rewritten v1 → v2. New markers (`<!-- bt-agent-instructions-v2 -->`), dual-family recognition (both `bv-` v1 and `bt-` v2 markers detected so v1-installed projects upgrade on next run), content fully rewritten for 2026-era `bt robot <subcmd>` surface (triage/next/portfolio/pairs/refs/plan/impact/insights/…), `--global`/`--shape`/`--compact`/`--full`, `$CLAUDE_SESSION_ID`, `bd prime`, mandatory reads, positional `bd create`, atomic `--claim`, Summary/Change/Files/Verify/Risk/Notes close template, project P0–P4 table, correct sync idiom (`bd dolt push && git push`). Five new tests: TestUpgradeV1ToV2, TestFreshInstallIsV2, TestAgentBlurbNoBdSync (regression guard), TestAgentBlurbNoLegacyBvMarkers, TestBlurbMarkersAreV2. Agent-dispatched; verified build + vet + `go test ./pkg/agents/...` clean before commit.
+- **bt-jlp** — JSONL persistence audit for the beads v1.0.1 opt-in migration. Classified as Case A (redundant): both Dolt and JSONL were active, `refs/dolt/data` present on origin, JSONL auto-export actively failing with `auto-export: git add failed: exit status 1` on every bd write. `export.auto=false`, `.beads/issues.jsonl` untracked via `git rm --cached` + gitignore pattern. Dolt is now canonical. Parent `dotfiles-jlp` epic updated with bt status.
+- **bt-if3w epic closed (re-scoped)** — Phases 0–3 + 1.5 shipped the refactor value (mechanical Charm v2 migration, test foundation, Model decomposition with ViewMode/DataState/FilterState/ModalType enums + Update() split, AdaptiveColor kill across 174 occurrences, Cobra migration main.go 1708→13 lines + 35+ robot subcommands, footer extraction). Residual hygiene decoupled from the epic frame and tracked as standalone P2 polish beads: `bt-t82t` (Phase 4 cleanup — stale `bv-` refs + golden regen + test validation) and `bt-if3w.1` (sprint view extraction, same pattern as the closed bt-oim6 footer). Hot-path style pre-computation **cut** (YAGNI — noted as "needs profiling first", no profiling evidence exists).
+- **bt-bo4a gate closed** — 8-day-old "what's Phase 4 vs what gets cut" gate resolved with the scoping decision above. Decision debt cleared.
+
+### ADR-002 Stream 4
+
+Updated to reflect epic closure and the decoupled follow-up beads. Stream 4 is now fully DONE at the stream level; the two open children compete against the broader backlog on their own merits rather than inheriting urgency from the epic frame.
+
+### Risk
+
+Low. bt-yqgn is content + version bump with backward-compat marker detection. bt-jlp removed a broken code path (JSONL export was already erroring on every write). bt-if3w closure is a re-scope of status, not a code change.
+
+### Commits
+
+- `b76f2a1` chore(data): disable JSONL export, Dolt is canonical (bt-jlp)
+- `72544630` docs(agents): rewrite blurb v1 -> v2 (bt-yqgn)
+
+---
+
 ## 2026-04-21 - Pairs/refs v2 docs + labeled corpus + FPR gate (bt-vxu9, Phases 4-5)
 
 **Closed the pairs+refs v2 plan: expanded the bt-side convention + design docs into cold-readable references, landed a 32-issue labeled corpus with a pre-commit sanitization gate, and shipped an FPR threshold test asserting the v2 readers stay under their agreed-on false-positive budgets.** Phases 4 + 5 + 6 of the plan; closes bt-vxu9.
