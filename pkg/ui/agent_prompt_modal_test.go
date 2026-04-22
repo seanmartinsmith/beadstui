@@ -207,9 +207,9 @@ func TestGetBlurbPreview(t *testing.T) {
 		t.Error("Preview should end with ellipsis")
 	}
 
-	// Should contain some key content
-	if !strings.Contains(preview, "Beads") {
-		t.Error("Preview should contain 'Beads'")
+	// Should contain some key content (the blurb uses lowercase "beads" per upstream naming)
+	if !strings.Contains(preview, "beads") {
+		t.Error("Preview should contain 'beads'")
 	}
 
 	// Should not contain HTML comments (markers)
