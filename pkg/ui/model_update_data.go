@@ -18,6 +18,7 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/debug"
 	"github.com/seanmartinsmith/beadstui/pkg/loader"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
 )
 
 // handleSnapshotReady processes a new snapshot from the background worker.
@@ -35,6 +36,7 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 
 	firstSnapshot := m.data.snapshotInitPending && m.data.snapshot == nil
 	m.data.snapshotInitPending = false
+	wasTimeTravel := m.timeTravelMode
 
 	// Clear ephemeral overlays tied to old data
 	m.clearAttentionOverlay()
@@ -82,6 +84,18 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 	}
 	if oldSnapshot != nil && len(oldSnapshot.pooledIssues) > 0 {
 		go loader.ReturnIssuePtrsToPool(oldSnapshot.pooledIssues)
+	}
+
+	// bt-d5wr: emit activity events from the snapshot diff.
+	// Gated on: (a) not the bootstrap snapshot (no prior to diff against),
+	// (b) oldSnapshot is non-nil, (c) ring buffer is initialized,
+	// (d) this handler call did NOT begin in time-travel mode (diffing a
+	// historical snapshot against a live one produces spurious events).
+	if !firstSnapshot && oldSnapshot != nil && m.events != nil && !wasTimeTravel {
+		diff := events.Diff(oldSnapshot.Issues, msg.Snapshot.Issues, time.Now(), events.SourceDolt)
+		if len(diff) > 0 {
+			m.events.AppendMany(diff)
+		}
 	}
 
 	// Update legacy fields for backwards compatibility during migration
