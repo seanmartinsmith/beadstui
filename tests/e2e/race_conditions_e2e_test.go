@@ -43,11 +43,11 @@ func TestRace_ConcurrentRobotCommands(t *testing.T) {
 
 	// Run multiple robot commands concurrently
 	commands := [][]string{
-		{"--robot-triage"},
-		{"--robot-next"},
-		{"--robot-graph", "--graph-format", "json"},
-		{"--robot-plan"},
-		{"--robot-priority"},
+		{"robot", "triage"},
+		{"robot", "next"},
+		{"robot", "graph", "--graph-format", "json"},
+		{"robot", "plan"},
+		{"robot", "priority"},
 	}
 
 	var wg sync.WaitGroup
@@ -116,7 +116,7 @@ func TestRace_ConcurrentTriageRequests(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			cmd := exec.Command(bt, "--robot-triage")
+			cmd := exec.Command(bt, "robot", "triage")
 			cmd.Dir = env
 			var stdout bytes.Buffer
 			cmd.Stdout = &stdout
@@ -186,7 +186,7 @@ func TestRace_DataConsistency(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			cmd := exec.Command(bt, "--robot-next")
+			cmd := exec.Command(bt, "robot", "next")
 			cmd.Dir = env
 			var stdout bytes.Buffer
 			cmd.Stdout = &stdout
@@ -241,7 +241,7 @@ func TestRace_ConcurrentAnalysisAndGraph(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			cmd := exec.Command(bt, "--robot-triage")
+			cmd := exec.Command(bt, "robot", "triage")
 			cmd.Dir = env
 			if err := cmd.Run(); err != nil {
 				errors <- err
@@ -255,7 +255,7 @@ func TestRace_ConcurrentAnalysisAndGraph(t *testing.T) {
 		wg.Add(1)
 		go func(format string) {
 			defer wg.Done()
-			cmd := exec.Command(bt, "--robot-graph", "--graph-format", format)
+			cmd := exec.Command(bt, "robot", "graph", "--graph-format", format)
 			cmd.Dir = env
 			if err := cmd.Run(); err != nil {
 				errors <- err
@@ -300,13 +300,13 @@ func TestRace_RapidSequentialCommands(t *testing.T) {
 
 	// Run commands in rapid succession (no delay between them)
 	commands := [][]string{
-		{"--robot-triage"},
-		{"--robot-next"},
-		{"--robot-plan"},
-		{"--robot-priority"},
-		{"--robot-triage"},
-		{"--robot-graph", "--graph-format", "json"},
-		{"--robot-next"},
+		{"robot", "triage"},
+		{"robot", "next"},
+		{"robot", "plan"},
+		{"robot", "priority"},
+		{"robot", "triage"},
+		{"robot", "graph", "--graph-format", "json"},
+		{"robot", "next"},
 	}
 
 	for i, args := range commands {
@@ -350,7 +350,7 @@ func TestRace_ConcurrentGraphFormats(t *testing.T) {
 		wg.Add(1)
 		go func(fmt string) {
 			defer wg.Done()
-			cmd := exec.Command(bt, "--robot-graph", "--graph-format", fmt)
+			cmd := exec.Command(bt, "robot", "graph", "--graph-format", fmt)
 			cmd.Dir = env
 			if err := cmd.Run(); err != nil {
 				errors <- err
@@ -413,10 +413,10 @@ func TestRace_HighConcurrencyStress(t *testing.T) {
 	errors := make(chan error, numOps)
 
 	commands := [][]string{
-		{"--robot-triage"},
-		{"--robot-next"},
-		{"--robot-plan"},
-		{"--robot-graph", "--graph-format", "json"},
+		{"robot", "triage"},
+		{"robot", "next"},
+		{"robot", "plan"},
+		{"robot", "graph", "--graph-format", "json"},
 	}
 
 	for i := 0; i < numOps; i++ {
@@ -478,7 +478,7 @@ func TestRace_ConcurrentFileReading(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			cmd := exec.Command(bt, "--robot-triage")
+			cmd := exec.Command(bt, "robot", "triage")
 			cmd.Dir = env
 			if err := cmd.Run(); err != nil {
 				errors <- err

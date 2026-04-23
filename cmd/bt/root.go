@@ -97,6 +97,11 @@ func init() {
 	pf.BoolVar(&flagToonStats, "stats", false, "Show JSON vs TOON token estimates on stderr (env: TOON_STATS=1)")
 	pf.BoolVar(&flagGlobal, "global", false, "Show issues from all projects on shared Dolt server")
 	pf.StringVar(&flagRepo, "repo", "", "Filter issues by repository prefix (e.g., 'api-' or 'api')")
+	// --workspace affects issue loading (via loadIssues()), which every
+	// subcommand exercises in its PreRun. It was root-only before the cobra
+	// migration, which broke `bt --workspace <path> robot triage` flows.
+	// Persistent here so the workspace loader is reachable from any subcommand.
+	pf.StringVar(&flagWorkspace, "workspace", "", "Load issues from workspace config file (.bt/workspace.yaml)")
 
 	// Root-only (TUI) flags.
 	f := rootCmd.Flags()
@@ -105,7 +110,6 @@ func init() {
 	f.StringVar(&flagBQL, "bql", "", "BQL query to pre-filter issues (e.g., 'status:open priority<P2')")
 	f.StringVar(&flagAsOf, "as-of", "", "View state at point in time (commit SHA, branch, tag, or date)")
 	f.StringVar(&flagDiffSince, "diff-since", "", "Show changes since historical point (commit SHA, branch, tag, or date)")
-	f.StringVar(&flagWorkspace, "workspace", "", "Load issues from workspace config file (.bt/workspace.yaml)")
 	f.BoolVar(&flagBackgroundMode, "background-mode", false, "Enable experimental background snapshot loading (TUI only)")
 	f.BoolVar(&flagNoBackgroundMode, "no-background-mode", false, "Disable experimental background snapshot loading (TUI only)")
 	f.StringVar(&flagDebugRender, "debug-render", "", "Render a view and output to file (views: insights, board)")

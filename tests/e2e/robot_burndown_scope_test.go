@@ -67,7 +67,7 @@ func TestRobotBurndownIncludesScopeChanges(t *testing.T) {
 	git("add", ".beads/sprints.jsonl")
 	git("commit", "-m", "remove A from sprint")
 
-	cmd := exec.Command(bt, "--robot-burndown", "sprint-1")
+	cmd := exec.Command(bt, "robot", "burndown", "sprint-1")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {

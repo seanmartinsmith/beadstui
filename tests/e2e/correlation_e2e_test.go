@@ -108,7 +108,7 @@ func TestCorrelationExplicitMentions(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createCorrelationRepo(t)
 
-	cmd := exec.Command(bt, "--robot-history")
+	cmd := exec.Command(bt, "robot", "history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -172,7 +172,7 @@ func TestCorrelationCommitIndex(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createCorrelationRepo(t)
 
-	cmd := exec.Command(bt, "--robot-history")
+	cmd := exec.Command(bt, "robot", "history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -215,7 +215,7 @@ func TestCorrelationRobotRelated(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createCorrelationRepo(t)
 
-	cmd := exec.Command(bt, "--robot-related", "CORR-1")
+	cmd := exec.Command(bt, "robot", "related", "CORR-1")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -259,7 +259,7 @@ func TestCorrelationRobotFileBeads(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createCorrelationRepo(t)
 
-	cmd := exec.Command(bt, "--robot-file-beads", "pkg/auth/session.go")
+	cmd := exec.Command(bt, "robot", "files", "beads", "pkg/auth/session.go")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -301,7 +301,7 @@ func TestCorrelationRobotOrphans(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createCorrelationRepo(t)
 
-	cmd := exec.Command(bt, "--robot-orphans")
+	cmd := exec.Command(bt, "robot", "orphans")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -361,7 +361,7 @@ func TestCorrelationConfidenceLevels(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createCorrelationRepo(t)
 
-	cmd := exec.Command(bt, "--robot-history")
+	cmd := exec.Command(bt, "robot", "history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -464,7 +464,7 @@ func TestCorrelationSharedFileRelations(t *testing.T) {
 	git("commit", "-m", "feat(SHARE-2): add Two function")
 
 	// Both beads should show in file-beads for shared.go
-	cmd := exec.Command(bt, "--robot-file-beads", "src/shared.go")
+	cmd := exec.Command(bt, "robot", "files", "beads", "src/shared.go")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -505,7 +505,7 @@ func TestCorrelationMethodDistribution(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createCorrelationRepo(t)
 
-	cmd := exec.Command(bt, "--robot-history")
+	cmd := exec.Command(bt, "robot", "history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -552,7 +552,7 @@ func TestCorrelationEmptyRepo(t *testing.T) {
 		t.Fatalf("write beads: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--robot-history")
+	cmd := exec.Command(bt, "robot", "history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -625,7 +625,7 @@ func TestCorrelationManyBeads(t *testing.T) {
 	git("add", ".beads/beads.jsonl")
 	git("commit", "-m", "seed 50 beads")
 
-	cmd := exec.Command(bt, "--robot-history")
+	cmd := exec.Command(bt, "robot", "history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {

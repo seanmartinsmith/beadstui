@@ -79,7 +79,7 @@ func TestRobotHistoryIncludesEventsAndCommitIndex(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir, head := createHistoryRepo(t)
 
-	cmd := exec.Command(bt, "--robot-history")
+	cmd := exec.Command(bt, "robot", "history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -194,7 +194,7 @@ func TestRobotHistoryPathHints(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir, _ := createHistoryRepo(t)
 
-	cmd := exec.Command(bt, "--robot-history")
+	cmd := exec.Command(bt, "robot", "history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -299,7 +299,7 @@ func TestRobotHistoryRenameTracking(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createRenameRepo(t)
 
-	cmd := exec.Command(bt, "--robot-history")
+	cmd := exec.Command(bt, "robot", "history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -401,7 +401,7 @@ func TestRobotHistoryEmptyRepo(t *testing.T) {
 	git("add", ".beads/beads.jsonl")
 	git("commit", "-m", "add empty beads")
 
-	cmd := exec.Command(bt, "--robot-history")
+	cmd := exec.Command(bt, "robot", "history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {

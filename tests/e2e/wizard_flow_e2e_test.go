@@ -29,7 +29,7 @@ func TestWizard_LocalExportFlow(t *testing.T) {
 	// - Output dir: ./test-pages
 	input := "n\nTest Export\n\n3\n./test-pages\n"
 
-	cmd := exec.Command(bt, "--pages")
+	cmd := exec.Command(bt, "pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
 	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
@@ -75,7 +75,7 @@ func TestWizard_GitHubFlowPrompts(t *testing.T) {
 	// Then it will check prerequisites (gh CLI) which may fail
 	input := "y\nGitHub Test\nTest Subtitle\n1\ntest-repo\nn\nTest description\nn\n"
 
-	cmd := exec.Command(bt, "--pages")
+	cmd := exec.Command(bt, "pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
 	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
@@ -111,7 +111,7 @@ func TestWizard_CloudflareFlowPrompts(t *testing.T) {
 	// Then it will check prerequisites (wrangler) which may fail
 	input := "n\nCF Test\n\n2\ntest-project\nmain\nn\n"
 
-	cmd := exec.Command(bt, "--pages")
+	cmd := exec.Command(bt, "pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
 	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
@@ -135,7 +135,7 @@ func TestWizard_DeployTargetSelection(t *testing.T) {
 	// Minimal input to get to deployment target selection, then cancel
 	input := "n\nTest\n\n"
 
-	cmd := exec.Command(bt, "--pages")
+	cmd := exec.Command(bt, "pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
 	// Add timeout to prevent hanging
@@ -167,7 +167,7 @@ func TestWizard_ExportConfigPrompts(t *testing.T) {
 	// Provide some input to trigger prompts
 	input := "y\nMy Custom Title\nMy Subtitle\n3\n./output\n"
 
-	cmd := exec.Command(bt, "--pages")
+	cmd := exec.Command(bt, "pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
 	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1", "BT_NO_SAVED_CONFIG=1")
@@ -198,7 +198,7 @@ func TestWizard_BannerDisplay(t *testing.T) {
 	// Just trigger the wizard and let it timeout/fail
 	input := ""
 
-	cmd := exec.Command(bt, "--pages")
+	cmd := exec.Command(bt, "pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
 	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
@@ -284,7 +284,7 @@ func TestWizard_InvalidDeployTargetRecovery(t *testing.T) {
 	// Invalid inputs should default to option 1 (GitHub)
 	input := "n\nTest\n\n9\n"
 
-	cmd := exec.Command(bt, "--pages")
+	cmd := exec.Command(bt, "pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
 	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
@@ -308,7 +308,7 @@ func TestWizard_DefaultValues(t *testing.T) {
 	// Press enter to accept all defaults, select local (3)
 	input := "\n\n\n3\n\n"
 
-	cmd := exec.Command(bt, "--pages")
+	cmd := exec.Command(bt, "pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
 	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
@@ -339,7 +339,7 @@ func TestWizard_StepProgression(t *testing.T) {
 	// Complete local export flow with all inputs
 	input := "n\nTest Title\n\n3\n./test-output\n"
 
-	cmd := exec.Command(bt, "--pages")
+	cmd := exec.Command(bt, "pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
 	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
@@ -371,7 +371,7 @@ func TestWizard_OutputDirectoryPrompt(t *testing.T) {
 	// Select local export and provide custom output path
 	input := "n\nTest\n\n3\n./custom-output-dir\n"
 
-	cmd := exec.Command(bt, "--pages")
+	cmd := exec.Command(bt, "pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader(input)
 	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
@@ -396,7 +396,7 @@ func TestWizard_InterruptHandling(t *testing.T) {
 	repoDir := createSimpleRepo(t, 3)
 
 	// Start wizard and immediately close stdin (simulates Ctrl+C/interrupt)
-	cmd := exec.Command(bt, "--pages")
+	cmd := exec.Command(bt, "pages")
 	cmd.Dir = repoDir
 	cmd.Stdin = strings.NewReader("")
 	cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")
@@ -439,7 +439,7 @@ func TestWizard_MultiplePlatformFlows(t *testing.T) {
 			// Provide input to select the platform
 			input := "n\nTest\n\n" + tc.choice + "\n\n\n"
 
-			cmd := exec.Command(bt, "--pages")
+			cmd := exec.Command(bt, "pages")
 			cmd.Dir = repoDir
 			cmd.Stdin = strings.NewReader(input)
 			cmd.Env = append(os.Environ(), "BT_NO_BROWSER=1")

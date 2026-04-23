@@ -17,7 +17,7 @@ import (
 func TestVersionFlag_OutputsVersion(t *testing.T) {
 	bt := buildBtBinary(t)
 
-	cmd := exec.Command(bt, "--version")
+	cmd := exec.Command(bt, "version")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("--version failed: %v\n%s", err, out)
@@ -40,7 +40,7 @@ func TestVersionFlag_OutputsVersion(t *testing.T) {
 func TestVersionFlag_IncludesBuildInfo(t *testing.T) {
 	bt := buildBtBinary(t)
 
-	cmd := exec.Command(bt, "--version")
+	cmd := exec.Command(bt, "version")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("--version failed: %v\n%s", err, out)
@@ -63,7 +63,7 @@ func TestRollbackFlag_FailsWithoutBackup(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Run rollback from a temp directory where there's no backup
-	cmd := exec.Command(bt, "--rollback")
+	cmd := exec.Command(bt, "rollback")
 	cmd.Dir = tmpDir
 	out, err := cmd.CombinedOutput()
 
@@ -104,7 +104,7 @@ func TestUpdateFlag_RequiresNetwork(t *testing.T) {
 
 	// --update should attempt to connect to GitHub
 	// We just verify the command runs and either succeeds or fails gracefully
-	cmd := exec.Command(bt, "--update", "-y")
+	cmd := exec.Command(bt, "update", "-y")
 	cmd.Dir = tmpDir
 	// Set a short timeout
 	cmd.Env = append(os.Environ(), "BT_UPDATE_TIMEOUT=2s")
@@ -142,14 +142,15 @@ func TestHelpFlag_DocumentsUpdateFeatures(t *testing.T) {
 
 	output := string(out)
 
-	// Should document the update flag
-	if !strings.Contains(output, "-update") && !strings.Contains(output, "--update") {
-		t.Errorf("expected help to document --update flag, got: %s", output)
+	// Post-cobra, update and rollback are subcommands (not --flags). Help output
+	// lists them under "Available Commands" with their descriptions. Assertion
+	// matches on the stable description text rather than the command name alone
+	// to avoid false positives from the word 'update' appearing elsewhere.
+	if !strings.Contains(output, "Update bt to the latest version") {
+		t.Errorf("expected help to document update command, got: %s", output)
 	}
-
-	// Should document the rollback flag
-	if !strings.Contains(output, "-rollback") && !strings.Contains(output, "--rollback") {
-		t.Errorf("expected help to document --rollback flag, got: %s", output)
+	if !strings.Contains(output, "Rollback to the previous version") {
+		t.Errorf("expected help to document rollback command, got: %s", output)
 	}
 }
 
@@ -161,7 +162,7 @@ func TestRobotHelp_DocumentsUpdateFeatures(t *testing.T) {
 	// Verify robot-help documents update-related features
 	bt := buildBtBinary(t)
 
-	cmd := exec.Command(bt, "--robot-help")
+	cmd := exec.Command(bt, "robot", "help")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("-robot-help failed: %v\n%s", err, out)
@@ -195,7 +196,7 @@ func TestStartup_UpdateCheckDoesNotBlock(t *testing.T) {
 	}
 
 	// Run robot-insights which should complete quickly
-	cmd := exec.Command(bt, "--robot-insights")
+	cmd := exec.Command(bt, "robot", "insights")
 	cmd.Dir = tmpDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -246,7 +247,7 @@ func TestBinary_RespondsToSignals(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd := exec.Command(bt, "--version")
+	cmd := exec.Command(bt, "version")
 	cmd.Dir = tmpDir
 
 	// Should complete without hanging

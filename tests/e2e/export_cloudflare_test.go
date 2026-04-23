@@ -34,7 +34,7 @@ func TestCloudflare_HeadersFileGenerated(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -83,7 +83,7 @@ func TestCloudflare_WASMContentType(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -117,7 +117,7 @@ func TestCloudflare_OutputDirectoryStructure(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -165,7 +165,7 @@ func TestCloudflare_ServiceWorkerForCOI(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -212,7 +212,7 @@ func TestCloudflare_SQLiteChunking(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -262,7 +262,7 @@ func TestCloudflare_CustomExportPath(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", customDir)
+	cmd := exec.Command(bt, "export", "pages", customDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -293,7 +293,7 @@ func TestCloudflare_NestedExportPath(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", nestedDir)
+	cmd := exec.Command(bt, "export", "pages", nestedDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -327,7 +327,7 @@ func TestCloudflare_CustomTitle(t *testing.T) {
 	}
 
 	customTitle := "My Project Dashboard"
-	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-title", customTitle)
+	cmd := exec.Command(bt, "export", "pages", exportDir, "--title", customTitle)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -373,7 +373,7 @@ func TestCloudflare_IncludeClosed(t *testing.T) {
 	}
 
 	// Export with closed included
-	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-include-closed")
+	cmd := exec.Command(bt, "export", "pages", exportDir, "--include-closed")
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -405,7 +405,7 @@ func TestCloudflare_IncludeClosedByDefault(t *testing.T) {
 	}
 
 	// Export without --pages-include-closed (default is true)
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -436,8 +436,8 @@ func TestCloudflare_ExcludeClosed(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	// Export with --pages-include-closed=false
-	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-include-closed=false")
+	// Export with --include-closed=false
+	cmd := exec.Command(bt, "export", "pages", exportDir, "--include-closed=false")
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -471,7 +471,7 @@ func TestCloudflare_OverwriteExistingExport(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd1 := exec.Command(bt, "--export-pages", exportDir)
+	cmd1 := exec.Command(bt, "export", "pages", exportDir)
 	cmd1.Dir = repoDir
 	if out, err := cmd1.CombinedOutput(); err != nil {
 		t.Fatalf("first export failed: %v\n%s", err, out)
@@ -490,7 +490,7 @@ func TestCloudflare_OverwriteExistingExport(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd2 := exec.Command(bt, "--export-pages", exportDir)
+	cmd2 := exec.Command(bt, "export", "pages", exportDir)
 	cmd2.Dir = repoDir
 	if out, err := cmd2.CombinedOutput(); err != nil {
 		t.Fatalf("second export failed: %v\n%s", err, out)
@@ -532,7 +532,7 @@ func TestCloudflare_LargeExportPerformance(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -572,7 +572,7 @@ func TestCloudflare_InvalidExportPath(t *testing.T) {
 		t.Fatalf("create file: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", filePath)
+	cmd := exec.Command(bt, "export", "pages", filePath)
 	cmd.Dir = repoDir
 	_, err := cmd.CombinedOutput()
 	// May or may not error - depends on implementation
@@ -602,7 +602,7 @@ func TestCloudflare_DataDirectoryContents(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -679,7 +679,7 @@ func TestCloudflare_HistoryExport(t *testing.T) {
 	_ = commitCmd.Run()
 
 	// Export with history
-	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-include-history")
+	cmd := exec.Command(bt, "export", "pages", exportDir, "--include-history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {

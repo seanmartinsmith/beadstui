@@ -32,7 +32,7 @@ func TestRobotGraph_JSONAndFilters(t *testing.T) {
 	}
 
 	// Default format is JSON adjacency list.
-	payload := run("--robot-graph")
+	payload := run("robot", "graph")
 	if payload["data_hash"] == "" {
 		t.Fatalf("missing data_hash")
 	}
@@ -41,7 +41,7 @@ func TestRobotGraph_JSONAndFilters(t *testing.T) {
 	}
 
 	// Root+depth filter: C depth=1 should include C and B, but not A.
-	filtered := run("--robot-graph", "--graph-root=C", "--graph-depth=1")
+	filtered := run("robot", "graph", "--graph-root=C", "--graph-depth=1")
 	if filtered["format"] != "json" {
 		t.Fatalf("format=%v; want json", filtered["format"])
 	}
@@ -85,7 +85,7 @@ func TestRobotGraph_DOTAndMermaid(t *testing.T) {
 		{name: "mermaid", graphFormat: "mermaid", wantFormat: "mermaid", wantSubstr: "graph"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := exec.Command(bt, "--robot-graph", "--graph-format="+tt.graphFormat)
+			cmd := exec.Command(bt, "robot", "graph", "--graph-format="+tt.graphFormat)
 			cmd.Dir = env
 			out, err := cmd.CombinedOutput()
 			if err != nil {

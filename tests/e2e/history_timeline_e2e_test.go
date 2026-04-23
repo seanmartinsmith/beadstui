@@ -20,7 +20,7 @@ func TestTimelineDataChronologicalOrder(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bt, "--robot-history")
+	cmd := exec.CommandContext(ctx, bt, "robot", "history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -76,7 +76,7 @@ func TestTimelineExportStructure(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bt, "--export-pages", exportDir)
+	cmd := exec.CommandContext(ctx, bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -138,7 +138,7 @@ func TestTimelineCommitDensity(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bt, "--robot-history")
+	cmd := exec.CommandContext(ctx, bt, "robot", "history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -199,7 +199,7 @@ func TestTimelineBeadCorrelation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bt, "--robot-history")
+	cmd := exec.CommandContext(ctx, bt, "robot", "history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -375,7 +375,7 @@ func TestTimelineStatsAccuracy(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bt, "--robot-history")
+	cmd := exec.CommandContext(ctx, bt, "robot", "history")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {

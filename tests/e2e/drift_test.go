@@ -45,7 +45,7 @@ func TestEndToEndDriftWorkflow(t *testing.T) {
 	}
 
 	// 4. Save Baseline
-	cmdSave := exec.Command(binPath, "--save-baseline", "Initial state")
+	cmdSave := exec.Command(binPath, "robot", "baseline", "save", "Initial state")
 	cmdSave.Dir = envDir
 	if out, err := cmdSave.CombinedOutput(); err != nil {
 		t.Fatalf("Save baseline failed: %v\n%s", err, out)
@@ -58,7 +58,7 @@ func TestEndToEndDriftWorkflow(t *testing.T) {
 	}
 
 	// 5. Check Drift (Should be clean)
-	cmdCheck := exec.Command(binPath, "--check-drift")
+	cmdCheck := exec.Command(binPath, "baseline", "check")
 	cmdCheck.Dir = envDir
 	if out, err := cmdCheck.CombinedOutput(); err != nil {
 		t.Fatalf("Check drift (clean) failed: %v\n%s", err, out)
@@ -75,7 +75,7 @@ func TestEndToEndDriftWorkflow(t *testing.T) {
 	}
 
 	// 7. Check Drift (Should Fail with Exit Code 1)
-	cmdDrift := exec.Command(binPath, "--check-drift")
+	cmdDrift := exec.Command(binPath, "baseline", "check")
 	cmdDrift.Dir = envDir
 	out, err := cmdDrift.CombinedOutput()
 
@@ -97,7 +97,7 @@ func TestEndToEndDriftWorkflow(t *testing.T) {
 	}
 
 	// 8. Verify with JSON output
-	cmdJson := exec.Command(binPath, "--check-drift", "--robot-drift")
+	cmdJson := exec.Command(binPath, "baseline", "check", "--json")
 	cmdJson.Dir = envDir
 	outJson, err := cmdJson.CombinedOutput()
 	// JSON mode also exits with code, so we expect error
@@ -172,7 +172,7 @@ func TestDriftAlerts(t *testing.T) {
 	}
 
 	// Save Baseline
-	cmdSave := exec.Command(binPath, "--save-baseline", "Baseline")
+	cmdSave := exec.Command(binPath, "robot", "baseline", "save", "Baseline")
 	cmdSave.Dir = envDir
 	if out, err := cmdSave.CombinedOutput(); err != nil {
 		t.Fatalf("Save baseline failed: %v\n%s", err, out)
@@ -205,7 +205,7 @@ func TestDriftAlerts(t *testing.T) {
 	}
 
 	// 5. Check Drift
-	cmdCheck := exec.Command(binPath, "--check-drift")
+	cmdCheck := exec.Command(binPath, "baseline", "check")
 	cmdCheck.Dir = envDir
 	out, err := cmdCheck.CombinedOutput()
 
@@ -285,7 +285,7 @@ pagerank_change_warning_pct: 1000
 		t.Fatal(err)
 	}
 
-	cmdSave := exec.Command(binPath, "--save-baseline", "Baseline")
+	cmdSave := exec.Command(binPath, "robot", "baseline", "save", "Baseline")
 	cmdSave.Dir = envDir
 	out, err = cmdSave.CombinedOutput()
 	if err != nil {
@@ -305,7 +305,7 @@ pagerank_change_warning_pct: 1000
 	// Check Drift
 	// NOTE: PageRank changes will still trigger a warning (exit 2) because "entered top" logic
 	// doesn't respect the percentage threshold. We only check that Blocked warning is suppressed.
-	cmdCheck := exec.Command(binPath, "--check-drift")
+	cmdCheck := exec.Command(binPath, "baseline", "check")
 	cmdCheck.Dir = envDir
 	out, err = cmdCheck.CombinedOutput()
 
@@ -351,7 +351,7 @@ actionable_decrease_warning_pct: 1000`
 	}
 
 	// Same drift data (10 blocked). 10 > 1. Should FAIL (Exit 2).
-	cmdCheck = exec.Command(binPath, "--check-drift")
+	cmdCheck = exec.Command(binPath, "baseline", "check")
 	cmdCheck.Dir = envDir
 	out, err = cmdCheck.CombinedOutput()
 
@@ -396,7 +396,7 @@ func TestDriftErrorHandling(t *testing.T) {
 	// Scenario 1: Missing Baseline
 	// -------------------------------------------------------------------------
 	t.Log("Scenario 1: Missing Baseline")
-	cmdCheck := exec.Command(binPath, "--check-drift")
+	cmdCheck := exec.Command(binPath, "baseline", "check")
 	cmdCheck.Dir = envDir
 	out, err := cmdCheck.CombinedOutput()
 
@@ -430,7 +430,7 @@ func TestDriftErrorHandling(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmdCheck = exec.Command(binPath, "--check-drift")
+	cmdCheck = exec.Command(binPath, "baseline", "check")
 	cmdCheck.Dir = envDir
 	out, err = cmdCheck.CombinedOutput()
 
@@ -454,7 +454,7 @@ func TestDriftErrorHandling(t *testing.T) {
 	t.Log("Scenario 3: Invalid Drift Config")
 
 	// Restore valid baseline
-	cmdSave := exec.Command(binPath, "--save-baseline", "Restore")
+	cmdSave := exec.Command(binPath, "robot", "baseline", "save", "Restore")
 	cmdSave.Dir = envDir
 	if out, err := cmdSave.CombinedOutput(); err != nil {
 		t.Fatalf("Restore baseline failed: %v\n%s", err, out)
@@ -466,7 +466,7 @@ func TestDriftErrorHandling(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmdCheck = exec.Command(binPath, "--check-drift")
+	cmdCheck = exec.Command(binPath, "baseline", "check")
 	cmdCheck.Dir = envDir
 	out, err = cmdCheck.CombinedOutput()
 

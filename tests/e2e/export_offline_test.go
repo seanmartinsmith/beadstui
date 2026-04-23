@@ -34,7 +34,7 @@ func TestOffline_AllAssetsBundled(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -102,7 +102,7 @@ func TestOffline_LocalScriptReferences(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -156,7 +156,7 @@ func TestOffline_LocalStyleReferences(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -212,7 +212,7 @@ func TestOffline_SearchIndexBundled(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-include-closed")
+	cmd := exec.Command(bt, "export", "pages", exportDir, "--include-closed")
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -252,7 +252,7 @@ func TestOffline_HashBasedRouting(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -292,7 +292,7 @@ func TestOffline_GraphWASMBundled(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -339,7 +339,7 @@ func TestOffline_ServiceWorkerPresent(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -373,7 +373,7 @@ func TestOffline_DataFilesBundled(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -414,7 +414,7 @@ func TestOffline_CompleteBundleChecklist(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -471,7 +471,7 @@ func TestOffline_NoFetchAPICalls(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -514,7 +514,7 @@ func TestOffline_CrossOriginIsolation(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -559,7 +559,7 @@ func TestOffline_BundleSizeReasonable(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -610,7 +610,7 @@ func TestOffline_RelativePaths(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -653,7 +653,7 @@ func TestOffline_CSSMinified(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)

@@ -19,7 +19,7 @@ func TestCycleVisualization_NoCycles(t *testing.T) {
 	repoDir := createNoCycleRepo(t)
 
 	// Get robot-insights output
-	cmd := exec.Command(bt, "--robot-insights")
+	cmd := exec.Command(bt, "robot", "insights")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -47,7 +47,7 @@ func TestCycleVisualization_TwoNodeCycle(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createTwoNodeCycleRepo(t)
 
-	cmd := exec.Command(bt, "--robot-insights")
+	cmd := exec.Command(bt, "robot", "insights")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -77,7 +77,7 @@ func TestCycleVisualization_ThreeNodeCycle(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createThreeNodeCycleRepo(t)
 
-	cmd := exec.Command(bt, "--robot-insights")
+	cmd := exec.Command(bt, "robot", "insights")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -107,7 +107,7 @@ func TestCycleVisualization_MultipleCycles(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createMultipleCyclesRepo(t)
 
-	cmd := exec.Command(bt, "--robot-insights")
+	cmd := exec.Command(bt, "robot", "insights")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -143,7 +143,7 @@ func TestCycleVisualization_MermaidExport(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createTwoNodeCycleRepo(t)
 
-	cmd := exec.Command(bt, "--robot-graph", "--graph-format=mermaid")
+	cmd := exec.Command(bt, "robot", "graph", "--graph-format=mermaid")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -181,7 +181,7 @@ func TestCycleVisualization_DOTExport(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createTwoNodeCycleRepo(t)
 
-	cmd := exec.Command(bt, "--robot-graph", "--graph-format=dot")
+	cmd := exec.Command(bt, "robot", "graph", "--graph-format=dot")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -220,7 +220,7 @@ func TestCycleVisualization_JSONExport(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createThreeNodeCycleRepo(t)
 
-	cmd := exec.Command(bt, "--robot-graph", "--graph-format=json")
+	cmd := exec.Command(bt, "robot", "graph", "--graph-format=json")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -273,7 +273,7 @@ func TestCycleVisualization_RobotSuggestCycles(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createTwoNodeCycleRepo(t)
 
-	cmd := exec.Command(bt, "--robot-suggest")
+	cmd := exec.Command(bt, "robot", "suggest")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -321,7 +321,7 @@ func TestCycleVisualization_CycleCountInStatus(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createMultipleCyclesRepo(t)
 
-	cmd := exec.Command(bt, "--robot-insights")
+	cmd := exec.Command(bt, "robot", "insights")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -357,7 +357,7 @@ func TestCycleVisualization_CycleMembers(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createThreeNodeCycleRepo(t)
 
-	cmd := exec.Command(bt, "--robot-insights")
+	cmd := exec.Command(bt, "robot", "insights")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -401,7 +401,7 @@ func TestCycleVisualization_NestedCycles(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createNestedCyclesRepo(t)
 
-	cmd := exec.Command(bt, "--robot-insights")
+	cmd := exec.Command(bt, "robot", "insights")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -435,7 +435,7 @@ func TestCycleVisualization_DeterministicOutput(t *testing.T) {
 
 	var results []CycleResult
 	for i := 0; i < 3; i++ {
-		cmd := exec.Command(bt, "--robot-insights")
+		cmd := exec.Command(bt, "robot", "insights")
 		cmd.Dir = repoDir
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -474,7 +474,7 @@ func TestCycleVisualization_MixedCycleAndDAG(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createMixedCycleDAGRepo(t)
 
-	cmd := exec.Command(bt, "--robot-insights")
+	cmd := exec.Command(bt, "robot", "insights")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {

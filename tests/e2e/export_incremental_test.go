@@ -137,7 +137,7 @@ func TestExportIncremental_CloseIssues(t *testing.T) {
 		t.Fatalf("write initial issues.jsonl: %v", err)
 	}
 
-	runExportPages(t, bt, repoDir, exportDir, "--pages-include-closed")
+	runExportPages(t, bt, repoDir, exportDir, "--include-closed")
 	initialTriage := readTriageJSON(t, exportDir)
 	initialOpenCount := initialTriage.QuickRef.OpenCount
 
@@ -150,7 +150,7 @@ func TestExportIncremental_CloseIssues(t *testing.T) {
 	}
 
 	// Re-export
-	runExportPages(t, bt, repoDir, exportDir, "--pages-include-closed")
+	runExportPages(t, bt, repoDir, exportDir, "--include-closed")
 	updatedTriage := readTriageJSON(t, exportDir)
 	updatedOpenCount := updatedTriage.QuickRef.OpenCount
 
@@ -180,7 +180,7 @@ func TestExportIncremental_CloseBlockingIssue(t *testing.T) {
 		t.Fatalf("write initial issues.jsonl: %v", err)
 	}
 
-	runExportPages(t, bt, repoDir, exportDir, "--pages-include-closed")
+	runExportPages(t, bt, repoDir, exportDir, "--include-closed")
 
 	// Close the blocker
 	updatedData := `{"id": "blocker", "title": "Blocking Issue", "status": "closed", "priority": 0, "issue_type": "task"}
@@ -190,7 +190,7 @@ func TestExportIncremental_CloseBlockingIssue(t *testing.T) {
 	}
 
 	// Re-export
-	runExportPages(t, bt, repoDir, exportDir, "--pages-include-closed")
+	runExportPages(t, bt, repoDir, exportDir, "--include-closed")
 	triage := readTriageJSON(t, exportDir)
 
 	// The previously blocked issue should now be actionable
@@ -471,7 +471,7 @@ func TestExportIncremental_MixedOperations(t *testing.T) {
 		t.Fatalf("write initial issues.jsonl: %v", err)
 	}
 
-	runExportPages(t, bt, repoDir, exportDir, "--pages-include-closed")
+	runExportPages(t, bt, repoDir, exportDir, "--include-closed")
 	initialMeta := readMetaJSON(t, exportDir)
 	if initialMeta.IssueCount != 3 {
 		t.Fatalf("initial issue_count = %d, want 3", initialMeta.IssueCount)
@@ -487,7 +487,7 @@ func TestExportIncremental_MixedOperations(t *testing.T) {
 	}
 
 	// Re-export
-	runExportPages(t, bt, repoDir, exportDir, "--pages-include-closed")
+	runExportPages(t, bt, repoDir, exportDir, "--include-closed")
 	updatedMeta := readMetaJSON(t, exportDir)
 
 	// Expected: keep + close (now closed) + new-1 + new-2 = 4
@@ -611,14 +611,14 @@ func TestExportIncremental_ChangeExportTitle(t *testing.T) {
 	}
 
 	// Export with original title
-	runExportPages(t, bt, repoDir, exportDir, "--pages-title", "Original Dashboard")
+	runExportPages(t, bt, repoDir, exportDir, "--title", "Original Dashboard")
 	meta1 := readMetaJSON(t, exportDir)
 	if meta1.Title != "Original Dashboard" {
 		t.Errorf("initial title = %q, want %q", meta1.Title, "Original Dashboard")
 	}
 
 	// Re-export with new title
-	runExportPages(t, bt, repoDir, exportDir, "--pages-title", "Renamed Dashboard")
+	runExportPages(t, bt, repoDir, exportDir, "--title", "Renamed Dashboard")
 	meta2 := readMetaJSON(t, exportDir)
 	if meta2.Title != "Renamed Dashboard" {
 		t.Errorf("updated title = %q, want %q", meta2.Title, "Renamed Dashboard")
@@ -712,7 +712,7 @@ func TestExportIncremental_MultipleReexports(t *testing.T) {
 // runExportPages runs --export-pages with optional extra args.
 func runExportPages(t *testing.T, bt, repoDir, exportDir string, extraArgs ...string) {
 	t.Helper()
-	args := []string{"--export-pages", exportDir}
+	args := []string{"export", "pages", exportDir}
 	args = append(args, extraArgs...)
 
 	cmd := exec.Command(bt, args...)

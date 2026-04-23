@@ -44,7 +44,7 @@ func TestPerf_RobotTriageLatency(t *testing.T) {
 	createTestDataset(t, env, 100)
 
 	start := time.Now()
-	cmd := exec.Command(bt, "--robot-triage")
+	cmd := exec.Command(bt, "robot", "triage")
 	cmd.Dir = env
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("--robot-triage failed: %v", err)
@@ -65,7 +65,7 @@ func TestPerf_RobotNextLatency(t *testing.T) {
 	createTestDataset(t, env, 100)
 
 	start := time.Now()
-	cmd := exec.Command(bt, "--robot-next")
+	cmd := exec.Command(bt, "robot", "next")
 	cmd.Dir = env
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("--robot-next failed: %v", err)
@@ -89,7 +89,7 @@ func TestPerf_RobotGraphLatency(t *testing.T) {
 	for _, format := range formats {
 		t.Run(format, func(t *testing.T) {
 			start := time.Now()
-			cmd := exec.Command(bt, "--robot-graph", "--graph-format", format)
+			cmd := exec.Command(bt, "robot", "graph", "--graph-format", format)
 			cmd.Dir = env
 			if err := cmd.Run(); err != nil {
 				t.Fatalf("--robot-graph (%s) failed: %v", format, err)
@@ -112,7 +112,7 @@ func TestPerf_RobotPlanLatency(t *testing.T) {
 	createTestDataset(t, env, 100)
 
 	start := time.Now()
-	cmd := exec.Command(bt, "--robot-plan")
+	cmd := exec.Command(bt, "robot", "plan")
 	cmd.Dir = env
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("--robot-plan failed: %v", err)
@@ -137,7 +137,7 @@ func TestPerf_SmallDatasetLatency(t *testing.T) {
 	createTestDataset(t, env, 20)
 
 	start := time.Now()
-	cmd := exec.Command(bt, "--robot-triage")
+	cmd := exec.Command(bt, "robot", "triage")
 	cmd.Dir = env
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed: %v", err)
@@ -158,7 +158,7 @@ func TestPerf_MediumDatasetLatency(t *testing.T) {
 	createTestDataset(t, env, 200)
 
 	start := time.Now()
-	cmd := exec.Command(bt, "--robot-triage")
+	cmd := exec.Command(bt, "robot", "triage")
 	cmd.Dir = env
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed: %v", err)
@@ -183,7 +183,7 @@ func TestPerf_LargeDatasetLatency(t *testing.T) {
 	createTestDataset(t, env, 500)
 
 	start := time.Now()
-	cmd := exec.Command(bt, "--robot-triage")
+	cmd := exec.Command(bt, "robot", "triage")
 	cmd.Dir = env
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed: %v", err)
@@ -208,7 +208,7 @@ func TestPerf_CyclicGraphLatency(t *testing.T) {
 	createCyclicDataset(t, env, 50)
 
 	start := time.Now()
-	cmd := exec.Command(bt, "--robot-triage")
+	cmd := exec.Command(bt, "robot", "triage")
 	cmd.Dir = env
 	output, _ := cmd.CombinedOutput()
 	elapsed := time.Since(start)
@@ -235,7 +235,7 @@ func TestPerf_DenseGraphLatency(t *testing.T) {
 	createDenseDataset(t, env, 100)
 
 	start := time.Now()
-	cmd := exec.Command(bt, "--robot-triage")
+	cmd := exec.Command(bt, "robot", "triage")
 	cmd.Dir = env
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed: %v", err)
@@ -261,7 +261,7 @@ func TestPerf_RepeatedCommands(t *testing.T) {
 
 	// First call (cold)
 	start1 := time.Now()
-	cmd1 := exec.Command(bt, "--robot-triage")
+	cmd1 := exec.Command(bt, "robot", "triage")
 	cmd1.Dir = env
 	if err := cmd1.Run(); err != nil {
 		t.Fatalf("first call failed: %v", err)
@@ -270,7 +270,7 @@ func TestPerf_RepeatedCommands(t *testing.T) {
 
 	// Second call (potentially warm/cached)
 	start2 := time.Now()
-	cmd2 := exec.Command(bt, "--robot-triage")
+	cmd2 := exec.Command(bt, "robot", "triage")
 	cmd2.Dir = env
 	if err := cmd2.Run(); err != nil {
 		t.Fatalf("second call failed: %v", err)

@@ -56,7 +56,7 @@ discovery:
 		t.Fatalf("write workspace.yaml: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--robot-triage", "--workspace", configPath)
+	cmd := exec.Command(bt, "--workspace", configPath, "robot", "triage")
 	cmd.Dir = workspaceRoot
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

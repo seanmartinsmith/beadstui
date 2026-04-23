@@ -42,9 +42,9 @@ func TestExportPages_IncludesHistoryAndRunsHooks(t *testing.T) {
 	}
 
 	cmd := exec.Command(bt,
-		"--export-pages", exportDir,
-		"--pages-include-history",
-		"--pages-include-closed",
+		"export", "pages", exportDir,
+		"--include-history",
+		"--include-closed",
 	)
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
@@ -189,7 +189,7 @@ func TestExportPages_HTMLStructure(t *testing.T) {
 	repoDir := createSimpleRepo(t, 5)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -235,7 +235,7 @@ func TestExportPages_IssueOverviewMetrics(t *testing.T) {
 	repoDir := createRepoWithDeps(t)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -320,7 +320,7 @@ func TestExportPages_CSSPresent(t *testing.T) {
 	repoDir := createSimpleRepo(t, 3)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -354,7 +354,7 @@ func TestExportPages_JavaScriptFiles(t *testing.T) {
 	repoDir := createSimpleRepo(t, 3)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -400,7 +400,7 @@ func TestExportPages_SQLiteDatabase(t *testing.T) {
 	repoDir := createSimpleRepo(t, 10)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -443,7 +443,7 @@ func TestExportPages_TriageJSON(t *testing.T) {
 	repoDir := createSimpleRepo(t, 5)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -484,7 +484,7 @@ func TestExportPages_MetaJSON(t *testing.T) {
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
 	// Use --pages-include-closed to include all 5 issues
-	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-title", "Test Dashboard", "--pages-include-closed")
+	cmd := exec.Command(bt, "export", "pages", exportDir, "--title", "Test Dashboard", "--include-closed")
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -528,7 +528,7 @@ func TestExportPages_DependencyGraph(t *testing.T) {
 	repoDir := createRepoWithDeps(t)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -577,7 +577,7 @@ func testExportPagesWithScale(t *testing.T, issueCount int) {
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
 	// Use --pages-include-closed to include all issues
-	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-include-closed")
+	cmd := exec.Command(bt, "export", "pages", exportDir, "--include-closed")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -623,7 +623,7 @@ func TestExportPages_DarkModeSupport(t *testing.T) {
 	repoDir := createSimpleRepo(t, 3)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -675,7 +675,7 @@ func TestExportPages_NoXSSVulnerabilities(t *testing.T) {
 	}
 
 	exportDir := filepath.Join(repoDir, "bv-pages")
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -699,7 +699,7 @@ func TestExportPages_ResponsiveLayout(t *testing.T) {
 	repoDir := createSimpleRepo(t, 3)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -831,7 +831,7 @@ func TestExportPages_ExcludeClosed_SQLiteVerification(t *testing.T) {
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
 	// Export with --pages-include-closed=false
-	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-include-closed=false")
+	cmd := exec.Command(bt, "export", "pages", exportDir, "--include-closed=false")
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -883,7 +883,7 @@ func TestExportPages_ExcludeHistory(t *testing.T) {
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
 	// Export with --pages-include-history=false
-	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-include-history=false")
+	cmd := exec.Command(bt, "export", "pages", exportDir, "--include-history=false")
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -917,9 +917,9 @@ func TestExportPages_BothExcluded(t *testing.T) {
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
 	// Export with both exclusions
-	cmd := exec.Command(bt, "--export-pages", exportDir,
-		"--pages-include-closed=false",
-		"--pages-include-history=false")
+	cmd := exec.Command(bt, "export", "pages", exportDir,
+		"--include-closed=false",
+		"--include-history=false")
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -961,7 +961,7 @@ func TestExportPages_FTS5Searchable(t *testing.T) {
 	}
 
 	exportDir := filepath.Join(repoDir, "bv-pages")
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -1006,7 +1006,7 @@ func TestExportPages_EmptyProject(t *testing.T) {
 	}
 
 	exportDir := filepath.Join(repoDir, "bv-pages")
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 
@@ -1056,7 +1056,7 @@ func TestExportPages_OnlyClosedIssues(t *testing.T) {
 	}
 
 	exportDir := filepath.Join(repoDir, "bv-pages")
-	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-include-closed=false")
+	cmd := exec.Command(bt, "export", "pages", exportDir, "--include-closed=false")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 
@@ -1095,7 +1095,7 @@ func TestExportPages_UnicodeContent(t *testing.T) {
 	}
 
 	exportDir := filepath.Join(repoDir, "bv-pages")
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -1246,7 +1246,7 @@ func TestExportPages_DetailPaneMarkup(t *testing.T) {
 	repoDir := createSimpleRepo(t, 5)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -1288,7 +1288,7 @@ func TestExportPages_GraphLayoutStructure(t *testing.T) {
 	repoDir := createRepoWithDeps(t) // Use repo with dependencies for interesting layout
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -1374,7 +1374,7 @@ func TestExportPages_GraphJSSelectNodeHandler(t *testing.T) {
 	repoDir := createSimpleRepo(t, 3)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -1441,7 +1441,7 @@ func TestExportPages_GraphLayoutNodesCovered(t *testing.T) {
 	repoDir := createSimpleRepo(t, 5)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("export failed: %v\n%s", err, out)
@@ -1493,7 +1493,7 @@ func TestExportPages_PrecomputedLayoutUsedByViewer(t *testing.T) {
 	repoDir := createSimpleRepo(t, 3)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -1534,7 +1534,7 @@ func TestExportPages_DetailPaneAllProperties(t *testing.T) {
 	repoDir := createRepoWithDeps(t) // Use deps repo for rich data
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -1603,7 +1603,7 @@ func TestExportPages_GraphLayoutCycleDetection(t *testing.T) {
 	}
 
 	exportDir := filepath.Join(repoDir, "bv-pages")
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -1722,7 +1722,7 @@ func TestExportPages_GraphLayoutLargeScale(t *testing.T) {
 	}
 
 	exportDir := filepath.Join(repoDir, "bv-pages")
-	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-include-closed")
+	cmd := exec.Command(bt, "export", "pages", exportDir, "--include-closed")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -1807,7 +1807,7 @@ func TestExportPages_DetailPaneIntegration(t *testing.T) {
 	}
 
 	exportDir := filepath.Join(repoDir, "bv-pages")
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -1879,7 +1879,7 @@ func TestExportPages_GraphLayoutFetch(t *testing.T) {
 	repoDir := createSimpleRepo(t, 3)
 	exportDir := filepath.Join(repoDir, "bv-pages")
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)

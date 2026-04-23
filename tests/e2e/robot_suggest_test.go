@@ -24,7 +24,7 @@ func TestRobotSuggestContract(t *testing.T) {
 		} `json:"suggestions"`
 		UsageHints []string `json:"usage_hints"`
 	}
-	runRobotJSON(t, bt, env, "--robot-suggest", &first)
+	runRobotJSON(t, bt, env, "robot suggest", &first)
 
 	if first.GeneratedAt == "" {
 		t.Fatalf("suggest missing generated_at")
@@ -43,7 +43,7 @@ func TestRobotSuggestContract(t *testing.T) {
 	var second struct {
 		DataHash string `json:"data_hash"`
 	}
-	runRobotJSON(t, bt, env, "--robot-suggest", &second)
+	runRobotJSON(t, bt, env, "robot suggest", &second)
 	if first.DataHash != second.DataHash {
 		t.Fatalf("suggest data_hash changed between calls: %v vs %v", first.DataHash, second.DataHash)
 	}

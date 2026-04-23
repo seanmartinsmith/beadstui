@@ -38,7 +38,7 @@ func TestError_CorruptedBeadsJSONL(t *testing.T) {
 	}
 
 	// Robot commands should handle gracefully (partial data or error message)
-	cmd := exec.Command(bt, "--robot-triage")
+	cmd := exec.Command(bt, "robot", "triage")
 	cmd.Dir = env
 	output, err := cmd.CombinedOutput()
 
@@ -97,7 +97,7 @@ func TestError_MalformedJSONLines(t *testing.T) {
 				t.Fatalf("failed to write issues.jsonl: %v", err)
 			}
 
-			cmd := exec.Command(bt, "--robot-triage")
+			cmd := exec.Command(bt, "robot", "triage")
 			cmd.Dir = env
 			output, _ := cmd.CombinedOutput()
 
@@ -127,7 +127,7 @@ func TestError_MissingRequiredFields(t *testing.T) {
 	}
 
 	// Should handle gracefully
-	cmd := exec.Command(bt, "--robot-triage")
+	cmd := exec.Command(bt, "robot", "triage")
 	cmd.Dir = env
 	output, err := cmd.CombinedOutput()
 
@@ -163,7 +163,7 @@ func TestError_InvalidUTF8(t *testing.T) {
 		t.Fatalf("failed to write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--robot-triage")
+	cmd := exec.Command(bt, "robot", "triage")
 	cmd.Dir = env
 	output, _ := cmd.CombinedOutput()
 
@@ -182,7 +182,7 @@ func TestError_MissingBeadsDirectory(t *testing.T) {
 
 	// Don't create .beads directory
 
-	cmd := exec.Command(bt, "--robot-triage")
+	cmd := exec.Command(bt, "robot", "triage")
 	cmd.Dir = env
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -213,7 +213,7 @@ func TestError_EmptyBeadsDirectory(t *testing.T) {
 
 	// No issues.jsonl file
 
-	cmd := exec.Command(bt, "--robot-triage")
+	cmd := exec.Command(bt, "robot", "triage")
 	cmd.Dir = env
 	output, _ := cmd.CombinedOutput()
 
@@ -243,7 +243,7 @@ func TestError_ReadOnlyBeadsFile(t *testing.T) {
 	defer os.Chmod(issuesPath, 0644) // Cleanup
 
 	// Read operations should still work
-	cmd := exec.Command(bt, "--robot-triage")
+	cmd := exec.Command(bt, "robot", "triage")
 	cmd.Dir = env
 	output, err := cmd.CombinedOutput()
 
@@ -274,7 +274,7 @@ func TestError_NotGitRepository(t *testing.T) {
 	}
 
 	// Regular triage should work without git
-	cmd := exec.Command(bt, "--robot-triage")
+	cmd := exec.Command(bt, "robot", "triage")
 	cmd.Dir = env
 	output, err := cmd.CombinedOutput()
 
@@ -283,7 +283,7 @@ func TestError_NotGitRepository(t *testing.T) {
 	}
 
 	// Git-dependent features should fail gracefully
-	cmd = exec.Command(bt, "--robot-diff", "--diff-since", "HEAD~1")
+	cmd = exec.Command(bt, "robot", "diff", "--diff-since", "HEAD~1")
 	cmd.Dir = env
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -338,7 +338,7 @@ func TestError_InvalidGitRevision(t *testing.T) {
 	git("commit", "-m", "Initial")
 
 	// Try invalid revision
-	cmd := exec.Command(bt, "--robot-diff", "--diff-since", "nonexistent-branch-abc123")
+	cmd := exec.Command(bt, "robot", "diff", "--diff-since", "nonexistent-branch-abc123")
 	cmd.Dir = env
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -394,7 +394,7 @@ func TestError_PathologicalCyclicGraph(t *testing.T) {
 	}
 
 	// Should handle cyclic graph without hanging or crashing
-	cmd := exec.Command(bt, "--robot-triage")
+	cmd := exec.Command(bt, "robot", "triage")
 	cmd.Dir = env
 	output, err := cmd.CombinedOutput()
 
@@ -437,7 +437,7 @@ func TestError_LargeGraphAnalysis(t *testing.T) {
 	}
 
 	// Should complete within reasonable time
-	cmd := exec.Command(bt, "--robot-triage")
+	cmd := exec.Command(bt, "robot", "triage")
 	cmd.Dir = env
 	output, err := cmd.CombinedOutput()
 
@@ -470,7 +470,7 @@ func TestError_InvalidExportPath(t *testing.T) {
 	}
 
 	// Try to export to non-existent directory
-	cmd := exec.Command(bt, "--export-graph", "/nonexistent/path/graph.json")
+	cmd := exec.Command(bt, "export", "graph", "/nonexistent/path/graph.json")
 	cmd.Dir = env
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -516,7 +516,7 @@ func TestError_ExportToReadOnlyDirectory(t *testing.T) {
 	defer os.Chmod(readOnlyDir, 0755) // Cleanup
 
 	// Try to export to read-only directory
-	cmd := exec.Command(bt, "--export-graph", filepath.Join(readOnlyDir, "graph.json"))
+	cmd := exec.Command(bt, "export", "graph", filepath.Join(readOnlyDir, "graph.json"))
 	cmd.Dir = env
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -553,7 +553,7 @@ func TestError_ExitCodes(t *testing.T) {
 			setup: func(dir string) error {
 				return nil // Don't create .beads
 			},
-			args:       []string{"--robot-triage"},
+			args:       []string{"robot", "triage"},
 			expectFail: true, // May or may not fail depending on implementation
 		},
 		{
@@ -561,7 +561,7 @@ func TestError_ExitCodes(t *testing.T) {
 			setup: func(dir string) error {
 				return os.MkdirAll(filepath.Join(dir, ".beads"), 0755)
 			},
-			args:       []string{"--robot-triage"},
+			args:       []string{"robot", "triage"},
 			expectFail: true, // Missing issues.jsonl file
 		},
 		{
@@ -577,7 +577,7 @@ func TestError_ExitCodes(t *testing.T) {
 					0644,
 				)
 			},
-			args:       []string{"--robot-triage"},
+			args:       []string{"robot", "triage"},
 			expectFail: false,
 		},
 	}

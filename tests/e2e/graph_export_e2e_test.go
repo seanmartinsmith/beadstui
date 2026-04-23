@@ -18,7 +18,7 @@ func TestGraphExport_JSONFormat(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createGraphTestRepo(t)
 
-	cmd := exec.Command(bt, "--robot-graph", "--graph-format=json")
+	cmd := exec.Command(bt, "robot", "graph", "--graph-format=json")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -78,7 +78,7 @@ func TestGraphExport_JSONNodeStructure(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createGraphTestRepo(t)
 
-	cmd := exec.Command(bt, "--robot-graph", "--graph-format=json")
+	cmd := exec.Command(bt, "robot", "graph", "--graph-format=json")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -129,7 +129,7 @@ func TestGraphExport_DOTFormat(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createGraphTestRepo(t)
 
-	cmd := exec.Command(bt, "--robot-graph", "--graph-format=dot")
+	cmd := exec.Command(bt, "robot", "graph", "--graph-format=dot")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -181,7 +181,7 @@ func TestGraphExport_DOTSyntax(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createGraphTestRepo(t)
 
-	cmd := exec.Command(bt, "--robot-graph", "--graph-format=dot")
+	cmd := exec.Command(bt, "robot", "graph", "--graph-format=dot")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -233,7 +233,7 @@ func TestGraphExport_MermaidFormat(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createGraphTestRepo(t)
 
-	cmd := exec.Command(bt, "--robot-graph", "--graph-format=mermaid")
+	cmd := exec.Command(bt, "robot", "graph", "--graph-format=mermaid")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -281,7 +281,7 @@ func TestGraphExport_MermaidNodeSyntax(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createGraphTestRepo(t)
 
-	cmd := exec.Command(bt, "--robot-graph", "--graph-format=mermaid")
+	cmd := exec.Command(bt, "robot", "graph", "--graph-format=mermaid")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -317,7 +317,7 @@ func TestGraphExport_NodeCount(t *testing.T) {
 	nodeCounts := make(map[string]int)
 
 	for _, format := range formats {
-		cmd := exec.Command(bt, "--robot-graph", "--graph-format="+format)
+		cmd := exec.Command(bt, "robot", "graph", "--graph-format="+format)
 		cmd.Dir = repoDir
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -352,7 +352,7 @@ func TestGraphExport_EdgeCount(t *testing.T) {
 	edgeCounts := make(map[string]int)
 
 	for _, format := range formats {
-		cmd := exec.Command(bt, "--robot-graph", "--graph-format="+format)
+		cmd := exec.Command(bt, "robot", "graph", "--graph-format="+format)
 		cmd.Dir = repoDir
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -388,7 +388,7 @@ func TestGraphExport_LabelFilter(t *testing.T) {
 	repoDir := createGraphTestRepoWithLabels(t)
 
 	// Export without filter
-	cmd := exec.Command(bt, "--robot-graph", "--graph-format=json")
+	cmd := exec.Command(bt, "robot", "graph", "--graph-format=json")
 	cmd.Dir = repoDir
 	outAll, err := cmd.CombinedOutput()
 	if err != nil {
@@ -401,7 +401,7 @@ func TestGraphExport_LabelFilter(t *testing.T) {
 	json.Unmarshal(outAll, &resultAll)
 
 	// Export with label filter
-	cmd = exec.Command(bt, "--robot-graph", "--graph-format=json", "--label=api")
+	cmd = exec.Command(bt, "robot", "graph", "--graph-format=json", "--label=api")
 	cmd.Dir = repoDir
 	outFiltered, err := cmd.CombinedOutput()
 	if err != nil {
@@ -434,7 +434,7 @@ func TestGraphExport_RootFilter(t *testing.T) {
 	repoDir := createGraphTestRepoWithDeps(t)
 
 	// Export with root filter
-	cmd := exec.Command(bt, "--robot-graph", "--graph-format=json", "--graph-root=root-a")
+	cmd := exec.Command(bt, "robot", "graph", "--graph-format=json", "--graph-root=root-a")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -461,7 +461,7 @@ func TestGraphExport_DepthFilter(t *testing.T) {
 	repoDir := createGraphTestRepoWithDeps(t)
 
 	// Export with depth filter
-	cmd := exec.Command(bt, "--robot-graph", "--graph-format=json", "--graph-root=root-a", "--graph-depth=1")
+	cmd := exec.Command(bt, "robot", "graph", "--graph-format=json", "--graph-root=root-a", "--graph-depth=1")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -491,7 +491,7 @@ func TestGraphExport_Explanation(t *testing.T) {
 
 	for _, format := range formats {
 		t.Run(format, func(t *testing.T) {
-			cmd := exec.Command(bt, "--robot-graph", "--graph-format="+format)
+			cmd := exec.Command(bt, "robot", "graph", "--graph-format="+format)
 			cmd.Dir = repoDir
 			out, err := cmd.CombinedOutput()
 			if err != nil {
@@ -529,7 +529,7 @@ func TestGraphExport_EmptyGraph(t *testing.T) {
 	repoDir := createGraphTestRepo(t)
 
 	// Use a label that doesn't exist
-	cmd := exec.Command(bt, "--robot-graph", "--graph-format=json", "--label=nonexistent")
+	cmd := exec.Command(bt, "robot", "graph", "--graph-format=json", "--label=nonexistent")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 
@@ -573,7 +573,7 @@ func TestGraphExport_DataHash(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createGraphTestRepo(t)
 
-	cmd := exec.Command(bt, "--robot-graph", "--graph-format=json")
+	cmd := exec.Command(bt, "robot", "graph", "--graph-format=json")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -601,7 +601,7 @@ func TestGraphExport_DeterministicOutput(t *testing.T) {
 	// Run twice and compare
 	var outputs []string
 	for i := 0; i < 2; i++ {
-		cmd := exec.Command(bt, "--robot-graph", "--graph-format=dot")
+		cmd := exec.Command(bt, "robot", "graph", "--graph-format=dot")
 		cmd.Dir = repoDir
 		out, err := cmd.CombinedOutput()
 		if err != nil {

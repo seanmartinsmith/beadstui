@@ -159,7 +159,7 @@ func TestCassModalRobotTriageNoCrash(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "robot", "triage")
 	cmd.Dir = tempDir
 	cmd.Env = append(os.Environ(), "BT_NO_CASS=1")
 
@@ -273,7 +273,7 @@ func TestMultipleViewsWithoutCass(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
-		cmd := exec.CommandContext(ctx, bt, "--robot-priority")
+		cmd := exec.CommandContext(ctx, bt, "robot", "priority")
 		cmd.Dir = tempDir
 		cmd.Env = append(os.Environ(), "BT_NO_CASS=1")
 

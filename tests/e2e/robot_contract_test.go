@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -33,11 +34,14 @@ func runRobotJSON(t *testing.T, bt, dir string, flag string, v any) {
 	}
 }
 
-// runCommand execs the bt binary with a single flag and returns only stdout.
-// Stderr is captured separately to prevent log/slog messages from corrupting
-// the JSON stream that robot-mode commands emit on stdout.
+// runCommand execs the bt binary with the given flag (space-separated args
+// are split into individual arguments so callers can pass subcommand forms
+// like "robot triage") and returns only stdout. Stderr is captured separately
+// to prevent log/slog messages from corrupting the JSON stream that
+// robot-mode commands emit on stdout.
 func runCommand(bt, dir, flag string) ([]byte, error) {
-	cmd := execCommand(bt, flag)
+	args := strings.Fields(flag)
+	cmd := execCommand(bt, args...)
 	cmd.Dir = dir
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -63,7 +67,7 @@ func TestRobotInsightsContract(t *testing.T) {
 {"id":"C","title":"Leaf","status":"open","priority":3,"issue_type":"task","dependencies":[{"issue_id":"C","depends_on_id":"B","type":"blocks"}]}`)
 
 	var first map[string]any
-	runRobotJSON(t, bt, env, "--robot-insights", &first)
+	runRobotJSON(t, bt, env, "robot insights", &first)
 
 	// Basic contract checks
 	if first["data_hash"] == "" {
@@ -79,7 +83,7 @@ func TestRobotInsightsContract(t *testing.T) {
 
 	// Determinism: second call should share the same data_hash
 	var second map[string]any
-	runRobotJSON(t, bt, env, "--robot-insights", &second)
+	runRobotJSON(t, bt, env, "robot insights", &second)
 	if first["data_hash"] != second["data_hash"] {
 		t.Fatalf("data_hash changed between calls: %v vs %v", first["data_hash"], second["data_hash"])
 	}
@@ -103,7 +107,7 @@ func TestRobotPlanContract(t *testing.T) {
 			} `json:"tracks"`
 		} `json:"plan"`
 	}
-	runRobotJSON(t, bt, env, "--robot-plan", &payload)
+	runRobotJSON(t, bt, env, "robot plan", &payload)
 
 	if payload.DataHash == "" {
 		t.Fatalf("plan missing data_hash")
@@ -139,7 +143,7 @@ func TestRobotPriorityContract(t *testing.T) {
 			Direction   string   `json:"direction"`
 		} `json:"recommendations"`
 	}
-	runRobotJSON(t, bt, env, "--robot-priority", &payload)
+	runRobotJSON(t, bt, env, "robot priority", &payload)
 
 	if payload.DataHash == "" {
 		t.Fatalf("priority missing data_hash")
@@ -180,7 +184,7 @@ func TestRobotTriageContract(t *testing.T) {
 		} `json:"triage"`
 		UsageHints []string `json:"usage_hints"`
 	}
-	runRobotJSON(t, bt, env, "--robot-triage", &payload)
+	runRobotJSON(t, bt, env, "robot triage", &payload)
 
 	if payload.DataHash == "" {
 		t.Fatalf("triage missing data_hash")
@@ -218,7 +222,7 @@ func TestRobotTriageByTrackContract(t *testing.T) {
 			} `json:"recommendations_by_track"`
 		} `json:"triage"`
 	}
-	runRobotJSON(t, bt, env, "--robot-triage-by-track", &payload)
+	runRobotJSON(t, bt, env, "robot triage --by-track", &payload)
 
 	if payload.DataHash == "" {
 		t.Fatalf("triage-by-track missing data_hash")
@@ -277,7 +281,7 @@ func TestRobotTriageByLabelContract(t *testing.T) {
 			} `json:"recommendations_by_label"`
 		} `json:"triage"`
 	}
-	runRobotJSON(t, bt, env, "--robot-triage-by-label", &payload)
+	runRobotJSON(t, bt, env, "robot triage --by-label", &payload)
 
 	if payload.DataHash == "" {
 		t.Fatalf("triage-by-label missing data_hash")
@@ -332,7 +336,7 @@ func TestRobotLabelHealthContract(t *testing.T) {
 			} `json:"summaries"`
 		} `json:"results"`
 	}
-	runRobotJSON(t, bt, env, "--robot-label-health", &payload)
+	runRobotJSON(t, bt, env, "robot labels health", &payload)
 
 	if payload.DataHash == "" {
 		t.Fatalf("label-health missing data_hash")
@@ -371,7 +375,7 @@ func TestRobotLabelFlowContract(t *testing.T) {
 			TotalCrossDep int      `json:"total_cross_label_deps"`
 		} `json:"flow"`
 	}
-	runRobotJSON(t, bt, env, "--robot-label-flow", &payload)
+	runRobotJSON(t, bt, env, "robot labels flow", &payload)
 
 	if payload.DataHash == "" {
 		t.Fatalf("label-flow missing data_hash")
@@ -401,7 +405,7 @@ func TestRobotLabelAttentionContract(t *testing.T) {
 			Label string `json:"label"`
 		} `json:"labels"`
 	}
-	runRobotJSON(t, bt, env, "--robot-label-attention", &payload)
+	runRobotJSON(t, bt, env, "robot labels attention", &payload)
 
 	if payload.DataHash == "" {
 		t.Fatalf("label-attention missing data_hash")
@@ -430,7 +434,7 @@ func TestRobotNextContractNoActionable(t *testing.T) {
 		DataHash    string `json:"data_hash"`
 		Message     string `json:"message"`
 	}
-	runRobotJSON(t, bt, env, "--robot-next", &payload)
+	runRobotJSON(t, bt, env, "robot next", &payload)
 
 	if payload.GeneratedAt == "" {
 		t.Fatalf("robot-next missing generated_at")
@@ -461,7 +465,7 @@ func TestRobotNextContractActionable(t *testing.T) {
 		ClaimCmd    string   `json:"claim_command"`
 		ShowCmd     string   `json:"show_command"`
 	}
-	runRobotJSON(t, bt, env, "--robot-next", &payload)
+	runRobotJSON(t, bt, env, "robot next", &payload)
 
 	if payload.GeneratedAt == "" {
 		t.Fatalf("robot-next missing generated_at")
@@ -503,13 +507,13 @@ func TestRobotEnvelopeConsistency(t *testing.T) {
 		flag string
 		name string
 	}{
-		{"--robot-triage", "triage"},
-		{"--robot-next", "next"},
-		{"--robot-plan", "plan"},
-		{"--robot-insights", "insights"},
-		{"--robot-priority", "priority"},
-		{"--robot-suggest", "suggest"},
-		{"--robot-alerts", "alerts"},
+		{"robot triage", "triage"},
+		{"robot next", "next"},
+		{"robot plan", "plan"},
+		{"robot insights", "insights"},
+		{"robot priority", "priority"},
+		{"robot suggest", "suggest"},
+		{"robot alerts", "alerts"},
 	}
 
 	for _, tc := range commands {
@@ -540,11 +544,11 @@ func TestRobotUsageHintsPresent(t *testing.T) {
 		flag string
 		name string
 	}{
-		{"--robot-insights", "insights"},
-		{"--robot-plan", "plan"},
-		{"--robot-priority", "priority"},
-		{"--robot-suggest", "suggest"},
-		{"--robot-triage", "triage"},
+		{"robot insights", "insights"},
+		{"robot plan", "plan"},
+		{"robot priority", "priority"},
+		{"robot suggest", "suggest"},
+		{"robot triage", "triage"},
 	}
 
 	for _, tc := range tests {

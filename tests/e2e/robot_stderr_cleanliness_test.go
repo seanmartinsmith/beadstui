@@ -28,7 +28,7 @@ func TestRobotTriage_MalformedIssuesLine_NoStderr(t *testing.T) {
 		`{this is not json}` + "\n"
 	writeIssuesJSONL(t, repoDir, issues)
 
-	cmd := exec.Command(bt, "--robot-triage")
+	cmd := exec.Command(bt, "robot", "triage")
 	cmd.Dir = repoDir
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -63,7 +63,7 @@ func TestRobotSprintList_MalformedSprintLine_NoStderr(t *testing.T) {
 		`{this is not json}` + "\n"
 	repoDir := createSprintRepo(t, sprints)
 
-	cmd := exec.Command(bt, "--robot-sprint-list")
+	cmd := exec.Command(bt, "robot", "sprint", "list")
 	cmd.Dir = repoDir
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

@@ -49,7 +49,7 @@ func TestRobotBurndown_CurrentSprint(t *testing.T) {
 		end.Format(time.RFC3339),
 	))
 
-	cmd := exec.Command(bt, "--robot-burndown", "current")
+	cmd := exec.Command(bt, "robot", "burndown", "current")
 	cmd.Dir = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {

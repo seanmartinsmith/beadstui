@@ -24,7 +24,7 @@ func TestGraphNavigationStatePreservation(t *testing.T) {
 	writeBeads(t, env, beads)
 
 	// Query the graph
-	cmd := exec.Command(bt, "--robot-graph")
+	cmd := exec.Command(bt, "robot", "graph")
 	cmd.Dir = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -80,7 +80,7 @@ func TestGraphNavigationRootFilter(t *testing.T) {
 	}
 
 	// Filtered to C with depth 1 should have C and B (or C and D depending on direction)
-	cmd := exec.Command(bt, "--robot-graph", "--graph-root=C", "--graph-depth=1")
+	cmd := exec.Command(bt, "robot", "graph", "--graph-root=C", "--graph-depth=1")
 	cmd.Dir = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -139,7 +139,7 @@ func TestGraphNavigationDepthLevels(t *testing.T) {
 
 	for _, tt := range depths {
 		t.Run("depth_"+tt.depth, func(t *testing.T) {
-			cmd := exec.Command(bt, "--robot-graph", "--graph-root=C", "--graph-depth="+tt.depth)
+			cmd := exec.Command(bt, "robot", "graph", "--graph-root=C", "--graph-depth="+tt.depth)
 			cmd.Dir = env
 			out, err := cmd.CombinedOutput()
 			if err != nil {
@@ -183,7 +183,7 @@ func TestGraphNavigationFormats(t *testing.T) {
 
 	for _, tt := range formats {
 		t.Run(tt.format, func(t *testing.T) {
-			cmd := exec.Command(bt, "--robot-graph", "--graph-format="+tt.format)
+			cmd := exec.Command(bt, "robot", "graph", "--graph-format="+tt.format)
 			cmd.Dir = env
 			out, err := cmd.CombinedOutput()
 			if err != nil {
@@ -227,7 +227,7 @@ func TestGraphNavigationEmptyGraph(t *testing.T) {
 		t.Fatalf("write: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--robot-graph")
+	cmd := exec.Command(bt, "robot", "graph")
 	cmd.Dir = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -262,7 +262,7 @@ func TestGraphNavigationCycleHandling(t *testing.T) {
 {"id":"C","title":"C","status":"open","priority":2,"issue_type":"task","dependencies":[{"issue_id":"C","depends_on_id":"A","type":"blocks"}]}`
 	writeBeads(t, env, beads)
 
-	cmd := exec.Command(bt, "--robot-graph")
+	cmd := exec.Command(bt, "robot", "graph")
 	cmd.Dir = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -305,7 +305,7 @@ func TestGraphNavigationLargeGraph(t *testing.T) {
 	}
 	writeBeads(t, env, strings.Join(lines, "\n"))
 
-	cmd := exec.Command(bt, "--robot-graph")
+	cmd := exec.Command(bt, "robot", "graph")
 	cmd.Dir = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -335,7 +335,7 @@ func TestGraphNavigationStatusFiltering(t *testing.T) {
 {"id":"closed-1","title":"Closed","status":"closed","priority":3,"issue_type":"task"}`
 	writeBeads(t, env, beads)
 
-	cmd := exec.Command(bt, "--robot-graph")
+	cmd := exec.Command(bt, "robot", "graph")
 	cmd.Dir = env
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -370,7 +370,7 @@ func TestGraphNavigationStatusFiltering(t *testing.T) {
 // Helper to run robot-graph and return parsed payload
 func runRobotGraph(t *testing.T, bt, env string, args ...string) map[string]any {
 	t.Helper()
-	allArgs := append([]string{"--robot-graph"}, args...)
+	allArgs := append([]string{"robot", "graph"}, args...)
 	cmd := exec.Command(bt, allArgs...)
 	cmd.Dir = env
 	out, err := cmd.CombinedOutput()

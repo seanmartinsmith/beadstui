@@ -23,8 +23,8 @@ func TestEndToEndBuildAndRun(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 3. Run bt --version to verify it runs
-	runCmd := exec.Command(binPath, "--version")
+	// 3. Run bt version to verify it runs
+	runCmd := exec.Command(binPath, "version")
 	runCmd.Dir = envDir
 	if out, err := runCmd.CombinedOutput(); err != nil {
 		t.Fatalf("Execution failed: %v\n%s", err, out)
@@ -51,7 +51,7 @@ func TestEndToEndRobotPlan(t *testing.T) {
 	}
 
 	// 3. Run bt --robot-plan
-	runCmd := exec.Command(binPath, "--robot-plan")
+	runCmd := exec.Command(binPath, "robot", "plan")
 	runCmd.Dir = envDir
 	out, err := runCmd.CombinedOutput()
 	if err != nil {
@@ -110,7 +110,7 @@ func TestEndToEndRobotInsights(t *testing.T) {
 	}
 
 	// 3. Run bt --robot-insights
-	runCmd := exec.Command(binPath, "--robot-insights")
+	runCmd := exec.Command(binPath, "robot", "insights")
 	runCmd.Dir = envDir
 	out, err := runCmd.CombinedOutput()
 	if err != nil {
@@ -150,7 +150,7 @@ func TestEndToEndRobotPriority(t *testing.T) {
 	}
 
 	// 3. Run bt --robot-priority
-	runCmd := exec.Command(binPath, "--robot-priority")
+	runCmd := exec.Command(binPath, "robot", "priority")
 	runCmd.Dir = envDir
 	out, err := runCmd.CombinedOutput()
 	if err != nil {
@@ -180,7 +180,7 @@ func TestEndToEndRobotRecipes(t *testing.T) {
 	os.WriteFile(filepath.Join(envDir, ".beads", "beads.jsonl"), []byte("{}"), 0644)
 
 	// 3. Run bt --robot-recipes
-	runCmd := exec.Command(binPath, "--robot-recipes")
+	runCmd := exec.Command(binPath, "robot", "recipes")
 	runCmd.Dir = envDir
 	out, err := runCmd.CombinedOutput()
 	if err != nil {

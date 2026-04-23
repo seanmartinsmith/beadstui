@@ -49,8 +49,8 @@ func TestRobotCapacity_EstimatedDaysDropsWithMoreAgents(t *testing.T) {
 		return payload
 	}
 
-	one := run("--robot-capacity", "--agents=1")
-	three := run("--robot-capacity", "--agents=3")
+	one := run("robot", "capacity", "--agents=1")
+	three := run("robot", "capacity", "--agents=3")
 
 	if one.OpenIssueCount != 3 || three.OpenIssueCount != 3 {
 		t.Fatalf("open_issue_count mismatch: one=%d three=%d", one.OpenIssueCount, three.OpenIssueCount)
@@ -63,7 +63,7 @@ func TestRobotCapacity_EstimatedDaysDropsWithMoreAgents(t *testing.T) {
 	}
 
 	// Label filter.
-	backend := run("--robot-capacity", "--capacity-label=backend", "--agents=1")
+	backend := run("robot", "capacity", "--capacity-label=backend", "--agents=1")
 	if backend.Label != "backend" {
 		t.Fatalf("label=%q; want backend", backend.Label)
 	}

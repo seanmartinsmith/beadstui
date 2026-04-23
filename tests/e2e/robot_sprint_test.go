@@ -35,7 +35,7 @@ func TestRobotSprintList_Empty(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createSprintRepo(t, "")
 
-	cmd := exec.Command(bt, "--robot-sprint-list")
+	cmd := exec.Command(bt, "robot", "sprint", "list")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -72,7 +72,7 @@ func TestRobotSprintList_Multiple(t *testing.T) {
 	repoDir := createSprintRepo(t, sprints)
 	t.Logf("sprints.jsonl:\n%s", sprints)
 
-	cmd := exec.Command(bt, "--robot-sprint-list")
+	cmd := exec.Command(bt, "robot", "sprint", "list")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -102,7 +102,7 @@ func TestRobotSprintShow_Found(t *testing.T) {
 	sprints := `{"id":"sprint-1","name":"Sprint 1","bead_ids":["A"]}` + "\n"
 	repoDir := createSprintRepo(t, sprints)
 
-	cmd := exec.Command(bt, "--robot-sprint-show", "sprint-1")
+	cmd := exec.Command(bt, "robot", "sprint", "show", "sprint-1")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -139,7 +139,7 @@ func TestRobotSprintShow_NotFound(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir := createSprintRepo(t, "")
 
-	cmd := exec.Command(bt, "--robot-sprint-show", "missing")
+	cmd := exec.Command(bt, "robot", "sprint", "show", "missing")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err == nil {

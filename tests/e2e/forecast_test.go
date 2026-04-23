@@ -48,7 +48,7 @@ func TestRobotForecast_SingleIssueAndAgentsScaling(t *testing.T) {
 	repoDir, start := createForecastRepo(t)
 
 	run := func(agents int) map[string]any {
-		cmd := exec.Command(bt, "--robot-forecast", "OPEN-1", "--forecast-agents", fmt.Sprintf("%d", agents))
+		cmd := exec.Command(bt, "robot", "forecast", "OPEN-1", "--agents", fmt.Sprintf("%d", agents))
 		cmd.Dir = repoDir
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -106,7 +106,7 @@ func TestRobotForecast_AllAndLabelFilter(t *testing.T) {
 	bt := buildBtBinary(t)
 	repoDir, _ := createForecastRepo(t)
 
-	cmd := exec.Command(bt, "--robot-forecast", "all")
+	cmd := exec.Command(bt, "robot", "forecast", "all")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -134,7 +134,7 @@ func TestRobotForecast_AllAndLabelFilter(t *testing.T) {
 	}
 
 	// Label filter: only backend issues should remain (OPEN-1).
-	cmd = exec.Command(bt, "--robot-forecast", "all", "--forecast-label", "backend")
+	cmd = exec.Command(bt, "robot", "forecast", "all", "--forecast-label", "backend")
 	cmd.Dir = repoDir
 	out, err = cmd.CombinedOutput()
 	if err != nil {

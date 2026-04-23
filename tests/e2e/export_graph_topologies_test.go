@@ -36,7 +36,7 @@ func TestExportTopology_EmptyGraph(t *testing.T) {
 	}
 
 	// Export should succeed with empty data
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -77,7 +77,7 @@ func TestExportTopology_SingleNode(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -124,7 +124,7 @@ func TestExportTopology_LinearChain(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -177,7 +177,7 @@ func TestExportTopology_StarHub(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -220,7 +220,7 @@ func TestExportTopology_Diamond(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -263,7 +263,7 @@ func TestExportTopology_Cycle(t *testing.T) {
 	}
 
 	// Export should handle cycles gracefully
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -300,7 +300,7 @@ func TestExportTopology_SelfLoop(t *testing.T) {
 	}
 
 	// Export should handle self-loops
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -339,7 +339,7 @@ func TestExportTopology_DisconnectedComponents(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -394,7 +394,7 @@ func TestExportTopology_LargeScale(t *testing.T) {
 	}
 
 	start := time.Now()
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	elapsed := time.Since(start)
@@ -455,7 +455,7 @@ func TestExportTopology_ComplexMixed(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -498,7 +498,7 @@ func TestExportTopology_WideGraph(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -548,7 +548,7 @@ func TestExportTopology_DeepChain(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir)
+	cmd := exec.Command(bt, "export", "pages", exportDir)
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -591,7 +591,7 @@ func TestExportTopology_MixedStatus(t *testing.T) {
 		t.Fatalf("write issues.jsonl: %v", err)
 	}
 
-	cmd := exec.Command(bt, "--export-pages", exportDir, "--pages-include-closed")
+	cmd := exec.Command(bt, "export", "pages", exportDir, "--include-closed")
 	cmd.Dir = repoDir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("--export-pages failed: %v\n%s", err, out)
@@ -630,7 +630,7 @@ func TestExportTopology_RobotGraphJSON(t *testing.T) {
 	}
 
 	// Test JSON format
-	cmd := exec.Command(bt, "--robot-graph", "--graph-format", "json")
+	cmd := exec.Command(bt, "robot", "graph", "--graph-format", "json")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -685,7 +685,7 @@ func TestExportTopology_RobotGraphDOT(t *testing.T) {
 	}
 
 	// Test DOT format
-	cmd := exec.Command(bt, "--robot-graph", "--graph-format", "dot")
+	cmd := exec.Command(bt, "robot", "graph", "--graph-format", "dot")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -731,7 +731,7 @@ func TestExportTopology_RobotGraphMermaid(t *testing.T) {
 	}
 
 	// Test Mermaid format
-	cmd := exec.Command(bt, "--robot-graph", "--graph-format", "mermaid")
+	cmd := exec.Command(bt, "robot", "graph", "--graph-format", "mermaid")
 	cmd.Dir = repoDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {

@@ -23,7 +23,7 @@ func TestE2E_Triage_ActionableIssues(t *testing.T) {
 	startTime := time.Now()
 
 	var result map[string]any
-	if err := runBTCommandJSON(t, fixture.Dir, &result, "--robot-triage"); err != nil {
+	if err := runBTCommandJSON(t, fixture.Dir, &result, "robot", "triage"); err != nil {
 		t.Fatalf("--robot-triage failed: %v", err)
 	}
 
@@ -92,7 +92,7 @@ func TestE2E_Triage_QuickWins(t *testing.T) {
 	startTime := time.Now()
 
 	var result map[string]any
-	if err := runBTCommandJSON(t, fixture.Dir, &result, "--robot-triage"); err != nil {
+	if err := runBTCommandJSON(t, fixture.Dir, &result, "robot", "triage"); err != nil {
 		t.Fatalf("--robot-triage failed: %v", err)
 	}
 
@@ -149,7 +149,7 @@ func TestE2E_Triage_BlockersToUnblock(t *testing.T) {
 	startTime := time.Now()
 
 	var result map[string]any
-	if err := runBTCommandJSON(t, fixture.Dir, &result, "--robot-triage"); err != nil {
+	if err := runBTCommandJSON(t, fixture.Dir, &result, "robot", "triage"); err != nil {
 		t.Fatalf("--robot-triage failed: %v", err)
 	}
 
@@ -197,7 +197,7 @@ func TestE2E_Triage_RobotNext(t *testing.T) {
 	startTime := time.Now()
 
 	var result map[string]any
-	if err := runBTCommandJSON(t, fixture.Dir, &result, "--robot-next"); err != nil {
+	if err := runBTCommandJSON(t, fixture.Dir, &result, "robot", "next"); err != nil {
 		t.Fatalf("--robot-next failed: %v", err)
 	}
 
@@ -262,7 +262,7 @@ func TestE2E_Triage_ByTrack(t *testing.T) {
 	startTime := time.Now()
 
 	var result map[string]any
-	if err := runBTCommandJSON(t, fixture.Dir, &result, "--robot-triage", "--robot-triage-by-track"); err != nil {
+	if err := runBTCommandJSON(t, fixture.Dir, &result, "robot", "triage", "--by-track"); err != nil {
 		t.Fatalf("--robot-triage --robot-triage-by-track failed: %v", err)
 	}
 
@@ -313,7 +313,7 @@ func TestE2E_Triage_ByLabel(t *testing.T) {
 	startTime := time.Now()
 
 	var result map[string]any
-	if err := runBTCommandJSON(t, fixture.Dir, &result, "--robot-triage", "--robot-triage-by-label"); err != nil {
+	if err := runBTCommandJSON(t, fixture.Dir, &result, "robot", "triage", "--by-label"); err != nil {
 		t.Fatalf("--robot-triage --robot-triage-by-label failed: %v", err)
 	}
 
@@ -366,7 +366,7 @@ func TestE2E_Triage_ProjectHealth(t *testing.T) {
 	startTime := time.Now()
 
 	var result map[string]any
-	if err := runBTCommandJSON(t, fixture.Dir, &result, "--robot-triage"); err != nil {
+	if err := runBTCommandJSON(t, fixture.Dir, &result, "robot", "triage"); err != nil {
 		t.Fatalf("--robot-triage failed: %v", err)
 	}
 
@@ -409,7 +409,7 @@ func TestE2E_Triage_EmptyProject(t *testing.T) {
 	startTime := time.Now()
 
 	var result map[string]any
-	if err := runBTCommandJSON(t, fixture.Dir, &result, "--robot-triage"); err != nil {
+	if err := runBTCommandJSON(t, fixture.Dir, &result, "robot", "triage"); err != nil {
 		t.Fatalf("--robot-triage failed: %v", err)
 	}
 
@@ -454,7 +454,7 @@ func TestE2E_Triage_AllClosed(t *testing.T) {
 	startTime := time.Now()
 
 	var result map[string]any
-	if err := runBTCommandJSON(t, fixture.Dir, &result, "--robot-triage"); err != nil {
+	if err := runBTCommandJSON(t, fixture.Dir, &result, "robot", "triage"); err != nil {
 		t.Fatalf("--robot-triage failed: %v", err)
 	}
 

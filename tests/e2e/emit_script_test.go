@@ -26,7 +26,7 @@ func TestEmitScript_BashAndFish(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := exec.Command(bt, "--emit-script", "--script-limit=1", "--script-format="+tt.formatFlag)
+			cmd := exec.Command(bt, "emit-script", "--limit=1", "--format="+tt.formatFlag)
 			cmd.Dir = env
 			out, err := cmd.CombinedOutput()
 			if err != nil {

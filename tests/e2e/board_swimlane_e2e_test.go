@@ -42,7 +42,7 @@ func TestSwimlaneModeStatusGrouping(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "robot", "triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -118,7 +118,7 @@ func TestSwimlaneModePriorityGrouping(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "robot", "triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -189,7 +189,7 @@ func TestSwimlaneModeTypeGrouping(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "robot", "triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -267,7 +267,7 @@ func TestSwimlaneMixedDataForAllModes(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "robot", "triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -343,7 +343,7 @@ func TestSwimlaneEmptyCategoriesHandling(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "robot", "triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -454,7 +454,7 @@ func TestSwimlaneDependencyVisualIndicators(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "robot", "triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -523,7 +523,7 @@ func TestSwimlaneSingleIssuePerCategory(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, bt, "--robot-triage")
+	cmd := exec.CommandContext(ctx, bt, "robot", "triage")
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
 	if err != nil {
