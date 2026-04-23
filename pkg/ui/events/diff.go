@@ -2,6 +2,8 @@
 package events
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/model"
@@ -122,11 +124,81 @@ func newEditedEvent(issue model.Issue, summary string, at time.Time, source Even
 	}
 }
 
-// editSummary and newCommentedEvent implemented in subsequent tasks.
-// Stub placeholders live here only to keep the file compilable once
-// the test suite for created/closed runs.
-func editSummary(_ model.Issue, _ model.Issue) (string, bool) {
-	return "", false
+// fieldCheck pairs a human-readable field name with a comparator.
+// Order matters: Summary lists names in declaration order.
+type fieldCheck struct {
+	name    string
+	changed func(a, b model.Issue) bool
+}
+
+// editableFields enumerates the fields whose mutation produces an
+// EventEdited. UpdatedAt is intentionally excluded (it mutates on every
+// write and would drown legitimate edits). Add new fields here as the
+// Issue model grows.
+var editableFields = []fieldCheck{
+	{"title", func(a, b model.Issue) bool { return a.Title != b.Title }},
+	{"priority", func(a, b model.Issue) bool { return a.Priority != b.Priority }},
+	{"assignee", func(a, b model.Issue) bool { return a.Assignee != b.Assignee }},
+	{"status", func(a, b model.Issue) bool { return a.Status != b.Status }},
+	{"description", func(a, b model.Issue) bool { return a.Description != b.Description }},
+	{"design", func(a, b model.Issue) bool { return a.Design != b.Design }},
+	{"acceptance", func(a, b model.Issue) bool { return a.AcceptanceCriteria != b.AcceptanceCriteria }},
+	{"notes", func(a, b model.Issue) bool { return a.Notes != b.Notes }},
+	{"type", func(a, b model.Issue) bool { return a.IssueType != b.IssueType }},
+	{"labels", func(a, b model.Issue) bool { return !stringSliceEqual(a.Labels, b.Labels) }},
+	{"due_date", func(a, b model.Issue) bool { return !timePtrEqual(a.DueDate, b.DueDate) }},
+	{"close_reason", func(a, b model.Issue) bool { return !stringPtrEqual(a.CloseReason, b.CloseReason) }},
+	{"external_ref", func(a, b model.Issue) bool { return !stringPtrEqual(a.ExternalRef, b.ExternalRef) }},
+}
+
+// editSummary returns a human-readable summary of the fields that
+// changed between old and new, plus a bool indicating whether any
+// change was detected. When <=3 fields changed, the summary names
+// them in declaration order; when >3, it aggregates to "+ N fields".
+func editSummary(old model.Issue, new model.Issue) (string, bool) {
+	var changed []string
+	for _, f := range editableFields {
+		if f.changed(old, new) {
+			changed = append(changed, f.name)
+		}
+	}
+	if len(changed) == 0 {
+		return "", false
+	}
+	if len(changed) > 3 {
+		return fmt.Sprintf("+ %d fields", len(changed)), true
+	}
+	parts := make([]string, len(changed))
+	for i, n := range changed {
+		parts[i] = "+ " + n
+	}
+	return strings.Join(parts, ", "), true
+}
+
+func stringSliceEqual(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func stringPtrEqual(a, b *string) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
+}
+
+func timePtrEqual(a, b *time.Time) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.Equal(*b)
 }
 
 func newCommentedEvent(_, _ model.Issue, _ time.Time, _ EventSource) Event {

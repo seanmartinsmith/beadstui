@@ -79,3 +79,76 @@ func TestDiff_NoChange(t *testing.T) {
 		t.Fatalf("Diff with no changes should emit 0 events, got %d", len(events))
 	}
 }
+
+func TestDiff_ReopenIsEdit(t *testing.T) {
+	// Status transition closed -> open is an edit, not a special kind.
+	prior := []model.Issue{mkIssue("bt-1", "Alpha", model.StatusClosed)}
+	next := []model.Issue{mkIssue("bt-1", "Alpha", model.StatusOpen)}
+	events := Diff(prior, next, time.Now(), SourceDolt)
+	if len(events) != 1 {
+		t.Fatalf("Diff should emit 1 event, got %d", len(events))
+	}
+	if events[0].Kind != EventEdited {
+		t.Errorf("Kind = %v, want EventEdited for reopen", events[0].Kind)
+	}
+}
+
+func TestDiff_EditedSingleField(t *testing.T) {
+	prior := []model.Issue{mkIssue("bt-1", "Alpha", model.StatusOpen)}
+	next := []model.Issue{mkIssue("bt-1", "Alpha renamed", model.StatusOpen)}
+	events := Diff(prior, next, time.Now(), SourceDolt)
+	if len(events) != 1 || events[0].Kind != EventEdited {
+		t.Fatalf("want 1 EventEdited, got %v", events)
+	}
+	if events[0].Summary != "+ title" {
+		t.Errorf("Summary = %q, want %q", events[0].Summary, "+ title")
+	}
+}
+
+func TestDiff_EditedTwoFields(t *testing.T) {
+	prior := []model.Issue{{ID: "bt-1", Title: "Alpha", Priority: 2, Status: model.StatusOpen}}
+	next := []model.Issue{{ID: "bt-1", Title: "Alpha v2", Priority: 1, Status: model.StatusOpen}}
+	events := Diff(prior, next, time.Now(), SourceDolt)
+	if len(events) != 1 || events[0].Kind != EventEdited {
+		t.Fatalf("want 1 EventEdited, got %v", events)
+	}
+	if events[0].Summary != "+ title, + priority" {
+		t.Errorf("Summary = %q, want %q", events[0].Summary, "+ title, + priority")
+	}
+}
+
+func TestDiff_EditedThreeFields(t *testing.T) {
+	prior := []model.Issue{{ID: "bt-1", Title: "A", Priority: 2, Assignee: "", Status: model.StatusOpen}}
+	next := []model.Issue{{ID: "bt-1", Title: "A v2", Priority: 1, Assignee: "sms", Status: model.StatusOpen}}
+	events := Diff(prior, next, time.Now(), SourceDolt)
+	if len(events) != 1 {
+		t.Fatalf("want 1 event, got %d", len(events))
+	}
+	// Order follows editableFields declaration order; assert exactly.
+	if events[0].Summary != "+ title, + priority, + assignee" {
+		t.Errorf("Summary = %q, want exact field list for 3", events[0].Summary)
+	}
+}
+
+func TestDiff_EditedFourPlusFieldsAggregates(t *testing.T) {
+	prior := []model.Issue{{ID: "bt-1", Title: "A", Description: "old", Priority: 2, Assignee: "", Status: model.StatusOpen}}
+	next := []model.Issue{{ID: "bt-1", Title: "B", Description: "new", Priority: 1, Assignee: "sms", Status: model.StatusOpen, Labels: []string{"area:tui"}}}
+	events := Diff(prior, next, time.Now(), SourceDolt)
+	if len(events) != 1 {
+		t.Fatalf("want 1 event, got %d", len(events))
+	}
+	if events[0].Summary != "+ 5 fields" {
+		t.Errorf("Summary = %q, want %q", events[0].Summary, "+ 5 fields")
+	}
+}
+
+func TestDiff_EditedIgnoresUpdatedAt(t *testing.T) {
+	t0 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	t1 := t0.Add(time.Hour)
+	prior := []model.Issue{{ID: "bt-1", Title: "A", Status: model.StatusOpen, UpdatedAt: t0}}
+	next := []model.Issue{{ID: "bt-1", Title: "A", Status: model.StatusOpen, UpdatedAt: t1}}
+	events := Diff(prior, next, time.Now(), SourceDolt)
+	if len(events) != 0 {
+		t.Fatalf("UpdatedAt-only change should not emit an event, got %d", len(events))
+	}
+}
