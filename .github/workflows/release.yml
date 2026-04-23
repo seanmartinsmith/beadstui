@@ -4,6 +4,17 @@ on:
   push:
     tags:
       - 'v*'
+  # Manual trigger for validating the release pipeline without cutting a tag.
+  # Defaults to snapshot mode (builds + archives produced, no GitHub Release
+  # created). Use after changes to .goreleaser.yaml or this workflow to catch
+  # CI-only failures (action download, token scope, runner env) before a real
+  # tag push commits the result to the release feed.
+  workflow_dispatch:
+    inputs:
+      snapshot:
+        description: 'Snapshot mode (no real release; validates pipeline only)'
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -26,7 +37,11 @@ jobs:
           # release doesn't break CI without notice. Bump deliberately
           # after smoke-testing locally against the new version.
           version: "~> v2.15"
-          args: release --clean
+          # inputs.snapshot is null on tag-push triggers (no workflow_dispatch
+          # context), so the ternary evaluates to '' and real-tag builds
+          # produce a real GitHub Release. On manual dispatch with the default,
+          # --snapshot is appended and no release is created.
+          args: release --clean ${{ inputs.snapshot && '--snapshot' || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # HOMEBREW_TAP_GITHUB_TOKEN removed: brew/scoop publishing stripped
