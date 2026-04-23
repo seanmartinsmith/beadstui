@@ -6,6 +6,49 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-23 - Event pipeline data layer (bt-nexz, part of bt-d5wr)
+
+**TDD-driven implementation of the activity-event capture pipeline from the footer/notification redesign spec (bt-d5wr). Pure data layer: no UI changes. Produces a tested ring buffer + snapshot diff that later beads (footer redesign, notification modal) consume.**
+
+### What shipped
+
+- **bt-nexz** (P2, feature) — New `pkg/ui/events/` package with `Event`, `EventKind` (Created/Edited/Closed/Commented/Bulk), `EventSource` (Dolt/Cass — Cass reserved), a session-scoped `RingBuffer` (default capacity 500, evict-oldest on overflow, `sync.RWMutex`), and `Diff(prior, next)` that detects creations, explicit closes (open→closed transitions), reopens-as-edits, comment-count increases, and per-field edits with either named (≤3 fields) or aggregated (`+ N fields`) summaries. Comment summaries truncate at 80 runes with `"..."` suffix. Diffs producing >100 events collapse into a single `EventBulk` marker to protect ring retention from bulk migrations. `CollapseForTicker(events, window)` folds same-BeadID+same-Kind runs within a time window into the most recent event with a `+ N fields` aggregate — pure function for ticker rendering. `Model` grows an `events *events.RingBuffer` field initialized via `events.NewRingBuffer(events.DefaultCapacity)` in `NewModel`. `handleSnapshotReady` now captures `wasTimeTravel` before the time-travel reset, then after the snapshot pointer swap emits `events.Diff(old.Issues, new.Issues, now, SourceDolt)` into the ring when `!firstSnapshot && oldSnapshot != nil && m.events != nil && !wasTimeTravel` — gating prevents bootstrap floods and historical-vs-live time-travel spurious events.
+
+### Scope decisions
+
+- Pure data layer only: no footer ticker, no notification modal, no keybindings. Those land in follow-on beads under the bt-d5wr design umbrella.
+- `EventSource.SourceCass` enum slot reserved but never emitted in v1 (per spec section 1).
+- Actor field populated from `Issue.Assignee` only; actor-based filtering deferred until an attribution model exists.
+
+### Plan-vs-code deviation
+
+- Task 3 of the plan expected `TestDiff_ReopenIsEdit` to pass alongside the created/closed tests, but Task 3's stubbed `editSummary` returns false, so a status-only change (closed→open) emits nothing. Moved the test to Task 4 (where the real `editSummary` lands) so each task's commit stays green. Final state identical to the plan — just a test-ordering fix. Flagged and resolved in-session rather than silently adapting. Also fixed a minor compile error in the plan's Task 5 test: indexing a Go string returns `byte`, not `rune`, so `events[0].Summary[...] != '…'` was decoded via `[]rune(events[0].Summary)` first.
+
+### Verify
+
+- `go build ./...`, `go vet ./...` clean
+- `go test ./pkg/ui/events/ -race -count=1` green (25 tests, ~1.3s)
+- `go test ./pkg/ui/ -count=1 -timeout 180s` green (22.6s, including 3 new `TestHandleSnapshotReady_*` integration tests)
+- `go install ./cmd/bt/` clean
+
+### Stream alignment
+
+Slots into ADR-002 under the bt-d5wr cluster (footer + notification redesign). Unblocks the footer-redesign bead and the notification-center modal bead. bt-d5wr umbrella stays open — closes only when all three implementation beads land.
+
+### Commits
+
+- `feat(events): scaffold events package with Event/EventKind/EventSource types (bt-nexz)`
+- `feat(events): add RingBuffer for session-scoped event retention (bt-nexz)`
+- `feat(events): Diff emits EventCreated and EventClosed on snapshot compare (bt-nexz)`
+- `feat(events): detect edited fields with named/aggregated Summary (bt-nexz)`
+- `feat(events): detect new comments and truncate Summary at 80 runes (bt-nexz)`
+- `feat(events): cap per-diff emission at 100 events with EventBulk marker (bt-nexz)`
+- `feat(events): CollapseForTicker folds same-bead same-kind runs within window (bt-nexz)`
+- `feat(ui): attach events.RingBuffer to Model (bt-nexz)`
+- `feat(ui): emit activity events from handleSnapshotReady snapshot diff (bt-nexz)`
+
+---
+
 ## 2026-04-23 - Footer cluster + mouse integration (bt-y0k7, bt-m9te, bt-d8d1)
 
 **Two work streams closed in one session: footer consolidation (status clobber fix + 4 dogfood polish items) and click-to-focus mouse handling. All from the 2026-04-23 session plan `declarative-seeking-manatee.md`.**
