@@ -330,12 +330,12 @@ func (m *Model) extractHintText() string {
 			total := len(m.data.issues)
 			filterInfo = fmt.Sprintf("[%s:%d/%d] ", m.filter.currentFilter, shown, total)
 		}
-		return fmt.Sprintf("%s1-4:col • o/c/r:filter • L:labels • /:search • ?:help", filterInfo)
+		return fmt.Sprintf("%s1-4:col • o/c/r:filter • l:labels • /:search • ?:help", filterInfo)
 	}
 	if m.mode == ViewAttention {
 		return "A:attention • 1-9 filter • esc close"
 	}
-	return "L:labels • h:detail"
+	return "l:labels"
 }
 
 func (m *Model) extractWorkerBadge() (string, WorkerLevel) {
