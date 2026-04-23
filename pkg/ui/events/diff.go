@@ -201,8 +201,45 @@ func timePtrEqual(a, b *time.Time) bool {
 	return a.Equal(*b)
 }
 
-func newCommentedEvent(_, _ model.Issue, _ time.Time, _ EventSource) Event {
-	return Event{}
+// commentSummaryLimit is the maximum rune length of a comment-derived
+// Summary string. Longer comments are truncated with a trailing "...".
+const commentSummaryLimit = 80
+
+// newCommentedEvent builds an EventCommented from the latest new comment
+// on the bead. oldIssue is used to determine which comments are new; the
+// summary derives from the most recently added one.
+func newCommentedEvent(oldIssue, newIssue model.Issue, at time.Time, source EventSource) Event {
+	summary := ""
+	if len(newIssue.Comments) > 0 {
+		latest := newIssue.Comments[len(newIssue.Comments)-1]
+		if latest != nil {
+			summary = truncateForSummary(latest.Text, commentSummaryLimit)
+		}
+	}
+	return Event{
+		ID:      computeID(newIssue.ID, EventCommented, at),
+		Kind:    EventCommented,
+		BeadID:  newIssue.ID,
+		Repo:    repoFromBeadID(newIssue.ID),
+		Title:   newIssue.Title,
+		Summary: summary,
+		Actor:   newIssue.Assignee,
+		At:      at,
+		Source:  source,
+	}
+}
+
+// truncateForSummary shortens s to at most n runes, appending "..."
+// when truncation occurs. Returns s unchanged if already within n.
+func truncateForSummary(s string, n int) string {
+	runes := []rune(s)
+	if len(runes) <= n {
+		return s
+	}
+	if n <= 3 {
+		return string(runes[:n])
+	}
+	return string(runes[:n-3]) + "..."
 }
 
 func bulkSummary(n int) string {

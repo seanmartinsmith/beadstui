@@ -152,3 +152,65 @@ func TestDiff_EditedIgnoresUpdatedAt(t *testing.T) {
 		t.Fatalf("UpdatedAt-only change should not emit an event, got %d", len(events))
 	}
 }
+
+func TestDiff_NewComment(t *testing.T) {
+	prior := []model.Issue{{ID: "bt-1", Title: "A", Status: model.StatusOpen}}
+	next := []model.Issue{{
+		ID: "bt-1", Title: "A", Status: model.StatusOpen,
+		Comments: []*model.Comment{{ID: "c1", Text: "Index rebuild finished", Author: "sms"}},
+	}}
+	events := Diff(prior, next, time.Now(), SourceDolt)
+	if len(events) != 1 || events[0].Kind != EventCommented {
+		t.Fatalf("want 1 EventCommented, got %v", events)
+	}
+	if events[0].Summary != "Index rebuild finished" {
+		t.Errorf("Summary = %q, want comment text", events[0].Summary)
+	}
+}
+
+func TestDiff_CommentTextTruncatedAt80(t *testing.T) {
+	long := "This is a very long comment that exceeds the 80-character summary truncation threshold set by the spec for ticker readability."
+	prior := []model.Issue{{ID: "bt-1", Title: "A", Status: model.StatusOpen}}
+	next := []model.Issue{{
+		ID: "bt-1", Title: "A", Status: model.StatusOpen,
+		Comments: []*model.Comment{{ID: "c1", Text: long, Author: "sms"}},
+	}}
+	events := Diff(prior, next, time.Now(), SourceDolt)
+	if len(events) != 1 || events[0].Kind != EventCommented {
+		t.Fatalf("want 1 EventCommented, got %v", events)
+	}
+	if len(events[0].Summary) > 80 {
+		t.Errorf("Summary len = %d, want <= 80", len(events[0].Summary))
+	}
+	runes := []rune(events[0].Summary)
+	if runes[len(runes)-1] != '…' && !hasEllipsisSuffix(events[0].Summary) {
+		// Any suffix indicating truncation is fine; assert it is not the full text.
+		if events[0].Summary == long {
+			t.Errorf("Summary was not truncated: %q", events[0].Summary)
+		}
+	}
+}
+
+func hasEllipsisSuffix(s string) bool {
+	return len(s) >= 3 && s[len(s)-3:] == "..."
+}
+
+func TestDiff_MultipleNewComments_UsesLatest(t *testing.T) {
+	// Two comments added since last poll — Summary should reflect the
+	// most recently added one (last element of Comments).
+	prior := []model.Issue{{ID: "bt-1", Title: "A", Status: model.StatusOpen}}
+	next := []model.Issue{{
+		ID: "bt-1", Title: "A", Status: model.StatusOpen,
+		Comments: []*model.Comment{
+			{ID: "c1", Text: "first", Author: "sms"},
+			{ID: "c2", Text: "second", Author: "sms"},
+		},
+	}}
+	events := Diff(prior, next, time.Now(), SourceDolt)
+	if len(events) != 1 || events[0].Kind != EventCommented {
+		t.Fatalf("want 1 EventCommented, got %v", events)
+	}
+	if events[0].Summary != "second" {
+		t.Errorf("Summary = %q, want %q (latest comment)", events[0].Summary, "second")
+	}
+}
