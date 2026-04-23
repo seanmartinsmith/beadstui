@@ -406,7 +406,7 @@ func TestWorkflow_LabelScopedAnalysis(t *testing.T) {
 	}
 
 	// Step 5: Get label attention ranking
-	cmd = exec.Command(bt, "robot", "labels", "attention", "--attention-limit=3")
+	cmd = exec.Command(bt, "robot", "labels", "attention", "--limit=3")
 	cmd.Dir = projectDir
 	out, err = cmd.CombinedOutput()
 	if err != nil {
