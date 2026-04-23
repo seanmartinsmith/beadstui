@@ -13,6 +13,7 @@ import (
 	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/seanmartinsmith/beadstui/pkg/agents"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 )
@@ -1254,6 +1255,34 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+// splitViewListChromeHeight returns the Y coordinate of the first list
+// item (i.e., row 0 of m.list.Items()) relative to the top of the split
+// view. The value is the number of terminal rows of chrome rendered above
+// the first item (bt-58yw).
+//
+// Chrome layers, top to bottom:
+//  1. RenderTitledPanel top border (always 1 row).
+//  2. renderSearchPill (0 rows when FilterState != FilterApplied).
+//  3. renderSplitView column header (the `TYPE PRI STATUS…` strip, 1 row).
+//  4. Bubbles list phantom title row. SetShowTitle(false) alone is not
+//     enough to suppress this: the list's View() method at
+//     bubbles/v2/list/list.go:1048 enters its title-rendering branch
+//     whenever SetFilteringEnabled(true) is in effect, and emits an empty
+//     string. lipgloss.JoinVertical then treats "" as a 1-row blank line.
+//     Always 1 row while filteringEnabled is true (bt's default).
+func (m Model) splitViewListChromeHeight() int {
+	const (
+		panelTopBorder        = 1
+		columnHeader          = 1
+		bubblesPhantomTitle   = 1
+	)
+	offset := panelTopBorder + columnHeader + bubblesPhantomTitle
+	if pill := m.renderSearchPill(m.list.Width()); pill != "" {
+		offset += lipgloss.Height(pill)
+	}
+	return offset
+}
+
 // handleMouseClick processes mouse button press events. Currently scoped to
 // split-view pane focus switching and list-row selection (bt-d8d1). Modals
 // and single-pane views are pass-through to preserve existing behavior.
@@ -1286,12 +1315,7 @@ func (m Model) handleMouseClick(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 		if m.focused != focusList {
 			m.focused = focusList
 		}
-		// Map the click Y to a list row: header(1) + optional search pill(1) +
-		// selected row. Top of list content starts at Y=1 (no pill) or Y=2 (pill).
-		rowOffset := 1
-		if pill := m.renderSearchPill(m.list.Width()); pill != "" {
-			rowOffset = 2
-		}
+		rowOffset := m.splitViewListChromeHeight()
 		if mouse.Y >= rowOffset {
 			row := mouse.Y - rowOffset + m.list.Paginator.Page*m.list.Paginator.PerPage
 			items := m.list.Items()
