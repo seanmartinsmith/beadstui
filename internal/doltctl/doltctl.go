@@ -83,7 +83,7 @@ func EnsureServer(beadsDir string, lookPath LookPathFunc) (*ServerState, error) 
 	}
 
 	// 2. TCP dial to see if server is already running
-	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
+	addr := net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port))
 	conn, err := net.DialTimeout("tcp", addr, 500*time.Millisecond)
 	if err == nil {
 		conn.Close()

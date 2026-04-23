@@ -867,7 +867,7 @@ func startSharedDoltServer(robot bool) error {
 	if discoverErr != nil {
 		return fmt.Errorf("server started but port not discoverable: %w", discoverErr)
 	}
-	addr := fmt.Sprintf("%s:%d", host, port)
+	addr := net.JoinHostPort(host, strconv.Itoa(port))
 	deadline := time.Now().Add(10 * time.Second)
 	for time.Now().Before(deadline) {
 		conn, dialErr := net.DialTimeout("tcp", addr, 500*time.Millisecond)
