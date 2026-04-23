@@ -2,6 +2,7 @@
 package events
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -212,5 +213,48 @@ func TestDiff_MultipleNewComments_UsesLatest(t *testing.T) {
 	}
 	if events[0].Summary != "second" {
 		t.Errorf("Summary = %q, want %q (latest comment)", events[0].Summary, "second")
+	}
+}
+
+func TestDiff_BelowBulkThresholdEmitsIndividual(t *testing.T) {
+	// 50 new beads — below the 100-event threshold. All emit as individual EventCreated.
+	var prior, next []model.Issue
+	for i := 0; i < 50; i++ {
+		next = append(next, mkIssue(
+			fmt.Sprintf("bt-%d", i),
+			fmt.Sprintf("Bead %d", i),
+			model.StatusOpen,
+		))
+	}
+	events := Diff(prior, next, time.Now(), SourceDolt)
+	if len(events) != 50 {
+		t.Fatalf("50 new beads should emit 50 events, got %d", len(events))
+	}
+	for _, e := range events {
+		if e.Kind != EventCreated {
+			t.Errorf("unexpected kind %v, want EventCreated", e.Kind)
+		}
+	}
+}
+
+func TestDiff_AboveBulkThresholdEmitsBulkMarker(t *testing.T) {
+	// 150 new beads — above the 100-event threshold. Collapses to a single EventBulk.
+	var prior, next []model.Issue
+	for i := 0; i < 150; i++ {
+		next = append(next, mkIssue(
+			fmt.Sprintf("bt-%d", i),
+			fmt.Sprintf("Bead %d", i),
+			model.StatusOpen,
+		))
+	}
+	events := Diff(prior, next, time.Now(), SourceDolt)
+	if len(events) != 1 {
+		t.Fatalf("150 new beads above threshold should emit 1 EventBulk, got %d events", len(events))
+	}
+	if events[0].Kind != EventBulk {
+		t.Errorf("Kind = %v, want EventBulk", events[0].Kind)
+	}
+	if events[0].Summary != "150 beads changed (bulk operation)" {
+		t.Errorf("Summary = %q, want exact bulk phrasing", events[0].Summary)
 	}
 }

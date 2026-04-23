@@ -242,6 +242,8 @@ func truncateForSummary(s string, n int) string {
 	return string(runes[:n-3]) + "..."
 }
 
+// bulkSummary renders the Summary string for an EventBulk marker that
+// collapses many underlying events emitted by one diff.
 func bulkSummary(n int) string {
-	return "" // implemented in Task 6
+	return fmt.Sprintf("%d beads changed (bulk operation)", n)
 }
