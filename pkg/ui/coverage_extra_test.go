@@ -218,6 +218,78 @@ func TestHandleListKeysFiltersAndTimeTravelPrompt(t *testing.T) {
 	}
 }
 
+// TestHandleListKeysSortCycle verifies s/S forward/reverse sort cycling (bt-ktcr).
+// S previously applied the triage recipe; it now mirrors bt's alerts-modal
+// convention of s forward / S reverse. Triage moved to R.
+func TestHandleListKeysSortCycle(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "1", Title: "One", Status: model.StatusOpen},
+		{ID: "2", Title: "Two", Status: model.StatusOpen},
+	}
+	m := NewModel(issues, nil, "", nil)
+	m.height = 30
+	m.width = 80
+	m.focused = focusList
+	m.isSplitView = false
+
+	if m.filter.sortMode != SortDefault {
+		t.Fatalf("initial sort mode should be SortDefault, got %v", m.filter.sortMode)
+	}
+
+	// Forward: s advances the mode
+	m = m.handleListKeys(tea.KeyPressMsg{Code: 's', Text: "s"})
+	forwardOne := m.filter.sortMode
+	if forwardOne == SortDefault {
+		t.Fatalf("s should advance sort mode")
+	}
+
+	// Forward again: lands on a different mode (or wraps cleanly)
+	m = m.handleListKeys(tea.KeyPressMsg{Code: 's', Text: "s"})
+	forwardTwo := m.filter.sortMode
+	if forwardTwo == forwardOne {
+		t.Fatalf("second s should advance again, got same mode %v", forwardTwo)
+	}
+
+	// Reverse: S brings us back to forwardOne
+	m = m.handleListKeys(tea.KeyPressMsg{Code: 'S', Text: "S"})
+	if m.filter.sortMode != forwardOne {
+		t.Fatalf("S should reverse to previous mode %v, got %v", forwardOne, m.filter.sortMode)
+	}
+
+	// Reverse again: back to SortDefault
+	m = m.handleListKeys(tea.KeyPressMsg{Code: 'S', Text: "S"})
+	if m.filter.sortMode != SortDefault {
+		t.Fatalf("S should reverse to SortDefault, got %v", m.filter.sortMode)
+	}
+
+	// Reverse past zero: wraps to last mode
+	m = m.handleListKeys(tea.KeyPressMsg{Code: 'S', Text: "S"})
+	if m.filter.sortMode != numSortModes-1 {
+		t.Fatalf("S at SortDefault should wrap to %v, got %v", numSortModes-1, m.filter.sortMode)
+	}
+}
+
+// TestHandleListKeysTriageRecipe verifies R applies the triage recipe (bt-ktcr).
+// The recipe loader is nil-safe; if no triage recipe is loaded in the test
+// environment, R is a no-op rather than a panic.
+func TestHandleListKeysTriageRecipe(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "1", Title: "One", Status: model.StatusOpen},
+	}
+	m := NewModel(issues, nil, "", nil)
+	m.height = 30
+	m.width = 80
+	m.focused = focusList
+	m.isSplitView = false
+
+	// R must not panic regardless of whether a triage recipe is registered.
+	m = m.handleListKeys(tea.KeyPressMsg{Code: 'R', Text: "R"})
+
+	if r := m.filter.recipeLoader.Get("triage"); r != nil && m.filter.activeRecipe == nil {
+		t.Fatalf("R should set activeRecipe when triage recipe exists")
+	}
+}
+
 func TestClassifyEditorCommand(t *testing.T) {
 	tests := []struct {
 		name     string

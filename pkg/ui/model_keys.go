@@ -1006,12 +1006,15 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 		if m.mode != ViewHistory {
 			m.enterHistoryView()
 		}
-	case "S":
-		// Apply triage recipe - sort by triage score (bv-151)
+	case "R":
+		// Apply triage recipe - sort by triage score (bt-ktcr: moved from S to free S for reverse sort)
 		if r := m.filter.recipeLoader.Get("triage"); r != nil {
 			m.setActiveRecipe(r)
 			m.applyRecipe(r)
 		}
+	case "S":
+		// Cycle sort mode reverse (bt-ktcr: matches alerts-modal s/S forward/reverse convention)
+		m.cycleSortModeReverse()
 	case "s":
 		// Cycle sort mode (bv-3ita)
 		m.cycleSortMode()

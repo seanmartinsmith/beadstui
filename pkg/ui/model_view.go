@@ -521,7 +521,7 @@ func (m *Model) renderHelpOverlay() string {
 		{"r", "Ready (unblocked)"},
 		{"l", "Filter by label"},
 		{"s", "Cycle sort"},
-		{"S", "Triage sort"},
+		{"S", "Cycle sort reverse"},
 	}
 
 	graphSection := []struct{ key, desc string }{
@@ -550,6 +550,7 @@ func (m *Model) renderHelpOverlay() string {
 
 	actionsSection := []struct{ key, desc string }{
 		{"p", "Priority hints"},
+		{"R", "Triage recipe"},
 		{"Ctrl+R", "Force refresh"},
 		{"F5", "Force refresh"},
 		{"t", "Time-travel"},

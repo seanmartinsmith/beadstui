@@ -178,6 +178,7 @@ func (s *ShortcutsSidebar) allSections() []shortcutSection {
 			title:    "Actions",
 			contexts: []string{"list", "detail", "split"},
 			items: []shortcutItem{
+				{"R", "Triage recipe"},
 				{"t/T", "Time-travel"},
 				{"x", "Export .md"},
 				{"y", "Copy ID"},

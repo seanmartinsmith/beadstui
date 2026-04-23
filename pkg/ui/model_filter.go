@@ -375,6 +375,12 @@ func (m *Model) cycleSortMode() {
 	m.applyFilter() // Re-apply filter with new sort
 }
 
+// cycleSortModeReverse cycles through sort modes in the opposite direction (bt-ktcr)
+func (m *Model) cycleSortModeReverse() {
+	m.filter.sortMode = (m.filter.sortMode - 1 + numSortModes) % numSortModes
+	m.applyFilter()
+}
+
 // sortFilteredItems sorts the filtered items based on current sortMode (bv-3ita)
 func (m *Model) sortFilteredItems(items []list.Item, issues []model.Issue) {
 	if len(items) == 0 {
