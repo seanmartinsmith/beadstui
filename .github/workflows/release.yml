@@ -22,10 +22,13 @@ jobs:
         uses: goreleaser/goreleaser-action@v5
         with:
           distribution: goreleaser
-          version: latest
+          # Pinned to the v2.15 minor line so a future goreleaser major
+          # release doesn't break CI without notice. Bump deliberately
+          # after smoke-testing locally against the new version.
+          version: "~> v2.15"
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Token with write access to homebrew-tap and scoop-bucket repos
-          # Set this as a repository secret with repo scope
-          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
+          # HOMEBREW_TAP_GITHUB_TOKEN removed: brew/scoop publishing stripped
+          # from .goreleaser.yaml pre-v1 (see bt-brid). Restore alongside
+          # the brews:/scoops: blocks when those channels reopen.

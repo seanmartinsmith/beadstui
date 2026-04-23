@@ -6,6 +6,45 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-23 - Stream 9 release-engineering gates cleared + vet baseline (bt-ncu7, bt-brid, bt-bntv, bt-lz7d, bt-4f7g)
+
+**Five closes on Stream 9, one re-enable deferral bead filed. Pre-tag gates cleared end-to-end; binaries-only release path ready for a real `v*` tag push.**
+
+### What shipped
+
+- **bt-ncu7** — Replaced two `fmt.Sprintf("%s:%d", host, port)` address builders with `net.JoinHostPort(host, strconv.Itoa(port))` (the canonical stdlib idiom, IPv6-safe via auto-bracketing). Locations: `internal/doltctl/doltctl.go:86` (EnsureServer TCP dial) and `cmd/bt/root.go:870` (post-start wait loop). Both files already imported `net` and `strconv`; zero import churn. `go vet ./...` now exits clean — warnings had been flagged since 2026-03-16 (110b33d9), surfaced during bt-yqgn agent verification, unactioned until now.
+- **bt-brid** — Decision closed with Option 2: strip `brews:` and `scoops:` blocks from `.goreleaser.yaml`, drop `HOMEBREW_TAP_GITHUB_TOKEN` env from `.github/workflows/release.yml`. Reasoning: no user demand signal for brew/scoop install paths, maintaining two external publishing repos preemptively adds CI surface without benefit, and the `HOMEBREW_TAP_GITHUB_TOKEN` secret wasn't even verified in repo secrets. Full re-enable checklist preserved in **bt-zgzq** (P4, new) for when bt hits the subjective v1 bar (dogfood-clean TUI, feature-complete to maintainer's standard).
+- **bt-bntv** — Closed as not-applicable. The broken brew formula `test:` stanza (`bt --version` flag vs `bt version` subcommand) disappeared when `brews:` was stripped. The one-line fix is documented in bt-zgzq step 7 so it gets applied automatically when brew publishing resumes — won't be re-discovered as a new bug.
+- **bt-lz7d** — Migrated `.goreleaser.yaml` to v2 format: added `version: 2` header, changed `archives[0].format: tar.gz` → `archives[0].formats: [tar.gz]`, removed `snapshot.name_template` and added `snapshot.version_template: "{{ .Tag }}-next"` per v2 deprecation guidance. Pinned `.github/workflows/release.yml` goreleaser action `version: latest` → `version: "~> v2.15"` with a deliberate-bump rationale comment. `goreleaser check` now exits clean (was flagging 4 warnings). Scope-guarded against the `brews:` → `homebrew_casks:` schema migration — that's deferred to bt-zgzq where it can get its own verification pass.
+- **bt-4f7g** — Fixed double-v in `bt version` snapshot output by switching ldflags from `-X ...version=v{{.Version}}` to `-X ...version={{.Tag}}` (Option A per bead recommendation). Root cause: goreleaser v2's snapshot mode resolves `.Version` with a `v` prefix already present, so the literal `v` in the template compounded to `vv0.0.0-next`. `.Tag` carries the `v` prefix consistently across snapshot + release modes. Added inline comment documenting the why. Option B (Go-side normalization) considered and rejected — over-engineering for a cosmetic issue.
+- **bt-zgzq** (new, P4) — Re-enable brew tap + scoop bucket publishing post-v1. Captures the full restoration checklist: create both external repos, add `HOMEBREW_TAP_GITHUB_TOKEN` secret, restore `brews:`/`scoops:` blocks (migrated to `homebrew_casks:`), restore env in workflow, fix the brew test stanza. Works through a pre-release tag before cutting real v1.
+
+### Smoke-test results
+
+`goreleaser release --snapshot --clean` run against the migrated config:
+
+- Build: 5 binaries (linux/darwin/windows × amd64/arm64, minus windows/arm64), ~8s total (down from ~40s in the 2026-04-22 baseline because no brew/scoop work).
+- Artifacts: 5 tar.gz archives (`bt_v0.0.0-next_<os>_<arch>.tar.gz`), `checksums.txt`, `artifacts.json`, `metadata.json`, `config.yaml`.
+- `./dist/homebrew/` and `./dist/scoop/` do not exist (strip confirmed).
+- `./dist/bt_windows_amd64_v1/bt.exe version` → `bt v0.0.0` (single-v, no double-v regression).
+- `goreleaser check` → `1 configuration file(s) validated` (was 4 warnings).
+- `go build ./...`, `go vet ./...`, version tests → all clean.
+
+### ADR-002 Stream 9
+
+Status updated from "Pipeline wired, pre-tag gates open" → **DONE**, with all five bead outcomes recorded inline and the bt-zgzq re-enable bead linked. Real tag push now triggers GitHub Release + 5 cross-compiled archives + checksums only, no external package-manager publish.
+
+### Risk
+
+Low. Five file changes total across two files (`.goreleaser.yaml`, `.github/workflows/release.yml`), plus two one-line Go edits for bt-ncu7. All exercised end-to-end via the snapshot smoke test. The publishing strip replaces undefined behavior (tap/bucket repos + token unverified since rename) with defined behavior (binaries-only releases).
+
+### Commits
+
+- `1b51a02d` fix(infra): use net.JoinHostPort for IPv6-safe address formatting (bt-ncu7)
+- (this session) chore(infra): strip brew/scoop, migrate goreleaser v1→v2, fix ldflags (bt-brid, bt-bntv, bt-lz7d, bt-4f7g)
+
+---
+
 ## 2026-04-22 - Blurb v2, JSONL sunset, refactor epic closeout (bt-yqgn, bt-jlp, bt-if3w)
 
 **Two shipped beads plus an epic close-out. Agents dispatched for in-flight work; decision debt on the pkg/ui refactor epic cleared.**

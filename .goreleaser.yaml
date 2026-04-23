@@ -1,10 +1,17 @@
+version: 2
+
 project_name: bt
+
 builds:
   - main: ./cmd/bt
     binary: bt
     ldflags:
       - -s -w
-      - -X github.com/seanmartinsmith/beadstui/pkg/version.version=v{{.Version}}
+      # .Tag carries the v-prefix in both snapshot ({{.Tag}} = v0.0.0 or
+      # latest-tag) and release modes (real tag like v0.1). Using .Version
+      # caused a double-v in snapshot mode because goreleaser v2's snapshot
+      # semantics prepend v to .Version while the template added another.
+      - -X github.com/seanmartinsmith/beadstui/pkg/version.version={{.Tag}}
     goos:
       - linux
       - darwin
@@ -17,7 +24,7 @@ builds:
         goarch: arm64
 
 archives:
-  - format: tar.gz
+  - formats: [tar.gz]
     name_template: >-
       {{ .ProjectName }}_
       {{- .Version }}_
@@ -28,7 +35,7 @@ checksum:
   name_template: 'checksums.txt'
 
 snapshot:
-  name_template: "{{ .Tag }}-next"
+  version_template: "{{ .Tag }}-next"
 
 changelog:
   sort: asc
@@ -37,39 +44,13 @@ changelog:
       - '^docs:'
       - '^test:'
 
-# Homebrew tap publishing
-brews:
-  - name: bt
-    repository:
-      owner: seanmartinsmith
-      name: homebrew-tap
-      branch: main
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    directory: Formula
-    homepage: https://github.com/seanmartinsmith/beadstui
-    description: "Graph-aware task management TUI for beads projects"
-    license: "MIT"
-    install: |
-      bin.install "bt"
-    test: |
-      system "#{bin}/bt", "--version"
-    caveats: |
-      To get started with bt:
-        1. Initialize beads in your project: bd init
-        2. Launch the TUI: bt
-
-      For AI agent integration, use --robot-* flags:
-        bt --robot-triage     # Get prioritized recommendations
-        bt --robot-next       # Get single next action
-
-# Scoop bucket publishing
-scoops:
-  - name: bt
-    repository:
-      owner: seanmartinsmith
-      name: scoop-bucket
-      branch: main
-      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    homepage: https://github.com/seanmartinsmith/beadstui
-    description: "Graph-aware task management TUI for beads projects"
-    license: MIT
+# Homebrew tap + Scoop bucket publishing intentionally omitted for pre-v1
+# releases. Channels will reopen once bt hits the subjective v1 bar
+# (dogfood-clean TUI, feature-complete). Re-enable checklist:
+#   1. Create seanmartinsmith/homebrew-tap and seanmartinsmith/scoop-bucket repos
+#   2. Add HOMEBREW_TAP_GITHUB_TOKEN repo secret with write scope to both
+#   3. Restore brews: and scoops: blocks (see git history pre-bt-brid close
+#      for the last working config, and migrate brews -> homebrew_casks per
+#      goreleaser v2 direction)
+#   4. Restore HOMEBREW_TAP_GITHUB_TOKEN env in .github/workflows/release.yml
+# Tracked by bt-brid (decision) and the re-enable follow-up bead.

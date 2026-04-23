@@ -164,19 +164,22 @@ Full list: `bd list --status=open` (50 items)
 This is the end goal - making bt interactive, not just a viewer. CWD tracking for multi-project writes designed as part of bt-s4b7 project navigation work.
 
 ### Stream 9: Release engineering (added 2026-04-22)
-**Status**: Pipeline wired, pre-tag gates open
+**Status**: DONE — pre-tag gates cleared, binaries-only release path ready (2026-04-23)
 **Priority**: P2-P3
-**Beads**: bt-bntv, bt-4f7g, bt-lz7d, bt-brid
-**Foundation**: `.goreleaser.yaml`, `.github/workflows/release.yml`, smoke-test findings in 2026-04-22 CHANGELOG entry
+**Beads**: bt-ncu7, bt-brid, bt-bntv, bt-lz7d, bt-4f7g (all closed); bt-zgzq (P4, deferred re-enable)
+**Foundation**: `.goreleaser.yaml`, `.github/workflows/release.yml`, smoke-test findings in 2026-04-22 + 2026-04-23 CHANGELOG entries
 
-Goreleaser pipeline inherited from Jeffrey's era. Verified via `goreleaser release --snapshot --clean` (v2.15.4) on 2026-04-22 — cross-compile works (linux/darwin/windows × amd64/arm64, 5 binaries), archives + checksums + brew formula + scoop manifest generated. Real tag push (`git push origin v*`) triggers GitHub Release + brew/scoop publish via `.github/workflows/release.yml`.
+Goreleaser pipeline inherited from Jeffrey's era. Verified via `goreleaser release --snapshot --clean` (v2.15.4) on 2026-04-22 — cross-compile works (linux/darwin/windows × amd64/arm64, 5 binaries), archives + checksums generated. Brew/scoop publishing explicitly stripped for pre-v1 releases (see bt-brid decision); tracked for restoration via bt-zgzq once bt hits the subjective v1 bar (dogfood-clean TUI, feature-complete to maintainer's standard).
 
-Pre-tag gates (must resolve before any real `v*` tag push):
+Pre-tag gates (all cleared 2026-04-23):
 
-- [ ] **bt-bntv** (P2, bug): brew formula `test:` stanza calls `bt --version` which isn't a flag; `bt` uses `bt version` subcommand. Would fail `brew test` on formula validation.
-- [ ] **bt-4f7g** (P3, bug): `bt version` prints double-v (`vv0.0.0-next`) under snapshot mode. Cosmetic but fragile ldflags template.
-- [ ] **bt-lz7d** (P2, task): `.goreleaser.yaml` is v1-format; v2.15.4 flags three deprecations. Snapshot still succeeds but workflow pins `version: latest`.
-- [ ] **bt-brid** (P2, decision): verify `seanmartinsmith/homebrew-tap` and `seanmartinsmith/scoop-bucket` repos + `HOMEBREW_TAP_GITHUB_TOKEN` secret, OR strip brew/scoop config for v0.1 and defer.
+- [x] **bt-ncu7** (P3, task): `net.JoinHostPort` swap for IPv6-safe address formatting — `go vet ./...` baseline clean.
+- [x] **bt-brid** (P2, decision): Option 2 chosen — strip brew/scoop for v0.1, re-enable via bt-zgzq post-v1. Removed `brews:` + `scoops:` blocks and `HOMEBREW_TAP_GITHUB_TOKEN` env.
+- [x] **bt-bntv** (P2, bug): closed as not-applicable — the brew formula test stanza disappeared when `brews:` was stripped. Fix re-applies via bt-zgzq step 7.
+- [x] **bt-lz7d** (P2, task): `.goreleaser.yaml` migrated to v2 format (`version: 2`, `archives.formats`, `snapshot.version_template`). Workflow pinned to `~> v2.15`. `goreleaser check` exits clean.
+- [x] **bt-4f7g** (P3, bug): ldflags template switched from `v{{.Version}}` to `{{.Tag}}` — single-v output on both snapshot and real-tag builds.
+
+Real tag push (`git push origin v*`) now triggers GitHub Release with 5 cross-compiled archives + checksums only — no external package-manager publish. When v1 approaches, work through bt-zgzq to restore brew tap + scoop bucket channels.
 
 ### Stream 8: Cross-project features (added 2026-04-12)
 **Status**: Infrastructure shipped, features in progress
