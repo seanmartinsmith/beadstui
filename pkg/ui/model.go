@@ -459,6 +459,7 @@ type Model struct {
 	mode                     ViewMode // Active view mode (ViewList, ViewBoard, ViewGraph, etc.)
 	focused                  focus
 	focusBeforeHelp          focus // Stores focus before opening help overlay
+	focusBeforeSearch        focus // Stores focus before / entered search from a non-list pane (bt-cd3x)
 	isSplitView              bool
 	splitPaneRatio           float64 // Ratio of list pane width (0.2-0.8), default 0.4
 	showDetails              bool
@@ -788,6 +789,12 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 	l.SetShowPagination(false)
 	l.SetFilteringEnabled(true)
 	l.DisableQuitKeybindings()
+	// The Bubbles list ships a "Filter: " prompt; bt's affordance is a search
+	// bar (/), and the footer shows fuzzy/semantic/hybrid search modes — so the
+	// prompt text matches the user's mental model (bt-imcn).
+	l.FilterInput.Prompt = "Search: "
+	// Pre-empt the ranker with exact-ID matches across all search modes (bt-i4yn).
+	l.Filter = idPriorityFilter(list.DefaultFilter)
 	// Clear all default styles that might add extra lines
 	l.Styles.Title = lipgloss.NewStyle()
 	l.Styles.TitleBar = lipgloss.NewStyle()
@@ -1359,6 +1366,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		m.updateListDelegate()
+
+		// Restore prior focus after search cancel (bt-cd3x): if the user entered
+		// search via / from another pane and then escaped out to Unfiltered,
+		// bounce focus back to where they came from.
+		if m.focusBeforeSearch != focusList && m.list.FilterState() == list.Unfiltered {
+			m.focused = m.focusBeforeSearch
+			m.focusBeforeSearch = focusList
+			if m.isSplitView && m.focused == focusDetail {
+				m.updateViewportContent()
+			}
+		}
 	}
 
 	// Update viewport if list selection changed in split view

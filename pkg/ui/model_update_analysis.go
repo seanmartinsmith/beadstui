@@ -57,7 +57,7 @@ func (m Model) handleSemanticIndexReady(msg SemanticIndexReadyMsg) (Model, tea.C
 	m.semanticIndexBuilding = false
 	if msg.Error != nil {
 		m.semanticSearchEnabled = false
-		m.list.Filter = list.DefaultFilter
+		m.list.Filter = idPriorityFilter(list.DefaultFilter)
 		m.statusMsg = fmt.Sprintf("Semantic search unavailable: %v", msg.Error)
 		m.statusIsError = true
 		return m, nil, false

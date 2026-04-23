@@ -644,7 +644,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		m.semanticSearchEnabled = !m.semanticSearchEnabled
 		if m.semanticSearchEnabled {
 			if m.semanticSearch != nil {
-				m.list.Filter = m.semanticSearch.Filter
+				m.list.Filter = idPriorityFilter(m.semanticSearch.Filter)
 				if !m.semanticSearch.Snapshot().Ready && !m.semanticIndexBuilding {
 					m.semanticIndexBuilding = true
 					m.statusMsg = "Semantic search: building index…"
@@ -656,7 +656,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				}
 			} else {
 				m.semanticSearchEnabled = false
-				m.list.Filter = list.DefaultFilter
+				m.list.Filter = idPriorityFilter(list.DefaultFilter)
 				m.statusMsg = "Semantic search unavailable"
 				m.statusIsError = true
 			}
@@ -665,7 +665,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				cmds = append(cmds, BuildHybridMetricsCmd(m.issuesForAsync()))
 			}
 		} else {
-			m.list.Filter = list.DefaultFilter
+			m.list.Filter = idPriorityFilter(list.DefaultFilter)
 			m.statusMsg = "Fuzzy search enabled"
 			m.clearSemanticScores()
 		}
@@ -710,6 +710,22 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 		m = m.handleTimeTravelInputKeys(msg)
+		return m, nil
+	}
+
+	// Global / binding (bt-cd3x): in the split-view list layout, / from the
+	// details pane (or any non-list focus) bounces focus to the list and the
+	// router tail forwards / to the Bubbles list's Filter key. Remember prior
+	// focus so esc can restore it. Skipped when the list isn't visible.
+	if msg.String() == "/" &&
+		m.activeModal == ModalNone &&
+		m.mode == ViewList &&
+		m.isSplitView &&
+		m.list.FilterState() != list.Filtering &&
+		m.focused != focusList {
+		m.focusBeforeSearch = m.focused
+		m.focused = focusList
+		// Fall through: the router tail (Update) will forward msg to m.list.
 		return m, nil
 	}
 

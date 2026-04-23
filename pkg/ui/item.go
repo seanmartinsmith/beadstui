@@ -70,11 +70,14 @@ func (i IssueItem) Description() string {
 }
 
 func (i IssueItem) FilterValue() string {
-	// Enhanced filter value including labels, assignee, and repo prefix
+	// ID is emitted first so the id-priority filter wrapper can extract it
+	// as the first whitespace-separated token of the target string (bt-i4yn).
+	// Putting ID first also nudges fuzzy scoring for ID-shaped queries, since
+	// sahilm/fuzzy weights earlier matches higher.
 	var sb strings.Builder
-	sb.WriteString(i.Issue.Title)
-	sb.WriteString(" ")
 	sb.WriteString(i.Issue.ID)
+	sb.WriteString(" ")
+	sb.WriteString(i.Issue.Title)
 	sb.WriteString(" ")
 	sb.WriteString(string(i.Issue.Status))
 	sb.WriteString(" ")

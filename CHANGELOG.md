@@ -6,6 +6,39 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-23 - TUI dogfood cluster 1: search UX (bt-imcn, bt-031h, bt-cd3x, bt-i4yn)
+
+**Four closes on the search UX cluster surfaced during the 2026-04-23 dogfood session. Shared surface in `pkg/ui/` list/search wiring, ramping complexity from a one-line string rename to a filter-wrapper architecture. Ships together because each builds on the previous one's context.**
+
+### What shipped
+
+- **bt-imcn** (P3, bug) — Renamed the Bubbles list's `Filter: ` prompt to `Search: ` in `pkg/ui/model.go:NewModel` via `l.FilterInput.Prompt = "Search: "`, overriding the library default (bubbles v2 `list/list.go:217`). Matches the user's mental model: the affordance is a `/` search bar, the footer says "fuzzy/semantic/hybrid search" — the only remaining odd word out was the prompt itself. Other `Filter:` surfaces (label picker, project filter, `setStatus` filter messages, `history.go` active-filter pill) untouched — those are legitimate filter dimensions.
+
+- **bt-031h** (P2, bug) — Added a persistent search indicator that survives focus changes. Problem: Bubbles' internal `titleView` only renders `FilterInput` while `filterState == Filtering`; tabbing to the details pane commits the filter to `FilterApplied` and the input disappears from the list header, leaving the user without any visual signal that the list is still filtered. Fix: new `Model.renderSearchPill(width)` helper in `pkg/ui/model_view.go` that returns a styled `Search: <query>   <visible>/<total> matches` line only when `FilterApplied`. Prepended above the column header in both `renderListWithHeader` (single-pane) and `renderSplitView` (split view). Chose Option B from the bead (condensed pill on applied state) over Option A (always-rendered dimmed input) — keeps the live-editing ergonomics untouched.
+
+- **bt-cd3x** (P3, feature) — `/` now enters search from any pane in the split-view list layout, not just when focus is on the list. Problem: the outer router only forwards keys to `m.list.Update` when `m.focused == focusList`, so pressing `/` in the details pane did nothing. Fix: new `focusBeforeSearch focus` field on `Model` (zero value = `focusList` = sentinel for "no saved focus") and a tight intercept at the top of `handleKeyPress`: when `mode == ViewList`, `isSplitView`, no modal, list not already `Filtering`, and focus isn't the list — save prior focus, switch to `focusList`, return `(m, nil)`. The Update router tail then forwards `/` to the list, which enters `Filtering` with the (bt-imcn) `Search: ` prompt. Restore logic after the list's Update bounces focus back when `FilterState == Unfiltered` (user hit esc, or cleared an applied filter). In split view, focus restoring to details triggers `updateViewportContent` so the detail pane repaints the current selection. Scope guards: skipped when list isn't visible (non-split with `showDetails`), when any modal is open, and when the list is already in `Filtering` (so `/` remains a literal character inside the search input).
+
+- **bt-i4yn** (P2, bug) — Exact-ID matches now land at position 0 across fuzzy, semantic, and hybrid modes via a pre-empt bucket that sits ABOVE the ranker. Dogfood evidence: `cmg` query on the 104-issue dotfiles corpus put `dotfiles-3mm` at position 1 (its body references `dotfiles-cmg`) and buried `dotfiles-cmg` at ~position 13. Root cause: BM25 and semantic similarity treat IDs as ordinary text tokens; body mentions win over actual ID ownership. Fix: new `pkg/ui/id_bucket_filter.go` with `idPriorityFilter(inner list.FilterFunc) list.FilterFunc` wrapper that, for ID-shaped queries (lowercase alphanumeric + `-`/`.`, 2-24 chars, no whitespace), emits every ID-matching item as `list.Rank`s FIRST, sorted `exact > suffix-exact > substring`, then appends the inner ranker's remaining results deduplicated. Non-ID queries (e.g. `pagerank bottleneck`) fall through unchanged. `IssueItem.FilterValue()` reordered to emit `Issue.ID` as the first whitespace-separated token, which lets the wrapper extract the ID from the opaque `targets []string` without ambiguity, and incidentally nudges sahilm/fuzzy to score ID-bearing beads higher on short queries. All four `m.list.Filter = …` assignments wrapped: `pkg/ui/model.go` (initial), `pkg/ui/model_update_analysis.go:60` (semantic-unavailable fallback), and `pkg/ui/model_update_input.go:647/659/668` (ctrl+s semantic toggle branches). Seven tests in `pkg/ui/id_bucket_filter_test.go` lock acceptance criteria including cross-project ambiguous-suffix grouping.
+
+### Scope decisions
+
+- Deferred bt-ba9f, bt-yqh0, bt-d8d1, bt-ox4a per session-start scope guard: independent surfaces, separate session each. bt-i4yn explicitly unblocks bt-ox4a (default-search-mode decision) — with ID bypass in place, the default-mode choice reduces to "which ranker works best for TEXT queries" and decouples cleanly.
+- bt-cd3x scoped to split-view only. Non-split `showDetails` hides the list entirely; bouncing focus to a hidden list and showing a filter prompt would be confusing. Can relax later if dogfooding shows demand.
+- bt-031h's pill consumes one row inside the list pane. Outer `MaxHeight` will clip the `pageLine` when the pane is at minimum height and the pill is active — accepted tradeoff since query visibility > pagination while searching.
+
+### Verify
+
+- `go build ./...`, `go vet ./...` clean after each close
+- `go test ./pkg/ui/ ./pkg/search/ ./pkg/model/ ./pkg/analysis/` green (pkg/ui 22.5s including 7 new id_bucket tests)
+- `go install ./cmd/bt/` clean after each close
+- Pre-existing `tests/e2e` Windows path-length panic in `copyDirRecursive` unrelated (ADR-002 stream 3, P1, tracked separately)
+
+### Stream alignment
+
+All four beads slot into Stream 6 (Polish / dogfooding) per ADR-002. No open-decisions table entries touched — these were already-decided UX polish. Dogfood session 2026-04-23 continues; cluster 2 (bt-ba9f et al.) is a separate session.
+
+---
+
 ## 2026-04-23 - Stream 9 release-engineering gates cleared + vet baseline (bt-ncu7, bt-brid, bt-bntv, bt-lz7d, bt-4f7g)
 
 **Five closes on Stream 9, one re-enable deferral bead filed. Pre-tag gates cleared end-to-end; binaries-only release path ready for a real `v*` tag push.**

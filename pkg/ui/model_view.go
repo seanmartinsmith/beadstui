@@ -9,6 +9,7 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 
+	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
@@ -198,6 +199,43 @@ func (m Model) renderQuitConfirm() string {
 	)
 }
 
+// renderSearchPill returns a one-line "Search: <query>" indicator to prepend
+// above the list's column header when a filter is applied but not being edited
+// (bt-031h). Returns "" when no indicator is needed — during Filtering the
+// Bubbles list renders its own FilterInput in titleView, and during Unfiltered
+// nothing belongs there. Width is the row width to fill.
+func (m Model) renderSearchPill(width int) string {
+	if m.list.FilterState() != list.FilterApplied {
+		return ""
+	}
+	query := strings.TrimSpace(m.list.FilterInput.Value())
+	if query == "" {
+		return ""
+	}
+
+	t := m.theme
+
+	totalItems := len(m.list.Items())
+	visibleItems := len(m.list.VisibleItems())
+	count := fmt.Sprintf("  %d/%d matches  ", visibleItems, totalItems)
+
+	labelStyle := lipgloss.NewStyle().Foreground(t.Muted)
+	queryStyle := lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
+	countStyle := lipgloss.NewStyle().Foreground(t.Muted)
+
+	left := labelStyle.Render("  Search: ") + queryStyle.Render(query)
+	right := countStyle.Render(count)
+
+	leftWidth := lipgloss.Width(left)
+	rightWidth := lipgloss.Width(right)
+	gap := width - leftWidth - rightWidth
+	if gap < 1 {
+		gap = 1
+	}
+
+	return left + strings.Repeat(" ", gap) + right
+}
+
 func (m Model) renderListWithHeader() string {
 	t := m.theme
 
@@ -268,8 +306,15 @@ func (m Model) renderListWithHeader() string {
 	}
 
 	// Build content with explicit height constraint
-	// Header (1) + List + PageLine (1) must fit in bodyHeight
-	content := lipgloss.JoinVertical(lipgloss.Left, headerLine, listView, pageLine)
+	// Header (1) + List + PageLine (1) must fit in bodyHeight.
+	// When a search filter is applied (bt-031h) we prepend a pill showing the
+	// active query so it remains visible when focus moves to the list body.
+	parts := []string{headerLine}
+	if pill := m.renderSearchPill(m.width - 2); pill != "" {
+		parts = append([]string{pill}, parts...)
+	}
+	parts = append(parts, listView, pageLine)
+	content := lipgloss.JoinVertical(lipgloss.Left, parts...)
 
 	// Force exact height to prevent overflow
 	return lipgloss.NewStyle().
@@ -328,8 +373,14 @@ func (m Model) renderSplitView() string {
 
 	pageLine := pageStyle.Render(pageInfo)
 
-	// Combine header + list + page indicator
-	listContent := lipgloss.JoinVertical(lipgloss.Left, header, m.list.View(), pageLine)
+	// Combine header + list + page indicator. Search pill (bt-031h) persists
+	// the active filter indicator when the list loses input focus.
+	splitParts := []string{header}
+	if pill := m.renderSearchPill(listInnerWidth); pill != "" {
+		splitParts = append([]string{pill}, splitParts...)
+	}
+	splitParts = append(splitParts, m.list.View(), pageLine)
+	listContent := lipgloss.JoinVertical(lipgloss.Left, splitParts...)
 
 	// Titled panel dimensions: outer width includes the 2 border chars
 	listOuterWidth := listInnerWidth + 4 // content + padding + borders
