@@ -200,6 +200,10 @@ type semanticDebounceTickMsg struct{}
 // statusClearMsg is sent after a delay to auto-clear transient status messages.
 type statusClearMsg struct{ seq uint64 }
 
+// statusTickMsg is a recurring tick that forces auto-dismiss of idle status
+// messages even when the app is otherwise idle (bt-m9te, bt-y0k7).
+type statusTickMsg struct{}
+
 // workerPollTickMsg drives a small background-mode status refresh (spinner + freshness) (bv-9nfy).
 type workerPollTickMsg struct{}
 
@@ -528,10 +532,11 @@ type Model struct {
 	timeTravelInput textinput.Model
 
 	// Status message (for temporary feedback)
-	statusMsg     string
-	statusIsError bool
-	statusSeq     uint64    // incremented on each status set; used for auto-clear
-	statusSetAt   time.Time // when statusMsg was last set; used for auto-dismiss (bt-zdae)
+	statusMsg      string
+	statusIsError  bool
+	statusIsInline bool      // true = render subtly in footer hint slot; false = full-width banner (bt-y0k7)
+	statusSeq      uint64    // incremented on each status set; used for auto-clear
+	statusSetAt    time.Time // when statusMsg was last set; used for auto-dismiss (bt-zdae)
 
 	// Dolt connection state (bt-3ynd). Embedded to keep m.doltConnected access pattern.
 	DoltState
@@ -1218,6 +1223,7 @@ func (m Model) Init() tea.Cmd {
 	} else if m.data.watcher != nil {
 		cmds = append(cmds, WatchFileCmd(m.data.watcher))
 	}
+	cmds = append(cmds, statusTickCmd())
 	// Start loading history in background
 	if len(m.data.issues) > 0 {
 		cmds = append(cmds, LoadHistoryCmd(m.issuesForAsync(), m.data.beadsPath))
@@ -1254,6 +1260,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case statusClearMsg:
 		m = m.handleStatusClear(msg)
+
+	case statusTickMsg:
+		m, cmd = m.handleStatusTick(msg)
+		cmds = append(cmds, cmd)
 
 	case SemanticIndexReadyMsg:
 		var done bool
@@ -1329,6 +1339,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.MouseWheelMsg:
 		m, cmd = m.handleMouseWheel(msg)
+		cmds = append(cmds, cmd)
+
+	case tea.MouseClickMsg:
+		m, cmd = m.handleMouseClick(msg)
 		cmds = append(cmds, cmd)
 
 	case tea.WindowSizeMsg:

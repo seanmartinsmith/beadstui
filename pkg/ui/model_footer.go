@@ -15,9 +15,27 @@ import (
 )
 
 // setTransientStatus sets a status message that auto-clears after the given duration.
+// Renders as a full-width banner that replaces the footer (use for errors or important
+// user-initiated confirmations). Background notifications should use setInlineTransientStatus.
 func (m *Model) setTransientStatus(msg string, d time.Duration) tea.Cmd {
 	m.statusMsg = msg
 	m.statusIsError = false
+	m.statusIsInline = false
+	m.statusSetAt = time.Now()
+	m.statusSeq++
+	seq := m.statusSeq
+	return tea.Tick(d, func(time.Time) tea.Msg {
+		return statusClearMsg{seq: seq}
+	})
+}
+
+// setInlineTransientStatus sets a subtle status that renders in the footer hint slot
+// (not a full-width banner) and auto-clears after the given duration. Use for background
+// notifications that should not clobber key hints (bt-y0k7).
+func (m *Model) setInlineTransientStatus(msg string, d time.Duration) tea.Cmd {
+	m.statusMsg = msg
+	m.statusIsError = false
+	m.statusIsInline = true
 	m.statusSetAt = time.Now()
 	m.statusSeq++
 	seq := m.statusSeq
@@ -30,6 +48,7 @@ func (m *Model) setTransientStatus(msg string, d time.Duration) tea.Cmd {
 func (m *Model) setStatus(msg string) {
 	m.statusMsg = msg
 	m.statusIsError = false
+	m.statusIsInline = false
 	m.statusSetAt = time.Now()
 }
 
@@ -37,12 +56,24 @@ func (m *Model) setStatus(msg string) {
 func (m *Model) setStatusError(msg string) {
 	m.statusMsg = msg
 	m.statusIsError = true
+	m.statusIsInline = false
 	m.statusSetAt = time.Now()
 }
 
 // statusAutoDismissAge is how long non-transient status messages persist
-// before being auto-cleared during render (bt-zdae).
+// before being auto-cleared (bt-zdae).
 const statusAutoDismissAge = 5 * time.Second
+
+// statusTickInterval drives the recurring tick that forces idle auto-dismiss
+// of status messages (bt-m9te, bt-y0k7).
+const statusTickInterval = 1 * time.Second
+
+// statusTickCmd schedules the next idle auto-dismiss check.
+func statusTickCmd() tea.Cmd {
+	return tea.Tick(statusTickInterval, func(time.Time) tea.Msg {
+		return statusTickMsg{}
+	})
+}
 
 // ---------------------------------------------------------------------------
 // FooterData — value struct decoupling footer rendering from Model internals.
@@ -72,9 +103,12 @@ const (
 type FooterData struct {
 	Width int
 
-	// Status bar — when StatusMsg is set, footer shows only this message.
-	StatusMsg   string
-	StatusIsErr bool
+	// Status bar — when StatusMsg is set, footer shows only this message
+	// (full-width banner) unless StatusIsInline is true, in which case it
+	// renders subtly in the hint slot (bt-y0k7).
+	StatusMsg      string
+	StatusIsErr    bool
+	StatusIsInline bool
 
 	// Filter badge
 	FilterText string
@@ -151,23 +185,16 @@ type FooterData struct {
 }
 
 // footerData extracts all data needed for footer rendering from the Model.
-// This is a pointer receiver because it performs auto-dismiss as a side effect.
+// Auto-dismiss of idle status messages runs on the statusTick path, not here,
+// so this method can be safely called as a pure read.
 func (m *Model) footerData() FooterData {
-	// Auto-dismiss stale status messages (bt-zdae).
-	if m.statusMsg != "" && !m.statusIsError {
-		if m.statusSetAt.IsZero() {
-			m.statusSetAt = time.Now()
-		} else if time.Since(m.statusSetAt) > statusAutoDismissAge {
-			m.statusMsg = ""
-		}
-	}
-
 	fd := FooterData{
-		Width:       m.width,
-		StatusMsg:   m.statusMsg,
-		StatusIsErr: m.statusIsError,
-		ShowWisps:   m.showWisps,
-		TotalItems:  len(m.list.Items()),
+		Width:          m.width,
+		StatusMsg:      m.statusMsg,
+		StatusIsErr:    m.statusIsError,
+		StatusIsInline: m.statusIsInline,
+		ShowWisps:      m.showWisps,
+		TotalItems:     len(m.list.Items()),
 	}
 
 	// Filter badge
@@ -519,9 +546,17 @@ func (m *Model) extractKeyHints() []string {
 
 // Render produces the footer string from pre-computed FooterData.
 func (fd FooterData) Render() string {
-	// If there's a status message, show it prominently — overrides the normal footer.
-	if fd.StatusMsg != "" {
+	// Full-width banner: reserved for errors or explicit user-initiated confirmations.
+	// Inline status renders subtly (bt-y0k7) — handled below by overriding HintText.
+	if fd.StatusMsg != "" && !fd.StatusIsInline {
 		return fd.renderStatusBar()
+	}
+	if fd.StatusMsg != "" && fd.StatusIsInline {
+		prefix := "✓ "
+		if fd.StatusIsErr {
+			prefix = "✗ "
+		}
+		fd.HintText = prefix + fd.StatusMsg
 	}
 
 	// Filter badge
@@ -532,13 +567,15 @@ func (fd FooterData) Render() string {
 		Padding(0, 1).
 		Render(fmt.Sprintf("%s %s", fd.FilterIcon, fd.FilterText))
 
-	// Project name badge
+	// Project name badge (bt-m9te: use a background so padding renders as visible
+	// separator cells, preventing the icon/name from smushing against adjacent badges).
 	projectBadge := ""
 	if fd.ProjectName != "" && !fd.WorkspaceMode {
 		projectBadge = lipgloss.NewStyle().
+			Background(ColorBgHighlight).
 			Foreground(ColorSecondary).
 			Padding(0, 1).
-			Render("~ " + fd.ProjectName)
+			Render(fd.ProjectName)
 	}
 
 	// Search mode badge
@@ -737,13 +774,63 @@ func (fd FooterData) Render() string {
 		}
 	}
 
-	// Assemble footer with proper spacing
+	// Width-aware compression (bt-m9te): assign each optional badge a priority
+	// tier (0 = always keep, 1/2/3 = drop progressively as width narrows). When
+	// total width exceeds available space, drop highest-tier badges first. This
+	// prevents line-wrapping at narrow widths.
+	type footerBadge struct {
+		content string
+		tier    int
+	}
+	// Tier 1 (drop first): least critical, rarely-changing info.
+	// Tier 2 (drop second): useful but secondary info.
+	// Tier 3 (drop third): contextual chrome that duplicates info in keysSection.
+	optional := map[string]*footerBadge{
+		"projectBadge":       {projectBadge, 3},
+		"searchBadge":        {searchBadge, 3},
+		"sortBadge":          {sortBadge, 3},
+		"wispBadge":          {wispBadge, 3},
+		"labelFilterSection": {labelFilterSection, 3},
+		"workspaceSection":   {workspaceSection, 2},
+		"repoFilterSection":  {repoFilterSection, 2},
+		"sessionSection":     {sessionSection, 2},
+		"updateSection":      {updateSection, 1},
+		"datasetSection":     {datasetSection, 1},
+		"watcherSection":     {watcherSection, 1},
+		"phase2Section":      {phase2Section, 1},
+		// Tier 0 (always keep): alerts, instance, worker status, stats.
+		"alertsSection":   {alertsSection, 0},
+		"instanceSection": {instanceSection, 0},
+		"workerSection":   {workerSection, 0},
+	}
+
+	measure := func() int {
+		w := lipgloss.Width(filterBadge) + lipgloss.Width(labelHint) + lipgloss.Width(statsSection)
+		for _, b := range optional {
+			if b.content != "" {
+				w += lipgloss.Width(b.content) + 1
+			}
+		}
+		w += lipgloss.Width(countBadge) + lipgloss.Width(keysSection) + 1
+		return w
+	}
+
+	for tier := 3; tier >= 1; tier-- {
+		if measure() <= fd.Width {
+			break
+		}
+		for _, b := range optional {
+			if b.tier == tier {
+				b.content = ""
+			}
+		}
+	}
+
+	// Recompute assembled widths after any drops.
 	leftWidth := lipgloss.Width(filterBadge) + lipgloss.Width(labelHint) + lipgloss.Width(statsSection)
-	for _, sec := range []string{projectBadge, phase2Section, watcherSection, workerSection,
-		searchBadge, sortBadge, wispBadge, labelFilterSection, alertsSection, instanceSection,
-		sessionSection, workspaceSection, repoFilterSection, updateSection, datasetSection} {
-		if sec != "" {
-			leftWidth += lipgloss.Width(sec) + 1
+	for _, b := range optional {
+		if b.content != "" {
+			leftWidth += lipgloss.Width(b.content) + 1
 		}
 	}
 	rightWidth := lipgloss.Width(countBadge) + lipgloss.Width(keysSection)
@@ -754,7 +841,7 @@ func (fd FooterData) Render() string {
 	}
 	filler := lipgloss.NewStyle().Width(remaining).Render("")
 
-	// Build the footer in display order
+	// Build the footer in display order (content may be empty after compression).
 	var parts []string
 	parts = append(parts, filterBadge)
 	addIf := func(s string) {
@@ -762,23 +849,23 @@ func (fd FooterData) Render() string {
 			parts = append(parts, s)
 		}
 	}
-	addIf(projectBadge)
-	addIf(searchBadge)
-	addIf(sortBadge)
-	addIf(wispBadge)
-	addIf(labelFilterSection)
+	addIf(optional["projectBadge"].content)
+	addIf(optional["searchBadge"].content)
+	addIf(optional["sortBadge"].content)
+	addIf(optional["wispBadge"].content)
+	addIf(optional["labelFilterSection"].content)
 	parts = append(parts, labelHint)
-	addIf(alertsSection)
-	addIf(instanceSection)
-	addIf(sessionSection)
-	addIf(workspaceSection)
-	addIf(repoFilterSection)
-	addIf(updateSection)
-	addIf(datasetSection)
+	addIf(optional["alertsSection"].content)
+	addIf(optional["instanceSection"].content)
+	addIf(optional["sessionSection"].content)
+	addIf(optional["workspaceSection"].content)
+	addIf(optional["repoFilterSection"].content)
+	addIf(optional["updateSection"].content)
+	addIf(optional["datasetSection"].content)
 	parts = append(parts, statsSection)
-	addIf(phase2Section)
-	addIf(watcherSection)
-	addIf(workerSection)
+	addIf(optional["phase2Section"].content)
+	addIf(optional["watcherSection"].content)
+	addIf(optional["workerSection"].content)
 	parts = append(parts, filler, countBadge, keysSection)
 
 	return lipgloss.JoinHorizontal(lipgloss.Bottom, parts...)

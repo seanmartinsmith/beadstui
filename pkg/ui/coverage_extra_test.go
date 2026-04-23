@@ -561,7 +561,7 @@ func TestDiffStatusAndExitTimeTravel(t *testing.T) {
 
 func TestRenderFooterStatusAndBadges(t *testing.T) {
 	m := NewModel(nil, nil, "", nil)
-	m.width = 80
+	m.width = 200 // wide enough to avoid width-based badge dropping (bt-m9te)
 
 	// status message branch
 	m.statusMsg = "Saved"
@@ -699,7 +699,7 @@ func TestView_LoadingScreen_TransitionsOnFirstSnapshotOrError(t *testing.T) {
 
 func TestRenderFooter_ShowsPhase2ProgressBadge(t *testing.T) {
 	m := NewModel(nil, nil, "", nil)
-	m.width = 80
+	m.width = 200 // wide enough to avoid width-based badge dropping (bt-m9te)
 	m.data.snapshot = &DataSnapshot{Phase2Ready: false}
 
 	out := m.renderFooter()
@@ -885,7 +885,7 @@ func TestRenderFooter_CombinedIndicators(t *testing.T) {
 	t.Cleanup(func() { w.Stop() })
 
 	m := NewModel(nil, nil, "", nil)
-	m.width = 160
+	m.width = 200 // wide enough to avoid width-based badge dropping (bt-m9te)
 	m.filter.currentFilter = "ready"
 	m.ac.countOpen, m.ac.countReady, m.ac.countBlocked, m.ac.countClosed = 1, 2, 3, 4
 	m.updateAvailable = true
@@ -1086,7 +1086,7 @@ func TestRenderFooterVariantsAndDiffStatus(t *testing.T) {
 		{ID: "2", Title: "Two", Status: model.StatusClosed},
 	}
 	m := NewModel(issues, nil, "", nil)
-	m.width = 120
+	m.width = 200 // wide enough to avoid width-based badge dropping (bt-m9te)
 	m.height = 20
 	m.ready = true
 

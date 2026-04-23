@@ -336,16 +336,16 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 	if firstSnapshot {
 		// For the initial background snapshot, avoid flashing "Reloaded" at startup.
 		if msg.Snapshot.LoadWarningCount > 0 {
-			cmds = append(cmds, m.setTransientStatus(
+			cmds = append(cmds, m.setInlineTransientStatus(
 				fmt.Sprintf("Loaded %d issues (%d warnings)", len(m.data.issues), msg.Snapshot.LoadWarningCount), 3*time.Second))
 		} else {
 			m.statusMsg = ""
 		}
 	} else if msg.Snapshot.LoadWarningCount > 0 {
-		cmds = append(cmds, m.setTransientStatus(
+		cmds = append(cmds, m.setInlineTransientStatus(
 			fmt.Sprintf("Reloaded %d issues (%d warnings)", len(m.data.issues), msg.Snapshot.LoadWarningCount), 3*time.Second))
 	} else {
-		cmds = append(cmds, m.setTransientStatus(
+		cmds = append(cmds, m.setInlineTransientStatus(
 			fmt.Sprintf("Reloaded %d issues", len(m.data.issues)), 3*time.Second))
 	}
 
@@ -398,7 +398,7 @@ func (m Model) handleDataSourceReload(msg DataSourceReloadMsg) (Model, tea.Cmd) 
 	// Filter state is preserved inside setListItems (bt-nzsy).
 	m.replaceIssues(msg.Issues)
 
-	cmds = append(cmds, m.setTransientStatus(
+	cmds = append(cmds, m.setInlineTransientStatus(
 		fmt.Sprintf("Reloaded %d issues", len(msg.Issues)), 3*time.Second))
 	cmds = append(cmds, WaitForPhase2Cmd(m.data.analysis))
 	return m, tea.Batch(cmds...)
@@ -877,6 +877,7 @@ func (m Model) handleFileChanged(msg FileChangedMsg) (Model, tea.Cmd) {
 		}
 	}
 	m.statusIsError = false
+	m.statusIsInline = true // background-initiated reload — don't clobber hints (bt-y0k7)
 	// Schedule auto-clear of the reload status message
 	m.statusSeq++
 	seq := m.statusSeq

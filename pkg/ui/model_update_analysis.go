@@ -47,8 +47,24 @@ func (m Model) handleStatusClear(msg statusClearMsg) Model {
 	if msg.seq == m.statusSeq {
 		m.statusMsg = ""
 		m.statusIsError = false
+		m.statusIsInline = false
 	}
 	return m
+}
+
+// handleStatusTick auto-dismisses stale non-error status messages and re-arms
+// the tick. Runs on a 1s cadence so idle sessions still clear expired status
+// (bt-m9te, bt-y0k7).
+func (m Model) handleStatusTick(_ statusTickMsg) (Model, tea.Cmd) {
+	if m.statusMsg != "" && !m.statusIsError {
+		if m.statusSetAt.IsZero() {
+			m.statusSetAt = time.Now()
+		} else if time.Since(m.statusSetAt) > statusAutoDismissAge {
+			m.statusMsg = ""
+			m.statusIsInline = false
+		}
+	}
+	return m, statusTickCmd()
 }
 
 // handleSemanticIndexReady processes the semantic index build completion.

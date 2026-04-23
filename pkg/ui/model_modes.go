@@ -41,9 +41,9 @@ func (m *Model) EnableWorkspaceMode(info WorkspaceInfo) {
 
 	if info.RepoCount > 0 {
 		if info.FailedCount > 0 {
-			m.workspaceSummary = fmt.Sprintf("%d/%d projects", info.RepoCount-info.FailedCount, info.RepoCount)
+			m.workspaceSummary = fmt.Sprintf("%d/%d", info.RepoCount-info.FailedCount, info.RepoCount)
 		} else {
-			m.workspaceSummary = fmt.Sprintf("%d projects", info.RepoCount)
+			m.workspaceSummary = fmt.Sprintf("%d", info.RepoCount)
 		}
 	}
 
