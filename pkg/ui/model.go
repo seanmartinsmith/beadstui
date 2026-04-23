@@ -22,6 +22,7 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/recipe"
 	"github.com/seanmartinsmith/beadstui/pkg/search"
+	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
 	"github.com/seanmartinsmith/beadstui/pkg/updater"
 	"github.com/seanmartinsmith/beadstui/pkg/watcher"
 
@@ -538,6 +539,12 @@ type Model struct {
 	statusSeq      uint64    // incremented on each status set; used for auto-clear
 	statusSetAt    time.Time // when statusMsg was last set; used for auto-dismiss (bt-zdae)
 
+	// Activity event ring buffer (bt-d5wr). Populated by handleSnapshotReady
+	// via events.Diff; consumed by the footer ticker + count badge and the
+	// notification center modal (both implemented in later beads). Session-
+	// scoped; not persisted across bt restarts.
+	events *events.RingBuffer
+
 	// Dolt connection state (bt-3ynd). Embedded to keep m.doltConnected access pattern.
 	DoltState
 
@@ -1053,6 +1060,7 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		semanticHybridReady:    false,
 		lastSearchTerm:         "",
 		focused:                focusList,
+		events:                 events.NewRingBuffer(events.DefaultCapacity),
 		splitPaneRatio:         0.4, // Default: list pane gets 40% of width
 		// Initialize as ready with default dimensions to eliminate "Initializing..." phase
 		ready:               true,
