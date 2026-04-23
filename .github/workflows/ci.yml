@@ -15,7 +15,10 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v6
       with:
-        go-version: '1.25.5'
+        # Track the 1.25 minor line; setup-go resolves to latest patch.
+        # Pinning a specific patch drifted behind go.mod (was 1.25.5; go.mod
+        # requires 1.25.8) and broke CI. Minor-line pin prevents that drift.
+        go-version: '1.25'
         
     - name: Build
       run: go build -v ./cmd/bt
