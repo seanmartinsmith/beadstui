@@ -86,3 +86,6 @@ security-audit-results.tsv
 
 # Claude Code runtime artifacts
 .claude/scheduled_tasks.lock
+
+# Superpowers brainstorming mockups (visual companion session files)
+.superpowers/
