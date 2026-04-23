@@ -6,6 +6,36 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-23 - Footer cluster + mouse integration (bt-y0k7, bt-m9te, bt-d8d1)
+
+**Two work streams closed in one session: footer consolidation (status clobber fix + 4 dogfood polish items) and click-to-focus mouse handling. All from the 2026-04-23 session plan `declarative-seeking-manatee.md`.**
+
+### What shipped
+
+- **bt-y0k7** (P2, bug) — Background-initiated reloads (Dolt poll, file-watcher reload, DataSourceReload) no longer clobber footer key hints. Added `statusIsInline bool` to `Model` and a new `setInlineTransientStatus` helper. `FooterData.Render()` now distinguishes banner mode (errors, user-initiated) from inline mode (overrides `HintText` with a prefixed status string; all other badges/hints remain visible). `handleSnapshotReady`, `handleDataSourceReload`, and the sync file-watcher reload path all route through inline. Full-screen "flash" on snapshot replacement is out of scope — that's a bubbletea redraw concern.
+
+- **bt-m9te** (P2, feature) — Four footer polish deliverables from the 2026-04-23 dogfood compile: **(1)** Idle auto-dismiss via a new recurring `statusTickMsg` (1s cadence, scheduled in `Init`, re-armed in `handleStatusTick`). Moved the render-time dismiss out of `footerData()` — now idle sessions clear expired status without requiring a keypress. **(2)** Project badge smush — added `Background(ColorBgHighlight)` to `projectBadge` so its `Padding(0, 1)` cells render as a visible gutter; dropped the leading tilde since the background demarcates the badge on its own. **(3)** Workspace summary trimmed from `N projects` to `N` in `model_modes.go` — the `📦` icon carries the meaning. **(4)** Width-aware footer compression: replaced the flat assembly with a tiered priority system. Tier 0 (alerts, instance, worker, stats, filter, counts, hints) always keeps. Tier 1 (update, dataset, watcher, phase2) drops first. Tier 2 (workspace, repoFilter, session) drops second. Tier 3 (project, search, sort, wisp, labelFilter) drops third. Measured iteratively until footer fits; no line-wrapping at narrow widths. Test widths bumped from 80/120/160 to 200 for suites asserting presence of tier-1/2 badges.
+
+- **bt-d8d1** (P2, feature) — Mouse click-to-focus in split view's list/detail panes. New `handleMouseClick` in `model_update_input.go` wired into `Update()` via `tea.MouseClickMsg` dispatch. Left-click above the footer row, in `ViewList + isSplitView` — X coordinate compared to list pane boundary (`m.list.Width() + 4` for panel chrome). Left of boundary focuses list and maps Y to a row index (accounting for header + optional search pill offset). Right of boundary focuses detail and refreshes the viewport. Modals, right/middle clicks, non-list modes, single-pane views all pass-through. Wheel scroll was already implemented. Mouse mode is enabled per-view at `model_view.go:163` (`tea.View.MouseMode = tea.MouseModeCellMotion`), not via a program option — the plan's suggested `tea.WithMouseCellMotion()` does not exist in bubbletea v2.
+
+### Scope decisions
+
+- bt-spzz (smarter reload status) is now unblocked by bt-m9te but deferred to a later session.
+- bt-x47u (modal footer consistency) untouched — worth extracting the tier system into a shared module when bt-x47u is picked up.
+- Ctrl+click and drag-to-resize explicitly skipped per bt-d8d1 scope guards.
+
+### Verify
+
+- `go build ./...`, `go vet ./...` clean after each close
+- `go test ./pkg/ui/ -count=1` green (22.7s, new `TestHandleMouseClick_*` tests added)
+- `go install ./cmd/bt/` clean
+
+### Stream alignment
+
+Both streams slot into ADR-002 Stream 6 (Polish / dogfooding). No open-decisions table entries touched.
+
+---
+
 ## 2026-04-23 - TUI dogfood cluster 1: search UX (bt-imcn, bt-031h, bt-cd3x, bt-i4yn)
 
 **Four closes on the search UX cluster surfaced during the 2026-04-23 dogfood session. Shared surface in `pkg/ui/` list/search wiring, ramping complexity from a one-line string rename to a filter-wrapper architecture. Ships together because each builds on the previous one's context.**
