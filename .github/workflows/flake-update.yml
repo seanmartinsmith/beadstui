@@ -1,9 +1,13 @@
 name: Flake Update
 
+# Schedule disabled pending audit. See bt-72l8 (parent: Jeffrey-era leftovers
+# audit) for the decision bead — this workflow is inherited from the fork
+# point and needs evaluation against current project needs (is Nix actively
+# used? do auto-PRs get merged or rot?). Manual dispatch preserved for the
+# audit to exercise the workflow when that work is picked up.
 on:
-  schedule:
-    # Weekly on Sunday at 00:00 UTC
-    - cron: "0 0 * * 0"
+  # schedule:
+  #   - cron: "0 0 * * 0"
   workflow_dispatch:
 
 permissions:

@@ -1,9 +1,13 @@
 name: Nightly Fuzz Testing
 
+# Schedule disabled pending audit. See bt-72l8 (parent: Jeffrey-era leftovers
+# audit) for the decision bead — this workflow is inherited from the fork
+# point and needs evaluation against current project needs before we burn
+# ~2hr of GitHub Actions compute every night. Manual dispatch is preserved
+# so the audit can exercise the workflow when that work is picked up.
 on:
-  schedule:
-    # Run at 3 AM UTC every night
-    - cron: '0 3 * * *'
+  # schedule:
+  #   - cron: '0 3 * * *'
   workflow_dispatch:  # Allow manual triggering
     inputs:
       fuzz_time:
