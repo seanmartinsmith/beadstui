@@ -1254,6 +1254,63 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+// handleMouseClick processes mouse button press events. Currently scoped to
+// split-view pane focus switching and list-row selection (bt-d8d1). Modals
+// and single-pane views are pass-through to preserve existing behavior.
+func (m Model) handleMouseClick(msg tea.MouseClickMsg) (Model, tea.Cmd) {
+	if m.activeModal != ModalNone {
+		return m, nil
+	}
+	mouse := msg.Mouse()
+	if mouse.Button != tea.MouseLeft {
+		return m, nil
+	}
+	// Footer row is the last line — ignore clicks there.
+	if mouse.Y >= m.height-1 {
+		return m, nil
+	}
+	// Only the default list mode uses click-to-focus on list/detail. Other
+	// view modes (insights, board, graph, etc.) keep keyboard-only navigation.
+	if m.mode != ViewList {
+		return m, nil
+	}
+	if !m.isSplitView {
+		return m, nil
+	}
+	// Split-view layout: listInnerWidth on the left, detail on the right.
+	// The panel has Border(2)+Padding(2) = 4-cell outer chrome per side. The
+	// left boundary of the detail pane is roughly listInnerWidth + 4.
+	listBoundary := m.list.Width() + 4
+	switch {
+	case mouse.X < listBoundary:
+		if m.focused != focusList {
+			m.focused = focusList
+		}
+		// Map the click Y to a list row: header(1) + optional search pill(1) +
+		// selected row. Top of list content starts at Y=1 (no pill) or Y=2 (pill).
+		rowOffset := 1
+		if pill := m.renderSearchPill(m.list.Width()); pill != "" {
+			rowOffset = 2
+		}
+		if mouse.Y >= rowOffset {
+			row := mouse.Y - rowOffset + m.list.Paginator.Page*m.list.Paginator.PerPage
+			items := m.list.Items()
+			if row >= 0 && row < len(items) {
+				m.list.Select(row)
+				if m.isSplitView {
+					m.updateViewportContent()
+				}
+			}
+		}
+	default:
+		if m.focused != focusDetail {
+			m.focused = focusDetail
+			m.updateViewportContent()
+		}
+	}
+	return m, nil
+}
+
 // handleMouseWheel processes mouse wheel events.
 func (m Model) handleMouseWheel(msg tea.MouseWheelMsg) (Model, tea.Cmd) {
 	// Intercept mouse wheel when alerts panel is open

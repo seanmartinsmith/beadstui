@@ -753,6 +753,8 @@ func runTUIProgram(m ui.Model) error {
 		m,
 		tea.WithoutSignalHandler(),
 	)
+	// Mouse input is enabled per-view via tea.View.MouseMode = tea.MouseModeCellMotion
+	// (see pkg/ui/model_view.go). bt-d8d1 wires MouseClickMsg into Update.
 
 	runDone := make(chan struct{})
 	defer close(runDone)
