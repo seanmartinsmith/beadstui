@@ -85,7 +85,7 @@ type Event struct {
 
 Field-change detection compares each field individually. When ≤3 fields changed, `Summary` lists them as `+ priority, + label, + title`. When >3 changed, `Summary` is the aggregate `+ N fields`.
 
-**Actor resolution**: use the bead's `assignee` if populated, else `last_updated_by` if the schema exposes it, else `""`. Actor is informational in v1 — it renders in the modal row when non-empty but does not participate in filtering.
+**Actor resolution**: use the bead's `assignee` field if populated, else `""`. Actor is informational in v1 — it renders in the modal row when non-empty but does not participate in filtering. Future work can add actor filtering once an attribution model exists (e.g., CASS session identity).
 
 **Retention**: in-memory ring buffer, session-scoped, capacity 500 events. On capacity, oldest event evicted. Not persisted across bt restarts. Future work: optional Dolt-backed persistence.
 
@@ -96,7 +96,7 @@ Field-change detection compares each field individually. When ≤3 fields change
 - **Storage**: every detected change is an independent `Event`. Three quick edits to `bt-1u3` create three records.
 - **Modal**: renders the raw list verbatim. Full granularity because the modal is an intentional inspection surface.
 - **Ticker**: applies `collapseForTicker(events, 30s)` — same `BeadID` + same `Kind` within a 30s window fold into the most recent event with an aggregated `Summary` (e.g., `+ 3 fields`). Dismissing from the ticker dismisses the entire group.
-- **Count badge**: reflects raw event count, matching what the modal will display. No "opening the modal reveals more than the badge suggested" surprise.
+- **Count badge**: reflects non-dismissed raw event count — the number of unread events the modal will display in its default (unfiltered) view. Dismissed events stay in the ring buffer for debugging but do not count toward the badge.
 
 ### 2. Notification center modal
 
@@ -158,7 +158,7 @@ Footer has three visual states: idle, ticker-active, idle-with-pending.
  ALL   bt   ○1 ◉2 ◈3 ●4            35          ⏎ details   t diff   S triage   ?
 ```
 
-Key hints render as `<bold-key> <dim-action>` pairs separated by two spaces. No chrome background on hints, no `│` separators. Identity anchored by filter badge.
+Key hints render as `<bold-key> <dim-action>` pairs separated by two spaces. No chrome background on hints, no `│` separators. The filter badge remains the footer's dominant visual element.
 
 **Ticker-active** (event within last 3s):
 
@@ -182,7 +182,7 @@ The `↻` pulse replaces the current `Reloaded N issues` persistent status. That
 
 **Tier integration**:
 - Count badge `🔔 N`: **tier 0** (always visible when N > 0; hidden when N = 0).
-- Ticker slot: ephemeral, does not participate in tier compression (overlays tier-0 hints; already truncates internally).
+- Ticker slot: ephemeral, does not participate in tier compression (overlays tier-0 hints). The ticker renderer truncates the bead title before it truncates the kind glyph — this is new truncation logic the implementation will add, not inherited from the existing inline-status path.
 - Refresh pulse: ephemeral, does not participate in tier compression.
 
 **Footer element trims** (cumulative with what already landed today in bt-m9te):
@@ -204,7 +204,6 @@ Reuse existing color tokens. No new palette.
 | `ColorInfo`           | `[new]` kind tag, sessions badge, phase2 hint                          |
 | `ColorWarning`        | `[comm]` kind tag, worker warning state, blocked stats glyph           |
 | `ColorMuted`          | timestamps, key hints (dim half), `↻` pulse, `[done]` kind, closed stats |
-| `ColorSubtext`        | deprecated role; migrated to `ColorMuted` where used in footer hints   |
 | `ColorText`           | bead IDs in ticker/modal, bold half of key hints, default row text     |
 
 **Typography pass** (selective direction-B adoption):
@@ -219,7 +218,7 @@ Reuse existing color tokens. No new palette.
 | Primitive                   | Used by                                                                       |
 |-----------------------------|-------------------------------------------------------------------------------|
 | background-badge            | filter, stats quad, alerts, notification count, worker (warn/crit), dataset, phase2 |
-| foreground-badge (no bg)    | project, search, sort, wisp, update                                           |
+| foreground-badge (no bg)    | search, sort, wisp, update                                                    |
 | muted-text                  | timestamps, watcher, workspace summary, refresh pulse                         |
 | bold-key                    | key hint keys                                                                 |
 | dim-action                  | key hint actions                                                              |
@@ -243,6 +242,14 @@ All follow-on work tracked under the bt-d5wr design umbrella. Concrete bead IDs 
 
 **Deferred:**
 - **bt-yi2t** — theme system + settings UI, future session.
+
+## Edge cases
+
+- **Single-project mode (no `--global`):** all events belong to one repo. The `r` repo filter is hidden in the filter row; grouping `by repo` is a no-op (renders identically to `flat`). No other behavioral change.
+- **Dolt disconnection or backoff:** events emit only when `handleSnapshotReady` fires. During backoff (worker badge shows warning), no events are produced and no state is inferred. The footer's worker badge already surfaces connection state — sufficient signal. When connection recovers, the next snapshot's diff captures everything that changed during the outage (bounded by ring capacity).
+- **Time-travel mode (`t` key showing HEAD~N diff):** events are not emitted while `m.timeTravelMode == true`. Time-travel swaps the active snapshot to a historical one — diffing that against the "prior" snapshot would produce spurious events. When the user exits time-travel, normal emission resumes on the next real poll.
+- **Bulk-event floods (e.g., `bd rename-prefix`, bulk import):** when a diff produces >100 events at once, the notification center becomes noise. Implementation caps per-diff emission at 100; if more changes are detected, a single synthetic bulk row is emitted with `Summary: "N beads changed (bulk operation)"` and the individual events are skipped. Ring capacity stays at 500. Prevents one migration from flushing all useful history out of the ring.
+- **Modal accent vs filter badge both teal:** both use `ColorPrimary`. Implementation should verify visual distinction (modal uses bold teal border + title while the filter badge uses teal as background) and adjust if they conflict in practice.
 
 ## Risk
 
