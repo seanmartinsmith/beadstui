@@ -40,6 +40,68 @@ const (
 	AlertPotentialDuplicate AlertType = "potential_duplicate"
 )
 
+// allAlertTypes is the canonical ordered list of every alert type the
+// detector can emit. AllAlertTypes returns a copy; AlertTypeDefinition
+// reads from alertTypeDefinitions keyed by these values.
+var allAlertTypes = []AlertType{
+	AlertDependencyLoop,
+	AlertCentralityChange,
+	AlertCouplingGrowth,
+	AlertIssueCountChange,
+	AlertDependencyChange,
+	AlertBlockedIncrease,
+	AlertActionableChange,
+	AlertStale,
+	AlertVelocityDrop,
+	AlertHighLeverage,
+	AlertHighImpactUnblock,
+	AlertAbandonedClaim,
+	AlertPotentialDuplicate,
+}
+
+// alertTypeDefinitions is the single source of truth for human-readable
+// descriptions of every alert type. Plain user-facing English, not graph
+// theory. Consumed by the TUI alert modal, the CLI --describe-types
+// emitter, and any future surface that renders alert metadata.
+//
+// Keep one entry per AlertType in allAlertTypes; the AllAlertTypes test
+// guards that invariant.
+var alertTypeDefinitions = map[AlertType]string{
+	AlertDependencyLoop:     "Two or more issues block each other in a cycle, so none of them can move forward.",
+	AlertCentralityChange:   "An issue's importance in the dependency graph shifted notably — what was central isn't anymore (or vice versa).",
+	AlertCouplingGrowth:     "The project got more tangled — issues depend on each other more densely than at the baseline.",
+	AlertIssueCountChange:   "The total number of issues changed materially since the baseline snapshot.",
+	AlertDependencyChange:   "The number of dependency edges changed materially since the baseline snapshot.",
+	AlertBlockedIncrease:    "More issues are blocked now than at the baseline — work is piling up behind dependencies.",
+	AlertActionableChange:   "The pool of ready-to-work issues shrank or grew significantly.",
+	AlertStale:              "An open issue has gone without activity past the staleness window for its priority.",
+	AlertVelocityDrop:       "Issues are being closed more slowly than during the baseline window.",
+	AlertHighLeverage:       "Closing this issue would unblock several downstream items — high impact for the effort.",
+	AlertHighImpactUnblock:  "An issue with heavy downstream weight just became unblocked — prioritize it now.",
+	AlertAbandonedClaim:     "An issue has been claimed (in_progress) but had no activity for too long — the claim may be abandoned.",
+	AlertPotentialDuplicate: "Two open issues look similar enough that they may be duplicates — review before working both.",
+}
+
+// AllAlertTypes returns the canonical list of every AlertType the detector
+// can emit, in stable order. Callers receive a fresh slice and may mutate
+// it freely.
+func AllAlertTypes() []AlertType {
+	out := make([]AlertType, len(allAlertTypes))
+	copy(out, allAlertTypes)
+	return out
+}
+
+// AlertTypeDefinition returns a plain-English, user-facing description of
+// what the given alert type means. Returns the raw type string when no
+// definition is registered, so unknown types degrade gracefully rather
+// than rendering blank.
+func AlertTypeDefinition(t AlertType) string {
+	if def, ok := alertTypeDefinitions[t]; ok {
+		return def
+	}
+	return string(t)
+}
+
 // Alert represents a single drift detection alert
 type Alert struct {
 	Type        AlertType `json:"type"`

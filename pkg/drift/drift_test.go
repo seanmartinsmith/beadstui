@@ -1494,3 +1494,32 @@ func TestLabelOverridesValidation(t *testing.T) {
 		t.Error("negative days should fail validation")
 	}
 }
+
+func TestAllAlertTypesHaveDefinitions(t *testing.T) {
+	types := AllAlertTypes()
+	if len(types) == 0 {
+		t.Fatal("AllAlertTypes returned empty slice")
+	}
+	seen := map[AlertType]bool{}
+	for _, at := range types {
+		if seen[at] {
+			t.Errorf("AllAlertTypes contains duplicate: %s", at)
+		}
+		seen[at] = true
+		def := AlertTypeDefinition(at)
+		if def == "" || def == string(at) {
+			t.Errorf("AlertType %s has no registered definition (got %q)", at, def)
+		}
+	}
+
+	// Mutating the returned slice must not affect subsequent calls.
+	types[0] = AlertType("mutated")
+	if AllAlertTypes()[0] == AlertType("mutated") {
+		t.Error("AllAlertTypes should return a defensive copy")
+	}
+
+	// Unknown types degrade to the raw string rather than blank.
+	if got := AlertTypeDefinition(AlertType("nonexistent_kind")); got != "nonexistent_kind" {
+		t.Errorf("AlertTypeDefinition(unknown) = %q, want fallback to type string", got)
+	}
+}

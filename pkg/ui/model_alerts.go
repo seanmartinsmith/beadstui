@@ -221,12 +221,14 @@ func (m Model) alertsPanelHeight() int {
 
 // alertsVisibleLines returns the number of alert items that fit in one page,
 // accounting for all panel chrome so the content never overflows.
-// Chrome: summary(1) + blank(1) + above+filter(1) + detail-reserve(1)
-//         + below+page(1) + blank(1) + footer(1) = 7 lines
+// Chrome: summary(1) + blank(1) + above+filter(1) + detail-reserve(2)
+//         + below+page(1) + blank(1) + footer(1) = 8 lines
+// detail-reserve is 2 because the selected row expands to show the alert-type
+// definition (always) and the issue title (when known) per bt-46p6.17.
 // Panel borders consume 2 of the outer height.
 func (m Model) alertsVisibleLines() int {
 	innerHeight := m.alertsPanelHeight() - 2 // subtract top/bottom border
-	lines := innerHeight - 7                 // subtract chrome
+	lines := innerHeight - 8                 // subtract chrome
 	if lines < 3 {
 		lines = 3
 	}
@@ -390,13 +392,17 @@ func (m Model) renderAlertsTab() string {
 			sb.WriteString(rendered)
 			sb.WriteString("\n")
 
-			// Detail for selected alert: issue title (1 line, truncated)
-			if selected && a.IssueID != "" {
-				if title, ok := issueTitles[a.IssueID]; ok && title != "" {
-					titleStyle := lipgloss.NewStyle().Foreground(t.Muted).Italic(true)
-					detailMaxWidth := innerWidth - 8
-					title = truncateRunesHelper(title, detailMaxWidth, "…")
-					styled := titleStyle.Render("    " + title)
+			// Detail for selected alert: definition (always) + issue title
+			// (when known). Definition surfaces what the alert type means
+			// in plain English (bt-46p6.17); title gives the impacted
+			// issue when applicable.
+			if selected {
+				detailStyle := lipgloss.NewStyle().Foreground(t.Muted).Italic(true)
+				detailMaxWidth := innerWidth - 8
+
+				if def := drift.AlertTypeDefinition(a.Type); def != "" {
+					def = truncateRunesHelper(def, detailMaxWidth, "…")
+					styled := detailStyle.Render("    " + def)
 					styledWidth := lipgloss.Width(styled)
 					dPad := (innerWidth - styledWidth) / 2
 					if dPad < 0 {
@@ -405,6 +411,21 @@ func (m Model) renderAlertsTab() string {
 					sb.WriteString(strings.Repeat(" ", dPad))
 					sb.WriteString(styled)
 					sb.WriteString("\n")
+				}
+
+				if a.IssueID != "" {
+					if title, ok := issueTitles[a.IssueID]; ok && title != "" {
+						title = truncateRunesHelper(title, detailMaxWidth, "…")
+						styled := detailStyle.Render("    " + title)
+						styledWidth := lipgloss.Width(styled)
+						dPad := (innerWidth - styledWidth) / 2
+						if dPad < 0 {
+							dPad = 0
+						}
+						sb.WriteString(strings.Repeat(" ", dPad))
+						sb.WriteString(styled)
+						sb.WriteString("\n")
+					}
 				}
 			}
 		}

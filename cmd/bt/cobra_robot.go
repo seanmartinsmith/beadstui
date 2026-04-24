@@ -272,6 +272,10 @@ var robotAlertsCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		if describe, _ := cmd.Flags().GetBool("describe-types"); describe {
+			rc.runDescribeAlertTypes()
+			return nil
+		}
 		severity, _ := cmd.Flags().GetString("severity")
 		alertType, _ := cmd.Flags().GetString("alert-type")
 		alertLabel, _ := cmd.Flags().GetString("alert-label")
@@ -1059,8 +1063,9 @@ func init() {
 
 	// alerts
 	robotAlertsCmd.Flags().String("severity", "", "Filter by severity (info|warning|critical)")
-	robotAlertsCmd.Flags().String("alert-type", "", "Filter by alert type (e.g., stale, high_leverage, dependency_loop)")
+	robotAlertsCmd.Flags().String("alert-type", "", alertTypeFilterHelp())
 	robotAlertsCmd.Flags().String("alert-label", "", "Filter by label match")
+	robotAlertsCmd.Flags().Bool("describe-types", false, "Emit the full alert-type taxonomy with plain-English definitions as JSON, then exit")
 	robotCmd.AddCommand(robotAlertsCmd)
 
 	// search

@@ -84,7 +84,7 @@ func generateRobotDocs(topic string) map[string]interface{} {
 		"robot-alerts": {
 			Flag: "--robot-alerts", Description: "Stale issues, blocking cascades, priority mismatches.",
 			KeyFields:   []string{"alerts", "severity", "affected_issues"},
-			Params:      []string{"--severity info|warning|critical", "--alert-type <type>", "--alert-label <label>"},
+			Params:      []string{"--severity info|warning|critical", "--alert-type <type>", "--alert-label <label>", "--describe-types"},
 			NeedsIssues: true,
 		},
 		"robot-suggest": {

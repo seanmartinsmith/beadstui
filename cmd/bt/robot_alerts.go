@@ -94,6 +94,56 @@ func (rc *robotCtx) runAlerts(alertSeverity, alertType, alertLabel string) {
 	os.Exit(0)
 }
 
+// runDescribeAlertTypes emits the full alert-type taxonomy with plain-English
+// definitions as JSON. Single source of truth lives in pkg/drift; this is the
+// CLI surface for bt-46p6.17. Schema is intentionally flat so jq filters
+// stay obvious (e.g. `bt --robot-alerts --describe-types | jq '.types[]'`).
+func (rc *robotCtx) runDescribeAlertTypes() {
+	type entry struct {
+		Type       string `json:"type"`
+		Definition string `json:"definition"`
+	}
+	types := drift.AllAlertTypes()
+	entries := make([]entry, 0, len(types))
+	for _, at := range types {
+		entries = append(entries, entry{
+			Type:       string(at),
+			Definition: drift.AlertTypeDefinition(at),
+		})
+	}
+	output := struct {
+		RobotEnvelope
+		Types      []entry  `json:"types"`
+		UsageHints []string `json:"usage_hints"`
+	}{
+		RobotEnvelope: NewRobotEnvelope(rc.dataHash),
+		Types:         entries,
+		UsageHints: []string{
+			"--alert-type=<type>                            # filter alerts by type",
+			"jq '.types[] | select(.type==\"stale\")'         # look up one definition",
+		},
+	}
+
+	encoder := rc.newEncoder()
+	if err := encoder.Encode(output); err != nil {
+		fmt.Fprintf(os.Stderr, "Error encoding alert-type definitions: %v\n", err)
+		os.Exit(1)
+	}
+	os.Exit(0)
+}
+
+// alertTypeFilterHelp builds the --alert-type help string by enumerating
+// every registered alert type with its short definition. Keeps cobra's help
+// in sync with pkg/drift without duplicating the strings here.
+func alertTypeFilterHelp() string {
+	var sb strings.Builder
+	sb.WriteString("Filter by alert type. Values:\n")
+	for _, at := range drift.AllAlertTypes() {
+		sb.WriteString(fmt.Sprintf("  %s — %s\n", string(at), drift.AlertTypeDefinition(at)))
+	}
+	return strings.TrimRight(sb.String(), "\n")
+}
+
 // baselineLoader returns a per-project baseline-section loader suitable for
 // drift.ProjectAlerts.
 //

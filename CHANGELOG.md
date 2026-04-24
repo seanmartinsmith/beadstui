@@ -6,6 +6,25 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-24 — Alert-type definitions surfaced in TUI + CLI (bt-46p6.17)
+
+**Closes the discoverability gap left by the bt-46p6.4 rename: every alert type now carries a plain-English definition, exposed across pkg/drift, the TUI alerts modal, and a new `bt robot alerts --describe-types` JSON emitter.**
+
+### What shipped
+
+- **bt-46p6.17** (P3, task) — Single source of truth for alert-type meanings.
+  - `pkg/drift/drift.go` — `AllAlertTypes()` returns the canonical 13-entry list (defensive copy); `AlertTypeDefinition(t)` looks up plain-English text from `alertTypeDefinitions` map and falls back to the raw type string for unknown values. Test `TestAllAlertTypesHaveDefinitions` guards the invariant that every registered type has a non-empty definition and that callers can't mutate the canonical slice.
+  - `pkg/ui/model_alerts.go` — Selected alert row now renders a definition line (italic muted, indented) above the existing issue-title line. `alertsVisibleLines()` chrome reserve bumped from 7 → 8 so the page stays stable when the focused row expands to two detail lines.
+  - `cmd/bt/robot_alerts.go` — `runDescribeAlertTypes()` emits `{generated_at, data_hash, types: [{type, definition}], usage_hints}` JSON; `alertTypeFilterHelp()` builds the `--alert-type` cobra help text dynamically from `drift.AllAlertTypes()` so help and code can't drift.
+  - `cmd/bt/cobra_robot.go` — New `--describe-types` boolean flag on `robot alerts`; takes precedence over filter flags and exits after emitting taxonomy.
+  - `cmd/bt/robot_help.go` + `cmd/bt/robot_graph.go` — Robot-help footer and the robot-graph command manifest both mention `--describe-types`.
+
+### Why this matters
+
+The bt-46p6.4 rename (`new_cycle → dependency_loop`, `pagerank_change → centrality_change`, etc.) gave alerts more honest names but didn't explain what each detector measures. Users saw `coupling_growth` in the modal with zero way to learn what it meant without reading source. This bead closes that loop by making definitions a first-class field that every consumer surface (TUI, CLI help, JSON output) reads from the same map.
+
+---
+
 ## 2026-04-24 — Alert taxonomy rename + Progress sort + scope design (bt-46p6.4, bt-46p6.11, bt-lm2h, bt-7l5m)
 
 **Locks the alert type taxonomy to user-facing names, retires the bt-46p6.11 coordination bead, ships a Progress sort mode for the list view, and records the Option C decision (bt-7l5m) that the parallel session (44b78454) executed as bt-46p6.8.**

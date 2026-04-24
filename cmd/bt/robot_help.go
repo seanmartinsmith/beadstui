@@ -307,6 +307,7 @@ func printRobotHelp() {
 	fmt.Println("      Outputs drift + proactive alerts as JSON (staleness, cascades, density, cycles).")
 	fmt.Println("      Filters: --severity=<info|warning|critical>, --alert-type=<type>, --alert-label=<label>")
 	fmt.Println("      Fields: type, severity, message, issue_id, label, detected_at, details[].")
+	fmt.Println("      --describe-types emits the full alert-type taxonomy with definitions, then exits.")
 	fmt.Println("")
 	fmt.Println("  --robot-graph [--graph-format=json|dot|mermaid] [--graph-root=ID] [--graph-depth=N]")
 	fmt.Println("      Outputs dependency graph in specified format (default: JSON adjacency).")
