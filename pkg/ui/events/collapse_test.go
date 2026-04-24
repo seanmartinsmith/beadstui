@@ -4,6 +4,8 @@ package events
 import (
 	"testing"
 	"time"
+
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 func mkEventAt(beadID string, kind EventKind, at time.Time) Event {
@@ -11,7 +13,7 @@ func mkEventAt(beadID string, kind EventKind, at time.Time) Event {
 		ID:     computeID(beadID, kind, at),
 		Kind:   kind,
 		BeadID: beadID,
-		Repo:   repoFromBeadID(beadID),
+		Repo:   model.ExtractRepoPrefix(beadID),
 		At:     at,
 		Source: SourceDolt,
 	}

@@ -6,6 +6,23 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-24 — Notifications filter sister-fix + RepoKey moved to pkg/model (bt-gydd)
+
+**Fixes the same key-derivation mismatch as bt-ci7b but in the notifications-tab filter site, and consolidates repo-key derivation into a single canonical helper at the `pkg/model` layer so future filter sites can't drift.**
+
+### What shipped
+
+- **bt-gydd** (P3, bug, sister to bt-ci7b) — `events.Event.Repo` was populated via `repoFromBeadID(issue.ID)` (raw lowercase-untouched ID prefix). The notifications filter at `pkg/ui/model_alerts.go:133-136` looked up `m.activeRepos[snap[i].Repo]`. For divergent repos (DB name `marketplace`, IDs `mkt-xxx`), the lookup always missed → notifications silently hidden.
+  - **Refactor**: moved `RepoKey(issue)` and `ExtractRepoPrefix(id)` into `pkg/model/repokey.go`. `pkg/ui`'s `IssueRepoKey` and `ExtractRepoPrefix` are now thin wrappers. `pkg/ui/events` can now use `model.RepoKey` directly without an import cycle.
+  - **Fix**: `newCreatedEvent`, `newClosedEvent`, `newCommentedEvent`, `newEditedEvent` all derive `Repo` via `model.RepoKey(issue)` — same key derivation as the `activeRepos` map. `repoFromBeadID` retired (no remaining callers; the test fixtures that synthesized fake events now call `model.ExtractRepoPrefix`).
+  - **Tests**: `TestVisibleNotifications_HonorsSourceRepo` exercises the marketplace ↔ mkt divergent case end-to-end through `Update(SnapshotReadyMsg)` → `events.Diff` → `visibleNotifications` (verified failing pre-fix with both assertions firing — Event.Repo was "mkt", visible count was 0). Existing `TestDiff_Created` still passes because synthetic test issues with no SourceRepo fall through to ID-prefix derivation, which matches the old behavior for repos whose DB name == ID prefix.
+
+### Why this matters
+
+ci7b's close note flagged this as the obvious sister bug. The right move was filing it and fixing it the same session, not deferring. Now both the issue list and the notifications tab honor the same key derivation, and the helper lives at the `pkg/model` layer so the next time a new filter site appears (alerts cross-project nav from .19, notifications v2 from .13) the canonical key is right there with no opportunity to silently re-introduce the same bug.
+
+---
+
 ## 2026-04-24 — Workspace filter no longer nukes the list on Dolt refresh (bt-ci7b)
 
 **Fixes the workspace-mode regression where filtering to a single project (where the workspace DB name differs from the bead-ID prefix, e.g. `marketplace` ↔ `mkt-xxx`) caused every Dolt refresh to drop the list to "No items." until the user toggled filters.**

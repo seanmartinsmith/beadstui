@@ -102,40 +102,17 @@ func (i IssueItem) FilterValue() string {
 	return sb.String()
 }
 
-// IssueRepoKey returns the normalized repo key for filtering.
-// Prefers issue.SourceRepo (authoritative, set by data loader) over parsing the ID.
-// This avoids mismatches where the database name differs from the ID prefix
-// (e.g. database "marketplace" but IDs like "mkt-xxx").
+// IssueRepoKey returns the normalized repo key for filtering. Thin
+// wrapper around model.RepoKey, kept here so pkg/ui callers don't need
+// to plumb a different import path. See pkg/model/repokey.go for the
+// canonical derivation logic and the rationale for SourceRepo-first
+// lookup (database name "marketplace" vs ID prefix "mkt-xxx").
 func IssueRepoKey(issue model.Issue) string {
-	if issue.SourceRepo != "" {
-		return strings.ToLower(strings.TrimRight(issue.SourceRepo, "-:_"))
-	}
-	return strings.ToLower(ExtractRepoPrefix(issue.ID))
+	return model.RepoKey(issue)
 }
 
-// ExtractRepoPrefix extracts the repository prefix from a namespaced issue ID.
-// For example, "api-AUTH-123" returns "api", "web-UI-1" returns "web".
-// If no prefix is detected (no separator), returns empty string.
+// ExtractRepoPrefix extracts the repository prefix from a namespaced
+// issue ID. Thin wrapper around model.ExtractRepoPrefix.
 func ExtractRepoPrefix(id string) string {
-	// Try common separators: -, :, _
-	for _, sep := range []string{"-", ":", "_"} {
-		if idx := strings.Index(id, sep); idx > 0 {
-			// Check if what's before the separator looks like a short prefix (<=10 chars)
-			prefix := id[:idx]
-			if len(prefix) <= 10 && isAlphanumeric(prefix) {
-				return prefix
-			}
-		}
-	}
-	return ""
-}
-
-// isAlphanumeric checks if a string contains only alphanumeric characters
-func isAlphanumeric(s string) bool {
-	for _, r := range s {
-		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9')) {
-			return false
-		}
-	}
-	return len(s) > 0
+	return model.ExtractRepoPrefix(id)
 }

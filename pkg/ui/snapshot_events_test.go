@@ -159,3 +159,43 @@ func TestHandleSnapshotReady_WorkspaceFilterAlsoRespectsIDPrefix(t *testing.T) {
 		t.Fatalf("ID-prefix-only filter should still match; got %d items", got)
 	}
 }
+
+// TestVisibleNotifications_HonorsSourceRepo guards bt-gydd: the
+// notifications-tab filter looks up activeRepos by Event.Repo. Pre-fix,
+// Event.Repo was ID-derived (mkt) while activeRepos was workspace DB
+// keyed (marketplace), so divergent-repo notifications were silently
+// hidden. Post-fix, Event.Repo is populated via model.RepoKey at diff
+// time so the keys align.
+func TestVisibleNotifications_HonorsSourceRepo(t *testing.T) {
+	prior := []model.Issue{{
+		ID: "mkt-foo", Title: "alpha", Status: model.StatusOpen,
+		SourceRepo: "marketplace",
+	}}
+	next := []model.Issue{{
+		ID: "mkt-foo", Title: "alpha edited", Status: model.StatusOpen,
+		SourceRepo: "marketplace",
+	}}
+
+	m := NewModel(prior, nil, "", nil)
+	m.workspaceMode = true
+	m.activeRepos = map[string]bool{"marketplace": true}
+	m.data.snapshot = mkSnapshot(prior)
+
+	modelAny, _ := m.Update(SnapshotReadyMsg{Snapshot: mkSnapshot(next)})
+	m2 := modelAny.(Model)
+
+	// One edit event should be in the ring buffer; with the workspace
+	// filter active and the bug fixed, it should be visible.
+	all := m2.events.Snapshot()
+	if len(all) != 1 {
+		t.Fatalf("expected 1 emitted event, got %d", len(all))
+	}
+	if all[0].Repo != "marketplace" {
+		t.Errorf("Event.Repo should match workspace key 'marketplace'; got %q", all[0].Repo)
+	}
+
+	visible := m2.visibleNotifications()
+	if len(visible) != 1 {
+		t.Errorf("workspace-filtered notifications should include the marketplace event; got %d visible", len(visible))
+	}
+}

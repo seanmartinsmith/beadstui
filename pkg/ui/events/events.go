@@ -87,14 +87,3 @@ func computeID(beadID string, kind EventKind, at time.Time) string {
 	fmt.Fprintf(h, "%s|%d|%d", beadID, kind, at.UnixNano())
 	return fmt.Sprintf("%08x", h.Sum32())
 }
-
-// repoFromBeadID returns the prefix portion of a bead ID (text before the
-// first dash). Returns the full ID unchanged if no dash is present.
-func repoFromBeadID(beadID string) string {
-	for i, r := range beadID {
-		if r == '-' {
-			return beadID[:i]
-		}
-	}
-	return beadID
-}

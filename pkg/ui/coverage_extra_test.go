@@ -50,9 +50,6 @@ func TestIssueItemBasicsAndPrefix(t *testing.T) {
 	if got := ExtractRepoPrefix("noprefix"); got != "" {
 		t.Fatalf("ExtractRepoPrefix expected empty, got %s", got)
 	}
-	if isAlphanumeric("abc123") == false || isAlphanumeric("nope-") {
-		t.Fatalf("isAlphanumeric behaviour unexpected")
-	}
 }
 
 func TestRecipePickerIndexesAndCounts(t *testing.T) {
