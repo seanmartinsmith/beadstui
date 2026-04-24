@@ -94,19 +94,14 @@ func (rc *robotCtx) runAlerts(alertSeverity, alertType, alertLabel string) {
 	os.Exit(0)
 }
 
-// baselineLoader returns a per-project baseline loader suitable for
+// baselineLoader returns a per-project baseline-section loader suitable for
 // drift.ProjectAlerts.
 //
-// Commit 1 of bt-46p6.8: baseline is still a single .bt/baseline.json. In
-// single-project mode, the loader returns that baseline for the one project
-// key. In --global mode, the loader returns nil for every project — we don't
-// yet know which project the snapshot was taken for, so applying it to every
-// project would fire false drift alerts. Commit 2 introduces per-project
-// baseline sections and lifts this restriction.
-func (rc *robotCtx) baselineLoader() func(project string) *baseline.Baseline {
-	if flagGlobal {
-		return func(string) *baseline.Baseline { return nil }
-	}
+// With schema v2 (bt-46p6.8 commit 2), the .bt/baseline.json file holds a
+// Projects map keyed by SourceRepo. The loader returns the stored section
+// for the requested project, or nil when the baseline has no entry for it
+// (new projects added after the snapshot was taken).
+func (rc *robotCtx) baselineLoader() func(project string) *baseline.ProjectSection {
 	path := baseline.DefaultPath(rc.projectDir)
 	if !baseline.Exists(path) {
 		return nil
@@ -118,5 +113,5 @@ func (rc *robotCtx) baselineLoader() func(project string) *baseline.Baseline {
 		}
 		return nil
 	}
-	return func(string) *baseline.Baseline { return loaded }
+	return loaded.Project
 }

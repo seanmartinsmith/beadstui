@@ -12,8 +12,9 @@ import (
 //
 // Partitions allIssues by SourceRepo (global=true) or collapses to a single
 // group keyed by fallbackProject (global=false). Runs one Calculator per
-// group on its own analyzer output, with its own baseline if loadBaseline
-// supplies one. Every returned Alert carries SourceProject = the project key.
+// group on its own analyzer output, with its own baseline section if
+// loadBaseline supplies one. Every returned Alert carries SourceProject =
+// the project key.
 //
 // The input should already be the globally-resolved issue set (external:
 // deps rewritten to canonical IDs). In single-project mode, the input is
@@ -38,7 +39,7 @@ func ProjectAlerts(
 	global bool,
 	fallbackProject string,
 	config *Config,
-	loadBaseline func(project string) *baseline.Baseline,
+	loadBaseline func(project string) *baseline.ProjectSection,
 ) []Alert {
 	if config == nil {
 		config = DefaultConfig()
@@ -64,7 +65,7 @@ func calculateProject(
 	project string,
 	issues []model.Issue,
 	config *Config,
-	loadBaseline func(project string) *baseline.Baseline,
+	loadBaseline func(project string) *baseline.ProjectSection,
 ) []Alert {
 	analyzer := analysis.NewAnalyzer(issues)
 	stats := analyzer.Analyze()
@@ -83,8 +84,8 @@ func calculateProject(
 		ActionableCount: len(analyzer.GetActionableIssues()),
 	}
 
-	bl := &baseline.Baseline{Stats: currentStats}
-	cur := &baseline.Baseline{Stats: currentStats, Cycles: cycles}
+	bl := &baseline.ProjectSection{Stats: currentStats}
+	cur := &baseline.ProjectSection{Stats: currentStats, Cycles: cycles}
 
 	if loadBaseline != nil {
 		if loaded := loadBaseline(project); loaded != nil {
@@ -107,6 +108,51 @@ func calculateProject(
 		result.Alerts[i].SourceProject = project
 	}
 	return result.Alerts
+}
+
+// SnapshotProjects produces a map of per-project ProjectSection filled with
+// current analysis output. Used by the save-baseline path to produce schema
+// v2 snapshots using the same partitioning + analyzer pipeline as alert
+// computation.
+//
+// Partitioning follows the same rules as ProjectAlerts: SourceRepo in global
+// mode; fallbackProject → uniform SourceRepo → "local" in single-project
+// mode.
+func SnapshotProjects(allIssues []model.Issue, global bool, fallbackProject string) map[string]*baseline.ProjectSection {
+	groups := groupByProject(allIssues, global, fallbackProject)
+	out := make(map[string]*baseline.ProjectSection, len(groups))
+	for project, projectIssues := range groups {
+		out[project] = snapshotSection(projectIssues)
+	}
+	return out
+}
+
+// snapshotSection computes a single project's ProjectSection from its issues.
+func snapshotSection(issues []model.Issue) *baseline.ProjectSection {
+	analyzer := analysis.NewAnalyzer(issues)
+	stats := analyzer.Analyze()
+	openCount, closedCount, blockedCount := countStatuses(issues)
+	cycles := stats.Cycles()
+	return &baseline.ProjectSection{
+		Stats: baseline.GraphStats{
+			NodeCount:       stats.NodeCount,
+			EdgeCount:       stats.EdgeCount,
+			Density:         stats.Density,
+			OpenCount:       openCount,
+			ClosedCount:     closedCount,
+			BlockedCount:    blockedCount,
+			CycleCount:      len(cycles),
+			ActionableCount: len(analyzer.GetActionableIssues()),
+		},
+		TopMetrics: baseline.TopMetrics{
+			PageRank:     topMetricItems(stats.PageRank(), 10),
+			Betweenness:  topMetricItems(stats.Betweenness(), 10),
+			CriticalPath: topMetricItems(stats.CriticalPathScore(), 10),
+			Hubs:         topMetricItems(stats.Hubs(), 10),
+			Authorities:  topMetricItems(stats.Authorities(), 10),
+		},
+		Cycles: cycles,
+	}
 }
 
 // groupByProject partitions issues by project key for scoped alert computation.

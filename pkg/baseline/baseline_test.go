@@ -1,6 +1,7 @@
 package baseline
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,72 +20,75 @@ func TestBaselineSaveLoad(t *testing.T) {
 		CommitMessage: "Test commit",
 		Branch:        "main",
 		Description:   "Test baseline",
-		Stats: GraphStats{
-			NodeCount:       100,
-			EdgeCount:       250,
-			Density:         0.025,
-			OpenCount:       50,
-			ClosedCount:     40,
-			BlockedCount:    10,
-			CycleCount:      2,
-			ActionableCount: 30,
-		},
-		TopMetrics: TopMetrics{
-			PageRank: []MetricItem{
-				{ID: "TASK-1", Value: 0.15},
-				{ID: "TASK-2", Value: 0.12},
+		Projects: map[string]*ProjectSection{
+			"bt": {
+				Stats: GraphStats{
+					NodeCount:       100,
+					EdgeCount:       250,
+					Density:         0.025,
+					OpenCount:       50,
+					ClosedCount:     40,
+					BlockedCount:    10,
+					CycleCount:      2,
+					ActionableCount: 30,
+				},
+				TopMetrics: TopMetrics{
+					PageRank: []MetricItem{
+						{ID: "bt-1", Value: 0.15},
+						{ID: "bt-2", Value: 0.12},
+					},
+					Betweenness: []MetricItem{
+						{ID: "bt-3", Value: 0.8},
+					},
+				},
+				Cycles: [][]string{
+					{"A", "B", "C", "A"},
+				},
 			},
-			Betweenness: []MetricItem{
-				{ID: "TASK-3", Value: 0.8},
+			"cass": {
+				Stats: GraphStats{NodeCount: 20, EdgeCount: 30},
 			},
-		},
-		Cycles: [][]string{
-			{"A", "B", "C", "A"},
 		},
 	}
 
-	// Save
 	if err := original.Save(path); err != nil {
 		t.Fatalf("Save failed: %v", err)
 	}
-
-	// Verify file exists
 	if !Exists(path) {
 		t.Error("baseline file should exist after save")
 	}
 
-	// Load
 	loaded, err := Load(path)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
 
-	// Compare
 	if loaded.Version != original.Version {
 		t.Errorf("version mismatch: got %d, want %d", loaded.Version, original.Version)
 	}
-
 	if loaded.CommitSHA != original.CommitSHA {
 		t.Errorf("commit SHA mismatch: got %s, want %s", loaded.CommitSHA, original.CommitSHA)
 	}
 
-	if loaded.Stats.NodeCount != original.Stats.NodeCount {
-		t.Errorf("node count mismatch: got %d, want %d",
-			loaded.Stats.NodeCount, original.Stats.NodeCount)
+	btSection := loaded.Project("bt")
+	if btSection == nil {
+		t.Fatal("loaded baseline missing 'bt' project section")
+	}
+	if btSection.Stats.NodeCount != 100 {
+		t.Errorf("bt node count: got %d, want 100", btSection.Stats.NodeCount)
+	}
+	if btSection.Stats.Density != 0.025 {
+		t.Errorf("bt density: got %f, want 0.025", btSection.Stats.Density)
+	}
+	if len(btSection.TopMetrics.PageRank) != 2 {
+		t.Errorf("bt pagerank count: got %d, want 2", len(btSection.TopMetrics.PageRank))
+	}
+	if len(btSection.Cycles) != 1 {
+		t.Errorf("bt cycles count: got %d, want 1", len(btSection.Cycles))
 	}
 
-	if loaded.Stats.Density != original.Stats.Density {
-		t.Errorf("density mismatch: got %f, want %f",
-			loaded.Stats.Density, original.Stats.Density)
-	}
-
-	if len(loaded.TopMetrics.PageRank) != len(original.TopMetrics.PageRank) {
-		t.Errorf("pagerank count mismatch: got %d, want %d",
-			len(loaded.TopMetrics.PageRank), len(original.TopMetrics.PageRank))
-	}
-
-	if len(loaded.Cycles) != 1 {
-		t.Errorf("cycles count mismatch: got %d, want 1", len(loaded.Cycles))
+	if loaded.Project("cass") == nil {
+		t.Error("cass section missing after round-trip")
 	}
 }
 
@@ -92,6 +96,33 @@ func TestLoadNonExistent(t *testing.T) {
 	_, err := Load("/nonexistent/path/baseline.json")
 	if err == nil {
 		t.Error("expected error for non-existent file")
+	}
+}
+
+func TestLoadRejectsOldSchema(t *testing.T) {
+	tmpDir := t.TempDir()
+	path := filepath.Join(tmpDir, "baseline.json")
+
+	// Simulated v1 baseline: top-level stats, no projects map.
+	v1 := map[string]any{
+		"version":    1,
+		"created_at": time.Now(),
+		"stats":      map[string]any{"node_count": 10},
+	}
+	data, err := json.Marshal(v1)
+	if err != nil {
+		t.Fatalf("marshal v1 fixture: %v", err)
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatalf("write v1 fixture: %v", err)
+	}
+
+	_, err = Load(path)
+	if err == nil {
+		t.Fatal("expected error loading v1 baseline; got nil")
+	}
+	if !strings.Contains(err.Error(), "schema v1") || !strings.Contains(err.Error(), "save-baseline") {
+		t.Errorf("error message should surface schema mismatch and remediation: %v", err)
 	}
 }
 
@@ -117,65 +148,67 @@ func TestBaselineSummary(t *testing.T) {
 		CommitMessage: "Fix the bug",
 		Branch:        "feature-x",
 		Description:   "Before refactoring",
-		Stats: GraphStats{
-			NodeCount:       100,
-			EdgeCount:       200,
-			Density:         0.02,
-			OpenCount:       60,
-			ClosedCount:     30,
-			BlockedCount:    10,
-			ActionableCount: 45,
-			CycleCount:      1,
-		},
-		TopMetrics: TopMetrics{
-			PageRank: []MetricItem{
-				{ID: "TASK-1", Value: 0.15},
-				{ID: "TASK-2", Value: 0.10},
+		Projects: map[string]*ProjectSection{
+			"bt": {
+				Stats: GraphStats{
+					NodeCount:       100,
+					EdgeCount:       200,
+					Density:         0.02,
+					OpenCount:       60,
+					ClosedCount:     30,
+					BlockedCount:    10,
+					ActionableCount: 45,
+					CycleCount:      1,
+				},
+				TopMetrics: TopMetrics{
+					PageRank: []MetricItem{
+						{ID: "bt-1", Value: 0.15},
+						{ID: "bt-2", Value: 0.10},
+					},
+				},
 			},
 		},
 	}
 
 	summary := b.Summary()
 
-	// Check that key info is present
 	if !strings.Contains(summary, "abc123de") {
 		t.Error("summary should contain shortened commit SHA")
 	}
 	if !strings.Contains(summary, "feature-x") {
 		t.Error("summary should contain branch name")
 	}
+	if !strings.Contains(summary, "[bt]") {
+		t.Error("summary should contain project header")
+	}
 	if !strings.Contains(summary, "100 nodes") {
 		t.Error("summary should contain node count")
 	}
-	if !strings.Contains(summary, "TASK-1") {
+	if !strings.Contains(summary, "bt-1") {
 		t.Error("summary should contain top PageRank item")
 	}
 }
 
 func TestNew(t *testing.T) {
-	stats := GraphStats{
-		NodeCount: 50,
-		EdgeCount: 100,
+	projects := map[string]*ProjectSection{
+		"bt": {
+			Stats:      GraphStats{NodeCount: 50, EdgeCount: 100},
+			TopMetrics: TopMetrics{PageRank: []MetricItem{{ID: "X", Value: 0.5}}},
+			Cycles:     [][]string{{"A", "B", "A"}},
+		},
 	}
-	top := TopMetrics{
-		PageRank: []MetricItem{{ID: "X", Value: 0.5}},
-	}
-	cycles := [][]string{{"A", "B", "A"}}
 
-	b := New(stats, top, cycles, "Test description")
+	b := New(projects, "Test description")
 
 	if b.Version != CurrentVersion {
 		t.Errorf("version should be %d, got %d", CurrentVersion, b.Version)
 	}
-
-	if b.Stats.NodeCount != 50 {
-		t.Errorf("node count should be 50, got %d", b.Stats.NodeCount)
+	if b.Project("bt").Stats.NodeCount != 50 {
+		t.Errorf("node count should be 50, got %d", b.Project("bt").Stats.NodeCount)
 	}
-
 	if b.Description != "Test description" {
 		t.Errorf("description mismatch: got %s", b.Description)
 	}
-
 	if b.CreatedAt.IsZero() {
 		t.Error("created_at should be set")
 	}
@@ -188,13 +221,14 @@ func TestSaveCreatesDirectory(t *testing.T) {
 	b := &Baseline{
 		Version:   CurrentVersion,
 		CreatedAt: time.Now(),
-		Stats:     GraphStats{NodeCount: 1},
+		Projects: map[string]*ProjectSection{
+			"local": {Stats: GraphStats{NodeCount: 1}},
+		},
 	}
 
 	if err := b.Save(deepPath); err != nil {
 		t.Fatalf("Save should create directories: %v", err)
 	}
-
 	if !Exists(deepPath) {
 		t.Error("file should exist after save")
 	}
@@ -204,7 +238,6 @@ func TestLoadInvalidJSON(t *testing.T) {
 	tmpDir := t.TempDir()
 	path := filepath.Join(tmpDir, "invalid.json")
 
-	// Write invalid JSON
 	if err := os.WriteFile(path, []byte("not valid json"), 0644); err != nil {
 		t.Fatalf("failed to write test file: %v", err)
 	}
@@ -212,5 +245,22 @@ func TestLoadInvalidJSON(t *testing.T) {
 	_, err := Load(path)
 	if err == nil {
 		t.Error("expected error for invalid JSON")
+	}
+}
+
+func TestProjectMissingReturnsNil(t *testing.T) {
+	b := &Baseline{
+		Version: CurrentVersion,
+		Projects: map[string]*ProjectSection{
+			"bt": {Stats: GraphStats{NodeCount: 1}},
+		},
+	}
+	if b.Project("cass") != nil {
+		t.Error("Project on missing key should return nil")
+	}
+
+	var nilBaseline *Baseline
+	if nilBaseline.Project("bt") != nil {
+		t.Error("Project on nil receiver should return nil")
 	}
 }

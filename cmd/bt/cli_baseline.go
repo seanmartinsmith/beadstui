@@ -5,62 +5,31 @@ import (
 	"os"
 	"time"
 
-	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/baseline"
 	"github.com/seanmartinsmith/beadstui/pkg/drift"
-	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // runSaveBaseline handles --save-baseline.
+//
+// Schema v2 (bt-46p6.8): captures one ProjectSection per project. In --global
+// mode, partitions by SourceRepo; in single-project mode, writes a single
+// section keyed by rc.repoName.
+//
+// forceFullAnalysis is accepted for API continuity but no longer controls
+// individual per-project analyzers — each project's Analyzer runs its
+// default pipeline because the analyzers are instantiated inside
+// drift.SnapshotProjects. If forcing full analysis per project becomes
+// important again, plumb a config option into SnapshotProjects.
 func (rc *robotCtx) runSaveBaseline(description string, forceFullAnalysis bool) {
-	analyzer := analysis.NewAnalyzer(rc.issues)
-	if forceFullAnalysis {
-		cfg := analysis.FullAnalysisConfig()
-		analyzer.SetConfig(&cfg)
-	}
-	stats := analyzer.Analyze()
+	_ = forceFullAnalysis
 
-	// Compute status counts from issues
-	openCount, closedCount, blockedCount := 0, 0, 0
-	for _, issue := range rc.issues {
-		switch issue.Status {
-		case model.StatusOpen, model.StatusInProgress:
-			openCount++
-		case model.StatusClosed:
-			closedCount++
-		case model.StatusBlocked:
-			blockedCount++
-		}
+	projects := drift.SnapshotProjects(rc.analysisIssues(), flagGlobal, rc.repoName)
+	if len(projects) == 0 {
+		fmt.Fprintln(os.Stderr, "Error: no issues to snapshot")
+		os.Exit(1)
 	}
 
-	// Get actionable count from analyzer
-	actionableCount := len(analyzer.GetActionableIssues())
-
-	// Get cycles (method returns a copy)
-	cycles := stats.Cycles()
-
-	// Build GraphStats from analysis
-	graphStats := baseline.GraphStats{
-		NodeCount:       stats.NodeCount,
-		EdgeCount:       stats.EdgeCount,
-		Density:         stats.Density,
-		OpenCount:       openCount,
-		ClosedCount:     closedCount,
-		BlockedCount:    blockedCount,
-		CycleCount:      len(cycles),
-		ActionableCount: actionableCount,
-	}
-
-	// Build TopMetrics from analysis (top 10 for each)
-	topMetrics := baseline.TopMetrics{
-		PageRank:     buildMetricItems(stats.PageRank(), 10),
-		Betweenness:  buildMetricItems(stats.Betweenness(), 10),
-		CriticalPath: buildMetricItems(stats.CriticalPathScore(), 10),
-		Hubs:         buildMetricItems(stats.Hubs(), 10),
-		Authorities:  buildMetricItems(stats.Authorities(), 10),
-	}
-
-	bl := baseline.New(graphStats, topMetrics, cycles, description)
+	bl := baseline.New(projects, description)
 
 	baselinePath := baseline.DefaultPath(rc.projectDir)
 	if err := bl.Save(baselinePath); err != nil {
@@ -74,7 +43,15 @@ func (rc *robotCtx) runSaveBaseline(description string, forceFullAnalysis bool) 
 }
 
 // runCheckDrift handles --check-drift and --robot-drift.
+//
+// Schema v2 (bt-46p6.8): drift detection runs per-project through
+// drift.ProjectAlerts using the baseline's per-project sections. Projects
+// present in the current data but missing from the baseline emit only
+// proactive alerts (staleness, cascade, abandoned, new cycles) since no
+// drift-delta baseline exists for them.
 func (rc *robotCtx) runCheckDrift(robotDriftCheck, forceFullAnalysis bool) {
+	_ = forceFullAnalysis
+
 	baselinePath := baseline.DefaultPath(rc.projectDir)
 	if !baseline.Exists(baselinePath) {
 		fmt.Fprintln(os.Stderr, "Error: No baseline found.")
@@ -88,50 +65,6 @@ func (rc *robotCtx) runCheckDrift(robotDriftCheck, forceFullAnalysis bool) {
 		os.Exit(1)
 	}
 
-	// Run analysis on current issues
-	analyzer := analysis.NewAnalyzer(rc.issues)
-	if forceFullAnalysis {
-		cfg := analysis.FullAnalysisConfig()
-		analyzer.SetConfig(&cfg)
-	}
-	stats := analyzer.Analyze()
-
-	// Compute status counts from issues
-	openCount, closedCount, blockedCount := 0, 0, 0
-	for _, issue := range rc.issues {
-		switch issue.Status {
-		case model.StatusOpen, model.StatusInProgress:
-			openCount++
-		case model.StatusClosed:
-			closedCount++
-		case model.StatusBlocked:
-			blockedCount++
-		}
-	}
-	actionableCount := len(analyzer.GetActionableIssues())
-	cycles := stats.Cycles()
-
-	// Build current snapshot as baseline for comparison
-	currentStats := baseline.GraphStats{
-		NodeCount:       stats.NodeCount,
-		EdgeCount:       stats.EdgeCount,
-		Density:         stats.Density,
-		OpenCount:       openCount,
-		ClosedCount:     closedCount,
-		BlockedCount:    blockedCount,
-		CycleCount:      len(cycles),
-		ActionableCount: actionableCount,
-	}
-	currentMetrics := baseline.TopMetrics{
-		PageRank:     buildMetricItems(stats.PageRank(), 10),
-		Betweenness:  buildMetricItems(stats.Betweenness(), 10),
-		CriticalPath: buildMetricItems(stats.CriticalPathScore(), 10),
-		Hubs:         buildMetricItems(stats.Hubs(), 10),
-		Authorities:  buildMetricItems(stats.Authorities(), 10),
-	}
-	current := baseline.New(currentStats, currentMetrics, cycles, "current")
-
-	// Load drift config and run calculator
 	envRobot := os.Getenv("BT_ROBOT") == "1"
 	driftConfig, err := drift.LoadConfig(rc.projectDir)
 	if err != nil {
@@ -141,11 +74,35 @@ func (rc *robotCtx) runCheckDrift(robotDriftCheck, forceFullAnalysis bool) {
 		driftConfig = drift.DefaultConfig()
 	}
 
-	calc := drift.NewCalculator(bl, current, driftConfig)
-	result := calc.Calculate()
+	alerts := drift.ProjectAlerts(
+		rc.analysisIssues(),
+		flagGlobal,
+		rc.repoName,
+		driftConfig,
+		bl.Project,
+	)
+
+	critical, warning, info := 0, 0, 0
+	for _, a := range alerts {
+		switch a.Severity {
+		case drift.SeverityCritical:
+			critical++
+		case drift.SeverityWarning:
+			warning++
+		case drift.SeverityInfo:
+			info++
+		}
+	}
+
+	exit := 0
+	switch {
+	case critical > 0:
+		exit = 1
+	case warning > 0:
+		exit = 2
+	}
 
 	if robotDriftCheck {
-		// JSON output
 		output := struct {
 			GeneratedAt string `json:"generated_at"`
 			HasDrift    bool   `json:"has_drift"`
@@ -162,13 +119,13 @@ func (rc *robotCtx) runCheckDrift(robotDriftCheck, forceFullAnalysis bool) {
 			} `json:"baseline"`
 		}{
 			GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-			HasDrift:    result.HasDrift,
-			ExitCode:    result.ExitCode(),
-			Alerts:      result.Alerts,
+			HasDrift:    len(alerts) > 0,
+			ExitCode:    exit,
+			Alerts:      alerts,
 		}
-		output.Summary.Critical = result.CriticalCount
-		output.Summary.Warning = result.WarningCount
-		output.Summary.Info = result.InfoCount
+		output.Summary.Critical = critical
+		output.Summary.Warning = warning
+		output.Summary.Info = info
 		output.Baseline.CreatedAt = bl.CreatedAt.Format(time.RFC3339)
 		output.Baseline.CommitSHA = bl.CommitSHA
 
@@ -178,9 +135,23 @@ func (rc *robotCtx) runCheckDrift(robotDriftCheck, forceFullAnalysis bool) {
 			os.Exit(1)
 		}
 	} else {
-		// Human-readable output
-		fmt.Print(result.Summary())
+		if len(alerts) == 0 {
+			fmt.Print("No drift detected. Project metrics are within baseline thresholds.\n")
+		} else {
+			fmt.Printf("Drift: %d critical, %d warning, %d info\n\n", critical, warning, info)
+			for _, a := range alerts {
+				proj := a.SourceProject
+				if proj == "" {
+					proj = "?"
+				}
+				fmt.Printf("  [%s] [%s] %s — %s\n", a.Severity, proj, a.Type, a.Message)
+				for _, d := range a.Details {
+					fmt.Printf("      - %s\n", d)
+				}
+			}
+			fmt.Println()
+		}
 	}
 
-	os.Exit(result.ExitCode())
+	os.Exit(exit)
 }

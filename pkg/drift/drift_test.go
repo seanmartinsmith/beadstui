@@ -14,9 +14,7 @@ import (
 )
 
 func TestCalculatorNoDrift(t *testing.T) {
-	bl := &baseline.Baseline{
-		Version:   1,
-		CreatedAt: time.Now(),
+	bl := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount:       100,
 			EdgeCount:       200,
@@ -30,10 +28,8 @@ func TestCalculatorNoDrift(t *testing.T) {
 	}
 
 	// Current matches baseline
-	current := &baseline.Baseline{
-		Version:   1,
-		CreatedAt: time.Now(),
-		Stats:     bl.Stats,
+	current := &baseline.ProjectSection{
+		Stats: bl.Stats,
 	}
 
 	calc := NewCalculator(bl, current, nil)
@@ -45,12 +41,12 @@ func TestCalculatorNoDrift(t *testing.T) {
 }
 
 func TestCalculatorNewCycle(t *testing.T) {
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats:  baseline.GraphStats{NodeCount: 10, EdgeCount: 15},
 		Cycles: [][]string{},
 	}
 
-	current := &baseline.Baseline{
+	current := &baseline.ProjectSection{
 		Stats:  bl.Stats,
 		Cycles: [][]string{{"A", "B", "C", "A"}},
 	}
@@ -81,7 +77,7 @@ func TestCalculatorNewCycle(t *testing.T) {
 }
 
 func TestCalculatorDensityGrowth(t *testing.T) {
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount: 100,
 			EdgeCount: 200,
@@ -89,7 +85,7 @@ func TestCalculatorDensityGrowth(t *testing.T) {
 		},
 	}
 
-	current := &baseline.Baseline{
+	current := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount: 100,
 			EdgeCount: 400,
@@ -115,14 +111,14 @@ func TestCalculatorDensityGrowth(t *testing.T) {
 }
 
 func TestCalculatorBlockedIncrease(t *testing.T) {
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount:    100,
 			BlockedCount: 5,
 		},
 	}
 
-	current := &baseline.Baseline{
+	current := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount:    100,
 			BlockedCount: 15, // +10
@@ -147,7 +143,7 @@ func TestCalculatorBlockedIncrease(t *testing.T) {
 }
 
 func TestCalculatorPageRankChange(t *testing.T) {
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{NodeCount: 100},
 		TopMetrics: baseline.TopMetrics{
 			PageRank: []baseline.MetricItem{
@@ -157,7 +153,7 @@ func TestCalculatorPageRankChange(t *testing.T) {
 		},
 	}
 
-	current := &baseline.Baseline{
+	current := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{NodeCount: 100},
 		TopMetrics: baseline.TopMetrics{
 			PageRank: []baseline.MetricItem{
@@ -191,8 +187,8 @@ func TestCalculatorStalenessWarningAndCritical(t *testing.T) {
 		{ID: "INPROG", Status: model.StatusInProgress, Priority: 2, UpdatedAt: now.Add(-8 * 24 * time.Hour)},
 	}
 
-	bl := &baseline.Baseline{Stats: baseline.GraphStats{}}
-	current := &baseline.Baseline{Stats: baseline.GraphStats{}}
+	bl := &baseline.ProjectSection{Stats: baseline.GraphStats{}}
+	current := &baseline.ProjectSection{Stats: baseline.GraphStats{}}
 	calc := NewCalculator(bl, current, nil)
 	calc.SetIssues(issues)
 
@@ -227,8 +223,8 @@ func TestCalculatorBlockingCascade(t *testing.T) {
 		{ID: "C", Title: "Also blocked by A", Status: model.StatusOpen, Priority: 2, Dependencies: []*model.Dependency{{DependsOnID: "A", Type: model.DepBlocks}}},
 		{ID: "D", Title: "Independent", Status: model.StatusOpen, Priority: 2},
 	}
-	bl := &baseline.Baseline{Stats: baseline.GraphStats{}}
-	current := &baseline.Baseline{Stats: baseline.GraphStats{}}
+	bl := &baseline.ProjectSection{Stats: baseline.GraphStats{}}
+	current := &baseline.ProjectSection{Stats: baseline.GraphStats{}}
 	cfg := DefaultConfig()
 	cfg.BlockingCascadeInfo = 2
 	cfg.BlockingCascadeWarning = 3
@@ -269,8 +265,8 @@ func TestCalculatorBlockingCascadeWithPriorities(t *testing.T) {
 		{ID: "C", Title: "Blocked by A (P3)", Status: model.StatusOpen, Priority: 3, Dependencies: []*model.Dependency{{DependsOnID: "A", Type: model.DepBlocks}}},
 		{ID: "D", Title: "Blocked by A (P0 critical)", Status: model.StatusOpen, Priority: 0, Dependencies: []*model.Dependency{{DependsOnID: "A", Type: model.DepBlocks}}},
 	}
-	bl := &baseline.Baseline{Stats: baseline.GraphStats{}}
-	current := &baseline.Baseline{Stats: baseline.GraphStats{}}
+	bl := &baseline.ProjectSection{Stats: baseline.GraphStats{}}
+	current := &baseline.ProjectSection{Stats: baseline.GraphStats{}}
 	cfg := DefaultConfig()
 	cfg.BlockingCascadeInfo = 2
 	cfg.BlockingCascadeWarning = 5
@@ -721,14 +717,14 @@ func TestCycleKey(t *testing.T) {
 func TestCheckActionable_BaselineZero(t *testing.T) {
 	t.Log("Testing checkActionable when baseline actionable=0 (skip case)")
 
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount:       100,
 			ActionableCount: 0, // Zero baseline should skip calculation
 		},
 	}
 
-	current := &baseline.Baseline{
+	current := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount:       100,
 			ActionableCount: 50, // Huge increase but should be ignored
@@ -751,7 +747,7 @@ func TestCheckActionable_BaselineZero(t *testing.T) {
 func TestCheckActionable_InfoIncrease(t *testing.T) {
 	t.Log("Testing checkActionable with 25% increase (info alert)")
 
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount:       100,
 			ActionableCount: 100,
@@ -759,7 +755,7 @@ func TestCheckActionable_InfoIncrease(t *testing.T) {
 	}
 
 	// 25% increase should trigger info (default threshold is 20%)
-	current := &baseline.Baseline{
+	current := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount:       100,
 			ActionableCount: 125,
@@ -791,7 +787,7 @@ func TestCheckActionable_InfoIncrease(t *testing.T) {
 func TestCheckActionable_DecreaseInfoAboveWarnThreshold(t *testing.T) {
 	t.Log("Testing checkActionable with 35% decrease (info alert, post bt-46p6.6)")
 
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount:       100,
 			ActionableCount: 100,
@@ -799,7 +795,7 @@ func TestCheckActionable_DecreaseInfoAboveWarnThreshold(t *testing.T) {
 	}
 
 	// 35% decrease crosses the warning threshold (30%) - alert fires as info.
-	current := &baseline.Baseline{
+	current := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount:       100,
 			ActionableCount: 65,
@@ -828,14 +824,14 @@ func TestCheckActionable_DecreaseInfoAboveWarnThreshold(t *testing.T) {
 func TestCheckActionable_InfoDecrease(t *testing.T) {
 	t.Log("Testing checkActionable with 25% decrease (info alert)")
 
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount:       100,
 			ActionableCount: 80,
 		},
 	}
 
-	current := &baseline.Baseline{
+	current := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount:       100,
 			ActionableCount: 60, // 25% decrease (warning threshold is 30%)
@@ -863,13 +859,13 @@ func TestCheckActionable_InfoDecrease(t *testing.T) {
 func TestCheckCycles_BaselineHasCycles(t *testing.T) {
 	t.Log("Testing checkCycles when baseline has cycles but current removes them")
 
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats:  baseline.GraphStats{NodeCount: 10},
 		Cycles: [][]string{{"A", "B", "C", "A"}, {"X", "Y", "X"}},
 	}
 
 	// Current has fewer cycles - should NOT alert (only new cycles alert)
-	current := &baseline.Baseline{
+	current := &baseline.ProjectSection{
 		Stats:  bl.Stats,
 		Cycles: [][]string{{"A", "B", "C", "A"}},
 	}
@@ -889,12 +885,12 @@ func TestCheckCycles_BaselineHasCycles(t *testing.T) {
 func TestCheckCycles_NewCycles(t *testing.T) {
 	t.Log("Testing checkCycles when current snapshot adds new cycles")
 
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats:  baseline.GraphStats{NodeCount: 10},
 		Cycles: [][]string{}, // No cycles in baseline
 	}
 
-	current := &baseline.Baseline{
+	current := &baseline.ProjectSection{
 		Stats:  bl.Stats,
 		Cycles: [][]string{{"A", "B", "A"}},
 	}
@@ -925,12 +921,12 @@ func TestCheckCycles_SameCycles(t *testing.T) {
 
 	cycles := [][]string{{"A", "B", "C", "A"}, {"X", "Y", "X"}}
 
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats:  baseline.GraphStats{NodeCount: 10},
 		Cycles: cycles,
 	}
 
-	current := &baseline.Baseline{
+	current := &baseline.ProjectSection{
 		Stats:  bl.Stats,
 		Cycles: cycles,
 	}
@@ -950,12 +946,12 @@ func TestCheckCycles_SameCycles(t *testing.T) {
 func TestCheckCycles_BothEmpty(t *testing.T) {
 	t.Log("Testing checkCycles when both baseline and current have no cycles")
 
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats:  baseline.GraphStats{NodeCount: 10},
 		Cycles: [][]string{},
 	}
 
-	current := &baseline.Baseline{
+	current := &baseline.ProjectSection{
 		Stats:  bl.Stats,
 		Cycles: [][]string{},
 	}
@@ -975,7 +971,7 @@ func TestCheckCycles_BothEmpty(t *testing.T) {
 func TestCheckDensity_InfoLevel(t *testing.T) {
 	t.Log("Testing checkDensity with 30% increase (info level, not warning)")
 
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount: 100,
 			Density:   0.02,
@@ -983,7 +979,7 @@ func TestCheckDensity_InfoLevel(t *testing.T) {
 	}
 
 	// 30% increase: above 20% info threshold, below 50% warning threshold
-	current := &baseline.Baseline{
+	current := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount: 100,
 			Density:   0.026, // 30% increase
@@ -1012,7 +1008,7 @@ func TestCheckDensity_InfoLevel(t *testing.T) {
 func TestCheckDensity_Decrease(t *testing.T) {
 	t.Log("Testing checkDensity when density decreases (no alert)")
 
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount: 100,
 			Density:   0.05,
@@ -1020,7 +1016,7 @@ func TestCheckDensity_Decrease(t *testing.T) {
 	}
 
 	// Density decreased - should NOT alert
-	current := &baseline.Baseline{
+	current := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount: 100,
 			Density:   0.02, // 60% decrease
@@ -1042,7 +1038,7 @@ func TestCheckDensity_Decrease(t *testing.T) {
 func TestCheckDensity_WarningLevel(t *testing.T) {
 	t.Log("Testing checkDensity with 75% increase (warning level)")
 
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount: 100,
 			Density:   0.02,
@@ -1050,7 +1046,7 @@ func TestCheckDensity_WarningLevel(t *testing.T) {
 	}
 
 	// 75% increase: above 50% warning threshold
-	current := &baseline.Baseline{
+	current := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount: 100,
 			Density:   0.035, // (0.035-0.02)/0.02 = 75%
@@ -1079,14 +1075,14 @@ func TestCheckDensity_WarningLevel(t *testing.T) {
 func TestCheckDensity_BaselineZero(t *testing.T) {
 	t.Log("Testing checkDensity when baseline density=0 (skip case)")
 
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount: 100,
 			Density:   0, // Zero baseline should skip
 		},
 	}
 
-	current := &baseline.Baseline{
+	current := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount: 100,
 			Density:   0.05, // Would be infinite increase but should be skipped
@@ -1108,7 +1104,7 @@ func TestCheckDensity_BaselineZero(t *testing.T) {
 func TestCheckActionable_SmallChanges(t *testing.T) {
 	t.Log("Testing checkActionable with small changes (no alert)")
 
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount:       100,
 			ActionableCount: 100,
@@ -1116,7 +1112,7 @@ func TestCheckActionable_SmallChanges(t *testing.T) {
 	}
 
 	// 10% increase (threshold 20%) -> No Alert
-	currentInc := &baseline.Baseline{
+	currentInc := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount:       100,
 			ActionableCount: 110,
@@ -1132,7 +1128,7 @@ func TestCheckActionable_SmallChanges(t *testing.T) {
 	}
 
 	// 10% decrease (threshold 20% for info) -> No Alert
-	currentDec := &baseline.Baseline{
+	currentDec := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount:       100,
 			ActionableCount: 90,
@@ -1152,7 +1148,7 @@ func TestCheckActionable_SmallChanges(t *testing.T) {
 func TestCheckDensity_SmallIncrease(t *testing.T) {
 	t.Log("Testing checkDensity with 10% increase (no alert)")
 
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount: 100,
 			Density:   0.02,
@@ -1160,7 +1156,7 @@ func TestCheckDensity_SmallIncrease(t *testing.T) {
 	}
 
 	// 10% increase (threshold 20%)
-	current := &baseline.Baseline{
+	current := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount: 100,
 			Density:   0.022,
@@ -1180,12 +1176,12 @@ func TestCheckDensity_SmallIncrease(t *testing.T) {
 func TestCalculatorZeroBaseline(t *testing.T) {
 	t.Log("Testing calculator with zero-value baseline")
 
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{}, // All zero
 	}
 
 	// Current has some values
-	current := &baseline.Baseline{
+	current := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount:       10,
 			EdgeCount:       20,
@@ -1224,7 +1220,7 @@ func TestCalculatorBoundaryThresholds(t *testing.T) {
 		BlockedIncreaseThreshold: 999,  // silence blocked delta alerts
 	}
 
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount: 100,
 			Density:   0.50,
@@ -1232,7 +1228,7 @@ func TestCalculatorBoundaryThresholds(t *testing.T) {
 	}
 
 	// Case 1: Slightly above 50% increase (~50.2%) to avoid float rounding ambiguity
-	currentExact := &baseline.Baseline{
+	currentExact := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount: 100,
 			Density:   0.751,
@@ -1259,7 +1255,7 @@ func TestCalculatorBoundaryThresholds(t *testing.T) {
 	// Should NOT trigger warning (assuming no info threshold or low info threshold)
 	// Default info is 20%, so it might trigger Info. Let's set Info to 49.9 to be safe or ignore info alerts.
 	// Let's explicitly check it does NOT trigger Warning.
-	currentBelow := &baseline.Baseline{
+	currentBelow := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount: 100,
 			Density:   0.1499,
@@ -1279,7 +1275,7 @@ func TestCalculatorBoundaryThresholds(t *testing.T) {
 func TestCalculatorEmptyMetrics(t *testing.T) {
 	t.Log("Testing with empty metric slices")
 
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{NodeCount: 10},
 		TopMetrics: baseline.TopMetrics{
 			PageRank: []baseline.MetricItem{}, // Empty
@@ -1287,7 +1283,7 @@ func TestCalculatorEmptyMetrics(t *testing.T) {
 		Cycles: [][]string{},
 	}
 
-	current := &baseline.Baseline{
+	current := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{NodeCount: 10},
 		TopMetrics: baseline.TopMetrics{
 			PageRank: []baseline.MetricItem{}, // Empty
@@ -1306,7 +1302,7 @@ func TestCalculatorEmptyMetrics(t *testing.T) {
 func TestCalculatorLargeValues(t *testing.T) {
 	t.Log("Testing with large values to ensure no overflow/panic")
 
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount: 1000000,
 			EdgeCount: 5000000,
@@ -1314,7 +1310,7 @@ func TestCalculatorLargeValues(t *testing.T) {
 		},
 	}
 
-	current := &baseline.Baseline{
+	current := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{
 			NodeCount: 1000000, // No change
 			EdgeCount: 5000000,
@@ -1331,7 +1327,7 @@ func TestCalculatorLargeValues(t *testing.T) {
 }
 
 func TestCheckBlocked_StrictThresholds(t *testing.T) {
-	bl := &baseline.Baseline{Stats: baseline.GraphStats{BlockedCount: 5}}
+	bl := &baseline.ProjectSection{Stats: baseline.GraphStats{BlockedCount: 5}}
 
 	tests := []struct {
 		name      string
@@ -1348,7 +1344,7 @@ func TestCheckBlocked_StrictThresholds(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cur := &baseline.Baseline{Stats: baseline.GraphStats{BlockedCount: tt.curCount}}
+			cur := &baseline.ProjectSection{Stats: baseline.GraphStats{BlockedCount: tt.curCount}}
 			cfg := &Config{BlockedIncreaseThreshold: tt.threshold}
 			calc := NewCalculator(bl, cur, cfg)
 			res := calc.Calculate()
@@ -1370,10 +1366,10 @@ func TestCheckBlocked_StrictThresholds(t *testing.T) {
 
 // TestDisabledAlerts verifies that disabled alert types are not emitted (bv-167)
 func TestDisabledAlerts(t *testing.T) {
-	bl := &baseline.Baseline{
+	bl := &baseline.ProjectSection{
 		Stats: baseline.GraphStats{NodeCount: 10, EdgeCount: 15},
 	}
-	current := &baseline.Baseline{
+	current := &baseline.ProjectSection{
 		Stats:  baseline.GraphStats{NodeCount: 10, EdgeCount: 15},
 		Cycles: [][]string{{"A", "B", "C", "A"}},
 	}

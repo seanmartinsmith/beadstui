@@ -78,16 +78,21 @@ type Result struct {
 	InfoCount     int `json:"info_count"`
 }
 
-// Calculator performs drift detection
+// Calculator performs drift detection against a per-project baseline section.
+// Per bt-46p6.8 schema v2, callers operate on ProjectSection (metric payload)
+// rather than Baseline (metadata + per-project sections).
 type Calculator struct {
 	config   *Config
-	baseline *baseline.Baseline
-	current  *baseline.Baseline
+	baseline *baseline.ProjectSection
+	current  *baseline.ProjectSection
 	issues   []model.Issue
 }
 
-// NewCalculator creates a drift calculator with the given baseline and current snapshot
-func NewCalculator(bl *baseline.Baseline, current *baseline.Baseline, cfg *Config) *Calculator {
+// NewCalculator creates a drift calculator comparing current project metrics
+// against a baseline project section. bl == current collapses drift-delta
+// alerts to zero so only proactive checks (staleness, cascade, abandoned
+// claims, new cycles) can fire.
+func NewCalculator(bl *baseline.ProjectSection, current *baseline.ProjectSection, cfg *Config) *Calculator {
 	if cfg == nil {
 		cfg = DefaultConfig()
 	}

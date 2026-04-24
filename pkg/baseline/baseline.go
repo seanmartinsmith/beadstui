@@ -1,6 +1,13 @@
 // Package baseline provides storage and management for metrics snapshots.
 // Baselines are used by the drift detection system to compare current
 // state against a known-good reference point.
+//
+// Schema v2 (bt-46p6.8): a Baseline holds per-project ProjectSection entries
+// keyed by project (SourceRepo). Metadata fields (created_at, commit_sha,
+// branch, description) remain snapshot-level; the structural metrics that
+// drift detection compares live inside each ProjectSection. Per the Option C
+// decision in bt-7l5m, no global-aggregate metrics are stored — drift is
+// always computed at project scope.
 package baseline
 
 import (
@@ -9,13 +16,16 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
 
-// Baseline represents a snapshot of project metrics at a point in time
+// Baseline represents a snapshot of project metrics at a point in time.
+// Per bt-46p6.8 schema v2, structural metrics are partitioned by project
+// under Projects; drift comparisons run per-project.
 type Baseline struct {
-	// Version for schema compatibility
+	// Version for schema compatibility. Must equal CurrentVersion.
 	Version int `json:"version"`
 
 	// CreatedAt is when the baseline was saved
@@ -33,14 +43,17 @@ type Baseline struct {
 	// Description is an optional user-provided note
 	Description string `json:"description,omitempty"`
 
-	// Stats contains the graph statistics snapshot
-	Stats GraphStats `json:"stats"`
+	// Projects holds per-project structural metrics keyed by project
+	// (SourceRepo). Single-project baselines have exactly one entry.
+	Projects map[string]*ProjectSection `json:"projects"`
+}
 
-	// TopMetrics contains top-N items for key metrics
+// ProjectSection holds the structural metrics for a single project within a
+// Baseline. Drift comparisons operate on one ProjectSection vs. another.
+type ProjectSection struct {
+	Stats      GraphStats `json:"stats"`
 	TopMetrics TopMetrics `json:"top_metrics"`
-
-	// Cycles stores detected cycles
-	Cycles [][]string `json:"cycles,omitempty"`
+	Cycles     [][]string `json:"cycles,omitempty"`
 }
 
 // GraphStats contains basic graph statistics
@@ -79,8 +92,9 @@ type MetricItem struct {
 	Value float64 `json:"value"`
 }
 
-// CurrentVersion is the schema version for new baselines
-const CurrentVersion = 1
+// CurrentVersion is the schema version for new baselines.
+// v2 introduced per-project sections (bt-46p6.8, 2026-04-24).
+const CurrentVersion = 2
 
 // DefaultFilename is the default baseline filename
 const DefaultFilename = "baseline.json"
@@ -111,7 +125,9 @@ func (b *Baseline) Save(path string) error {
 	return nil
 }
 
-// Load reads a baseline from a file
+// Load reads a baseline from a file. Rejects pre-v2 baselines with a clear
+// error so users regenerate instead of silently accepting stale semantics.
+// Per AGENTS.md rule 6 (pre-alpha, no users), no migration path is provided.
 func Load(path string) (*Baseline, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -126,6 +142,10 @@ func Load(path string) (*Baseline, error) {
 		return nil, fmt.Errorf("parsing baseline: %w", err)
 	}
 
+	if baseline.Version < CurrentVersion {
+		return nil, fmt.Errorf("baseline at %s is schema v%d; current is v%d. Regenerate with: bt --save-baseline \"...\"", path, baseline.Version, CurrentVersion)
+	}
+
 	return &baseline, nil
 }
 
@@ -133,6 +153,16 @@ func Load(path string) (*Baseline, error) {
 func Exists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
+}
+
+// Project returns the ProjectSection for the named project, or nil when the
+// baseline has no entry for that project (e.g. a new project added after the
+// baseline was saved).
+func (b *Baseline) Project(name string) *ProjectSection {
+	if b == nil || b.Projects == nil {
+		return nil
+	}
+	return b.Projects[name]
 }
 
 // GetGitInfo returns current git commit and branch info
@@ -191,30 +221,44 @@ func (b *Baseline) Summary() string {
 		sb.WriteString(fmt.Sprintf("Note: %s\n", b.Description))
 	}
 
-	sb.WriteString(fmt.Sprintf("\nGraph: %d nodes, %d edges (density: %.4f)\n",
-		b.Stats.NodeCount, b.Stats.EdgeCount, b.Stats.Density))
+	// Render per-project sections in stable alphabetical order.
+	names := make([]string, 0, len(b.Projects))
+	for name := range b.Projects {
+		names = append(names, name)
+	}
+	sort.Strings(names)
 
-	sb.WriteString(fmt.Sprintf("Status: %d open, %d blocked, %d closed\n",
-		b.Stats.OpenCount, b.Stats.BlockedCount, b.Stats.ClosedCount))
+	for _, name := range names {
+		section := b.Projects[name]
+		if section == nil {
+			continue
+		}
+		sb.WriteString(fmt.Sprintf("\n[%s]\n", name))
+		sb.WriteString(fmt.Sprintf("Graph: %d nodes, %d edges (density: %.4f)\n",
+			section.Stats.NodeCount, section.Stats.EdgeCount, section.Stats.Density))
+		sb.WriteString(fmt.Sprintf("Status: %d open, %d blocked, %d closed\n",
+			section.Stats.OpenCount, section.Stats.BlockedCount, section.Stats.ClosedCount))
+		sb.WriteString(fmt.Sprintf("Actionable: %d | Cycles: %d\n",
+			section.Stats.ActionableCount, section.Stats.CycleCount))
 
-	sb.WriteString(fmt.Sprintf("Actionable: %d | Cycles: %d\n",
-		b.Stats.ActionableCount, b.Stats.CycleCount))
-
-	if len(b.TopMetrics.PageRank) > 0 {
-		sb.WriteString("\nTop PageRank:\n")
-		for i, item := range b.TopMetrics.PageRank {
-			if i >= 5 {
-				break
+		if len(section.TopMetrics.PageRank) > 0 {
+			sb.WriteString("Top PageRank:\n")
+			for i, item := range section.TopMetrics.PageRank {
+				if i >= 5 {
+					break
+				}
+				sb.WriteString(fmt.Sprintf("  %s: %.4f\n", item.ID, item.Value))
 			}
-			sb.WriteString(fmt.Sprintf("  %s: %.4f\n", item.ID, item.Value))
 		}
 	}
 
 	return sb.String()
 }
 
-// New creates a new baseline with the given stats and metrics
-func New(stats GraphStats, top TopMetrics, cycles [][]string, description string) *Baseline {
+// New creates a new baseline with the given per-project sections and
+// description. Callers build the Projects map via the usual partitioning
+// (drift.ProjectAlerts uses groupByProject) before invoking New.
+func New(projects map[string]*ProjectSection, description string) *Baseline {
 	sha, msg, branch := GetGitInfo(".")
 
 	return &Baseline{
@@ -224,8 +268,6 @@ func New(stats GraphStats, top TopMetrics, cycles [][]string, description string
 		CommitMessage: msg,
 		Branch:        branch,
 		Description:   description,
-		Stats:         stats,
-		TopMetrics:    top,
-		Cycles:        cycles,
+		Projects:      projects,
 	}
 }
