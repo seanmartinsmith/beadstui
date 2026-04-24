@@ -19,6 +19,12 @@ type Issue struct {
 	Priority           int           `json:"priority"`
 	IssueType          IssueType     `json:"issue_type"`
 	Assignee           string        `json:"assignee,omitempty"`
+	// Author is the creation-time actor, sourced from the beads `created_by`
+	// column (populated from `bd create --actor`, `$BEADS_ACTOR`, or git
+	// user.name). Immutable after creation — distinct from Assignee (current
+	// holder) and from the legacy `owner` column (GitHub email identity).
+	// See bt-aw4h and upstream bd-c39 for the terminology rationale.
+	Author string `json:"author,omitempty"`
 	EstimatedMinutes   *int          `json:"estimated_minutes,omitempty"`
 	CreatedAt          time.Time     `json:"created_at"`
 	UpdatedAt          time.Time     `json:"updated_at"`

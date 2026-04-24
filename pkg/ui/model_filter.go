@@ -793,12 +793,19 @@ func (m *Model) updateViewportContent() {
 	// Title Block
 	sb.WriteString(fmt.Sprintf("# %s %s\n", GetTypeIconMD(string(item.IssueType)), item.Title))
 
-	// Meta Table
-	sb.WriteString("| ID | Status | Priority | Assignee | Created |\n|---|---|---|---|---|\n")
-	sb.WriteString(fmt.Sprintf("| **%s** | **%s** | %s | @%s | %s |\n\n",
+	// Meta Table. "Author" is the creation-time actor (bead's created_by),
+	// distinct from Assignee (current holder). Rendered as em-dash when absent
+	// so the column stays visually stable across beads (bt-aw4h).
+	authorCell := "—"
+	if item.Author != "" {
+		authorCell = "@" + item.Author
+	}
+	sb.WriteString("| ID | Status | Priority | Author | Assignee | Created |\n|---|---|---|---|---|---|\n")
+	sb.WriteString(fmt.Sprintf("| **%s** | **%s** | %s | %s | @%s | %s |\n\n",
 		item.ID,
 		strings.ToUpper(string(item.Status)),
 		fmt.Sprintf("%s P%d", GetPriorityIcon(item.Priority), item.Priority),
+		authorCell,
 		item.Assignee,
 		FormatTimeAbs(item.CreatedAt),
 	))

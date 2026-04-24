@@ -14,4 +14,5 @@ const IssuesColumns = `id, title, description, status, priority, issue_type,
 	close_reason,
 	await_type, await_id, timeout_ns,
 	ephemeral, is_template, mol_type,
-	metadata, closed_by_session`
+	metadata, closed_by_session,
+	created_by`

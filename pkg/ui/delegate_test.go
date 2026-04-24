@@ -114,6 +114,67 @@ func TestIssueDelegate_RenderUltraWide(t *testing.T) {
 	}
 }
 
+// Author column renders at width > 120 when Author differs from Assignee.
+// Prefix (✎) + 10-char left-padded author ID. bt-aw4h.
+func TestIssueDelegate_RenderShowsAuthor(t *testing.T) {
+	item := newTestIssueItem("AUTH-1")
+	item.Issue.Author = "bt-7d42e" // shorthand session ID
+	theme := DefaultTheme()
+	delegate := IssueDelegate{Theme: theme}
+
+	l := list.New([]list.Item{item}, delegate, 0, 0)
+	l.SetWidth(140) // > 120 threshold
+
+	var buf bytes.Buffer
+	delegate.Render(&buf, l, 0, item)
+	out := buf.String()
+
+	if !strings.Contains(out, "bt-7d42e") {
+		t.Fatalf("width=140 output should include author 'bt-7d42e': %q", out)
+	}
+	if !strings.Contains(out, "✎") {
+		t.Fatalf("width=140 output should include author prefix ✎: %q", out)
+	}
+}
+
+// Author == Assignee case: column is suppressed to avoid duplication.
+func TestIssueDelegate_RenderSuppressesAuthorWhenSameAsAssignee(t *testing.T) {
+	item := newTestIssueItem("SAME-1")
+	item.Issue.Author = "alice" // matches Assignee from newTestIssueItem
+	theme := DefaultTheme()
+	delegate := IssueDelegate{Theme: theme}
+
+	l := list.New([]list.Item{item}, delegate, 0, 0)
+	l.SetWidth(140)
+
+	var buf bytes.Buffer
+	delegate.Render(&buf, l, 0, item)
+	out := buf.String()
+
+	if strings.Contains(out, "✎") {
+		t.Fatalf("author==assignee should NOT render author column: %q", out)
+	}
+}
+
+// Author column hidden below width threshold.
+func TestIssueDelegate_RenderHidesAuthorAtNarrowWidth(t *testing.T) {
+	item := newTestIssueItem("NARR-AUTH-1")
+	item.Issue.Author = "bt-7d42e"
+	theme := DefaultTheme()
+	delegate := IssueDelegate{Theme: theme}
+
+	l := list.New([]list.Item{item}, delegate, 0, 0)
+	l.SetWidth(110) // between Assignee threshold (>100) and Author threshold (>120)
+
+	var buf bytes.Buffer
+	delegate.Render(&buf, l, 0, item)
+	out := buf.String()
+
+	if strings.Contains(out, "bt-7d42e") {
+		t.Fatalf("width=110 should hide author column: %q", out)
+	}
+}
+
 func TestIssueDelegate_RenderNarrow(t *testing.T) {
 	item := newTestIssueItem("NARROW-1")
 	theme := DefaultTheme()

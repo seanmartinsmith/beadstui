@@ -104,6 +104,11 @@ func (r *DoltReader) LoadIssuesFiltered(filter func(*model.Issue) bool) ([]model
 		// Session provenance columns (bt-mhwy.0)
 		var metadataRaw, closedBySession sql.NullString
 
+		// Author / creation-time actor (bt-aw4h) — sourced from the
+		// beads `created_by` column. Separate from the `owner` column
+		// which holds the GitHub commit identity.
+		var createdBy sql.NullString
+
 		err := rows.Scan(
 			&issue.ID, &issue.Title, &description, &issue.Status, &issue.Priority, &issueType,
 			&assignee, &estimatedMinutes, &createdAt, &updatedAt,
@@ -114,6 +119,7 @@ func (r *DoltReader) LoadIssuesFiltered(filter func(*model.Issue) bool) ([]model
 			&awaitType, &awaitID, &timeoutNs,
 			&ephemeral, &isTemplate, &molType,
 			&metadataRaw, &closedBySession,
+			&createdBy,
 		)
 		if err != nil {
 			continue
@@ -211,6 +217,9 @@ func (r *DoltReader) LoadIssuesFiltered(filter func(*model.Issue) bool) ([]model
 		issue.Metadata = parseIssueMetadata(metadataRaw)
 		if closedBySession.Valid && closedBySession.String != "" {
 			issue.ClosedBySession = closedBySession.String
+		}
+		if createdBy.Valid {
+			issue.Author = createdBy.String
 		}
 
 		// Labels come from a separate table in Dolt

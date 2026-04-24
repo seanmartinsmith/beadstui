@@ -103,6 +103,17 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 		rightWidth += 14
 	}
 
+	// Author (if present and we have room) — creation-time actor, distinct
+	// from Assignee. Gated at width > 120 so the column auto-hides when the
+	// pane is narrower than ~1/3 of a 360-wide terminal. Rendered only when
+	// Author differs from Assignee to avoid visual duplication on beads
+	// where the filer is also the current holder (bt-aw4h).
+	if width > 120 && i.Issue.Author != "" && i.Issue.Author != i.Issue.Assignee {
+		author := truncateRunesHelper(i.Issue.Author, 10, "…")
+		rightParts = append(rightParts, t.MutedText.Render(fmt.Sprintf("✎%-10s", author)))
+		rightWidth += 12
+	}
+
 	// Labels (if present and we have room) - render as mini tags
 	if width > 140 && len(i.Issue.Labels) > 0 {
 		labelStr := truncateRunesHelper(strings.Join(i.Issue.Labels, ","), 20, "…")

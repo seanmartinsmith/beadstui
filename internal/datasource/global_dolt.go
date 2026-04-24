@@ -470,6 +470,9 @@ func scanGlobalIssue(rows *sql.Rows) (*model.Issue, error) {
 	// Session provenance columns (bt-mhwy.0)
 	var metadataRaw, closedBySession sql.NullString
 
+	// Author / creation-time actor (bt-aw4h)
+	var createdBy sql.NullString
+
 	err := rows.Scan(
 		&issue.ID, &issue.Title, &description, &issue.Status, &issue.Priority, &issueType,
 		&assignee, &estimatedMinutes, &createdAt, &updatedAt,
@@ -480,6 +483,7 @@ func scanGlobalIssue(rows *sql.Rows) (*model.Issue, error) {
 		&awaitType, &awaitID, &timeoutNs,
 		&ephemeral, &isTemplate, &molType,
 		&metadataRaw, &closedBySession,
+		&createdBy,
 		&globalSource,
 	)
 	if err != nil {
@@ -575,6 +579,9 @@ func scanGlobalIssue(rows *sql.Rows) (*model.Issue, error) {
 	issue.Metadata = parseIssueMetadata(metadataRaw)
 	if closedBySession.Valid && closedBySession.String != "" {
 		issue.ClosedBySession = closedBySession.String
+	}
+	if createdBy.Valid {
+		issue.Author = createdBy.String
 	}
 
 	// SourceRepo always comes from the database name in global mode
