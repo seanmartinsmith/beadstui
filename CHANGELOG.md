@@ -6,6 +6,48 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-24 - Scope-aware alert computation + baseline schema v2 (bt-46p6.8)
+
+**Locks in bt-7l5m's Option C: alerts are always computed at project scope. Global view is the union of per-project alerts tagged with `SourceProject` and filterable by project. No global-aggregate density / PageRank / cycle metrics — those are incoherent across unrelated dependency graphs. Ships per-project baseline sections so drift-delta alerts (centrality_change, coupling_growth, blocked_increase, etc.) fire correctly for every project in global mode.**
+
+### What shipped
+
+- **bt-46p6.8** (P2, task) — Two-commit implementation.
+
+  Commit 1 (`710352d4`): `drift.Alert.SourceProject` field populated on every alert. New `drift.ProjectAlerts` helper partitions issues by `SourceRepo` (global mode) or collapses to one group keyed by fallbackProject (single-project mode), runs one `Calculator` per project, tags results, and returns the union in stable alphabetical project order. Partition-only interpretation of bt-7l5m's "each project graph includes its real cross-project edges" — per-project analyzers see only that project's issues; satellite-node inclusion (Option B) is tracked as follow-up audit in **bt-53vw** (P3, related). `cmd/bt/robot_alerts.go` rewired to `ProjectAlerts` with a per-project baseline loader. `pkg/ui/model_alerts.go#computeAlerts` signature changed to `(issues, workspaceMode)` and 5 TUI call sites updated; the precomputed `stats`/`analyzer` args are gone because per-project aggregates are re-analyzed per group (by design).
+
+  Commit 2 (`b4dcd7f6`): Baseline schema v2. `baseline.Baseline` now holds metadata (CreatedAt, CommitSHA, Branch, Description) + `Projects map[string]*ProjectSection`. `ProjectSection` holds `Stats` / `TopMetrics` / `Cycles`. `baseline.New(projects, description)` takes the projects map; `bl.Project(name)` returns the section or nil. `drift.Calculator` retargeted to `*ProjectSection` instead of `*Baseline`. New `drift.SnapshotProjects(allIssues, global, fallback)` builds one `ProjectSection` per project using the same partition/analyzer pipeline as alert computation. `cli_baseline.go#runSaveBaseline` calls it; `runCheckDrift` delegates to `ProjectAlerts` with `bl.Project` as the loader; human drift output tags each alert with its source project. `baseline.Load` rejects v1 baselines with a remediation error per AGENTS.md rule 6 (pre-alpha, no migration path).
+
+### Anchor: partition-only vs satellite nodes
+
+bt-7l5m's wording "each project graph includes its real cross-project edges" was interpreted literally as referring to the *existing* bt-mhwy.5 resolver plumbing used by global-graph subcommands (`insights`, `blocker-chain`, `impact-network`, `graph`), **not** as satellite-node inclusion inside per-project alert analyzers. Per-project alert graphs are pure partitions. Alternative interpretation documented on bt-7l5m and tracked as bt-53vw standing audit hook; switching to satellite nodes later is additive and doesn't break current call sites.
+
+### Scope decisions
+
+- Cross-project external dep resolution (`bt-mhwy.5`) already landed — reused via `rc.analysisIssues()`; not reimplemented.
+- Cross-project structural metrics (density, PageRank, cycles spanning projects) explicitly not surfaced in alerts. Deferred work tracked in **bt-46p6.18** (P4, global aggregate metrics) and **bt-46p6.19** (P3, TUI cross-project alert nav).
+- Schema v1 baseline files rejected without migration per AGENTS.md rule 6.
+
+### Verify
+
+- `go build ./...`, `go vet ./...`, `go test ./...` all green (incl. 87s e2e)
+- `bt baseline save --global` — writes 16-project section snapshot with correct per-project density/PR/stats
+- `bt baseline check --global` — surfaces 98 critical / 122 warning / 9 info alerts tagged per project (e.g. `[beads] centrality_change — bd-cxd dropped from top`, `[bt] stale — bt-46p6 inactive for 9 days`)
+- `bt robot alerts --global --shape=full | jq '.alerts | group_by(.source_project)'` — buckets cleanly into 14+ projects; cycle path `bt-xavk → bt-ty44 → bt-xavk` correctly attributed to `source_project=bt`
+- `bt robot alerts --alert-type=dependency_loop --global` — filter still works; summary totals consistent
+- v1 baseline file on disk rejected: `Error loading baseline: baseline at X is schema v1; current is v2. Regenerate with: bt --save-baseline "..."`
+
+### Stream alignment
+
+Slots into ADR-002 under the bt-46p6 cluster (alerts system redesign). Unblocks **bt-46p6.19** (TUI cross-project alert nav, P3, blocked by this). Related open children: **bt-46p6.11** (CLI alert system alignment, P2), **bt-46p6.17** (surface natural-language alert-type definitions, P3, blocked by bt-46p6.4).
+
+### Commits
+
+- `feat(analysis): per-project scoped alert computation (bt-46p6.8)` — 710352d4
+- `feat(analysis): baseline schema v2 with per-project sections (bt-46p6.8)` — b4dcd7f6
+
+---
+
 ## 2026-04-23 - Event pipeline data layer (bt-nexz, part of bt-d5wr)
 
 **TDD-driven implementation of the activity-event capture pipeline from the footer/notification redesign spec (bt-d5wr). Pure data layer: no UI changes. Produces a tested ring buffer + snapshot diff that later beads (footer redesign, notification modal) consume.**
