@@ -3,6 +3,7 @@ package main_test
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -10,7 +11,9 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -97,14 +100,29 @@ func TestExportPages_IncludesHistoryAndRunsHooks(t *testing.T) {
 	}
 }
 
+// stageViewerAssetsOnce ensures the viewer asset tree is copied to the shared
+// test binary directory exactly once per test binary run. stageViewerAssets is
+// called ~100 times across the e2e suite, and the destination path is the
+// same every time (it's derived from the package-global btBinaryPath set by
+// buildBtOnce). Re-copying 12+ files including multi-hundred-KB woff2 fonts
+// on top of themselves ~100x was both wasteful and a source of intermittent
+// os.Create failures on Windows — repeated writes to the same path can trip
+// antivirus locks or leave file handles momentarily in use (bt-eqro).
+var (
+	stageViewerAssetsOnce sync.Once
+	stageViewerAssetsErr  error
+)
+
 func stageViewerAssets(t *testing.T, btPath string) {
 	t.Helper()
-	root := findRepoRoot(t)
-	src := filepath.Join(root, "pkg", "export", "viewer_assets")
-	dst := filepath.Join(filepath.Dir(btPath), "pkg", "export", "viewer_assets")
-
-	if err := copyDirRecursive(src, dst); err != nil {
-		t.Fatalf("stage viewer assets: %v", err)
+	stageViewerAssetsOnce.Do(func() {
+		root := findRepoRoot(t)
+		src := filepath.Join(root, "pkg", "export", "viewer_assets")
+		dst := filepath.Join(filepath.Dir(btPath), "pkg", "export", "viewer_assets")
+		stageViewerAssetsErr = copyDirRecursive(src, dst)
+	})
+	if stageViewerAssetsErr != nil {
+		t.Fatalf("stage viewer assets: %v", stageViewerAssetsErr)
 	}
 }
 
@@ -166,15 +184,48 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	defer in.Close()
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
+
+	// os.Create on Windows can fail transiently when antivirus holds a lock
+	// on a freshly touched destination. Retry a few times with short backoff
+	// before giving up (bt-eqro).
+	var out *os.File
+	var createErr error
+	for attempt := 0; attempt < 5; attempt++ {
+		out, createErr = os.Create(dst)
+		if createErr == nil {
+			break
+		}
+		if !errors.Is(createErr, os.ErrPermission) && !isTransientWindowsCreateErr(createErr) {
+			return createErr
+		}
+		time.Sleep(time.Duration(50*(attempt+1)) * time.Millisecond)
+	}
+	if createErr != nil {
+		return createErr
 	}
 	defer func() { _ = out.Close() }()
 	if _, err := io.Copy(out, in); err != nil {
 		return err
 	}
 	return out.Close()
+}
+
+// isTransientWindowsCreateErr reports whether the error from os.Create on
+// Windows looks like an antivirus / sharing-violation hiccup worth retrying.
+// Conservative — we don't have the raw errno available cross-platform, so
+// fall back to string match on the wrapped Windows error messages that have
+// shown up in bt-eqro stack traces.
+func isTransientWindowsCreateErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	if runtime.GOOS != "windows" {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "being used by another process") ||
+		strings.Contains(msg, "Access is denied") ||
+		strings.Contains(msg, "sharing violation")
 }
 
 // ============================================================================
