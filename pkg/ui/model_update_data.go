@@ -180,9 +180,14 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 			for _, item := range msg.Snapshot.ListItems {
 				issue := item.Issue
 
-				// Workspace repo filter (nil = all repos)
+				// Workspace repo filter (nil = all repos). Must use
+				// IssueRepoKey so the lookup matches activeRepos keys
+				// (workspace DB names) when those differ from the bead
+				// ID prefix — e.g. DB "marketplace", IDs "mkt-xxx".
+				// Bare item.RepoPrefix is ID-derived only and would
+				// silently nuke the whole filtered view (bt-ci7b).
 				if m.workspaceMode && m.activeRepos != nil {
-					repoKey := strings.ToLower(item.RepoPrefix)
+					repoKey := IssueRepoKey(issue)
 					if repoKey != "" && !m.activeRepos[repoKey] {
 						continue
 					}
@@ -221,9 +226,12 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 		for _, item := range msg.Snapshot.ListItems {
 			issue := item.Issue
 
-			// Workspace repo filter (nil = all repos)
+			// Workspace repo filter (nil = all repos). See bt-ci7b: the
+			// recipe-mode branch above has the same fix. IssueRepoKey
+			// honors issue.SourceRepo first so DB-name vs ID-prefix
+			// divergence (marketplace ↔ mkt) doesn't drop every item.
 			if m.workspaceMode && m.activeRepos != nil {
-				repoKey := strings.ToLower(item.RepoPrefix)
+				repoKey := IssueRepoKey(issue)
 				if repoKey != "" && !m.activeRepos[repoKey] {
 					continue
 				}

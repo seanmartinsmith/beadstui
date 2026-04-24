@@ -84,3 +84,78 @@ func TestHandleSnapshotReady_SkipsOnBootstrap(t *testing.T) {
 
 // Silence unused-import warning on tea during tests that do not inspect cmds.
 var _ = tea.Batch
+
+// TestHandleSnapshotReady_WorkspaceFilterHonorsSourceRepo guards bt-ci7b:
+// when the workspace activeRepos filter is keyed by the workspace DB name
+// (e.g. "marketplace") but the issue's bead-ID prefix is something else
+// (e.g. "mkt-xxx"), the handleSnapshotReady filter loop must consult
+// IssueRepoKey (which honors issue.SourceRepo) instead of ID-derived
+// item.RepoPrefix. Pre-fix the list went empty on every refresh; post-fix
+// the issue stays visible.
+func TestHandleSnapshotReady_WorkspaceFilterHonorsSourceRepo(t *testing.T) {
+	// Initial snapshot establishes prior state so we hit the refresh path,
+	// not the bootstrap branch.
+	prior := []model.Issue{{
+		ID: "mkt-foo", Title: "alpha", Status: model.StatusOpen,
+		SourceRepo: "marketplace",
+	}}
+	m := NewModel(prior, nil, "", nil)
+	m.workspaceMode = true
+	m.activeRepos = map[string]bool{"marketplace": true}
+
+	priorSnap := mkSnapshot(prior)
+	priorSnap.ListItems = buildListItems(prior, nil)
+	m.data.snapshot = priorSnap
+
+	// Refresh: same single issue, but rebuilt as a fresh snapshot. Pre-fix
+	// the filter loop computed strings.ToLower(item.RepoPrefix) = "mkt"
+	// and missed the activeRepos["marketplace"] entry, dropping the item.
+	next := []model.Issue{{
+		ID: "mkt-foo", Title: "alpha", Status: model.StatusOpen,
+		SourceRepo: "marketplace",
+	}}
+	nextSnap := mkSnapshot(next)
+	nextSnap.ListItems = buildListItems(next, nil)
+	msg := SnapshotReadyMsg{Snapshot: nextSnap}
+
+	modelAny, _ := m.Update(msg)
+	m2 := modelAny.(Model)
+
+	visible := m2.list.VisibleItems()
+	if len(visible) != 1 {
+		t.Fatalf("workspace filter should keep the marketplace bead visible after refresh; got %d items", len(visible))
+	}
+	if item, ok := visible[0].(IssueItem); !ok || item.Issue.ID != "mkt-foo" {
+		t.Errorf("unexpected visible item: %+v", visible[0])
+	}
+}
+
+// TestHandleSnapshotReady_WorkspaceFilterAlsoRespectsIDPrefix is the
+// degenerate case: when SourceRepo is empty and the workspace activeRepos
+// key matches the ID prefix directly, behavior must stay correct. Prevents
+// the fix from regressing the simple case.
+func TestHandleSnapshotReady_WorkspaceFilterAlsoRespectsIDPrefix(t *testing.T) {
+	prior := []model.Issue{{
+		ID: "bt-foo", Title: "alpha", Status: model.StatusOpen,
+		// SourceRepo deliberately empty — exercises the ID-prefix fallback.
+	}}
+	m := NewModel(prior, nil, "", nil)
+	m.workspaceMode = true
+	m.activeRepos = map[string]bool{"bt": true}
+
+	priorSnap := mkSnapshot(prior)
+	priorSnap.ListItems = buildListItems(prior, nil)
+	m.data.snapshot = priorSnap
+
+	next := []model.Issue{{
+		ID: "bt-foo", Title: "alpha", Status: model.StatusOpen,
+	}}
+	nextSnap := mkSnapshot(next)
+	nextSnap.ListItems = buildListItems(next, nil)
+	modelAny, _ := m.Update(SnapshotReadyMsg{Snapshot: nextSnap})
+	m2 := modelAny.(Model)
+
+	if got := len(m2.list.VisibleItems()); got != 1 {
+		t.Fatalf("ID-prefix-only filter should still match; got %d items", got)
+	}
+}

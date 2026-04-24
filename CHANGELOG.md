@@ -6,6 +6,26 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-24 — Workspace filter no longer nukes the list on Dolt refresh (bt-ci7b)
+
+**Fixes the workspace-mode regression where filtering to a single project (where the workspace DB name differs from the bead-ID prefix, e.g. `marketplace` ↔ `mkt-xxx`) caused every Dolt refresh to drop the list to "No items." until the user toggled filters.**
+
+### What shipped
+
+- **bt-ci7b** (P2, bug) — Root cause: `handleSnapshotReady`'s two filter loops (recipe-mode at lines 180-193, no-recipe at lines 221-272) computed the workspace lookup key as `strings.ToLower(item.RepoPrefix)`, which is purely ID-derived. But `m.activeRepos` is keyed by the workspace DB name. `IssueRepoKey(issue)` already handles this correctly — it consults `issue.SourceRepo` first and falls back to ID-prefix parsing — and is used everywhere else (`applyFilter`, alert filters, notification filters). The snapshot handler was the lone outlier.
+  - Fix: replace both call sites with `IssueRepoKey(issue)`. 4-line diff.
+  - Tests: `TestHandleSnapshotReady_WorkspaceFilterHonorsSourceRepo` exercises the marketplace ↔ mkt divergent case (verified failing pre-fix, passing post-fix). `TestHandleSnapshotReady_WorkspaceFilterAlsoRespectsIDPrefix` guards the SourceRepo-empty fallback so the fix doesn't regress the simple case.
+
+### Why this manifested as "flash then sometimes recover"
+
+Pure key mismatch — deterministic for divergent repos. The "recovers most of the time" observation was almost certainly user actions triggering `applyFilter` (which uses the correct key derivation). The "stuck" case is the canonical behavior; nothing in the snapshot path retries until the user changes filter state. Global mode worked because `activeRepos == nil` short-circuits the filter entirely.
+
+### Out of scope (filed for follow-up if needed)
+
+- Notification ring buffer's `m.activeRepos[snap[i].Repo]` lookup at `pkg/ui/model_alerts.go:134` uses `events.Event.Repo` which is `repoFromBeadID` — same class of ID-vs-DB mismatch can hide notifications for divergent repos. Not the reported bug, but worth a separate bead if dogfooding surfaces it.
+
+---
+
 ## 2026-04-24 — Notification deep-link to comment (bt-46p6.16)
 
 **Pressing enter on a comment notification now opens the bead AND scrolls the detail viewport to the specific comment that fired the event, instead of landing at the top.**
