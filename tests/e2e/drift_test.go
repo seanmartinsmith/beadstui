@@ -90,10 +90,11 @@ func TestEndToEndDriftWorkflow(t *testing.T) {
 	if exitErr.ExitCode() != 1 {
 		t.Errorf("Expected exit code 1 (critical), got %d", exitErr.ExitCode())
 	}
-	// Verify output contains "CRITICAL"
+	// Verify output mentions the critical severity (post-bt-46p6.8 renderer
+	// emits lowercase "critical" in the new "Drift: N critical, ..." summary).
 	outputStr := string(out)
-	if !strings.Contains(outputStr, "CRITICAL") {
-		t.Errorf("Expected output to mention CRITICAL, got:\n%s", outputStr)
+	if !strings.Contains(outputStr, "critical") {
+		t.Errorf("Expected output to mention critical, got:\n%s", outputStr)
 	}
 
 	// 8. Verify with JSON output
