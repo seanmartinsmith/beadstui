@@ -16,6 +16,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/seanmartinsmith/beadstui/pkg/agents"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
+	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
 )
 
 // handleKeyPress processes keyboard input.
@@ -1547,26 +1548,11 @@ func (m Model) handleNotificationsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		}
 		return m, nil
 	case "enter":
-		if m.notificationsCursor < len(activeNotifs) {
-			beadID := activeNotifs[m.notificationsCursor].BeadID
-			if beadID != "" {
-				if m.workspaceMode && m.activeRepos != nil {
-					if issue, ok := m.data.issueMap[beadID]; ok {
-						repoKey := IssueRepoKey(*issue)
-						if repoKey != "" && !m.activeRepos[repoKey] {
-							m.activeRepos[repoKey] = true
-							m.applyFilter()
-						}
-					}
-				}
-				// Filter-aware selection (bt-nzsy class crash avoidance).
-				if m.selectIssueByID(beadID) {
-					m.focusDetailAfterJump()
-				}
-			}
-		}
-		m.closeModal()
-		return m, nil
+		// Both keyboard enter and double-click on a notification share
+		// activateCurrentModalItem so the deep-link semantics (workspace
+		// reveal, filter-aware selection, detail focus, comment scroll for
+		// EventCommented per bt-46p6.16) stay in one place.
+		return m.activateCurrentModalItem()
 	case "c":
 		if m.notificationsCursor < len(activeNotifs) {
 			m.events.Dismiss(activeNotifs[m.notificationsCursor].ID)
@@ -1798,10 +1784,17 @@ func (m Model) activateCurrentModalItem() (Model, tea.Cmd) {
 	}
 	activeNotifs := m.visibleNotifications()
 	if m.notificationsCursor >= 0 && m.notificationsCursor < len(activeNotifs) {
-		beadID := activeNotifs[m.notificationsCursor].BeadID
-		if beadID != "" {
-			m.revealBeadIfHidden(beadID)
-			if m.selectIssueByID(beadID) {
+		notif := activeNotifs[m.notificationsCursor]
+		if notif.BeadID != "" {
+			m.revealBeadIfHidden(notif.BeadID)
+			if m.selectIssueByID(notif.BeadID) {
+				// Comment-event deep-link (bt-46p6.16): set the pending
+				// scroll target BEFORE focusDetailAfterJump runs, since
+				// that helper invokes updateViewportContent which is the
+				// surface that consumes pendingCommentScroll.
+				if notif.Kind == events.EventCommented && !notif.CommentAt.IsZero() {
+					m.pendingCommentScroll = notif.CommentAt
+				}
 				m.focusDetailAfterJump()
 			}
 		}

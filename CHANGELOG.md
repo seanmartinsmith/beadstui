@@ -6,6 +6,31 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-24 — Notification deep-link to comment (bt-46p6.16)
+
+**Pressing enter on a comment notification now opens the bead AND scrolls the detail viewport to the specific comment that fired the event, instead of landing at the top.**
+
+### What shipped
+
+- **bt-46p6.16** (P3, feature) — Comment-event deep-linking via Option B (timestamp).
+  - `pkg/ui/events/events.go` — Added `Event.CommentAt time.Time`, populated only for `EventCommented`. Stable, no upstream beads schema dependency, no comment-index drift on deletion.
+  - `pkg/ui/events/diff.go` — `newCommentedEvent` now copies `CommentAt = latest.CreatedAt` from the most recently added comment.
+  - `pkg/ui/model.go` — New `pendingCommentScroll time.Time` model field. One-shot signal: when non-zero, `updateViewportContent` aligns the viewport to the matching comment, then clears the field.
+  - `pkg/ui/model_update_input.go` — `activateCurrentModalItem` now sets `pendingCommentScroll = notif.CommentAt` for `EventCommented` notifications before calling `focusDetailAfterJump`. Keyboard-enter notification path collapsed into `activateCurrentModalItem` so it shares semantics with double-click activation; the duplicated workspace-reveal block is gone.
+  - `pkg/ui/model_filter.go` — `updateViewportContent` records `(CreatedAt, byteOffset)` for every comment as it builds the markdown source. When `pendingCommentScroll` is set, it slices the source up to the matching comment, renders that prefix through the same Glamour renderer, counts newlines, and calls `viewport.SetYOffset(line)`. Same-renderer prefix render avoids ANSI-styling line-count drift.
+  - Tests: `TestDiff_CommentAtCarriesCreatedAt` in `pkg/ui/events`; `TestUpdateViewportContent_ScrollsToCommentAt`, `TestUpdateViewportContent_NoScrollWhenPendingZero`, `TestActivateNotification_NonCommentEventDoesNotQueueScroll` in `pkg/ui`. Together they prove the signal flows from diff time → event → activation → viewport offset, and that opt-in semantics hold (no scroll without an explicit pending field).
+
+### Why this matters
+
+v1 of the notifications tab (bt-46p6.10) already showed comment events with the comment's first 80 runes as Summary. But pressing enter just opened the bead at the top, leaving users to scroll through long comment threads to find the one that fired. Closes the UX loop: events know which comment they were for, the model carries that signal across the modal-close boundary, and the renderer aligns the viewport without depending on string searches in styled output.
+
+### Out of scope (deferred)
+
+- Cross-project deep links into beads in repos that aren't hydrated. Behavior falls back to "open at top" — same as before this bead.
+- Other event kinds (closed, edited). They open the bead at top; no natural scroll target exists.
+
+---
+
 ## 2026-04-24 — Alert-type definitions surfaced in TUI + CLI (bt-46p6.17)
 
 **Closes the discoverability gap left by the bt-46p6.4 rename: every alert type now carries a plain-English definition, exposed across pkg/drift, the TUI alerts modal, and a new `bt robot alerts --describe-types` JSON emitter.**

@@ -216,6 +216,28 @@ func TestDiff_MultipleNewComments_UsesLatest(t *testing.T) {
 	}
 }
 
+func TestDiff_CommentAtCarriesCreatedAt(t *testing.T) {
+	// Per bt-46p6.16: EventCommented must carry the comment's CreatedAt
+	// as Event.CommentAt so the notifications-tab deep-link path can scroll
+	// the detail viewport to the right comment.
+	createdAt := time.Date(2026, 4, 22, 12, 30, 0, 0, time.UTC)
+	prior := []model.Issue{{ID: "bt-1", Title: "A", Status: model.StatusOpen}}
+	next := []model.Issue{{
+		ID: "bt-1", Title: "A", Status: model.StatusOpen,
+		Comments: []*model.Comment{
+			{ID: "c1", Text: "older", Author: "sms", CreatedAt: createdAt.Add(-time.Hour)},
+			{ID: "c2", Text: "newer", Author: "sms", CreatedAt: createdAt},
+		},
+	}}
+	events := Diff(prior, next, time.Now(), SourceDolt)
+	if len(events) != 1 || events[0].Kind != EventCommented {
+		t.Fatalf("want 1 EventCommented, got %v", events)
+	}
+	if !events[0].CommentAt.Equal(createdAt) {
+		t.Errorf("CommentAt = %v, want %v (latest comment's CreatedAt)", events[0].CommentAt, createdAt)
+	}
+}
+
 func TestDiff_BelowBulkThresholdEmitsIndividual(t *testing.T) {
 	// 50 new beads — below the 100-event threshold. All emit as individual EventCreated.
 	var prior, next []model.Issue

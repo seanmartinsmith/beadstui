@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/bql"
 	"github.com/seanmartinsmith/beadstui/pkg/correlation"
@@ -1071,10 +1072,21 @@ func (m *Model) updateViewportContent() {
 		sb.WriteString("```\n" + treeStr + "```\n\n")
 	}
 
-	// Comments
+	// Comments. Track per-comment byte offsets in the markdown source so the
+	// notifications-tab deep-link path (bt-46p6.16) can render a prefix slice
+	// to compute the exact rendered-line offset for the target comment.
+	type commentAnchor struct {
+		createdAt  time.Time
+		byteOffset int
+	}
+	var commentAnchors []commentAnchor
 	if len(item.Comments) > 0 {
 		sb.WriteString(fmt.Sprintf("### Comments (%d)\n", len(item.Comments)))
 		for _, comment := range item.Comments {
+			commentAnchors = append(commentAnchors, commentAnchor{
+				createdAt:  comment.CreatedAt,
+				byteOffset: sb.Len(),
+			})
 			sb.WriteString(fmt.Sprintf("> **%s** (%s)\n> \n> %s\n\n",
 				comment.Author,
 				FormatTimeRel(comment.CreatedAt),
@@ -1090,11 +1102,36 @@ func (m *Model) updateViewportContent() {
 		}
 	}
 
-	rendered, err := m.renderer.Render(sb.String())
+	source := sb.String()
+	rendered, err := m.renderer.Render(source)
 	if err != nil {
 		m.viewport.SetContent(fmt.Sprintf("Error rendering markdown: %v", err))
-	} else {
-		m.viewport.SetContent(rendered)
+		m.pendingCommentScroll = time.Time{}
+		return
+	}
+	m.viewport.SetContent(rendered)
+
+	// Apply the bt-46p6.16 deep-link scroll if one is queued. Render the
+	// prefix (everything in source up to the target comment's byte offset)
+	// through the same renderer so styling-induced line growth matches the
+	// full output, count its newlines, and align the viewport. Cleared
+	// unconditionally — a single user action consumes a single scroll.
+	if !m.pendingCommentScroll.IsZero() {
+		target := -1
+		for i, a := range commentAnchors {
+			if a.createdAt.Equal(m.pendingCommentScroll) {
+				target = i
+				break
+			}
+		}
+		if target >= 0 {
+			prefix := source[:commentAnchors[target].byteOffset]
+			if prefixRendered, perr := m.renderer.Render(prefix); perr == nil {
+				line := strings.Count(strings.TrimRight(prefixRendered, "\n"), "\n")
+				m.viewport.SetYOffset(line)
+			}
+		}
+		m.pendingCommentScroll = time.Time{}
 	}
 }
 

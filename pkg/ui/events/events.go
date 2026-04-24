@@ -63,14 +63,19 @@ func (s EventSource) String() string {
 
 // Event is one captured bead-activity record.
 type Event struct {
-	ID        string // stable hash of BeadID+Kind+At, for dedup/dismissal
-	Kind      EventKind
-	BeadID    string // "bt-1u3"
-	Repo      string // prefix extracted from BeadID ("bt")
-	Title     string // bead title at event time; frozen, not updated later
-	Summary   string // kind-dependent; see package doc
-	Actor     string // Issue.Assignee if set, else ""
-	At        time.Time
+	ID      string // stable hash of BeadID+Kind+At, for dedup/dismissal
+	Kind    EventKind
+	BeadID  string // "bt-1u3"
+	Repo    string // prefix extracted from BeadID ("bt")
+	Title   string // bead title at event time; frozen, not updated later
+	Summary string // kind-dependent; see package doc
+	Actor   string // Issue.Assignee if set, else ""
+	At      time.Time
+	// CommentAt is the CreatedAt of the comment that triggered this event.
+	// Populated only for Kind == EventCommented; zero-value otherwise. Used by
+	// the notifications-tab deep-link path (bt-46p6.16) to scroll the detail
+	// viewport to the specific comment after jumping to the bead.
+	CommentAt time.Time
 	Source    EventSource
 	Dismissed bool
 }

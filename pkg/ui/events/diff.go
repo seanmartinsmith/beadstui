@@ -210,22 +210,25 @@ const commentSummaryLimit = 80
 // summary derives from the most recently added one.
 func newCommentedEvent(oldIssue, newIssue model.Issue, at time.Time, source EventSource) Event {
 	summary := ""
+	var commentAt time.Time
 	if len(newIssue.Comments) > 0 {
 		latest := newIssue.Comments[len(newIssue.Comments)-1]
 		if latest != nil {
 			summary = truncateForSummary(latest.Text, commentSummaryLimit)
+			commentAt = latest.CreatedAt
 		}
 	}
 	return Event{
-		ID:      computeID(newIssue.ID, EventCommented, at),
-		Kind:    EventCommented,
-		BeadID:  newIssue.ID,
-		Repo:    repoFromBeadID(newIssue.ID),
-		Title:   newIssue.Title,
-		Summary: summary,
-		Actor:   newIssue.Assignee,
-		At:      at,
-		Source:  source,
+		ID:        computeID(newIssue.ID, EventCommented, at),
+		Kind:      EventCommented,
+		BeadID:    newIssue.ID,
+		Repo:      repoFromBeadID(newIssue.ID),
+		Title:     newIssue.Title,
+		Summary:   summary,
+		Actor:     newIssue.Assignee,
+		At:        at,
+		CommentAt: commentAt,
+		Source:    source,
 	}
 }
 

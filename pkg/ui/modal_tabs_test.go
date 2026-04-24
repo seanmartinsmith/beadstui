@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"charm.land/bubbles/v2/list"
+	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
 	"github.com/seanmartinsmith/beadstui/pkg/drift"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
@@ -283,5 +284,97 @@ func TestRenderAlertsPanel_BorderReflectsActiveTab(t *testing.T) {
 	}
 	if !strings.Contains(panel, "(1)") {
 		t.Fatalf("notifications tab border should contain '(1)' count; panel=\n%s", panel)
+	}
+}
+
+// TestUpdateViewportContent_ScrollsToCommentAt verifies bt-46p6.16: when
+// pendingCommentScroll is set to a comment's CreatedAt and the selected
+// bead has a matching comment, updateViewportContent renders, advances the
+// viewport YOffset off zero, and clears the pending field.
+func TestUpdateViewportContent_ScrollsToCommentAt(t *testing.T) {
+	commentTime := time.Date(2026, 4, 22, 12, 30, 0, 0, time.UTC)
+
+	issues := []model.Issue{{
+		ID: "bt-target", Title: "Target bead", Status: model.StatusOpen,
+		CreatedAt:   time.Now(),
+		Description: strings.Repeat("Long description paragraph. ", 12),
+		Comments: []*model.Comment{
+			{ID: "c1", Author: "sms", Text: strings.Repeat("first comment body. ", 6), CreatedAt: commentTime.Add(-time.Hour)},
+			{ID: "c2", Author: "sms", Text: "deep-link target comment body", CreatedAt: commentTime},
+			{ID: "c3", Author: "sms", Text: "later comment", CreatedAt: commentTime.Add(time.Hour)},
+		},
+	}}
+	m := NewModel(issues, nil, "", nil)
+	m.width = 120
+	m.height = 40
+	m.mode = ViewList
+	m.ready = true
+	m.list.Select(0)
+	m.viewport = viewport.New(viewport.WithWidth(80), viewport.WithHeight(20))
+
+	m.pendingCommentScroll = commentTime
+	m.updateViewportContent()
+
+	if !m.pendingCommentScroll.IsZero() {
+		t.Errorf("pendingCommentScroll should be cleared after render; got %v", m.pendingCommentScroll)
+	}
+	if m.viewport.YOffset() == 0 {
+		t.Errorf("viewport.YOffset() should be > 0 after scrolling to comment; still 0")
+	}
+}
+
+// TestUpdateViewportContent_NoScrollWhenPendingZero confirms the deep-link
+// path is opt-in: with pendingCommentScroll unset, updateViewportContent
+// leaves the viewport at the top regardless of comment count.
+func TestUpdateViewportContent_NoScrollWhenPendingZero(t *testing.T) {
+	commentTime := time.Date(2026, 4, 22, 12, 30, 0, 0, time.UTC)
+	issues := []model.Issue{{
+		ID: "bt-target", Title: "T", Status: model.StatusOpen, CreatedAt: time.Now(),
+		Description: strings.Repeat("padding. ", 30),
+		Comments: []*model.Comment{
+			{ID: "c1", Author: "sms", Text: "x", CreatedAt: commentTime},
+		},
+	}}
+	m := NewModel(issues, nil, "", nil)
+	m.width = 120
+	m.height = 40
+	m.mode = ViewList
+	m.ready = true
+	m.list.Select(0)
+	m.viewport = viewport.New(viewport.WithWidth(80), viewport.WithHeight(20))
+
+	m.updateViewportContent()
+	if m.viewport.YOffset() != 0 {
+		t.Errorf("viewport.YOffset() should stay 0 without pendingCommentScroll; got %d", m.viewport.YOffset())
+	}
+}
+
+// TestActivateNotification_NonCommentEventDoesNotQueueScroll ensures only
+// EventCommented populates pendingCommentScroll. Other event kinds activate
+// normally without queueing a comment scroll.
+func TestActivateNotification_NonCommentEventDoesNotQueueScroll(t *testing.T) {
+	issues := []model.Issue{{
+		ID: "bt-x", Title: "X", Status: model.StatusOpen, CreatedAt: time.Now(),
+	}}
+	m := NewModel(issues, nil, "", nil)
+	m.width = 120
+	m.height = 40
+	m.mode = ViewList
+	m.ready = true
+
+	m.events.Append(events.Event{
+		ID: "evt-closed", Kind: events.EventClosed,
+		BeadID: "bt-x", Repo: "bt", Title: "X", At: time.Now(),
+	})
+	m.activeModal = ModalAlerts
+	m.activeTab = TabNotifications
+	m.notificationsCursor = 0
+
+	got, _ := m.activateCurrentModalItem()
+	if !got.pendingCommentScroll.IsZero() {
+		t.Errorf("non-comment event must not leave pendingCommentScroll set; got %v", got.pendingCommentScroll)
+	}
+	if got.activeModal == ModalAlerts {
+		t.Errorf("activation should close the modal")
 	}
 }

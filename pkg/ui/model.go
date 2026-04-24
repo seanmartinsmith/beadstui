@@ -590,6 +590,13 @@ type Model struct {
 	lastModalClickX  int
 	lastModalClickY  int
 
+	// pendingCommentScroll is a one-shot signal from the notifications-tab
+	// deep-link path (bt-46p6.16). When non-zero, the next call to
+	// updateViewportContent locates the comment with this CreatedAt in the
+	// rendered detail view and aligns the viewport to it. Cleared as soon as
+	// the scroll is applied (or when no matching comment is found).
+	pendingCommentScroll time.Time
+
 	// Sprint view (bv-161)
 	sprints        []model.Sprint
 	selectedSprint *model.Sprint
