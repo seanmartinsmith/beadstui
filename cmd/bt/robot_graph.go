@@ -24,6 +24,7 @@ func generateRobotDocs(topic string) map[string]interface{} {
 			"bt --robot-insights              # Deep graph analysis (PageRank, betweenness, etc.)",
 			"bt --robot-triage-by-track       # Parallel work streams for multi-agent coordination",
 			"bt --robot-schema                # JSON Schema definitions for all commands",
+			"bt tail --robot-format jsonl    # Live bead event stream (headless; Monitor-tool compatible)",
 		},
 		"data_source": ".beads/issues.jsonl and git history (correlations)",
 		"output_modes": map[string]string{
