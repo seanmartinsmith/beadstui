@@ -236,6 +236,29 @@ func (m Model) renderSearchPill(width int) string {
 	return left + strings.Repeat(" ", gap) + right
 }
 
+// splitViewHeader renders the split-view list column header ("TYPE PRI STATUS
+// ID TITLE" strip). Extracted so splitViewListChromeHeight can measure the
+// actual rendered height via lipgloss.Height — lipgloss Style.Width only sets
+// background fill and does NOT truncate long text, so at narrow pane widths
+// the literal header would wrap to a second row, putting mouse click math
+// off by 1 (bt-i138, bt-ej61). Clip to fit before rendering.
+func (m Model) splitViewHeader() string {
+	t := m.theme
+	listInnerWidth := m.list.Width()
+
+	headerStyle := lipgloss.NewStyle().
+		Background(t.Primary).
+		Foreground(ColorBgContrast).
+		Bold(true).
+		Width(listInnerWidth)
+
+	headerText := "  TYPE PRI STATUS      ID                     TITLE"
+	if listInnerWidth > 0 && len(headerText) > listInnerWidth {
+		headerText = headerText[:listInnerWidth]
+	}
+	return headerStyle.Render(headerText)
+}
+
 func (m Model) renderListWithHeader() string {
 	t := m.theme
 
@@ -245,17 +268,23 @@ func (m Model) renderListWithHeader() string {
 		availableHeight = m.height - 3 // fallback
 	}
 
-	// Render column header
+	// Render column header. Clip to width; lipgloss Style.Width sets background
+	// fill but does NOT truncate, so at narrow widths the literal text would
+	// wrap to a second row (bt-i138).
+	headerWidth := m.width - 2
 	headerStyle := lipgloss.NewStyle().
 		Background(t.Primary).
 		Foreground(ColorBgContrast).
 		Bold(true).
-		Width(m.width - 2)
+		Width(headerWidth)
 
 	headerText := "  TYPE PRI STATUS      ID                                   TITLE"
 	if m.workspaceMode {
 		// Account for repo badges like [API] shown in workspace mode.
 		headerText = "  REPO TYPE PRI STATUS      ID                               TITLE"
+	}
+	if headerWidth > 0 && len(headerText) > headerWidth {
+		headerText = headerText[:headerWidth]
 	}
 	header := headerStyle.Render(headerText)
 
@@ -331,14 +360,7 @@ func (m Model) renderSplitView() string {
 	listInnerWidth := m.list.Width()
 	panelHeight := m.height - 2 // leave room for footer
 
-	// Create header row for list
-	headerStyle := lipgloss.NewStyle().
-		Background(t.Primary).
-		Foreground(ColorBgContrast).
-		Bold(true).
-		Width(listInnerWidth)
-
-	header := headerStyle.Render("  TYPE PRI STATUS      ID                     TITLE")
+	header := m.splitViewHeader()
 
 	// Page info for list
 	totalItems := len(m.list.Items())

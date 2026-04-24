@@ -96,6 +96,32 @@ func TestMouseClick_FormulaMatchesRender_WithPill(t *testing.T) {
 	}
 }
 
+// Narrow list pane: the literal header text "  TYPE PRI STATUS      ID
+// ...  TITLE" (~55 chars) would wrap to a 2nd row before bt-i138. Formula and
+// render must still agree when the pane is narrower than the raw header.
+// Uses WindowSizeMsg so both list + viewport are sized through the real path,
+// then forces a narrow split ratio that puts listInnerWidth well under the
+// raw header length.
+func TestMouseClick_FormulaMatchesRender_NarrowPane(t *testing.T) {
+	m := mouseTestModel(3, 120, 40, 60, 30)
+	// Drive through real sizing so viewport width is set.
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m = updated.(Model)
+	// Shrink the list pane (below the ~55-char raw header — pre-fix wrapped).
+	m.splitPaneRatio = 0.25
+	updated, _ = m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m = updated.(Model)
+	if m.list.Width() > 40 {
+		t.Fatalf("precondition: listInnerWidth=%d, expected narrow (< raw header length)", m.list.Width())
+	}
+	formulaY := m.splitViewListChromeHeight()
+	actualY := findRenderedItemY(m.View().Content, "bd-xaa")
+	if formulaY != actualY {
+		t.Errorf("chrome height drifted at narrow pane (listW=%d): formula=%d actual=%d",
+			m.list.Width(), formulaY, actualY)
+	}
+}
+
 // Paginated list, still on page 0: click on rendered Y+2 must select index 2.
 func TestMouseClick_ResolvesThirdRowOnFirstPage(t *testing.T) {
 	m := mouseTestModel(200, 200, 40, 60, 10)

@@ -1304,8 +1304,12 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 //
 // Chrome layers, top to bottom:
 //  1. RenderTitledPanel top border (always 1 row).
-//  2. renderSearchPill (0 rows when FilterState != FilterApplied).
-//  3. renderSplitView column header (the `TYPE PRI STATUS…` strip, 1 row).
+//  2. renderSearchPill (0 rows when FilterState != FilterApplied, can wrap
+//     at narrow widths so measured via lipgloss.Height).
+//  3. renderSplitView column header (the `TYPE PRI STATUS…` strip). The
+//     header is clipped to listInnerWidth by splitViewHeader so it stays
+//     1 row, but we still measure via lipgloss.Height as defense in depth
+//     against future chrome changes (bt-i138).
 //  4. Bubbles list phantom title row. SetShowTitle(false) alone is not
 //     enough to suppress this: the list's View() method at
 //     bubbles/v2/list/list.go:1048 enters its title-rendering branch
@@ -1314,11 +1318,10 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 //     Always 1 row while filteringEnabled is true (bt's default).
 func (m Model) splitViewListChromeHeight() int {
 	const (
-		panelTopBorder        = 1
-		columnHeader          = 1
-		bubblesPhantomTitle   = 1
+		panelTopBorder      = 1
+		bubblesPhantomTitle = 1
 	)
-	offset := panelTopBorder + columnHeader + bubblesPhantomTitle
+	offset := panelTopBorder + lipgloss.Height(m.splitViewHeader()) + bubblesPhantomTitle
 	if pill := m.renderSearchPill(m.list.Width()); pill != "" {
 		offset += lipgloss.Height(pill)
 	}
