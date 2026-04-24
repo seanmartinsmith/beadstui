@@ -1,15 +1,25 @@
 // pkg/ui/events/ring.go
 package events
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/seanmartinsmith/beadstui/pkg/debug"
+)
 
 // RingBuffer is a session-scoped fixed-capacity store for Events. It is
 // safe for concurrent use: writes are serialized, reads return a copy.
 // Capacity evictions drop the oldest event when Append would exceed cap.
+//
+// When SetPersistPath has been called with a non-empty path, every
+// Append/AppendMany also writes the new events as JSONL to that file
+// (bt-6ool Part A). Hydrate replays a previously persisted slice into
+// the buffer at boot.
 type RingBuffer struct {
-	mu     sync.RWMutex
-	events []Event
-	cap    int
+	mu        sync.RWMutex
+	events    []Event
+	cap       int
+	persister *filePersister
 }
 
 // NewRingBuffer returns a RingBuffer with the given maximum capacity.
@@ -29,20 +39,25 @@ func NewRingBuffer(capacity int) *RingBuffer {
 // that do not have a specific capacity requirement. Matches the spec.
 const DefaultCapacity = 500
 
-// Append adds an event to the buffer. If the buffer is at capacity, the
-// oldest event is evicted to make room.
-func (r *RingBuffer) Append(e Event) {
+// SetPersistPath enables write-through JSONL persistence at the given
+// file path. Pass "" to disable. The directory is created on first
+// write. Hydrate is the companion read-side; call it BEFORE the live
+// pipeline starts emitting events to avoid double-counting.
+func (r *RingBuffer) SetPersistPath(path string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	if len(r.events) >= r.cap {
-		r.events = r.events[1:]
+	if path == "" {
+		r.persister = nil
+		return
 	}
-	r.events = append(r.events, e)
+	r.persister = &filePersister{path: path}
 }
 
-// AppendMany is a convenience for bulk-appending a slice of events.
-// Evictions are applied per-event, so a large slice can flush older state.
-func (r *RingBuffer) AppendMany(events []Event) {
+// Hydrate inserts pre-loaded events into the buffer in order, respecting
+// capacity (oldest dropped when over). Intended to be called once at
+// boot from a LoadPersisted result. Does NOT trigger persistence
+// write-through — these events are already on disk.
+func (r *RingBuffer) Hydrate(events []Event) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for _, e := range events {
@@ -50,6 +65,48 @@ func (r *RingBuffer) AppendMany(events []Event) {
 			r.events = r.events[1:]
 		}
 		r.events = append(r.events, e)
+	}
+}
+
+// Append adds an event to the buffer. If the buffer is at capacity, the
+// oldest event is evicted to make room. When persistence is configured,
+// the event is also written through to disk; write failures are logged
+// via pkg/debug and do not propagate (the in-memory ring stays the
+// source of truth for the live session).
+func (r *RingBuffer) Append(e Event) {
+	r.mu.Lock()
+	persister := r.persister
+	if len(r.events) >= r.cap {
+		r.events = r.events[1:]
+	}
+	r.events = append(r.events, e)
+	r.mu.Unlock()
+
+	if persister != nil {
+		if err := persister.appendOne(e); err != nil {
+			debug.Log("events.RingBuffer.Append persist failed: %v", err)
+		}
+	}
+}
+
+// AppendMany is a convenience for bulk-appending a slice of events.
+// Evictions are applied per-event, so a large slice can flush older
+// state. Persistence is batched: one disk write covers the whole slice.
+func (r *RingBuffer) AppendMany(events []Event) {
+	r.mu.Lock()
+	persister := r.persister
+	for _, e := range events {
+		if len(r.events) >= r.cap {
+			r.events = r.events[1:]
+		}
+		r.events = append(r.events, e)
+	}
+	r.mu.Unlock()
+
+	if persister != nil && len(events) > 0 {
+		if err := persister.appendMany(events); err != nil {
+			debug.Log("events.RingBuffer.AppendMany persist failed: %v", err)
+		}
 	}
 }
 

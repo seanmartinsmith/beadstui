@@ -6,6 +6,30 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-24 — Notification persistence across bt restarts (bt-6ool Part A)
+
+**Notifications now survive `bt` exit and re-launch. The ring buffer write-throughs each event as one JSONL line at `~/.bt/events.jsonl` and replays the file (filtered by max age) on boot.**
+
+### What shipped
+
+- **bt-6ool Part A** (P3, feature) — JSONL persistence layer for the notifications ring buffer.
+  - `pkg/ui/events/persist.go` (new) — `LoadPersisted(path, maxAge)`, `DefaultPersistPath()`, internal `filePersister` with append-batched writes. Missing file is not an error; corrupt JSON lines are skipped silently; complete read failures (permissions etc.) propagate. Mutex-guarded so concurrent ring writers serialize through one disk write per batch.
+  - `pkg/ui/events/ring.go` — `RingBuffer` gains `SetPersistPath(path)`, `Hydrate(events)`, and write-through inside `Append`/`AppendMany`. Persistence happens after the lock is released to keep the in-memory hot path fast; write failures log via `pkg/debug` but never propagate (in-memory ring is the source of truth for the live session).
+  - `pkg/ui/model.go` — `NewModel` now hydrates the ring from `~/.bt/events.jsonl` (filtered to `DefaultMaxPersistAge` = 7 days) and enables write-through. Disabled by `BT_NO_EVENT_PERSIST=1` (user opt-out) or `BT_TEST_MODE` (so `pkg/ui` tests don't bleed in real machine state).
+  - Tests: 6 focused tests in `pkg/ui/events/persist_test.go` covering round-trip, max-age filter, hydrate cap-respect, corrupt-line resilience, missing-file tolerance, opt-out.
+
+### Out of scope / Part B
+
+Part B (offline capture — emitting synthetic events for activity that happened while bt was closed) is filed as a separate bead. It builds on Part A's persistence layer but needs its own decisions around baseline-snapshot storage, dedup against any in-flight events, and "too stale to backfill" thresholds.
+
+A potential file-growth concern: the JSONL is append-only with no rotation. At ~1 KB/event, 100 events/day, after 30 days the file reaches ~3 MB while only the last 7 days hydrate. Acceptable for v1; revisit if dogfooding shows the file becoming meaningfully large.
+
+### On-disk format note
+
+The persisted format is the `events.Event` struct's default Go JSON encoding. Renaming a field is a breaking change for existing on-disk files. Comment on `persist.go` calls this out for future engineers; acceptable risk for a single-user per-machine store.
+
+---
+
 ## 2026-04-24 — Notifications filter sister-fix + RepoKey moved to pkg/model (bt-gydd)
 
 **Fixes the same key-derivation mismatch as bt-ci7b but in the notifications-tab filter site, and consolidates repo-key derivation into a single canonical helper at the `pkg/model` layer so future filter sites can't drift.**

@@ -1045,6 +1045,23 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		treeModel.SetBeadsDir(filepath.Dir(beadsPath))
 	}
 
+	// Notification ring buffer with optional cross-restart persistence
+	// (bt-6ool Part A). Hydrate before the model is wired so the live
+	// pipeline starts on top of a buffer pre-populated with the last
+	// session's events. Disabled by BT_NO_EVENT_PERSIST=1, by
+	// BT_TEST_MODE=1 (so tests don't bleed in real ~/.bt/events.jsonl
+	// state from the dev machine), or when the home directory cannot
+	// be resolved.
+	eventsBuf := events.NewRingBuffer(events.DefaultCapacity)
+	if os.Getenv("BT_NO_EVENT_PERSIST") != "1" && os.Getenv("BT_TEST_MODE") == "" {
+		if path, err := events.DefaultPersistPath(); err == nil {
+			if loaded, lerr := events.LoadPersisted(path, events.DefaultMaxPersistAge); lerr == nil {
+				eventsBuf.Hydrate(loaded)
+			}
+			eventsBuf.SetPersistPath(path)
+		}
+	}
+
 	return Model{
 		data: &DataState{
 			issues:              issues,
@@ -1095,7 +1112,7 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		semanticHybridReady:    false,
 		lastSearchTerm:         "",
 		focused:                focusList,
-		events:                 events.NewRingBuffer(events.DefaultCapacity),
+		events:                 eventsBuf,
 		splitPaneRatio:         0.4, // Default: list pane gets 40% of width
 		// Initialize as ready with default dimensions to eliminate "Initializing..." phase
 		ready:               true,
