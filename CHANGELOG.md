@@ -6,6 +6,43 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-24 — Alert taxonomy rename + Progress sort + scope design (bt-46p6.4, bt-46p6.11, bt-lm2h, bt-7l5m)
+
+**Locks the alert type taxonomy to user-facing names, retires the bt-46p6.11 coordination bead, ships a Progress sort mode for the list view, and records the Option C decision (bt-7l5m) that the parallel session (44b78454) executed as bt-46p6.8.**
+
+### What shipped
+
+- **bt-46p6.4** (P3, task, `333fd381`) — Renamed 7 AlertType constants + string values to user-facing names: `new_cycle → dependency_loop`, `blocking_cascade → high_leverage`, `stale_issue → stale`, `density_growth → coupling_growth`, `pagerank_change → centrality_change`, `node_count_change → issue_count_change`, `edge_count_change → dependency_change`. Unchanged: `blocked_increase`, `actionable_change`, `velocity_drop`, `high_impact_unblock`, `abandoned_claim`, `potential_duplicate`. Convention established across the taxonomy: `_change` = bidirectional drift, `_increase`/`_growth` = one-directional drift, bare noun = state. TUI short-form labels in `pkg/ui/model_alerts.go#alertTypeLabel` updated to match (`cycle → dep loop`, `density → coupling`, `nodes → issues`, `edges → deps`, `cascade → leverage`). Clean break per AGENTS.md rule 6; no backward-compat shim. 12 files touched, 110/110 insertions/deletions.
+
+- **bt-46p6.11** (P2, task) — Closed as coordination-superseded. The bead tracked CLI-side parity for sibling beads `.4`/`.6`/`.7`/`.8`; each sibling's acceptance absorbed its own CLI surface concerns, so `.11` had no code of its own. Retired rather than abandoned — the coordination-bead pattern didn't pay rent.
+
+- **bt-lm2h** (P3, feature, `73f7d132`) — Progress sort mode, 6th entry in the `s`/`S` cycle. Order: `in_progress → review → open → hooked → blocked → pinned → deferred → closed → tombstone`. Ties broken by priority asc then updated desc. Added `SortProgress` constant + `String()` case in `pkg/ui/model.go`; added sort case + `progressOrdinal` helper in `pkg/ui/model_filter.go`. Answers "what's actively moving right now?" — no existing mode covered this. Gate beads (`type=gate`) intentionally NOT given a special tier; the gate-clutter concern is tracked separately as **bt-mbjg** (default-hide `type=gate` from the list).
+
+- **`030917ff`** — One-line e2e test drift fix for `tests/e2e/drift_test.go` assertion. 44b78454's `b4dcd7f6` commit changed the CLI drift renderer output from uppercase `"CRITICAL"` to lowercase `"critical"` in the new `Drift: N critical, …` summary; the assertion was still checking for the old format. Attribution noted in commit message.
+
+### Decisions + deferred work filed
+
+- **bt-7l5m** (decision, open) — Alert scope computation = project-scoped only, no global aggregates. Global view = union of per-project alerts tagged with `SourceProject`, filterable by project. Cross-project `external:` deps resolved before graph construction so each project's graph includes its real cross-project edges. Rejected Option A (scope-aware with global aggregate pass) and Option B (dual per-project + global always) because both preserved a "global aggregate" computation that bt-46p6.8's own problem statement argues is semantically incoherent across unrelated dependency graphs. Executed same day by 44b78454 — see their separate entry for bt-46p6.8 implementation specifics.
+
+- **bt-46p6.17** (P3, filed, now unblocked since .4 shipped) — Surface natural-language definitions for each alert type in TUI modal + CLI `--describe-types` flag + optional JSON `definition` field. Names like `centrality_change` and `coupling_growth` don't self-explain; inline definitions close the opacity gap introduced by the rename.
+
+- **bt-46p6.18** (P4, filed, deferred) — Global-scope aggregate metrics. Parked until upstream beads backend gains federated or canonical-scope primitives that make cross-project aggregates interpretable. Explicit revisit trigger recorded.
+
+- **bt-46p6.19** (P3, filed, blocked by `.8`) — TUI cross-project alert navigation. After `.8`'s `SourceProject` attribution shipped (done), navigation from alert details into the target project's view still needs its own implementation.
+
+- **bt-mbjg** (P2, filed) — Default-hide `type=gate` beads from list view; surface via explicit filter or dedicated view. Surfaced during this session's Progress-sort brainstorm — gates are coordination metadata, not work, and they clutter the "what can I pick up?" signal.
+
+- **cass-ylx6** (P2, cross-project filed in `cass`) — `cass whoami --source env` returns stale session ID after `/clear` rotates the Claude Code transcript. CC doesn't re-export `CLAUDE_SESSION_ID` on `/clear`, so any tool that reads the env var after rotation gets the pre-`/clear` ID. Fix options: prefer active-transcript signal over env, or reconcile + warn on mismatch. Also a Claude Code-side bug at root.
+
+### Context notes
+
+- Auto-memory `reference_bd_dolt_push_windows.md` removed — `bd-nft` closed upstream in dolt 1.86.4; the manual `cd && dolt push` workaround is no longer needed.
+- Comment added to **bt-yqh0** (cross-project paired-bead aggregation) with the 2026-04-24 `fjip` cluster dogfood data point (`mkt-fjip` + `bd-fjip` + `cass-fjip` — second concrete cluster after the original `96y` example, confirms P2 priority is right).
+- Ran in parallel with session `44b78454` (bt-46p6.8 execution). Zero file overlap. `git commit --only` used every time for atomic staging against the shared `.git/index` (pattern captured as project memory `feedback_multi_session_git_scope`).
+- `/clear` rotation observed mid-session: the bt-46p6.8 handoff ran in a CC process that had been `/clear`'d, landing the new transcript in `44b78454-040b-463f-9bad-fe60839eb272.jsonl` while the process's `$CLAUDE_SESSION_ID` still reported `842a70ba` — source of the cass-ylx6 filing.
+
+---
+
 ## 2026-04-24 - Scope-aware alert computation + baseline schema v2 (bt-46p6.8)
 
 **Locks in bt-7l5m's Option C: alerts are always computed at project scope. Global view is the union of per-project alerts tagged with `SourceProject` and filterable by project. No global-aggregate density / PageRank / cycle metrics — those are incoherent across unrelated dependency graphs. Ships per-project baseline sections so drift-delta alerts (centrality_change, coupling_growth, blocked_increase, etc.) fire correctly for every project in global mode.**

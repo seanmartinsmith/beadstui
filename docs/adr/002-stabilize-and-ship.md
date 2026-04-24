@@ -132,6 +132,13 @@ README prose rewrite drafted. Needs review against current state (the codebase h
 
 Accumulated dogfood findings. Active work as of 2026-04-14.
 
+Recent completions (2026-04-24 — alerts epic redesign):
+- [x] bt-46p6.4 (P3): Alert type taxonomy renamed to human-readable names (dependency_loop, high_leverage, coupling_growth, centrality_change, issue_count_change, dependency_change, stale)
+- [x] bt-46p6.8 (P2): Scope-aware alert computation — project-scoped only, no global aggregates; baseline schema v2 with per-project sections
+- [x] bt-46p6.11 (P2): CLI alert system alignment retired — coordination bead folded into sibling acceptance
+- [x] bt-lm2h (P3): Progress sort mode added as 6th entry in the s/S cycle (in_progress → review → open → hooked → blocked → pinned → deferred → closed → tombstone)
+- [x] bt-7l5m (decision): Alert scope = project-scoped only; global aggregate metrics deferred to bt-46p6.18 (P4), TUI cross-project nav deferred to bt-46p6.19 (P3)
+
 Recent completions (2026-04-14 dogfood session):
 - [x] Project filter picker redesign - rounded borders, ✓/• indicators, overlay compositing (bt-s4b7)
 - [x] Fix project filter matching - use SourceRepo instead of ID prefix parsing (bt-dcby related)
