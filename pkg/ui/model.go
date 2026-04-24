@@ -580,6 +580,13 @@ type Model struct {
 	activeTab           ModalTab
 	notificationsCursor int
 
+	// Double-click detection for modal mouse activation (bt-46p6.14).
+	// Updated on every MouseClickMsg inside the alerts modal; a second click
+	// at the same (X,Y) within modalDoubleClickWindow promotes to activate.
+	lastModalClickAt time.Time
+	lastModalClickX  int
+	lastModalClickY  int
+
 	// Sprint view (bv-161)
 	sprints        []model.Sprint
 	selectedSprint *model.Sprint

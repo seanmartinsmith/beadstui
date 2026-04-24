@@ -1328,19 +1328,30 @@ func (m Model) splitViewListChromeHeight() int {
 	return offset
 }
 
-// handleMouseClick processes mouse button press events. Currently scoped to
-// split-view pane focus switching and list-row selection (bt-d8d1). Modals
-// and single-pane views are pass-through to preserve existing behavior.
+// handleMouseClick processes mouse button press events. Scoped to:
+//   - split-view pane focus switching and list-row selection (bt-d8d1)
+//   - alerts + notifications tabs inside the shared modal (bt-46p6.14)
+//
+// Other modals (RepoPicker, LabelPicker) remain keyboard-only; single-pane
+// views pass through to preserve existing behavior.
 func (m Model) handleMouseClick(msg tea.MouseClickMsg) (Model, tea.Cmd) {
-	if m.activeModal != ModalNone {
-		return m, nil
-	}
 	mouse := msg.Mouse()
 	if mouse.Button != tea.MouseLeft {
 		return m, nil
 	}
 	// Footer row is the last line — ignore clicks there.
 	if mouse.Y >= m.height-1 {
+		return m, nil
+	}
+	// Shared alerts / notifications modal owns its own click routing so the
+	// backdrop stays no-op and row/tab interactions feel consistent with the
+	// main split view (bt-46p6.14).
+	if m.activeModal == ModalAlerts {
+		return m.handleAlertsModalClick(mouse)
+	}
+	// Other modals (RepoPicker, LabelPicker) stay keyboard-only for now —
+	// bt-km6d / bt-arf9 track that work separately.
+	if m.activeModal != ModalNone {
 		return m, nil
 	}
 	// Only the default list mode uses click-to-focus on list/detail. Other
@@ -1581,4 +1592,240 @@ func (m Model) handleNotificationsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 	return m, nil
+}
+
+// modalDoubleClickWindow is the maximum interval between two clicks at the
+// same position that still counts as a double-click. 500ms mirrors the
+// OS-default across Windows/macOS/GNOME and was validated by hand on a
+// range of trackpads during bt-46p6.14 dogfooding.
+const modalDoubleClickWindow = 500 * time.Millisecond
+
+// modalChromeAboveItems is the number of terminal rows above the first
+// item inside the shared alerts/notifications modal. Layered top-to-bottom:
+//  1. Panel top border (RenderTitledPanel, always 1 row).
+//  2. padContentLines top blank (renderAlertsPanel wraps body in 1-row pad).
+//  3. Summary line ("N total · K critical · …" / "K created · K closed · …").
+//  4. Blank separator written by the tab's "\n\n" after the summary.
+//  5. Above-hint / filter-label line (always written, even when empty; the
+//     renderer terminates the row with "\n" so it consumes 1 row either way).
+//
+// Items begin at index 5 (0-indexed) within the modal. The notifications tab
+// uses the same layout, verified by reading renderAlertsTab and
+// renderNotificationsTab in model_alerts.go. If that chrome changes, this
+// constant must change with it — TestAlertsModalClick_ChromeOffset guards
+// against drift.
+const modalChromeAboveItems = 5
+
+// handleAlertsModalClick routes a MouseClickMsg when the shared alerts /
+// notifications modal is open (bt-46p6.14). Mirrors the keyboard handler
+// semantics: clicking a row moves the cursor there; double-clicking the
+// same row activates it (jumps to the referenced issue and closes the
+// modal, same path as the enter key). Clicks outside the modal body are
+// no-ops — esc / ! / 1 remain the only close paths.
+func (m Model) handleAlertsModalClick(mouse tea.Mouse) (Model, tea.Cmd) {
+	// OverlayCenter (pkg/ui/panel.go) composites the modal centered on the
+	// background. Background width is m.width and background height is
+	// m.height-1 (footer is rendered below it). The panel's outer size is
+	// fixed by renderAlertsPanel: width = min(80, m.width-4), height set by
+	// alertsPanelHeight.
+	panelWidth := min(80, m.width-4)
+	panelHeight := m.alertsPanelHeight()
+	startRow := (m.height - 1 - panelHeight) / 2
+	startCol := (m.width - panelWidth) / 2
+	if startRow < 0 {
+		startRow = 0
+	}
+	if startCol < 0 {
+		startCol = 0
+	}
+
+	mx := mouse.X - startCol
+	my := mouse.Y - startRow
+	if mx < 0 || mx >= panelWidth || my < 0 || my >= panelHeight {
+		// Backdrop click: do NOT close (bead acceptance: "Click on modal
+		// backdrop / outside the content area is a no-op, not a close").
+		return m, nil
+	}
+
+	idx, ok := m.alertsModalItemAtY(my)
+	if !ok {
+		// Click landed on modal chrome (border, summary, hint line, footer,
+		// padding). Consume but do not affect cursor or selection.
+		return m, nil
+	}
+
+	now := time.Now()
+	isDouble := !m.lastModalClickAt.IsZero() &&
+		now.Sub(m.lastModalClickAt) <= modalDoubleClickWindow &&
+		m.lastModalClickX == mouse.X &&
+		m.lastModalClickY == mouse.Y
+	m.lastModalClickAt = now
+	m.lastModalClickX = mouse.X
+	m.lastModalClickY = mouse.Y
+
+	// Move cursor to clicked row.
+	if m.activeTab == TabAlerts {
+		m.alertsCursor = idx
+	} else {
+		m.notificationsCursor = idx
+	}
+
+	if !isDouble {
+		return m, nil
+	}
+	// Double-click: activate (equivalent to enter). Reset the double-click
+	// timer so a triple-click doesn't re-trigger activation on a closed modal.
+	m.lastModalClickAt = time.Time{}
+	return m.activateCurrentModalItem()
+}
+
+// alertsModalItemAtY maps a Y coordinate inside the shared modal (relative
+// to the modal's top border) to an index in the currently visible item
+// slice for the active tab. Returns (-1, false) when my points at chrome,
+// padding, or the detail/summary line beneath the cursor (treating those
+// regions as non-clickable keeps row math stable when the selected row
+// expands to 2 lines).
+func (m Model) alertsModalItemAtY(my int) (int, bool) {
+	if my < modalChromeAboveItems {
+		return -1, false
+	}
+	relY := my - modalChromeAboveItems
+
+	if m.activeTab == TabAlerts {
+		active := m.visibleAlerts()
+		if len(active) == 0 {
+			return -1, false
+		}
+		pageSize := m.alertsVisibleLines()
+		if pageSize < 1 {
+			return -1, false
+		}
+		start := (m.alertsCursor / pageSize) * pageSize
+		end := start + pageSize
+		if end > len(active) {
+			end = len(active)
+		}
+		titleByID := m.alertIssueTitleMap()
+		row := 0
+		for i := start; i < end; i++ {
+			if row == relY {
+				return i, true
+			}
+			row++
+			// The alerts tab renders a 1-row detail line beneath the selected
+			// alert whenever its IssueID resolves to a non-empty title
+			// (renderAlertsTab, line ~415). Mirror that predicate so the
+			// clickable-row map matches the rendered layout.
+			if i == m.alertsCursor && active[i].IssueID != "" && titleByID[active[i].IssueID] != "" {
+				if row == relY {
+					return -1, false // detail line — "click on selected" no-op
+				}
+				row++
+			}
+		}
+		return -1, false
+	}
+
+	// Notifications tab. pageSize differs by 1 from the alerts tab because
+	// renderNotificationsTab reserves a row for the cursor-summary expand.
+	active := m.visibleNotifications()
+	if len(active) == 0 {
+		return -1, false
+	}
+	pageSize := m.alertsVisibleLines() - 1
+	if pageSize < 2 {
+		pageSize = 2
+	}
+	start := (m.notificationsCursor / pageSize) * pageSize
+	end := start + pageSize
+	if end > len(active) {
+		end = len(active)
+	}
+	row := 0
+	for i := start; i < end; i++ {
+		if row == relY {
+			return i, true
+		}
+		row++
+		if i == m.notificationsCursor {
+			// Summary line is rendered only when Summary is non-empty after
+			// newline-sanitization + trim (renderNotificationsTab, ~line 617).
+			s := strings.TrimSpace(strings.ReplaceAll(active[i].Summary, "\n", " "))
+			if s != "" {
+				if row == relY {
+					return -1, false
+				}
+				row++
+			}
+		}
+	}
+	return -1, false
+}
+
+// alertIssueTitleMap returns a {issue_id → title} lookup drawn from the
+// list items, matching the map renderAlertsTab builds inline. Extracted
+// so the click handler can apply the same "has-detail-line?" predicate
+// without duplicating IssueItem iteration logic.
+func (m Model) alertIssueTitleMap() map[string]string {
+	titles := make(map[string]string, len(m.list.Items()))
+	for _, item := range m.list.Items() {
+		if it, ok := item.(IssueItem); ok {
+			titles[it.Issue.ID] = it.Issue.Title
+		}
+	}
+	return titles
+}
+
+// activateCurrentModalItem mirrors the enter-key path for both alerts and
+// notifications tabs: jumps to the referenced bead (reveal-filtered if the
+// project was hidden in workspace mode), focuses the detail pane, and
+// closes the modal. Split out from the key handler so double-click can
+// reuse the exact same activation contract.
+func (m Model) activateCurrentModalItem() (Model, tea.Cmd) {
+	if m.activeTab == TabAlerts {
+		activeAlerts := m.visibleAlerts()
+		if m.alertsCursor >= 0 && m.alertsCursor < len(activeAlerts) {
+			issueID := activeAlerts[m.alertsCursor].IssueID
+			if issueID != "" {
+				m.revealBeadIfHidden(issueID)
+				if m.selectIssueByID(issueID) {
+					m.focusDetailAfterJump()
+				}
+			}
+		}
+		m.closeModal()
+		return m, nil
+	}
+	activeNotifs := m.visibleNotifications()
+	if m.notificationsCursor >= 0 && m.notificationsCursor < len(activeNotifs) {
+		beadID := activeNotifs[m.notificationsCursor].BeadID
+		if beadID != "" {
+			m.revealBeadIfHidden(beadID)
+			if m.selectIssueByID(beadID) {
+				m.focusDetailAfterJump()
+			}
+		}
+	}
+	m.closeModal()
+	return m, nil
+}
+
+// revealBeadIfHidden unhides the bead's repo in workspace mode so a jump
+// from the modal doesn't land on a filtered-out issue. No-op when not in
+// workspace mode or when the repo is already active. Matches the inline
+// reveal blocks in the alerts/notifications enter handlers (bt-46p6.10).
+func (m *Model) revealBeadIfHidden(beadID string) {
+	if !m.workspaceMode || m.activeRepos == nil {
+		return
+	}
+	issue, ok := m.data.issueMap[beadID]
+	if !ok {
+		return
+	}
+	repoKey := IssueRepoKey(*issue)
+	if repoKey == "" || m.activeRepos[repoKey] {
+		return
+	}
+	m.activeRepos[repoKey] = true
+	m.applyFilter()
 }
