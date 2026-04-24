@@ -422,6 +422,34 @@ func (m *Model) refreshListItemsPhase2() {
 	m.updateViewportContent()
 }
 
+// progressOrdinal returns the Progress-sort rank for a status (bt-lm2h).
+// Lower = more "in motion" (surface higher); higher = more dormant/done.
+// Unknown statuses sort last so additions upstream don't silently reshuffle.
+func progressOrdinal(s model.Status) int {
+	switch s {
+	case model.StatusInProgress:
+		return 0
+	case model.StatusReview:
+		return 1
+	case model.StatusOpen:
+		return 2
+	case model.StatusHooked:
+		return 3
+	case model.StatusBlocked:
+		return 4
+	case model.StatusPinned:
+		return 5
+	case model.StatusDeferred:
+		return 6
+	case model.StatusClosed:
+		return 7
+	case model.StatusTombstone:
+		return 8
+	default:
+		return 9
+	}
+}
+
 // cycleSortMode cycles through available sort modes (bv-3ita)
 func (m *Model) cycleSortMode() {
 	m.filter.sortMode = (m.filter.sortMode + 1) % numSortModes
@@ -462,6 +490,19 @@ func (m *Model) sortFilteredItems(items []list.Item, issues []model.Issue) {
 			return iItem.Issue.Priority < jItem.Issue.Priority
 		case SortUpdated:
 			// Most recently updated first
+			return iItem.Issue.UpdatedAt.After(jItem.Issue.UpdatedAt)
+		case SortProgress:
+			// Status lifecycle: in_progress -> review -> open -> hooked ->
+			// blocked -> pinned -> deferred -> closed -> tombstone (bt-lm2h).
+			// Ties broken by priority asc, then updated desc.
+			iOrd := progressOrdinal(iItem.Issue.Status)
+			jOrd := progressOrdinal(jItem.Issue.Status)
+			if iOrd != jOrd {
+				return iOrd < jOrd
+			}
+			if iItem.Issue.Priority != jItem.Issue.Priority {
+				return iItem.Issue.Priority < jItem.Issue.Priority
+			}
 			return iItem.Issue.UpdatedAt.After(jItem.Issue.UpdatedAt)
 		default:
 			// Default: Open first, then priority, then newest

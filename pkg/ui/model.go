@@ -144,6 +144,7 @@ const (
 	SortCreatedDesc                 // By creation date, newest first
 	SortCreatedAsc                  // By creation date, oldest first
 	SortPriority                    // By priority only (ascending)
+	SortProgress                    // By status lifecycle: in_progress first, closed/tombstone last (bt-lm2h)
 	numSortModes                    // Keep this last - used for cycling
 )
 
@@ -158,6 +159,8 @@ func (s SortMode) String() string {
 		return "Created ↑"
 	case SortPriority:
 		return "Priority"
+	case SortProgress:
+		return "Progress"
 	default:
 		return "Default"
 	}
