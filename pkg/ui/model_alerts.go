@@ -11,6 +11,7 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/baseline"
 	"github.com/seanmartinsmith/beadstui/pkg/drift"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
 
 	"charm.land/lipgloss/v2"
 )
@@ -134,6 +135,32 @@ func (m Model) visibleAlerts() []drift.Alert {
 	return out
 }
 
+// visibleNotifications returns ring-buffer events filtered by dismissed state
+// and active-repo filter, newest-first. v1 hides dismissed; bt-46p6.13 may
+// expose them via filter. In workspace mode with an active repo filter,
+// events whose Repo isn't in activeRepos are hidden — mirrors the alerts
+// tab's project-scoping so 'single project' / 'multi-project select' /
+// 'global' views produce the right notification set.
+func (m Model) visibleNotifications() []events.Event {
+	snap := m.events.Snapshot()
+	out := make([]events.Event, 0, len(snap))
+	// Snapshot is oldest-first; reverse to newest-first.
+	for i := len(snap) - 1; i >= 0; i-- {
+		if snap[i].Dismissed {
+			continue
+		}
+		// Respect workspace-mode project filter. activeRepos == nil means
+		// "all projects" (global); a non-nil map means "only these repos".
+		if m.workspaceMode && m.activeRepos != nil && snap[i].Repo != "" {
+			if !m.activeRepos[snap[i].Repo] {
+				continue
+			}
+		}
+		out = append(out, snap[i])
+	}
+	return out
+}
+
 // alertProjectKey returns the project prefix for an alert's issue.
 func (m Model) alertProjectKey(a drift.Alert) string {
 	if a.IssueID == "" {
@@ -227,9 +254,11 @@ func (m Model) alertsVisibleLines() int {
 	return lines
 }
 
-// renderAlertsPanel renders the alerts overlay panel using RenderTitledPanel
-// for visual consistency with the rest of the TUI.
-func (m Model) renderAlertsPanel() string {
+// renderAlertsTab renders the alerts-tab inner content (no panel frame, no
+// outer padding). The shared modal frame lives in renderAlertsPanel
+// (bt-46p6.10); this function produces only the body visible on the alerts
+// tab.
+func (m Model) renderAlertsTab() string {
 	t := m.theme
 
 	panelWidth := min(80, m.width-4)
@@ -442,19 +471,236 @@ func (m Model) renderAlertsPanel() string {
 	sb.WriteString("\n\n")
 	sb.WriteString(strings.Repeat(" ", helpPad) + helpText)
 
-	// Pad each content line for inner padding
-	paddedContent := padContentLines(sb.String(), 1)
+	// Panel frame applied by renderAlertsPanel (bt-46p6.10).
+	return sb.String()
+}
 
-	// Use blocked/red color to match alert severity
-	panel := RenderTitledPanel(paddedContent, PanelOpts{
-		Title:       "Alerts!",
+// formatNotificationRow renders a single ring-buffer event as a one-line
+// notification. Format: "15:04 closed bt-46p6.1 • Fix: modal expands…"
+// Single space between time/kind/id; " • " separates id from title.
+// Columns are unaligned (intentional — tighter spacing over grid alignment).
+// Title is sanitized (newlines → spaces) and truncated at runtime width.
+func formatNotificationRow(e events.Event, width int) string {
+	timeStr := e.At.Format("15:04")
+	kindStr := e.Kind.String()
+	idStr := e.BeadID
+	// timeStr(5) + " " + kindStr + " " + idStr + " • " (3)
+	consumed := len(timeStr) + 1 + len(kindStr) + 1 + len(idStr) + 3
+	titleWidth := width - consumed
+	if titleWidth < 10 {
+		titleWidth = 10
+	}
+	title := strings.ReplaceAll(e.Title, "\n", " ")
+	return timeStr + " " + kindStr + " " + idStr + " • " + truncate(title, titleWidth)
+}
+
+// renderNotificationsTab builds the notifications tab body. Reads from
+// events.RingBuffer, hides dismissed events, and renders newest-first with
+// pagination matching the alerts tab. Returns inner content only; the
+// shared modal frame is applied in renderAlertsPanel.
+func (m Model) renderNotificationsTab() string {
+	t := m.theme
+	panelWidth := min(80, m.width-4)
+	innerWidth := panelWidth - 4
+
+	active := m.visibleNotifications()
+
+	var sb strings.Builder
+
+	if len(active) == 0 {
+		// Center "No notifications" both vertically and horizontally in the
+		// panel body. inner = panel inner area (Height - top/bottom borders).
+		// RenderTitledPanel pads content to inner rows, so we write vPad
+		// blanks + centered text + bottom blanks to land dead center.
+		msg := lipgloss.NewStyle().Foreground(ColorSuccess).Render("No notifications")
+		msgW := lipgloss.Width(msg)
+		hPad := (innerWidth - msgW) / 2
+		if hPad < 0 {
+			hPad = 0
+		}
+		inner := m.alertsPanelHeight() - 2
+		if inner < 1 {
+			inner = 1
+		}
+		vPadTop := (inner - 1) / 2
+		vPadBottom := inner - 1 - vPadTop
+		for i := 0; i < vPadTop; i++ {
+			sb.WriteString("\n")
+		}
+		sb.WriteString(strings.Repeat(" ", hPad) + msg)
+		for i := 0; i < vPadBottom; i++ {
+			sb.WriteString("\n")
+		}
+		return sb.String()
+	}
+
+	// Summary line: per-kind breakdown (mirrors alerts' "N total · K critical · …").
+	// Total is already rendered in the border's RightLabel, so omit it here.
+	var created, edited, closed, commented, bulk int
+	for _, e := range active {
+		switch e.Kind {
+		case events.EventCreated:
+			created++
+		case events.EventEdited:
+			edited++
+		case events.EventClosed:
+			closed++
+		case events.EventCommented:
+			commented++
+		case events.EventBulk:
+			bulk++
+		}
+	}
+	kindStyle := lipgloss.NewStyle().Foreground(t.Secondary)
+	sepStyle := lipgloss.NewStyle().Foreground(t.Muted)
+	sep := sepStyle.Render(" • ")
+	sb.WriteString(" ")
+	first := true
+	writeKind := func(n int, label string) {
+		if n == 0 {
+			return
+		}
+		if !first {
+			sb.WriteString(sep)
+		}
+		sb.WriteString(kindStyle.Render(fmt.Sprintf("%d %s", n, label)))
+		first = false
+	}
+	writeKind(created, "created")
+	writeKind(edited, "edited")
+	writeKind(closed, "closed")
+	writeKind(commented, "commented")
+	writeKind(bulk, "bulk")
+	sb.WriteString("\n\n")
+
+	// Leave one row of the page for the cursor-expand line (hover-expand
+	// shows Event.Summary beneath the selected row). Matches the tradeoff
+	// used by the alerts tab's selected-detail line.
+	pageSize := m.alertsVisibleLines() - 1
+	if pageSize < 2 {
+		pageSize = 2
+	}
+	start := (m.notificationsCursor / pageSize) * pageSize
+	end := start + pageSize
+	if end > len(active) {
+		end = len(active)
+	}
+
+	mutedStyle := lipgloss.NewStyle().Foreground(t.Muted)
+
+	// Above-indicator line (matches alerts' above-hint row).
+	if start > 0 {
+		sb.WriteString(mutedStyle.Render(fmt.Sprintf(" ▴ %d more above", start)))
+	}
+	sb.WriteString("\n")
+
+	cursorStyle := lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
+	rowStyle := lipgloss.NewStyle().Foreground(t.Base.GetForeground())
+	summaryStyle := mutedStyle.Italic(true)
+
+	// Usable width for the row content after our "▸ " / "   " prefix (3)
+	// and a right-side margin (2) to keep text from kissing the border.
+	rowWidth := innerWidth - 5
+	if rowWidth < 20 {
+		rowWidth = 20
+	}
+
+	rowsWritten := 0
+	for i := start; i < end; i++ {
+		row := formatNotificationRow(active[i], rowWidth)
+		if i == m.notificationsCursor {
+			sb.WriteString(" " + cursorStyle.Render("▸ "+row))
+			sb.WriteString("\n")
+			rowsWritten++
+			// Sanitize Summary: strip newlines so the hover-expand stays on
+			// a single line (commit/comment summaries may include line breaks).
+			s := strings.ReplaceAll(active[i].Summary, "\n", " ")
+			s = strings.TrimSpace(s)
+			if s != "" {
+				sb.WriteString("    " + summaryStyle.Render(truncate(s, rowWidth-2)))
+				sb.WriteString("\n")
+				rowsWritten++
+			}
+		} else {
+			sb.WriteString("   " + rowStyle.Render(row))
+			sb.WriteString("\n")
+			rowsWritten++
+		}
+	}
+
+	// Pad item rows to pageSize for visual stability — the page indicator
+	// below lands at the same row regardless of how many items are on this
+	// page (matches alerts tab's padding at renderAlertsTab).
+	for i := rowsWritten; i < pageSize; i++ {
+		sb.WriteString("\n")
+	}
+
+	// Below-indicator + page counter on a single line: " ▾ N more below" left,
+	// "N/M" right. Mirrors the alerts tab's above/below pattern.
+	belowHint := ""
+	if end < len(active) {
+		belowHint = fmt.Sprintf(" ▾ %d more below", len(active)-end)
+	}
+	pageLabel := fmt.Sprintf("%d/%d", m.notificationsCursor+1, len(active))
+	leftPart := mutedStyle.Render(belowHint)
+	rightPart := lipgloss.NewStyle().Foreground(t.Secondary).Italic(true).Render(pageLabel)
+	leftW := lipgloss.Width(leftPart)
+	rightW := lipgloss.Width(rightPart)
+	gap := innerWidth - leftW - rightW
+	if gap < 1 {
+		gap = 1
+	}
+	sb.WriteString(leftPart + strings.Repeat(" ", gap) + rightPart)
+
+	// Footer: centered help text (matches alerts-tab layout at the bottom).
+	hintStyle := mutedStyle.Italic(true)
+	hintText := hintStyle.Render("j/k: nav  enter: open  c: dismiss  C: dismiss all  esc: close")
+	hintW := lipgloss.Width(hintText)
+	hintPad := (innerWidth - hintW) / 2
+	if hintPad < 0 {
+		hintPad = 0
+	}
+	sb.WriteString("\n\n")
+	sb.WriteString(strings.Repeat(" ", hintPad) + hintText)
+
+	return sb.String()
+}
+
+// renderAlertsPanel is the public entry point for the shared alerts /
+// notifications modal (bt-46p6.10). Title + count live in the panel border
+// (no in-body tab strip); dispatches body to the active tab.
+func (m Model) renderAlertsPanel() string {
+	t := m.theme
+	panelWidth := min(80, m.width-4)
+
+	var title, rightLabel string
+	titleColor := t.Blocked
+	if m.activeTab == TabAlerts {
+		title = "Alerts!"
+		rightLabel = fmt.Sprintf("(%d)", len(m.visibleAlerts()))
+	} else {
+		title = "Notifications"
+		titleColor = t.Primary
+		// Use visibleNotifications so the count honors the active-repo filter,
+		// matching alerts' len(m.visibleAlerts()) behavior (bt-46p6.10).
+		rightLabel = fmt.Sprintf("(%d)", len(m.visibleNotifications()))
+	}
+
+	var body string
+	if m.activeTab == TabAlerts {
+		body = m.renderAlertsTab()
+	} else {
+		body = m.renderNotificationsTab()
+	}
+
+	return RenderTitledPanel(padContentLines(body, 1), PanelOpts{
+		Title:       title,
+		RightLabel:  rightLabel,
 		Width:       panelWidth,
 		Height:      m.alertsPanelHeight(),
-		BorderColor: t.Blocked,
-		TitleColor:  t.Blocked,
+		BorderColor: titleColor,
+		TitleColor:  titleColor,
 	})
-
-	return panel
 }
 
 // alertTypeLabel returns a short human-readable label for an alert type.

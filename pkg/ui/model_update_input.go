@@ -209,8 +209,42 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		}
 	}
 
-	// Handle alerts panel modal if open (bv-168)
+	// Handle alerts panel modal if open (bv-168, bt-46p6.10)
 	if m.activeModal == ModalAlerts {
+		// Tab switching + close-on-same-key at the top of the modal block
+		// (bt-46p6.10). Runs before per-tab dispatch so these keys behave
+		// consistently regardless of which tab has focus.
+		switch msg.String() {
+		case "tab":
+			if m.activeTab == TabAlerts {
+				m.activeTab = TabNotifications
+			} else {
+				m.activeTab = TabAlerts
+			}
+			return m, nil
+		case "!":
+			if m.activeTab == TabAlerts {
+				m.resetAlertFilters()
+				m.closeModal()
+			} else {
+				m.activeTab = TabAlerts
+			}
+			return m, nil
+		case "1":
+			if m.activeTab == TabNotifications {
+				m.closeModal()
+			} else {
+				m.activeTab = TabNotifications
+			}
+			return m, nil
+		}
+
+		// Notifications tab: handle its own navigation + close; do NOT fall
+		// through to the alerts handler below.
+		if m.activeTab == TabNotifications {
+			return m.handleNotificationsKey(msg)
+		}
+
 		activeAlerts := m.visibleAlerts()
 		s := msg.String()
 		switch s {
@@ -245,7 +279,8 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.alertsCursor = target
 			return m, nil
 		case "enter":
-			// Jump to the issue referenced by the selected alert
+			// Jump to the issue referenced by the selected alert and focus
+			// the detail pane (bt-46p6.10 dogfood).
 			if m.alertsCursor < len(activeAlerts) {
 				issueID := activeAlerts[m.alertsCursor].IssueID
 				if issueID != "" {
@@ -259,12 +294,10 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 							}
 						}
 					}
-					// Find the issue in the (now potentially updated) list
-					for i, item := range m.list.Items() {
-						if it, ok := item.(IssueItem); ok && it.Issue.ID == issueID {
-							m.list.Select(i)
-							break
-						}
+					// Filter-aware selection; resets list filter if needed to
+					// avoid the Paginator-out-of-bounds crash (bt-nzsy class).
+					if m.selectIssueByID(issueID) {
+						m.focusDetailAfterJump()
 					}
 				}
 			}
@@ -439,7 +472,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.resetAlertFilters()
 			m.alertsCursor = 0
 			return m, nil
-		case "esc", "q", "!":
+		case "esc", "q":
 			m.resetAlertFilters()
 			m.closeModal()
 			return m, nil
@@ -1048,20 +1081,29 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			return m, nil
 
 		case "!":
-			// Toggle alerts panel (bv-168)
-			// Only show if there are visible alerts (respects project filter)
-			if len(m.visibleAlerts()) > 0 {
-				if m.activeModal == ModalAlerts {
-					m.closeModal()
-				} else {
-					m.openModal(ModalAlerts)
-				}
-				m.alertsCursor = 0    // Reset cursor when opening
-				m.resetAlertFilters() // also recomputes cache
-			} else {
+			// Open alerts modal on alerts tab (closed → open). Open-already
+			// behavior (switch/close) lives in the modal block at line ~213.
+			if len(m.visibleAlerts()) == 0 {
 				m.statusMsg = "No active alerts"
 				m.statusIsError = false
+				return m, nil
 			}
+			m.activeTab = TabAlerts
+			m.openModal(ModalAlerts)
+			m.alertsCursor = 0
+			m.resetAlertFilters()
+			return m, nil
+
+		case "1":
+			// Open notifications modal (closed → open). Attention view's 1-9
+			// label quick-jump is gated on m.mode == ViewAttention and handled
+			// earlier at line ~196.
+			if m.mode == ViewAttention {
+				break
+			}
+			m.activeTab = TabNotifications
+			m.openModal(ModalAlerts)
+			m.notificationsCursor = 0
 			return m, nil
 
 		case ":":
@@ -1470,4 +1512,70 @@ func (m Model) handleWindowSize(msg tea.WindowSizeMsg) Model {
 	m.insightsPanel.SetSize(m.width, bodyHeight)
 	m.updateViewportContent()
 	return m
+}
+
+// handleNotificationsKey routes keypresses when the shared modal is on the
+// notifications tab (bt-46p6.10). Mirrors the alerts-tab handler shape but
+// reads live from events.RingBuffer and uses Dismiss() instead of the
+// dismissedAlerts map. The !/1/tab keys are intercepted at the modal block
+// before this handler is reached, so they're absent here.
+func (m Model) handleNotificationsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	activeNotifs := m.visibleNotifications()
+	switch msg.String() {
+	case "j", "down":
+		if m.notificationsCursor < len(activeNotifs)-1 {
+			m.notificationsCursor++
+		}
+		return m, nil
+	case "k", "up":
+		if m.notificationsCursor > 0 {
+			m.notificationsCursor--
+		}
+		return m, nil
+	case "enter":
+		if m.notificationsCursor < len(activeNotifs) {
+			beadID := activeNotifs[m.notificationsCursor].BeadID
+			if beadID != "" {
+				if m.workspaceMode && m.activeRepos != nil {
+					if issue, ok := m.data.issueMap[beadID]; ok {
+						repoKey := IssueRepoKey(*issue)
+						if repoKey != "" && !m.activeRepos[repoKey] {
+							m.activeRepos[repoKey] = true
+							m.applyFilter()
+						}
+					}
+				}
+				// Filter-aware selection (bt-nzsy class crash avoidance).
+				if m.selectIssueByID(beadID) {
+					m.focusDetailAfterJump()
+				}
+			}
+		}
+		m.closeModal()
+		return m, nil
+	case "c":
+		if m.notificationsCursor < len(activeNotifs) {
+			m.events.Dismiss(activeNotifs[m.notificationsCursor].ID)
+			remaining := len(m.visibleNotifications())
+			if m.notificationsCursor >= remaining {
+				m.notificationsCursor = remaining - 1
+			}
+			if m.notificationsCursor < 0 {
+				m.notificationsCursor = 0
+			}
+			if remaining == 0 {
+				m.closeModal()
+			}
+		}
+		return m, nil
+	case "C":
+		m.events.DismissAll()
+		m.notificationsCursor = 0
+		m.closeModal()
+		return m, nil
+	case "esc", "q":
+		m.closeModal()
+		return m, nil
+	}
+	return m, nil
 }

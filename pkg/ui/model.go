@@ -117,6 +117,15 @@ const (
 	ModalLabelGraphAnalysis                  // Label graph analysis
 )
 
+// ModalTab identifies which tab the shared alerts/notifications modal is
+// currently showing (bt-46p6.10).
+type ModalTab int
+
+const (
+	TabAlerts ModalTab = iota
+	TabNotifications
+)
+
 // modalActive returns true when any modal overlay is open.
 func (m Model) modalActive() bool { return m.activeModal != ModalNone }
 
@@ -564,6 +573,12 @@ type Model struct {
 	alertFilterType     string // "" = all, or an AlertType string
 	alertFilterProject  string // "" = all, or a project prefix
 	alertSortOrder      int    // 0=default, 1=oldest-first, 2=newest-first
+
+	// Tab-scoped state for the shared alerts/notifications modal (bt-46p6.10).
+	// activeTab is which tab is visible; alertsCursor applies to alerts tab,
+	// notificationsCursor to notifications tab. Flipping tabs preserves both.
+	activeTab           ModalTab
+	notificationsCursor int
 
 	// Sprint view (bv-161)
 	sprints        []model.Sprint

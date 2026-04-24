@@ -1,0 +1,287 @@
+package ui
+
+import (
+	"strings"
+	"testing"
+	"time"
+
+	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
+	"github.com/seanmartinsmith/beadstui/pkg/drift"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
+)
+
+// pressRune drives a single-character key through handleKeyPress.
+func pressRune(m Model, r rune) Model {
+	got, _ := m.handleKeyPress(tea.KeyPressMsg{Code: r, Text: string(r)})
+	return got
+}
+
+// pressTab drives the Tab key through handleKeyPress.
+func pressTab(m Model) Model {
+	got, _ := m.handleKeyPress(tea.KeyPressMsg{Code: tea.KeyTab})
+	return got
+}
+
+func seedModel() Model {
+	m := NewModel(nil, nil, "", nil)
+	m.width = 120
+	m.height = 40
+	m.mode = ViewList
+	m.ready = true
+	// Seed one alert so visibleAlerts() is non-empty (prevents the
+	// "No active alerts" short-circuit in the `!` handler).
+	m.alerts = []drift.Alert{{
+		Type:     drift.AlertStaleIssue,
+		Severity: drift.SeverityWarning,
+		Message:  "fixture",
+		IssueID:  "bt-fix",
+	}}
+	return m
+}
+
+func TestNotificationModal_BangOpensAlertsTab(t *testing.T) {
+	m := seedModel()
+	m = pressRune(m, '!')
+	if m.activeModal != ModalAlerts {
+		t.Fatalf("expected ModalAlerts, got %v", m.activeModal)
+	}
+	if m.activeTab != TabAlerts {
+		t.Fatalf("expected TabAlerts, got %v", m.activeTab)
+	}
+}
+
+func TestNotificationModal_OneOpensNotificationsTab(t *testing.T) {
+	m := seedModel()
+	m = pressRune(m, '1')
+	if m.activeModal != ModalAlerts {
+		t.Fatalf("expected ModalAlerts, got %v", m.activeModal)
+	}
+	if m.activeTab != TabNotifications {
+		t.Fatalf("expected TabNotifications, got %v", m.activeTab)
+	}
+}
+
+func TestNotificationModal_KeySwitchesTab(t *testing.T) {
+	m := seedModel()
+	m = pressRune(m, '!') // open on alerts
+	m = pressRune(m, '1') // switch to notifications
+	if m.activeModal != ModalAlerts {
+		t.Fatalf("modal should stay open, got %v", m.activeModal)
+	}
+	if m.activeTab != TabNotifications {
+		t.Fatalf("expected TabNotifications after switch, got %v", m.activeTab)
+	}
+}
+
+func TestNotificationModal_SameKeyCloses(t *testing.T) {
+	m := seedModel()
+	m = pressRune(m, '!')
+	m = pressRune(m, '!')
+	if m.activeModal == ModalAlerts {
+		t.Fatalf("second ! should close modal")
+	}
+}
+
+func TestNotificationModal_TabCycles(t *testing.T) {
+	m := seedModel()
+	m = pressRune(m, '!')
+	if m.activeTab != TabAlerts {
+		t.Fatalf("setup: should be on alerts tab")
+	}
+	m = pressTab(m)
+	if m.activeTab != TabNotifications {
+		t.Fatalf("tab should flip to notifications")
+	}
+	m = pressTab(m)
+	if m.activeTab != TabAlerts {
+		t.Fatalf("tab should flip back to alerts")
+	}
+}
+
+func TestNotificationModal_PerTabCursorPreserved(t *testing.T) {
+	m := seedModel()
+	m.events.Append(events.Event{
+		ID: "e1", Kind: events.EventClosed, BeadID: "bt-1",
+		Title: "t1", At: time.Now(),
+	})
+	m.events.Append(events.Event{
+		ID: "e2", Kind: events.EventClosed, BeadID: "bt-2",
+		Title: "t2", At: time.Now(),
+	})
+	m = pressRune(m, '!') // alerts tab
+	m.alertsCursor = 1
+	m = pressRune(m, '1') // switch to notifications
+	m.notificationsCursor = 1
+	m = pressTab(m) // back to alerts
+	if m.alertsCursor != 1 {
+		t.Fatalf("alertsCursor drifted: expected 1, got %d", m.alertsCursor)
+	}
+	m = pressTab(m) // notifications again
+	if m.notificationsCursor != 1 {
+		t.Fatalf("notificationsCursor drifted: expected 1, got %d", m.notificationsCursor)
+	}
+}
+
+func TestNotificationModal_NotificationsFromRingBuffer(t *testing.T) {
+	m := seedModel()
+	now := time.Now()
+	m.events.Append(events.Event{ID: "a", Kind: events.EventCreated, BeadID: "bt-a", Title: "first", At: now.Add(-2 * time.Minute)})
+	m.events.Append(events.Event{ID: "b", Kind: events.EventClosed, BeadID: "bt-b", Title: "second", At: now.Add(-1 * time.Minute)})
+	m.events.Append(events.Event{ID: "c", Kind: events.EventEdited, BeadID: "bt-c", Title: "third", At: now})
+
+	got := m.visibleNotifications()
+	if len(got) != 3 {
+		t.Fatalf("expected 3, got %d", len(got))
+	}
+	if got[0].ID != "c" || got[2].ID != "a" {
+		t.Fatalf("expected newest-first [c,b,a], got [%s,%s,%s]", got[0].ID, got[1].ID, got[2].ID)
+	}
+}
+
+func TestNotificationModal_DismissedHidden(t *testing.T) {
+	m := seedModel()
+	m.events.Append(events.Event{ID: "keep", Kind: events.EventCreated, BeadID: "bt-k", Title: "kept", At: time.Now()})
+	m.events.Append(events.Event{ID: "drop", Kind: events.EventCreated, BeadID: "bt-d", Title: "drop", At: time.Now()})
+	m.events.Dismiss("drop")
+
+	got := m.visibleNotifications()
+	if len(got) != 1 || got[0].ID != "keep" {
+		t.Fatalf("expected only 'keep' visible, got %+v", got)
+	}
+}
+
+func TestNotificationModal_AttentionViewOneKeyNoConflict(t *testing.T) {
+	m := seedModel()
+	m.mode = ViewAttention
+	before := m.activeModal
+	m = pressRune(m, '1')
+	if m.activeModal != before {
+		t.Fatalf("1 in ViewAttention should NOT open alerts modal, got %v", m.activeModal)
+	}
+}
+
+func TestNotificationModal_RespectsActiveRepoFilter(t *testing.T) {
+	m := seedModel()
+	m.workspaceMode = true
+	m.activeRepos = map[string]bool{"bt": true}
+
+	m.events.Append(events.Event{ID: "a", Kind: events.EventCreated, BeadID: "bt-a", Repo: "bt", Title: "bt thing", At: time.Now()})
+	m.events.Append(events.Event{ID: "b", Kind: events.EventCreated, BeadID: "other-b", Repo: "other", Title: "other thing", At: time.Now()})
+
+	got := m.visibleNotifications()
+	if len(got) != 1 || got[0].ID != "a" {
+		t.Fatalf("active-repo filter should hide non-bt events; got %+v", got)
+	}
+
+	// Expanding to include both repos shows both events.
+	m.activeRepos["other"] = true
+	got = m.visibleNotifications()
+	if len(got) != 2 {
+		t.Fatalf("two-repo filter should show both events; got %d", len(got))
+	}
+
+	// nil activeRepos (global) shows all events regardless of repo.
+	m.activeRepos = nil
+	got = m.visibleNotifications()
+	if len(got) != 2 {
+		t.Fatalf("nil activeRepos should show all events; got %d", len(got))
+	}
+}
+
+// TestSelectIssueByID_NarrowFilterDoesNotPanic reproduces the crash from
+// the 2026-04-24 dogfood: pressing enter on a notification whose bead was
+// at a high unfiltered index, while an active search filter narrowed the
+// visible set to one item, drove Paginator.Page past TotalPages-1 and
+// panicked on the next render with "slice bounds out of range".
+func TestSelectIssueByID_NarrowFilterDoesNotPanic(t *testing.T) {
+	m := seedModel()
+
+	// Replace the list with a larger one so Paginator has multiple pages.
+	issues := make([]model.Issue, 60)
+	items := make([]list.Item, 60)
+	for i := range issues {
+		id := "proj-" + randID(i)
+		if i == 55 {
+			id = "proj-target"
+		}
+		issues[i] = model.Issue{ID: id, Title: "Issue " + id, Status: model.StatusOpen, CreatedAt: time.Now()}
+		items[i] = IssueItem{Issue: issues[i]}
+	}
+	lst := list.New(items, list.NewDefaultDelegate(), 80, 20)
+	lst.SetFilteringEnabled(true)
+	m.list = lst
+
+	// Put cursor on the late-index match, then apply a narrowing filter.
+	m.list.Select(55)
+	m.list.SetFilterText("target")
+	m.list.SetFilterState(list.FilterApplied)
+
+	if got := len(m.list.VisibleItems()); got != 1 {
+		t.Fatalf("precondition: narrow filter should show 1 item, got %d", got)
+	}
+
+	// selectIssueByID must not drive the paginator out of bounds.
+	if !m.selectIssueByID("proj-target") {
+		t.Fatalf("expected to find proj-target in visible items")
+	}
+
+	// View() exercises populatedView -> Paginator.GetSliceBounds, where
+	// the pre-fix bug crashed with "slice bounds out of range".
+	_ = m.list.View()
+}
+
+// TestSelectIssueByID_HiddenByFilterResets verifies that when the target
+// bead is filtered out, selectIssueByID resets the filter so the jump
+// still lands — user intent is "take me there," which outranks the filter.
+func TestSelectIssueByID_HiddenByFilterResets(t *testing.T) {
+	m := seedModel()
+	issues := []model.Issue{
+		{ID: "bt-a", Title: "apple", Status: model.StatusOpen, CreatedAt: time.Now()},
+		{ID: "bt-b", Title: "banana", Status: model.StatusOpen, CreatedAt: time.Now()},
+	}
+	items := []list.Item{IssueItem{Issue: issues[0]}, IssueItem{Issue: issues[1]}}
+	lst := list.New(items, list.NewDefaultDelegate(), 80, 20)
+	lst.SetFilteringEnabled(true)
+	m.list = lst
+
+	m.list.SetFilterText("apple")
+	m.list.SetFilterState(list.FilterApplied)
+	if got := len(m.list.VisibleItems()); got != 1 {
+		t.Fatalf("precondition: filter should narrow to apple only, got %d visible", got)
+	}
+
+	// Target bt-b is filtered out; selectIssueByID should reset filter and find it.
+	if !m.selectIssueByID("bt-b") {
+		t.Fatalf("expected filter-reset fallback to find bt-b")
+	}
+	if m.list.FilterState() != list.Unfiltered {
+		t.Fatalf("expected filter reset after fallback, got state=%v", m.list.FilterState())
+	}
+}
+
+func TestRenderAlertsPanel_BorderReflectsActiveTab(t *testing.T) {
+	m := seedModel()
+	m.activeTab = TabAlerts
+	panel := m.renderAlertsPanel()
+	if !strings.Contains(panel, "Alerts!") {
+		t.Fatalf("alerts tab border should contain 'Alerts!' title; panel=\n%s", panel)
+	}
+	if !strings.Contains(panel, "(1)") {
+		t.Fatalf("alerts tab border should contain '(1)' count (seeded fixture); panel=\n%s", panel)
+	}
+	if strings.Contains(panel, "Notifications") {
+		t.Fatalf("alerts tab border should NOT contain 'Notifications' title; panel=\n%s", panel)
+	}
+
+	m.activeTab = TabNotifications
+	m.events.Append(events.Event{ID: "x", Kind: events.EventCreated, BeadID: "bt-x", Title: "t", At: time.Now()})
+	panel = m.renderAlertsPanel()
+	if !strings.Contains(panel, "Notifications") {
+		t.Fatalf("notifications tab border should contain 'Notifications' title; panel=\n%s", panel)
+	}
+	if !strings.Contains(panel, "(1)") {
+		t.Fatalf("notifications tab border should contain '(1)' count; panel=\n%s", panel)
+	}
+}

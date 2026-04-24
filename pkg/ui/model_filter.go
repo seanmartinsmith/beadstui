@@ -72,6 +72,59 @@ func (m *Model) hasActiveFilters() bool {
 	return false
 }
 
+// selectIssueByID places the list cursor on the issue with the given ID,
+// safely respecting Bubbles filter state. If the issue is in the visible
+// (filtered) view, select it by its visible index. If the issue exists
+// but a filter currently hides it, reset the filter first so the jump
+// lands on the intended row. Returns true if the selection was made.
+//
+// This fixes the "Select(unfilteredIndex) on narrowed filter" crash class
+// (bt-nzsy) in user-initiated jumps from the alerts + notifications modal:
+// the old code iterated m.list.Items() (unfiltered) and called Select(i),
+// which drove Paginator.Page past TotalPages-1 when the filter narrowed
+// the visible set to fewer items than the unfiltered index.
+func (m *Model) selectIssueByID(issueID string) bool {
+	if issueID == "" {
+		return false
+	}
+	for i, it := range m.list.VisibleItems() {
+		if item, ok := it.(IssueItem); ok && item.Issue.ID == issueID {
+			m.list.Select(i)
+			return true
+		}
+	}
+	// Not in the visible set. If a filter is active, clear it and retry —
+	// the user's intent when jumping from a notification/alert is "take me
+	// there," which outranks preserving an incompatible filter.
+	if m.list.FilterState() != list.Unfiltered {
+		m.list.ResetFilter()
+		for i, it := range m.list.VisibleItems() {
+			if item, ok := it.(IssueItem); ok && item.Issue.ID == issueID {
+				m.list.Select(i)
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// focusDetailAfterJump puts focus on the detail pane after a jump from the
+// alerts/notifications modal (bt-46p6.10 dogfood). In split view, focus flips
+// to the detail pane alongside the list. In single-pane view, the detail
+// overlay opens and scrolls to top. Caller is responsible for having already
+// placed the list cursor on the target issue.
+func (m *Model) focusDetailAfterJump() {
+	m.mode = ViewList
+	if m.isSplitView {
+		m.focused = focusDetail
+	} else {
+		m.showDetails = true
+		m.focused = focusDetail
+		m.viewport.GotoTop()
+	}
+	m.updateViewportContent()
+}
+
 // clearAllFilters resets all filters to their default state
 func (m *Model) clearAllFilters() {
 	m.filter.currentFilter = "all"

@@ -132,8 +132,21 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 	m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.data.issues, m.data.analysis, m.data.analyzer)
 	m.dismissedAlerts = make(map[string]bool)
 
-	if m.activeModal == ModalAlerts {
-		m.closeModal()
+	// Clamp modal cursors if their lists shrank (bt-46p6.10). The shared
+	// alerts/notifications modal stays open across refreshes so live updates
+	// are visible; cursors that now point past the end get clamped to the
+	// last valid row.
+	if n := len(m.visibleAlerts()); m.alertsCursor >= n {
+		m.alertsCursor = n - 1
+	}
+	if m.alertsCursor < 0 {
+		m.alertsCursor = 0
+	}
+	if n := len(m.visibleNotifications()); m.notificationsCursor >= n {
+		m.notificationsCursor = n - 1
+	}
+	if m.notificationsCursor < 0 {
+		m.notificationsCursor = 0
 	}
 
 	// Reset semantic caches for the new dataset.
@@ -652,8 +665,19 @@ func (m Model) handleFileChanged(msg FileChangedMsg) (Model, tea.Cmd) {
 	}
 	m.dismissedAlerts = make(map[string]bool)
 
-	if m.activeModal == ModalAlerts {
-		m.closeModal()
+	// Keep the shared alerts/notifications modal open across reloads so live
+	// updates are visible (bt-46p6.10); clamp cursors if lists shrank.
+	if n := len(m.visibleAlerts()); m.alertsCursor >= n {
+		m.alertsCursor = n - 1
+	}
+	if m.alertsCursor < 0 {
+		m.alertsCursor = 0
+	}
+	if n := len(m.visibleNotifications()); m.notificationsCursor >= n {
+		m.notificationsCursor = n - 1
+	}
+	if m.notificationsCursor < 0 {
+		m.notificationsCursor = 0
 	}
 
 	// Rebuild list items (preserve triage data to avoid flicker)

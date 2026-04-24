@@ -191,3 +191,33 @@ func TestRenderTitledPanel_PartialOverrides(t *testing.T) {
 		t.Error("partial title override should still render title")
 	}
 }
+
+func TestRenderTitledPanel_RightLabel(t *testing.T) {
+	// RightLabel renders on the top border with corner stability preserved.
+	result := RenderTitledPanel("body", PanelOpts{
+		Title:      "Alerts!",
+		RightLabel: "(219)",
+		Width:      40,
+	})
+	if !strings.Contains(result, "Alerts!") {
+		t.Errorf("right-label render should still show title; got:\n%s", result)
+	}
+	if !strings.Contains(result, "(219)") {
+		t.Errorf("right-label should appear in output; got:\n%s", result)
+	}
+	// Top border row is first line; both title and label should be there.
+	firstLine := strings.SplitN(result, "\n", 2)[0]
+	if !strings.Contains(firstLine, "Alerts!") || !strings.Contains(firstLine, "(219)") {
+		t.Errorf("title and right-label both expected on top border; got:\n%s", firstLine)
+	}
+	// Width of the top line equals Width (corner stability).
+	if w := lipgloss.Width(firstLine); w != 40 {
+		t.Errorf("top border width expected 40 (opts.Width), got %d; line=%q", w, firstLine)
+	}
+
+	// Empty RightLabel is a no-op (backwards compat).
+	plain := RenderTitledPanel("body", PanelOpts{Title: "Alerts!", Width: 40})
+	if strings.Contains(plain, "(") {
+		t.Errorf("empty RightLabel should not introduce parens; got:\n%s", plain)
+	}
+}

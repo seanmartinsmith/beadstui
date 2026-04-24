@@ -30,6 +30,12 @@ type PanelOpts struct {
 	// instead of left-aligned.
 	CenterTitle bool
 
+	// RightLabel, when non-empty, renders a right-aligned chunk in the
+	// top border using TitleColor. The middle fill adjusts so the top-right
+	// corner stays anchored regardless of label width (bt-46p6.10). Only
+	// honored in the non-centered (left-aligned title) path.
+	RightLabel string
+
 	// Optional color overrides. When non-nil these take precedence
 	// over the default focus-based colors, letting callers supply
 	// custom border/title colors (e.g. per-column board colors,
@@ -126,13 +132,31 @@ func RenderTitledPanel(content string, opts PanelOpts) string {
 				top.WriteString(borderStyle.Render(strings.Repeat(h, rightFill)))
 			}
 		} else {
-			// Left-aligned: ╭─ Title ──────╮
+			// Left-aligned: ╭─ Title ──────╮  or  ╭─ Title ────── Label ─╮
 			titleChunk := 2 + titleDisplayWidth + 1 // "─ " + title + " "
-			fillTotal := innerWidth - titleChunk
+			rightChunk := 0
+			var rightDisplay string
+			if opts.RightLabel != "" {
+				rightDisplay = opts.RightLabel
+				rightDisplayWidth := runewidth.StringWidth(rightDisplay)
+				// Match " label ─" (one space on each side of label, trailing dash).
+				rightChunk = 1 + rightDisplayWidth + 2
+			}
+			fillTotal := innerWidth - titleChunk - rightChunk
+			if fillTotal < 0 {
+				fillTotal = 0
+			}
 			top.WriteString(borderStyle.Render(h + " "))
 			top.WriteString(titleStyle.Render(titleText))
 			top.WriteString(borderStyle.Render(" "))
-			if fillTotal > 0 {
+			if rightChunk > 0 {
+				if fillTotal > 0 {
+					top.WriteString(borderStyle.Render(strings.Repeat(h, fillTotal)))
+				}
+				top.WriteString(borderStyle.Render(" "))
+				top.WriteString(titleStyle.Render(rightDisplay))
+				top.WriteString(borderStyle.Render(" " + h))
+			} else if fillTotal > 0 {
 				top.WriteString(borderStyle.Render(strings.Repeat(h, fillTotal)))
 			}
 		}
