@@ -7,8 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/seanmartinsmith/beadstui/pkg/analysis"
-	"github.com/seanmartinsmith/beadstui/pkg/baseline"
 	"github.com/seanmartinsmith/beadstui/pkg/drift"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
@@ -20,10 +18,15 @@ import (
 // ALERTS PANEL (bv-168)
 // ════════════════════════════════════════════════════════════════════════════
 
-// computeAlerts calculates drift alerts for the current issues using the
-// already-computed graph stats/analyzer to avoid redundant work.
-func computeAlerts(issues []model.Issue, stats *analysis.GraphStats, analyzer *analysis.Analyzer) ([]drift.Alert, int, int, int) {
-	if len(issues) == 0 || stats == nil || analyzer == nil {
+// computeAlerts calculates per-project scoped drift alerts (bt-46p6.8).
+//
+// In workspace mode, alerts are partitioned by SourceRepo and tagged with
+// SourceProject. In single-project mode, all alerts carry the uniform project
+// key (SourceRepo / "local"). The pre-computed stats/analyzer passed by
+// legacy callers is no longer used — ProjectAlerts re-analyzes per project
+// because cross-project aggregate metrics are incoherent (see bt-7l5m).
+func computeAlerts(issues []model.Issue, workspaceMode bool) ([]drift.Alert, int, int, int) {
+	if len(issues) == 0 {
 		return nil, 0, 0, 0
 	}
 
@@ -33,38 +36,14 @@ func computeAlerts(issues []model.Issue, stats *analysis.GraphStats, analyzer *a
 		driftConfig = drift.DefaultConfig()
 	}
 
-	openCount, closedCount, blockedCount := 0, 0, 0
-	for _, issue := range issues {
-		switch {
-		case isClosedLikeStatus(issue.Status):
-			closedCount++
-		case issue.Status == model.StatusBlocked:
-			blockedCount++
-		default:
-			openCount++
-		}
-	}
-
-	curStats := baseline.GraphStats{
-		NodeCount:       stats.NodeCount,
-		EdgeCount:       stats.EdgeCount,
-		Density:         stats.Density,
-		OpenCount:       openCount,
-		ClosedCount:     closedCount,
-		BlockedCount:    blockedCount,
-		CycleCount:      len(stats.Cycles()),
-		ActionableCount: len(analyzer.GetActionableIssues()),
-	}
-
-	bl := &baseline.Baseline{Stats: curStats}
-	cur := &baseline.Baseline{Stats: curStats, Cycles: stats.Cycles()}
-
-	calc := drift.NewCalculator(bl, cur, driftConfig)
-	calc.SetIssues(issues)
-	result := calc.Calculate()
+	// Baseline comparisons are deliberately not wired in the TUI path — the
+	// TUI has never persisted a baseline file. Commit 2 of bt-46p6.8 adds
+	// per-project baseline sections; when that lands, the TUI can opt in by
+	// supplying a loader here.
+	alerts := drift.ProjectAlerts(issues, workspaceMode, "", driftConfig, nil)
 
 	critical, warning, info := 0, 0, 0
-	for _, a := range result.Alerts {
+	for _, a := range alerts {
 		switch a.Severity {
 		case drift.SeverityCritical:
 			critical++
@@ -75,7 +54,7 @@ func computeAlerts(issues []model.Issue, stats *analysis.GraphStats, analyzer *a
 		}
 	}
 
-	return result.Alerts, critical, warning, info
+	return alerts, critical, warning, info
 }
 
 // alertKey generates a unique key for an alert (for dismissal tracking)

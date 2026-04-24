@@ -1014,8 +1014,11 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		initialStatusErr = true
 	}
 
-	// Precompute drift/health alerts (bv-168)
-	alerts, alertsCritical, alertsWarning, alertsInfo := computeAlerts(issues, graphStats, analyzer)
+	// Precompute drift/health alerts (bv-168). At init, workspace mode has
+	// not yet been decided — EnableWorkspaceMode runs after NewModel returns.
+	// Pass global=false here; the next data refresh triggered by
+	// EnableWorkspaceMode recomputes with the correct scope.
+	alerts, alertsCritical, alertsWarning, alertsInfo := computeAlerts(issues, false)
 
 	// Load sprints from the same directory as beadsPath (bv-161)
 	var sprints []model.Sprint
@@ -1180,7 +1183,7 @@ func (m *Model) replaceIssues(newIssues []model.Issue) {
 	}
 
 	// Recompute alerts
-	m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.data.issues, m.data.analysis, m.data.analyzer)
+	m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.data.issues, m.workspaceMode)
 	m.dismissedAlerts = make(map[string]bool)
 	if m.activeModal == ModalAlerts {
 		m.closeModal()

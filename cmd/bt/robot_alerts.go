@@ -5,13 +5,15 @@ import (
 	"os"
 	"strings"
 
-	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/baseline"
 	"github.com/seanmartinsmith/beadstui/pkg/drift"
-	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // runAlerts handles --robot-alerts (drift + proactive).
+//
+// Per bt-46p6.8 / bt-7l5m: alerts are always computed at project scope. In
+// --global mode, the output is the union of per-project alerts, each carrying
+// a SourceProject field. No global-aggregate density/PR/etc. is computed.
 func (rc *robotCtx) runAlerts(alertSeverity, alertType, alertLabel string) {
 	driftConfig, err := drift.LoadConfig(rc.projectDir)
 	if err != nil {
@@ -19,70 +21,17 @@ func (rc *robotCtx) runAlerts(alertSeverity, alertType, alertLabel string) {
 		os.Exit(1)
 	}
 
-	analyzer := analysis.NewAnalyzer(rc.analysisIssues())
-	stats := analyzer.Analyze()
-
-	openCount, closedCount, blockedCount := 0, 0, 0
-	for _, issue := range rc.issues {
-		switch issue.Status {
-		case model.StatusClosed:
-			closedCount++
-		case model.StatusBlocked:
-			blockedCount++
-		case model.StatusOpen, model.StatusInProgress:
-			openCount++
-		default:
-			// Ignore tombstones and any unknown statuses for summary counts.
-		}
-	}
-	actionableCount := len(analyzer.GetActionableIssues())
-	cycles := stats.Cycles()
-	curStats := baseline.GraphStats{
-		NodeCount:       stats.NodeCount,
-		EdgeCount:       stats.EdgeCount,
-		Density:         stats.Density,
-		OpenCount:       openCount,
-		ClosedCount:     closedCount,
-		BlockedCount:    blockedCount,
-		CycleCount:      len(cycles),
-		ActionableCount: actionableCount,
-	}
-
-	// Default behavior (no baseline): drift comparisons are suppressed by using
-	// baseline=current for stats, while still allowing cycle/staleness/cascade alerts.
-	bl := &baseline.Baseline{Stats: curStats}
-	cur := &baseline.Baseline{Stats: curStats, Cycles: cycles}
-
-	baselinePath := baseline.DefaultPath(rc.projectDir)
-
-	// If a baseline exists, compare against it for real drift deltas.
-	if baseline.Exists(baselinePath) {
-		loaded, err := baseline.Load(baselinePath)
-		if err != nil {
-			envRobot := os.Getenv("BT_ROBOT") == "1"
-			if !envRobot {
-				fmt.Fprintf(os.Stderr, "Warning: Error loading baseline: %v\n", err)
-			}
-		} else {
-			bl = loaded
-			topMetrics := baseline.TopMetrics{
-				PageRank:     buildMetricItems(stats.PageRank(), 10),
-				Betweenness:  buildMetricItems(stats.Betweenness(), 10),
-				CriticalPath: buildMetricItems(stats.CriticalPathScore(), 10),
-				Hubs:         buildMetricItems(stats.Hubs(), 10),
-				Authorities:  buildMetricItems(stats.Authorities(), 10),
-			}
-			cur = &baseline.Baseline{Stats: curStats, TopMetrics: topMetrics, Cycles: cycles}
-		}
-	}
-
-	calc := drift.NewCalculator(bl, cur, driftConfig)
-	calc.SetIssues(rc.issues)
-	driftResult := calc.Calculate()
+	alerts := drift.ProjectAlerts(
+		rc.analysisIssues(),
+		flagGlobal,
+		rc.repoName,
+		driftConfig,
+		rc.baselineLoader(),
+	)
 
 	// Apply optional filters
-	filtered := driftResult.Alerts[:0]
-	for _, a := range driftResult.Alerts {
+	filtered := alerts[:0]
+	for _, a := range alerts {
 		if alertSeverity != "" && string(a.Severity) != alertSeverity {
 			continue
 		}
@@ -103,7 +52,7 @@ func (rc *robotCtx) runAlerts(alertSeverity, alertType, alertLabel string) {
 		}
 		filtered = append(filtered, a)
 	}
-	driftResult.Alerts = filtered
+	alerts = filtered
 
 	output := struct {
 		RobotEnvelope
@@ -117,14 +66,15 @@ func (rc *robotCtx) runAlerts(alertSeverity, alertType, alertLabel string) {
 		UsageHints []string `json:"usage_hints"`
 	}{
 		RobotEnvelope: NewRobotEnvelope(rc.dataHash),
-		Alerts:        driftResult.Alerts,
+		Alerts:        alerts,
 		UsageHints: []string{
 			"--severity=warning --alert-type=stale         # stale warnings only",
 			"--alert-type=high_leverage                    # high-unblock opportunities",
+			"jq '.alerts | group_by(.source_project)'      # bucket by project (global mode)",
 			"jq '.alerts | map(.issue_id)'                # list impacted issues",
 		},
 	}
-	for _, a := range driftResult.Alerts {
+	for _, a := range alerts {
 		switch a.Severity {
 		case drift.SeverityCritical:
 			output.Summary.Critical++
@@ -142,4 +92,31 @@ func (rc *robotCtx) runAlerts(alertSeverity, alertType, alertLabel string) {
 		os.Exit(1)
 	}
 	os.Exit(0)
+}
+
+// baselineLoader returns a per-project baseline loader suitable for
+// drift.ProjectAlerts.
+//
+// Commit 1 of bt-46p6.8: baseline is still a single .bt/baseline.json. In
+// single-project mode, the loader returns that baseline for the one project
+// key. In --global mode, the loader returns nil for every project — we don't
+// yet know which project the snapshot was taken for, so applying it to every
+// project would fire false drift alerts. Commit 2 introduces per-project
+// baseline sections and lifts this restriction.
+func (rc *robotCtx) baselineLoader() func(project string) *baseline.Baseline {
+	if flagGlobal {
+		return func(string) *baseline.Baseline { return nil }
+	}
+	path := baseline.DefaultPath(rc.projectDir)
+	if !baseline.Exists(path) {
+		return nil
+	}
+	loaded, err := baseline.Load(path)
+	if err != nil {
+		if os.Getenv("BT_ROBOT") != "1" {
+			fmt.Fprintf(os.Stderr, "Warning: Error loading baseline: %v\n", err)
+		}
+		return nil
+	}
+	return func(string) *baseline.Baseline { return loaded }
 }

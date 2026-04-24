@@ -129,7 +129,7 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 	m.labelDrilldownCache = make(map[string][]model.Issue)
 
 	// Recompute alerts for refreshed dataset
-	m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.data.issues, m.data.analysis, m.data.analyzer)
+	m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.data.issues, m.workspaceMode)
 	m.dismissedAlerts = make(map[string]bool)
 
 	// Clamp modal cursors if their lists shrank (bt-46p6.10). The shared
@@ -659,7 +659,7 @@ func (m Model) handleFileChanged(msg FileChangedMsg) (Model, tea.Cmd) {
 	if profileRefresh {
 		alertsStart = time.Now()
 	}
-	m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.data.issues, m.data.analysis, m.data.analyzer)
+	m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.data.issues, m.workspaceMode)
 	if profileRefresh {
 		recordTiming("alerts", time.Since(alertsStart))
 	}

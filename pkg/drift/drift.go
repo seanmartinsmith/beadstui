@@ -53,6 +53,12 @@ type Alert struct {
 	Label       string    `json:"label,omitempty"`
 	DetectedAt  time.Time `json:"detected_at,omitempty"`
 
+	// SourceProject is the project key the alert was scoped to (bt-46p6.8).
+	// Populated by ProjectAlerts — partition-only per-project computation means
+	// every alert has a single owning project. Empty only for alerts produced
+	// by the lower-level NewCalculator path that skips ProjectAlerts.
+	SourceProject string `json:"source_project,omitempty"`
+
 	// Blocking cascade specific fields (bv-165)
 	UnblocksCount         int `json:"unblocks_count,omitempty"`
 	DownstreamPrioritySum int `json:"downstream_priority_sum,omitempty"`
