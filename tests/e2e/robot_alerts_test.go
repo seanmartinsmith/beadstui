@@ -20,7 +20,7 @@ func TestRobotAlerts_BasicAndFilters(t *testing.T) {
 	tombstoneCreated := now.AddDate(0, 0, -25).Format(time.RFC3339)
 	freshTime := now.AddDate(0, 0, -1).Format(time.RFC3339)
 
-	// ROOT unblocks 3 issues => blocking_cascade (info); STALE triggers stale_issue (warning).
+	// ROOT unblocks 3 issues => high_leverage (info); STALE triggers stale (warning).
 	writeBeads(t, env, fmt.Sprintf(
 		`{"id":"ROOT","title":"Root","status":"open","priority":1,"issue_type":"task","created_at":"%s","updated_at":"%s"}
 {"id":"D1","title":"Dep1","status":"open","priority":2,"issue_type":"task","created_at":"%s","updated_at":"%s","dependencies":[{"issue_id":"D1","depends_on_id":"ROOT","type":"blocks"}]}
@@ -79,33 +79,33 @@ func TestRobotAlerts_BasicAndFilters(t *testing.T) {
 	foundCascade := false
 	foundTombstone := false
 	for _, a := range base.Alerts {
-		if a.Type == "stale_issue" && a.Severity == "warning" && a.IssueID == "STALE" {
+		if a.Type == "stale" && a.Severity == "warning" && a.IssueID == "STALE" {
 			foundStale = true
 		}
-		if a.Type == "stale_issue" && a.IssueID == "TOMBSTONE" {
+		if a.Type == "stale" && a.IssueID == "TOMBSTONE" {
 			foundTombstone = true
 		}
-		if a.Type == "blocking_cascade" && a.IssueID == "ROOT" {
+		if a.Type == "high_leverage" && a.IssueID == "ROOT" {
 			foundCascade = true
 		}
 	}
 	if !foundStale {
-		t.Fatalf("expected stale_issue warning for STALE, got %+v", base.Alerts)
+		t.Fatalf("expected stale warning for STALE, got %+v", base.Alerts)
 	}
 	if foundTombstone {
-		t.Fatalf("did not expect stale_issue for TOMBSTONE, got %+v", base.Alerts)
+		t.Fatalf("did not expect stale for TOMBSTONE, got %+v", base.Alerts)
 	}
 	if !foundCascade {
-		t.Fatalf("expected blocking_cascade for ROOT, got %+v", base.Alerts)
+		t.Fatalf("expected high_leverage for ROOT, got %+v", base.Alerts)
 	}
 
 	// Type filter.
-	onlyStale := run("robot", "alerts", "--alert-type=stale_issue")
+	onlyStale := run("robot", "alerts", "--alert-type=stale")
 	if len(onlyStale.Alerts) == 0 {
-		t.Fatalf("expected stale_issue alerts, got 0")
+		t.Fatalf("expected stale alerts, got 0")
 	}
 	for _, a := range onlyStale.Alerts {
-		if a.Type != "stale_issue" {
+		if a.Type != "stale" {
 			t.Fatalf("unexpected alert type %q in filtered output: %+v", a.Type, a)
 		}
 	}
@@ -141,7 +141,7 @@ func TestRobotAlerts_UsesBaselineWhenPresent(t *testing.T) {
 		t.Fatalf("save baseline failed: %v\n%s", err, out)
 	}
 
-	// Change the graph: add a second issue (node_count_change drift).
+	// Change the graph: add a second issue (issue_count_change drift).
 	writeBeads(t, env, fmt.Sprintf(
 		`{"id":"A","title":"A","status":"open","priority":1,"issue_type":"task","created_at":"%s","updated_at":"%s"}
 {"id":"B","title":"B","status":"open","priority":1,"issue_type":"task","created_at":"%s","updated_at":"%s"}`,
@@ -169,15 +169,15 @@ func TestRobotAlerts_UsesBaselineWhenPresent(t *testing.T) {
 
 	found := false
 	for _, a := range p.Alerts {
-		if a.Type == "node_count_change" {
+		if a.Type == "issue_count_change" {
 			found = true
 			if a.Severity != "info" {
-				t.Fatalf("expected node_count_change severity=info, got %q", a.Severity)
+				t.Fatalf("expected issue_count_change severity=info, got %q", a.Severity)
 			}
 			break
 		}
 	}
 	if !found {
-		t.Fatalf("expected node_count_change in alerts, got %+v", p.Alerts)
+		t.Fatalf("expected issue_count_change in alerts, got %+v", p.Alerts)
 	}
 }

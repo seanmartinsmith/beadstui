@@ -25,16 +25,16 @@ const (
 type AlertType string
 
 const (
-	AlertNewCycle           AlertType = "new_cycle"
-	AlertPageRankChange     AlertType = "pagerank_change"
-	AlertDensityGrowth      AlertType = "density_growth"
-	AlertNodeCountChange    AlertType = "node_count_change"
-	AlertEdgeCountChange    AlertType = "edge_count_change"
+	AlertDependencyLoop     AlertType = "dependency_loop"
+	AlertCentralityChange   AlertType = "centrality_change"
+	AlertCouplingGrowth     AlertType = "coupling_growth"
+	AlertIssueCountChange   AlertType = "issue_count_change"
+	AlertDependencyChange   AlertType = "dependency_change"
 	AlertBlockedIncrease    AlertType = "blocked_increase"
 	AlertActionableChange   AlertType = "actionable_change"
-	AlertStaleIssue         AlertType = "stale_issue"
+	AlertStale              AlertType = "stale"
 	AlertVelocityDrop       AlertType = "velocity_drop"
-	AlertBlockingCascade    AlertType = "blocking_cascade"
+	AlertHighLeverage       AlertType = "high_leverage"
 	AlertHighImpactUnblock  AlertType = "high_impact_unblock"
 	AlertAbandonedClaim     AlertType = "abandoned_claim"
 	AlertPotentialDuplicate AlertType = "potential_duplicate"
@@ -150,7 +150,7 @@ func (c *Calculator) Calculate() *Result {
 // checkCycles detects new cycles that weren't in the baseline
 func (c *Calculator) checkCycles(result *Result) {
 	// Check if alert type is disabled (bv-167)
-	if c.config.IsAlertDisabled(string(AlertNewCycle)) {
+	if c.config.IsAlertDisabled(string(AlertDependencyLoop)) {
 		return
 	}
 
@@ -175,7 +175,7 @@ func (c *Calculator) checkCycles(result *Result) {
 		}
 
 		result.Alerts = append(result.Alerts, Alert{
-			Type:        AlertNewCycle,
+			Type:        AlertDependencyLoop,
 			Severity:    SeverityCritical,
 			Message:     fmt.Sprintf("%d new cycle(s) detected", len(newCycles)),
 			BaselineVal: float64(len(c.baseline.Cycles)),
@@ -190,7 +190,7 @@ func (c *Calculator) checkCycles(result *Result) {
 // checkDensity checks for significant density changes
 func (c *Calculator) checkDensity(result *Result) {
 	// Check if alert type is disabled (bv-167)
-	if c.config.IsAlertDisabled(string(AlertDensityGrowth)) {
+	if c.config.IsAlertDisabled(string(AlertCouplingGrowth)) {
 		return
 	}
 
@@ -206,7 +206,7 @@ func (c *Calculator) checkDensity(result *Result) {
 
 	if pctChange >= c.config.DensityWarningPct {
 		result.Alerts = append(result.Alerts, Alert{
-			Type:        AlertDensityGrowth,
+			Type:        AlertCouplingGrowth,
 			Severity:    SeverityWarning,
 			Message:     fmt.Sprintf("Graph density increased by %.1f%%", pctChange),
 			BaselineVal: blDensity,
@@ -216,7 +216,7 @@ func (c *Calculator) checkDensity(result *Result) {
 		})
 	} else if pctChange >= c.config.DensityInfoPct {
 		result.Alerts = append(result.Alerts, Alert{
-			Type:        AlertDensityGrowth,
+			Type:        AlertCouplingGrowth,
 			Severity:    SeverityInfo,
 			Message:     fmt.Sprintf("Graph density increased by %.1f%%", pctChange),
 			BaselineVal: blDensity,
@@ -230,8 +230,8 @@ func (c *Calculator) checkDensity(result *Result) {
 // checkGraphSize checks for significant node/edge count changes
 func (c *Calculator) checkGraphSize(result *Result) {
 	// Check if alert types are disabled (bv-167)
-	nodeDisabled := c.config.IsAlertDisabled(string(AlertNodeCountChange))
-	edgeDisabled := c.config.IsAlertDisabled(string(AlertEdgeCountChange))
+	nodeDisabled := c.config.IsAlertDisabled(string(AlertIssueCountChange))
+	edgeDisabled := c.config.IsAlertDisabled(string(AlertDependencyChange))
 	if nodeDisabled && edgeDisabled {
 		return
 	}
@@ -244,7 +244,7 @@ func (c *Calculator) checkGraphSize(result *Result) {
 		nodePct := float64(nodeDelta) / float64(blNodes) * 100
 		if nodePct >= c.config.NodeGrowthInfoPct || nodePct <= -c.config.NodeGrowthInfoPct {
 			result.Alerts = append(result.Alerts, Alert{
-				Type:        AlertNodeCountChange,
+				Type:        AlertIssueCountChange,
 				Severity:    SeverityInfo,
 				Message:     fmt.Sprintf("Node count changed by %+d (%.1f%%)", nodeDelta, nodePct),
 				BaselineVal: float64(blNodes),
@@ -263,7 +263,7 @@ func (c *Calculator) checkGraphSize(result *Result) {
 		edgePct := float64(edgeDelta) / float64(blEdges) * 100
 		if edgePct >= c.config.EdgeGrowthInfoPct || edgePct <= -c.config.EdgeGrowthInfoPct {
 			result.Alerts = append(result.Alerts, Alert{
-				Type:        AlertEdgeCountChange,
+				Type:        AlertDependencyChange,
 				Severity:    SeverityInfo,
 				Message:     fmt.Sprintf("Edge count changed by %+d (%.1f%%)", edgeDelta, edgePct),
 				BaselineVal: float64(blEdges),
@@ -335,7 +335,7 @@ func (c *Calculator) checkActionable(result *Result) {
 // checkPageRankChanges detects significant changes in top PageRank items
 func (c *Calculator) checkPageRankChanges(result *Result) {
 	// Check if alert type is disabled (bv-167)
-	if c.config.IsAlertDisabled(string(AlertPageRankChange)) {
+	if c.config.IsAlertDisabled(string(AlertCentralityChange)) {
 		return
 	}
 
@@ -375,7 +375,7 @@ func (c *Calculator) checkPageRankChanges(result *Result) {
 
 	if len(changes) > 0 {
 		result.Alerts = append(result.Alerts, Alert{
-			Type:       AlertPageRankChange,
+			Type:       AlertCentralityChange,
 			Severity:   SeverityWarning,
 			Message:    fmt.Sprintf("%d PageRank changes detected", len(changes)),
 			Details:    changes,
@@ -389,7 +389,7 @@ func (c *Calculator) checkPageRankChanges(result *Result) {
 // Uses per-label threshold overrides when configured (bv-167).
 func (c *Calculator) checkStaleness(result *Result) {
 	// Check if alert type is disabled (bv-167)
-	if c.config.IsAlertDisabled(string(AlertStaleIssue)) {
+	if c.config.IsAlertDisabled(string(AlertStale)) {
 		return
 	}
 
@@ -453,7 +453,7 @@ func (c *Calculator) checkStaleness(result *Result) {
 		}
 
 		result.Alerts = append(result.Alerts, Alert{
-			Type:       AlertStaleIssue,
+			Type:       AlertStale,
 			Severity:   severity,
 			Message:    fmt.Sprintf("Issue %s inactive for %.0f days", issue.ID, days),
 			IssueID:    issue.ID,
@@ -471,7 +471,7 @@ func (c *Calculator) checkStaleness(result *Result) {
 // Includes urgency scoring via downstream priority sum (bv-165).
 func (c *Calculator) checkBlockingCascade(result *Result) {
 	// Check if alert type is disabled (bv-167)
-	if c.config.IsAlertDisabled(string(AlertBlockingCascade)) {
+	if c.config.IsAlertDisabled(string(AlertHighLeverage)) {
 		return
 	}
 
@@ -528,7 +528,7 @@ func (c *Calculator) checkBlockingCascade(result *Result) {
 		}
 
 		result.Alerts = append(result.Alerts, Alert{
-			Type:                  AlertBlockingCascade,
+			Type:                  AlertHighLeverage,
 			Severity:              severity,
 			Message:               fmt.Sprintf("Completing %s unblocks %d downstream item(s)", iss.ID, count),
 			IssueID:               iss.ID,

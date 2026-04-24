@@ -706,26 +706,26 @@ func (m Model) renderAlertsPanel() string {
 // alertTypeLabel returns a short human-readable label for an alert type.
 func alertTypeLabel(t drift.AlertType) string {
 	switch t {
-	case drift.AlertNewCycle:
-		return "cycle"
-	case drift.AlertPageRankChange:
+	case drift.AlertDependencyLoop:
+		return "dep loop"
+	case drift.AlertCentralityChange:
 		return "centrality"
-	case drift.AlertDensityGrowth:
-		return "density"
-	case drift.AlertNodeCountChange:
-		return "nodes"
-	case drift.AlertEdgeCountChange:
-		return "edges"
+	case drift.AlertCouplingGrowth:
+		return "coupling"
+	case drift.AlertIssueCountChange:
+		return "issues"
+	case drift.AlertDependencyChange:
+		return "deps"
 	case drift.AlertBlockedIncrease:
 		return "blocked"
 	case drift.AlertActionableChange:
 		return "actionable"
-	case drift.AlertStaleIssue:
+	case drift.AlertStale:
 		return "stale"
 	case drift.AlertVelocityDrop:
 		return "velocity"
-	case drift.AlertBlockingCascade:
-		return "cascade"
+	case drift.AlertHighLeverage:
+		return "leverage"
 	case drift.AlertHighImpactUnblock:
 		return "unblock"
 	case drift.AlertAbandonedClaim:

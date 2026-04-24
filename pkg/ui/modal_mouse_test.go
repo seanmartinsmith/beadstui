@@ -23,10 +23,10 @@ func modalMouseModel(t *testing.T) Model {
 	t.Helper()
 	m := seedModel()
 	m.alerts = []drift.Alert{
-		{Type: drift.AlertStaleIssue, Severity: drift.SeverityWarning, Message: "stale a", IssueID: "bt-a"},
-		{Type: drift.AlertStaleIssue, Severity: drift.SeverityWarning, Message: "stale b", IssueID: "bt-b"},
-		{Type: drift.AlertStaleIssue, Severity: drift.SeverityWarning, Message: "stale c", IssueID: "bt-c"},
-		{Type: drift.AlertStaleIssue, Severity: drift.SeverityWarning, Message: "stale d", IssueID: "bt-d"},
+		{Type: drift.AlertStale, Severity: drift.SeverityWarning, Message: "stale a", IssueID: "bt-a"},
+		{Type: drift.AlertStale, Severity: drift.SeverityWarning, Message: "stale b", IssueID: "bt-b"},
+		{Type: drift.AlertStale, Severity: drift.SeverityWarning, Message: "stale c", IssueID: "bt-c"},
+		{Type: drift.AlertStale, Severity: drift.SeverityWarning, Message: "stale d", IssueID: "bt-d"},
 	}
 	m = pressRune(m, '!') // open alerts tab
 	if m.activeModal != ModalAlerts {

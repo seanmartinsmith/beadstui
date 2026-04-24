@@ -119,8 +119,8 @@ func (rc *robotCtx) runAlerts(alertSeverity, alertType, alertLabel string) {
 		RobotEnvelope: NewRobotEnvelope(rc.dataHash),
 		Alerts:        driftResult.Alerts,
 		UsageHints: []string{
-			"--severity=warning --alert-type=stale_issue   # stale warnings only",
-			"--alert-type=blocking_cascade                 # high-unblock opportunities",
+			"--severity=warning --alert-type=stale         # stale warnings only",
+			"--alert-type=high_leverage                    # high-unblock opportunities",
 			"jq '.alerts | map(.issue_id)'                # list impacted issues",
 		},
 	}

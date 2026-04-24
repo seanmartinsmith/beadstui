@@ -33,7 +33,7 @@ func seedModel() Model {
 	// Seed one alert so visibleAlerts() is non-empty (prevents the
 	// "No active alerts" short-circuit in the `!` handler).
 	m.alerts = []drift.Alert{{
-		Type:     drift.AlertStaleIssue,
+		Type:     drift.AlertStale,
 		Severity: drift.SeverityWarning,
 		Message:  "fixture",
 		IssueID:  "bt-fix",

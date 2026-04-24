@@ -22,7 +22,7 @@ func TestSummary_MixedSeverities(t *testing.T) {
 		InfoCount:     1,
 		Alerts: []Alert{
 			{
-				Type:     AlertNewCycle,
+				Type:     AlertDependencyLoop,
 				Severity: SeverityCritical,
 				Message:  "Critical Alert",
 				Details:  []string{"Detail A", "Detail B"},
@@ -33,7 +33,7 @@ func TestSummary_MixedSeverities(t *testing.T) {
 				Message:  "Warning Alert",
 			},
 			{
-				Type:     AlertNodeCountChange,
+				Type:     AlertIssueCountChange,
 				Severity: SeverityInfo,
 				Message:  "Info Alert",
 			},
@@ -54,13 +54,13 @@ func TestSummary_MixedSeverities(t *testing.T) {
 	}
 
 	// Check icons and messages
-	if !strings.Contains(got, "🔴 [new_cycle] Critical Alert") {
+	if !strings.Contains(got, "🔴 [dependency_loop] Critical Alert") {
 		t.Error("Summary missing critical alert line")
 	}
 	if !strings.Contains(got, "🟡 [blocked_increase] Warning Alert") {
 		t.Error("Summary missing warning alert line")
 	}
-	if !strings.Contains(got, "ℹ️ [node_count_change] Info Alert") {
+	if !strings.Contains(got, "ℹ️ [issue_count_change] Info Alert") {
 		t.Error("Summary missing info alert line")
 	}
 
@@ -78,8 +78,8 @@ func TestSummary_OnlyInfo(t *testing.T) {
 		HasDrift:  true,
 		InfoCount: 2,
 		Alerts: []Alert{
-			{Type: AlertNodeCountChange, Severity: SeverityInfo, Message: "Info 1"},
-			{Type: AlertEdgeCountChange, Severity: SeverityInfo, Message: "Info 2"},
+			{Type: AlertIssueCountChange, Severity: SeverityInfo, Message: "Info 1"},
+			{Type: AlertDependencyChange, Severity: SeverityInfo, Message: "Info 2"},
 		},
 	}
 

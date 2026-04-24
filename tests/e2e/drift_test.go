@@ -123,10 +123,10 @@ func TestEndToEndDriftWorkflow(t *testing.T) {
 	if !ok || len(alerts) == 0 {
 		t.Error("JSON output should have alerts")
 	} else {
-		// Check first alert is new_cycle
+		// Check first alert is dependency_loop
 		firstAlert := alerts[0].(map[string]interface{})
-		if firstAlert["type"] != "new_cycle" {
-			t.Errorf("Expected new_cycle alert, got %v", firstAlert["type"])
+		if firstAlert["type"] != "dependency_loop" {
+			t.Errorf("Expected dependency_loop alert, got %v", firstAlert["type"])
 		}
 	}
 }

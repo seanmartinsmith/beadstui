@@ -85,7 +85,7 @@ func DefaultConfig() *Config {
 		BlockingCascadeWarning:       5,   // Warning when unblocks >=5
 		AbandonedWarningDays:         14,  // Warn when in_progress+assigned issue inactive 14+ days
 		// bt-46p6.6: node/edge count disabled by default (too noisy, catches normal growth)
-		DisabledAlerts: []string{string(AlertNodeCountChange), string(AlertEdgeCountChange)},
+		DisabledAlerts: []string{string(AlertIssueCountChange), string(AlertDependencyChange)},
 	}
 }
 
@@ -327,9 +327,9 @@ blocking_cascade_warning_threshold: 5 # Warning if unblocks 5+ items
 # Disable specific alert types (bv-167)
 # Uncomment to disable:
 # disabled_alerts:
-#   - stale_issue
-#   - new_cycle
-#   - blocking_cascade
+#   - stale
+#   - dependency_loop
+#   - high_leverage
 
 # Per-label staleness overrides (bv-167)
 # Use tighter thresholds for urgent/priority labels

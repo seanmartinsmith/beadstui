@@ -281,11 +281,11 @@ Background analysis that surfaces issues without being asked.
 **Alert types:**
 | Type | Trigger | Severity |
 |------|---------|----------|
-| stale_issue | No activity > threshold | warning |
+| stale | No activity > threshold | warning |
 | velocity_drop | Label velocity down > 30% | warning |
-| blocking_cascade | Issue blocks > 5 others | info |
+| high_leverage | Issue blocks > 5 others | info |
 | potential_duplicate | Similarity > 0.8 | info |
-| cycle_introduced | New dependency creates cycle | error |
+| dependency_loop | New dependency creates cycle | error |
 | high_impact_unblock | Completing X unblocks > 3 | info |
 | abandoned_claim | Agent claim expired | warning |
 

@@ -68,7 +68,7 @@ func TestCalculatorNewCycle(t *testing.T) {
 
 	found := false
 	for _, alert := range result.Alerts {
-		if alert.Type == AlertNewCycle {
+		if alert.Type == AlertDependencyLoop {
 			found = true
 			if alert.Severity != SeverityCritical {
 				t.Errorf("new cycle should be critical, got %s", alert.Severity)
@@ -76,7 +76,7 @@ func TestCalculatorNewCycle(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Error("expected new_cycle alert")
+		t.Error("expected dependency_loop alert")
 	}
 }
 
@@ -102,7 +102,7 @@ func TestCalculatorDensityGrowth(t *testing.T) {
 
 	found := false
 	for _, alert := range result.Alerts {
-		if alert.Type == AlertDensityGrowth {
+		if alert.Type == AlertCouplingGrowth {
 			found = true
 			if alert.Severity != SeverityWarning {
 				t.Errorf("100%% density increase should be warning, got %s", alert.Severity)
@@ -110,7 +110,7 @@ func TestCalculatorDensityGrowth(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Error("expected density_growth alert")
+		t.Error("expected coupling_growth alert")
 	}
 }
 
@@ -172,12 +172,12 @@ func TestCalculatorPageRankChange(t *testing.T) {
 
 	found := false
 	for _, alert := range result.Alerts {
-		if alert.Type == AlertPageRankChange {
+		if alert.Type == AlertCentralityChange {
 			found = true
 		}
 	}
 	if !found {
-		t.Error("expected pagerank_change alert")
+		t.Error("expected centrality_change alert")
 	}
 }
 
@@ -200,7 +200,7 @@ func TestCalculatorStalenessWarningAndCritical(t *testing.T) {
 
 	var warnCount, critCount int
 	for _, a := range result.Alerts {
-		if a.Type != AlertStaleIssue {
+		if a.Type != AlertStale {
 			continue
 		}
 		if a.Severity == SeverityWarning {
@@ -241,7 +241,7 @@ func TestCalculatorBlockingCascade(t *testing.T) {
 	var cascade Alert
 	found := false
 	for _, a := range result.Alerts {
-		if a.Type == AlertBlockingCascade && a.IssueID == "A" {
+		if a.Type == AlertHighLeverage && a.IssueID == "A" {
 			found = true
 			cascade = a
 		}
@@ -283,7 +283,7 @@ func TestCalculatorBlockingCascadeWithPriorities(t *testing.T) {
 	var cascade Alert
 	found := false
 	for _, a := range result.Alerts {
-		if a.Type == AlertBlockingCascade && a.IssueID == "A" {
+		if a.Type == AlertHighLeverage && a.IssueID == "A" {
 			found = true
 			cascade = a
 		}
@@ -308,8 +308,8 @@ func TestResultSummary(t *testing.T) {
 	result := &Result{
 		HasDrift: true,
 		Alerts: []Alert{
-			{Type: AlertNewCycle, Severity: SeverityCritical, Message: "New cycle"},
-			{Type: AlertDensityGrowth, Severity: SeverityWarning, Message: "Density up"},
+			{Type: AlertDependencyLoop, Severity: SeverityCritical, Message: "New cycle"},
+			{Type: AlertCouplingGrowth, Severity: SeverityWarning, Message: "Density up"},
 		},
 		CriticalCount: 1,
 		WarningCount:  1,
@@ -878,7 +878,7 @@ func TestCheckCycles_BaselineHasCycles(t *testing.T) {
 	result := calc.Calculate()
 
 	for _, alert := range result.Alerts {
-		if alert.Type == AlertNewCycle {
+		if alert.Type == AlertDependencyLoop {
 			t.Errorf("should not alert when cycles are removed, got: %s", alert.Message)
 		}
 	}
@@ -904,7 +904,7 @@ func TestCheckCycles_NewCycles(t *testing.T) {
 
 	found := false
 	for _, alert := range result.Alerts {
-		if alert.Type == AlertNewCycle {
+		if alert.Type == AlertDependencyLoop {
 			found = true
 			if alert.Severity != SeverityCritical {
 				t.Errorf("new cycles should be critical, got %s", alert.Severity)
@@ -915,7 +915,7 @@ func TestCheckCycles_NewCycles(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatal("expected critical new_cycle alert when cycles are added")
+		t.Fatal("expected critical dependency_loop alert when cycles are added")
 	}
 }
 
@@ -939,7 +939,7 @@ func TestCheckCycles_SameCycles(t *testing.T) {
 	result := calc.Calculate()
 
 	for _, alert := range result.Alerts {
-		if alert.Type == AlertNewCycle {
+		if alert.Type == AlertDependencyLoop {
 			t.Errorf("should not alert when cycles are identical, got: %s", alert.Message)
 		}
 	}
@@ -964,7 +964,7 @@ func TestCheckCycles_BothEmpty(t *testing.T) {
 	result := calc.Calculate()
 
 	for _, alert := range result.Alerts {
-		if alert.Type == AlertNewCycle {
+		if alert.Type == AlertDependencyLoop {
 			t.Errorf("should not alert when both have empty cycles, got: %s", alert.Message)
 		}
 	}
@@ -995,7 +995,7 @@ func TestCheckDensity_InfoLevel(t *testing.T) {
 
 	found := false
 	for _, alert := range result.Alerts {
-		if alert.Type == AlertDensityGrowth {
+		if alert.Type == AlertCouplingGrowth {
 			found = true
 			if alert.Severity != SeverityInfo {
 				t.Errorf("30%% density increase should be info, got %s", alert.Severity)
@@ -1004,7 +1004,7 @@ func TestCheckDensity_InfoLevel(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Error("expected density_growth info alert for 30% increase")
+		t.Error("expected coupling_growth info alert for 30% increase")
 	}
 }
 
@@ -1031,7 +1031,7 @@ func TestCheckDensity_Decrease(t *testing.T) {
 	result := calc.Calculate()
 
 	for _, alert := range result.Alerts {
-		if alert.Type == AlertDensityGrowth {
+		if alert.Type == AlertCouplingGrowth {
 			t.Errorf("should not alert when density decreases, got: %s", alert.Message)
 		}
 	}
@@ -1062,7 +1062,7 @@ func TestCheckDensity_WarningLevel(t *testing.T) {
 
 	found := false
 	for _, alert := range result.Alerts {
-		if alert.Type == AlertDensityGrowth {
+		if alert.Type == AlertCouplingGrowth {
 			found = true
 			if alert.Severity != SeverityWarning {
 				t.Errorf("75%% density increase should be warning, got %s", alert.Severity)
@@ -1071,7 +1071,7 @@ func TestCheckDensity_WarningLevel(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatal("expected density_growth warning alert for 75% increase")
+		t.Fatal("expected coupling_growth warning alert for 75% increase")
 	}
 }
 
@@ -1097,7 +1097,7 @@ func TestCheckDensity_BaselineZero(t *testing.T) {
 	result := calc.Calculate()
 
 	for _, alert := range result.Alerts {
-		if alert.Type == AlertDensityGrowth {
+		if alert.Type == AlertCouplingGrowth {
 			t.Errorf("should not alert when baseline density is 0, got: %s", alert.Message)
 		}
 	}
@@ -1171,7 +1171,7 @@ func TestCheckDensity_SmallIncrease(t *testing.T) {
 	result := calc.Calculate()
 
 	for _, alert := range result.Alerts {
-		if alert.Type == AlertDensityGrowth {
+		if alert.Type == AlertCouplingGrowth {
 			t.Errorf("10%% density increase should not alert, got: %s", alert.Message)
 		}
 	}
@@ -1244,7 +1244,7 @@ func TestCalculatorBoundaryThresholds(t *testing.T) {
 
 	found := false
 	for _, a := range resExact.Alerts {
-		if a.Type == AlertDensityGrowth && a.Severity == SeverityWarning {
+		if a.Type == AlertCouplingGrowth && a.Severity == SeverityWarning {
 			found = true
 		}
 	}
@@ -1270,7 +1270,7 @@ func TestCalculatorBoundaryThresholds(t *testing.T) {
 	resBelow := calcBelow.Calculate()
 
 	for _, a := range resBelow.Alerts {
-		if a.Type == AlertDensityGrowth && a.Severity == SeverityWarning {
+		if a.Type == AlertCouplingGrowth && a.Severity == SeverityWarning {
 			t.Errorf("49.9%% density increase should NOT trigger warning, got: %s", a.Message)
 		}
 	}
@@ -1385,7 +1385,7 @@ func TestDisabledAlerts(t *testing.T) {
 
 	hasCycleAlert := false
 	for _, a := range result.Alerts {
-		if a.Type == AlertNewCycle {
+		if a.Type == AlertDependencyLoop {
 			hasCycleAlert = true
 			break
 		}
@@ -1394,13 +1394,13 @@ func TestDisabledAlerts(t *testing.T) {
 		t.Fatal("expected cycle alert without disabling")
 	}
 
-	// With disabled_alerts containing new_cycle, no cycle alert
-	cfg.DisabledAlerts = []string{"new_cycle"}
+	// With disabled_alerts containing dependency_loop, no cycle alert
+	cfg.DisabledAlerts = []string{"dependency_loop"}
 	calc = NewCalculator(bl, current, cfg)
 	result = calc.Calculate()
 
 	for _, a := range result.Alerts {
-		if a.Type == AlertNewCycle {
+		if a.Type == AlertDependencyLoop {
 			t.Error("cycle alert should be disabled")
 		}
 	}
@@ -1409,19 +1409,19 @@ func TestDisabledAlerts(t *testing.T) {
 // TestIsAlertDisabled verifies the IsAlertDisabled helper (bv-167)
 func TestIsAlertDisabled(t *testing.T) {
 	cfg := DefaultConfig()
-	if cfg.IsAlertDisabled("stale_issue") {
-		t.Error("stale_issue should not be disabled by default")
+	if cfg.IsAlertDisabled("stale") {
+		t.Error("stale should not be disabled by default")
 	}
 
-	cfg.DisabledAlerts = []string{"stale_issue", "new_cycle"}
-	if !cfg.IsAlertDisabled("stale_issue") {
-		t.Error("stale_issue should be disabled")
+	cfg.DisabledAlerts = []string{"stale", "dependency_loop"}
+	if !cfg.IsAlertDisabled("stale") {
+		t.Error("stale should be disabled")
 	}
-	if !cfg.IsAlertDisabled("new_cycle") {
-		t.Error("new_cycle should be disabled")
+	if !cfg.IsAlertDisabled("dependency_loop") {
+		t.Error("dependency_loop should be disabled")
 	}
-	if cfg.IsAlertDisabled("density_growth") {
-		t.Error("density_growth should not be disabled")
+	if cfg.IsAlertDisabled("coupling_growth") {
+		t.Error("coupling_growth should not be disabled")
 	}
 }
 

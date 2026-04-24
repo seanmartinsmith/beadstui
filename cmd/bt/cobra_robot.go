@@ -1059,7 +1059,7 @@ func init() {
 
 	// alerts
 	robotAlertsCmd.Flags().String("severity", "", "Filter by severity (info|warning|critical)")
-	robotAlertsCmd.Flags().String("alert-type", "", "Filter by alert type (e.g., stale_issue)")
+	robotAlertsCmd.Flags().String("alert-type", "", "Filter by alert type (e.g., stale, high_leverage, dependency_loop)")
 	robotAlertsCmd.Flags().String("alert-label", "", "Filter by label match")
 	robotCmd.AddCommand(robotAlertsCmd)
 
