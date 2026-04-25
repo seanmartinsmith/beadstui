@@ -37,7 +37,7 @@ After completing significant work, update `CHANGELOG.md` and any relevant ADR-00
 - **Module**: `github.com/seanmartinsmith/beadstui`
 - **Language**: Go 1.25+ (check `go.mod`)
 - **TUI framework**: Charm Bracelet v2 (Bubble Tea, Lipgloss, Bubbles, Glamour) — migration shipped via bt-ykqq / bt-k5zs / bt-zt9q, 2026-04-10
-- **Data backends**: JSONL, SQLite, Dolt (MySQL protocol)
+- **Data backend**: Dolt (MySQL protocol). Beads is Dolt-only since v1.0.1 (March 2026); JSONL/SQLite paths in bt code are pre-migration legacy. See "Beads architecture awareness" section below before touching the data layer.
 
 ## Key Directories
 
@@ -68,6 +68,41 @@ go test ./... -race     # Race detector
 go vet ./...            # Static analysis
 go install ./cmd/bt/    # Install binary
 ```
+
+## Beads architecture awareness (verified 2026-04-25)
+
+Beads-the-tool (`bd`) migrated to Dolt-only storage in v1.0.1 (March 2026). Some bt code and bt beads predate this migration and assume the older JSONL-backed layout. **Before scoping or implementing any bead that touches data layer, correlations, sprints, session columns, or git-history-derived features, verify against current beads architecture rather than assumed prior state.** A systematic audit of all open bt beads against this reality is tracked in **bt-mhcv (P0)**.
+
+### Current beads architecture
+
+- **Storage**: Dolt is the only backend. JSONL export is opt-in for portability, not the system of record. The Dolt server data lives in `.beads/dolt/`.
+- **Session columns**: `created_by_session`, `claimed_by_session`, `closed_by_session` are first-class columns on the `issues` table (upstream `0033_add_session_columns.up.sql`; Phase 1a merged 2026-04-24 via bd-34v). **NOT** sourced from the `metadata` JSON blob — that pattern is now stale code (bt-5hl9 tracks the bt-side migration).
+- **Events**: Beads has a native `events` table (`Storage.GetEvents` at `internal/storage/storage.go:76`) with columns `id, issue_id, event_type, actor, old_value, new_value, comment, created_at`. This is the upstream primitive for bead-event audit trails.
+- **History**: `bd history <id>` queries `dolt_history_issues` for per-commit issue snapshots (with full session columns per snapshot). Note: bd-3gb tracks an empty-result `--json` bug being PR'd upstream.
+- **Sprints**: NOT a beads concept upstream — no `sprints` table or subcommand. Any sprint-related code in bt is a bt-only feature (tracked in bt-z5jj — rebuild against Dolt or retire).
+- **Correlations**: NOT a beads concept upstream. Purely bt's domain (tracked in bt-08sh — migrate from JSONL+git-diff witness to `dolt_log` + `dolt_history_issues`).
+- **Data dirs**: `.beads/` is shared with bd's Dolt server + bd metadata. `.bt/` is bt-only cache (baseline, semantic search index). The split is partly accidental and being canonicalized in bt-uahv.
+
+### Stale-assumption checklist
+
+When scoping or auditing any bt bead, ask:
+
+- [ ] Does it assume `.beads/<project>.jsonl` exists? (Dolt-only installs don't produce one.)
+- [ ] Does it assume `.beads/sprints.jsonl` exists? (Beads doesn't produce one — sprints aren't upstream.)
+- [ ] Does it read session columns from the `metadata` blob? (Should read direct columns; bt-5hl9 tracks the migration.)
+- [ ] Does it expect `--global` to fail for any single-ID lookup? (bt-vhn2 was misframed this way — actual root cause was the correlator, not routing.)
+- [ ] Does its acceptance criteria reference pre-Dolt invariants? (Likely needs rescoping.)
+
+If suspect, leave a comment with the recon finding rather than diving in. Cross-reference bt-mhcv for the systematic audit.
+
+### Related beads
+
+- **bt-mhcv** (P0) — systematic audit of all open bt beads
+- **bt-08sh** (P2) — correlator Dolt migration
+- **bt-z5jj** (P3) — sprint feature decision
+- **bt-uahv** (P3) — `.beads/` vs `.bt/` canonical split
+- **bt-5hl9** (P2) — CompactIssue session column migration
+- **bd-3gb** (in beads repo) — bd history `--json` empty-result bug
 
 ## Key Design Constraints
 
