@@ -6,6 +6,61 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-25 — BQL --bql filter fix + bt-uh3c brainstorm reshape (post-Dolt architecture audit)
+
+**Two distinct outcomes from one session: a P1 bug fix shipped, and a major scope correction surfaced through brainstorm-driven recon — bt's correlator/sprint stack is stale relative to the post-v0.56.1 Dolt-only beads era.**
+
+### What shipped
+
+- **bt-111w** (P1, bug, FIXED) — `bt robot list --bql 'id="X"'` was silently dropping the BQL filter and returning the unfiltered list (universal — both `--global` and local paths). Root cause: `cmd/bt/robot_list.go` intentionally bypasses `robotPreRun` to skip label/recipe analysis, but the bypass also dropped `--bql` filtering since that's where it lives (`cmd/bt/cobra_robot.go:107-121`).
+  - Fix in `cmd/bt/robot_list.go`: applies BQL inline alongside the existing `--source` filter, in the same order as `robotPreRun` (source → BQL → simple flags). Echoes `bql` in the `listQuery` envelope so consumers can confirm the filter was applied.
+  - Tests: 5 new regression tests in `cmd/bt/robot_bql_test.go` covering `id=`, `priority=`, `status=` equality, no-match, and BQL composed with `--source`.
+  - Live verification: `bt --global robot list --bql 'id="cass-uh3c"'` previously returned 38KB (count=100, total=3206) — now returns 660B (count=1, total=1) with bql echoed in envelope. Local-repo path also fixed.
+  - Commit `80d9d571`.
+
+### What was filed (brainstorm-driven discovery)
+
+bt-uh3c brainstorm (claim: "let's claim and work bt-uh3c") evolved into a multi-phase architectural audit when ground-truth recon revealed that beads' v1.0.1 migration to Dolt-only (March 2026) had left bt's pre-v0.56.1 assumptions in place. Phase 1 dispatched 3 parallel agents (recent bd beads recon, beads upstream source recon, bt blast-radius scan) and surfaced:
+
+- **bt's correlator (`pkg/correlation/`)** uses `git diff` against `.beads/<project>.jsonl` as a witness file. Beads no longer produces this file. Result: `history`, `related`, `causality` subcommands fail universally (not just under `--global`).
+- **bt's sprint loader (`pkg/loader/sprint.go`)** reads `.beads/sprints.jsonl`. Beads upstream has no `sprints` table — sprints were always bt-only metadata, and the JSONL was a bt-bt construction. `forecast` and `sprint show` are stuck.
+- **bt's `CompactIssue` mapping (`pkg/view/compact_issue.go:187-188`)** still reads `created_by_session` and `claimed_by_session` from the metadata JSON blob, while `bd-34v` Phase 1a (merged 2026-04-24) provides direct columns upstream.
+- **bt's `.beads/` vs `.bt/` data-home split** is partly accidental (`tree-state.json` is bt-only UI state but lives in shared `.beads/`).
+- **Beads has an upstream `events` table** (`Storage.GetEvents`) — the load-bearing finding for bt-uh3c item 2 (events timeline). Means bt composes upstream primitives instead of rolling its own `dolt_log` queries.
+
+### New beads filed (with proper relations)
+
+- **bt-111w** (P1, bug, FIXED above)
+- **bt-vhn2** (P2, bug, **CLOSED-AS-SUPERSEDED** in this session) — original `--global routing` framing was wrong
+- **bt-ah53** (P2, task) — Robot mode I/O contract: documented stdout/stderr/exit invariants + verify-test sweep
+- **bt-70cd** (P2, bug) — Unknown `bt robot` subcommand prints help to stdout exit 0 (Cobra default)
+- **bt-82w8** (P3, feat) — `bt robot comments <id> --global`: standalone subcommand
+- **bt-3qfa** (P3, feat) — Per-subcommand input flag manifest in `bt robot schema`
+- **bt-llh2** (P3, feat) — BQL parse-error hints for `id:` syntax
+- **bt-kv7d** (P3, **CLOSED-AS-OBVIATED** in this session — merged into bt-5hl9)
+- **bt-08sh** (P2, feat, NEW) — Correlator Dolt migration: replace JSONL+git-diff witness with `dolt_log`/`dolt_history_issues`
+- **bt-z5jj** (P3, feat, NEW) — Sprint feature: rebuild against Dolt or retire (decision needed)
+- **bt-uahv** (P3, task, NEW) — Canonical `.beads/` vs `.bt/` data-home split (ADR-flavored)
+- **bd-3gb** (P2, in beads repo) — Promoted to load-bearing: `bd history --json` returns prose, breaking bt's planned wrapping for events timeline
+
+### Existing beads reshaped
+
+- **bt-uh3c** — Hard block on bt-vhn2 removed; soft relations to bt-08sh / bt-z5jj. Item 2 implementation path simplified to compose upstream `Storage.GetEvents` + `bd history` (no rolling our own `dolt_log` queries).
+- **bt-5hl9** — Rescope confirmed: bt-side hydration of session columns (Phase 1a now actionable post-bd-34v merge). Absorbs bt-kv7d's scope.
+
+### What didn't ship — deferred to follow-on sessions
+
+- bt-uh3c's actual `show <id>` and `events <id>` implementation (now architecturally unblocked, awaiting design pass)
+- bt-08sh, bt-z5jj, bt-uahv work (all `workflow:investigate` until decisions land)
+- bt-5hl9 Phase 1 implementation (Phase 1a upstream-merged, bt-side hydration ready to start)
+- Robot mode I/O contract verify-test (bt-ah53)
+
+### Process note (for future sessions)
+
+This session's brainstorm-then-recon-then-reframe loop produced more value in beads-graph cleanup than in code shipped. The key lesson: when a bug feels architecturally noisy ("--global doesn't work for these 7 subcommands"), check whether the framing assumes a stale architecture. In this case, beads's Dolt migration was the load-bearing context I was missing — a single user prompt ("how does Dolt affect this?") triggered the recon that found the actual root causes. Adding Dolt-migration-awareness to the AGENTS.md or auto-memory would help future sessions hit this earlier.
+
+---
+
 ## 2026-04-24 — Notification persistence across bt restarts (bt-6ool Part A)
 
 **Notifications now survive `bt` exit and re-launch. The ring buffer write-throughs each event as one JSONL line at `~/.bt/events.jsonl` and replays the file (filtered by max age) on boot.**

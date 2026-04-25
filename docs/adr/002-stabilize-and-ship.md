@@ -52,6 +52,13 @@ Scope:
 - [ ] Add positional arg warning/support
 - [ ] Document all 18 missing env vars in --robot-docs env
 - [ ] Consolidate duplicate confidence/agent-count flags
+- [x] Fix --bql filter no-op'd in robot list — was bypassing robotPreRun (bt-111w, 2026-04-25)
+- [ ] **Sub-stream surfaced 2026-04-25: post-Dolt migration of bt-derived data layer.** bt's correlator (`pkg/correlation/`) and sprint loader (`pkg/loader/sprint.go`) were built against the pre-v0.56.1 era of beads (JSONL backups available alongside Dolt). Beads is Dolt-only since v1.0.1. Affected subcommands: `history`, `related`, `causality` (correlator-bound — bt-08sh), `forecast`, `sprint show` (sprint-bound — bt-z5jj). Plus an ADR-flavored decision about canonical `.beads/` vs `.bt/` data-home split (bt-uahv). bt-vhn2 closed as superseded; original "--global routing" framing was wrong.
+- [ ] Robot mode I/O contract: documented invariants + verify-test sweep (bt-ah53). Locks in stdout=structured-only / stderr=errors-only / exit-code-correct contract; prevents F2/F11-style regressions.
+- [ ] Unknown `bt robot` subcommand prints help to stdout (bt-70cd). Cobra default; consumed by F-CONTRACT verify-test.
+- [ ] Standalone `bt robot comments <id> --global` (bt-82w8). Cross-project comment fetch.
+- [ ] Per-subcommand flag manifest in `bt robot schema` (bt-3qfa). Agent introspection.
+- [ ] BQL parse-error hints for `id:` shorthand (bt-llh2). Smaller UX polish.
 
 ### Stream 2: BQL completion
 **Status**: Core shipped, bugs fixed, features remain
