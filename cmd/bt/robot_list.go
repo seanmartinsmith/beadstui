@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
+	"github.com/seanmartinsmith/beadstui/pkg/bql"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/view"
 )
@@ -34,8 +35,26 @@ var robotListCmd = &cobra.Command{
 		hasLabelFilter, _ := cmd.Flags().GetString("has-label")
 		limit, _ := cmd.Flags().GetInt("limit")
 
-		// robot list bypasses robotPreRun, so --source must be applied here.
+		// robot list bypasses robotPreRun, so --source and --bql must be
+		// applied here. Order matches robotPreRun: source first (narrows
+		// the input set), then BQL (filters within the scoped set), then
+		// the simple flag filters. bt-111w.
 		baseIssues := filterBySource(appCtx.issues, robotFlagSource)
+		if robotFlagBQL != "" {
+			parsed, err := bql.Parse(robotFlagBQL)
+			if err != nil {
+				return fmt.Errorf("BQL parse error: %w", err)
+			}
+			if err := bql.Validate(parsed); err != nil {
+				return fmt.Errorf("BQL validation error: %w", err)
+			}
+			issueMap := make(map[string]*model.Issue, len(baseIssues))
+			for i := range baseIssues {
+				issueMap[baseIssues[i].ID] = &baseIssues[i]
+			}
+			executor := bql.NewMemoryExecutor()
+			baseIssues = executor.Execute(parsed, baseIssues, bql.ExecuteOpts{IssueMap: issueMap})
+		}
 		issues := filterIssuesForList(baseIssues, statusFilter, priorityFilter, typeFilter, hasLabelFilter)
 
 		total := len(issues)
@@ -85,6 +104,7 @@ var robotListCmd = &cobra.Command{
 				HasLabel: hasLabelFilter,
 				Repo:     flagRepo,
 				Source:   robotFlagSource,
+				BQL:      robotFlagBQL,
 				Global:   flagGlobal,
 				Limit:    limit,
 			},
@@ -111,6 +131,7 @@ type listQuery struct {
 	HasLabel string `json:"has_label"`
 	Repo     string `json:"repo"`
 	Source   string `json:"source"`
+	BQL      string `json:"bql"`
 	Global   bool   `json:"global"`
 	Limit    int    `json:"limit"`
 }
