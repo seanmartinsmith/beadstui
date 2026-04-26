@@ -583,6 +583,12 @@ type Model struct {
 	activeTab           ModalTab
 	notificationsCursor int
 
+	// notifShowDismissed surfaces dismissed events in the notifications tab
+	// when true (bt-46p6.13). Default false matches v1 behavior — dismissed
+	// events stay in the ring buffer for audit but are hidden from the feed.
+	// Toggled with `d` from the notifications tab.
+	notifShowDismissed bool
+
 	// Double-click detection for modal mouse activation (bt-46p6.14).
 	// Updated on every MouseClickMsg inside the alerts modal; a second click
 	// at the same (X,Y) within modalDoubleClickWindow promotes to activate.

@@ -963,6 +963,25 @@ func (m *Model) updateViewportContent() {
 		))
 	}
 
+	// Centrality (bt-46p6.12 AC3) — surface graph-position signals next to
+	// the issue itself, so users don't need to enter the insights view to
+	// understand how central a bead is. Gated on Phase 2 readiness because
+	// PageRank/betweenness are async and only populated post-warmup.
+	if m.data.analysis != nil && m.data.analysis.IsPhase2Ready() {
+		if rank, ok := m.data.analysis.PageRankRankValue(item.ID); ok {
+			prVal, _ := m.data.analysis.PageRankValue(item.ID)
+			sb.WriteString("### 📊 Centrality\n")
+			sb.WriteString(fmt.Sprintf("- **PageRank:** rank #%d · %.4f\n", rank, prVal))
+			if brank, bok := m.data.analysis.BetweennessRankValue(item.ID); bok {
+				bval, _ := m.data.analysis.BetweennessValue(item.ID)
+				sb.WriteString(fmt.Sprintf("- **Betweenness:** rank #%d · %.4f\n", brank, bval))
+			}
+			sb.WriteString(fmt.Sprintf("- **Degree:** in %d / out %d\n",
+				m.data.analysis.InDegree[item.ID], m.data.analysis.OutDegree[item.ID]))
+			sb.WriteString("\n")
+		}
+	}
+
 	// Triage Insights (bv-151)
 	if issueItem.TriageScore > 0 || issueItem.TriageReason != "" || issueItem.UnblocksCount > 0 || issueItem.IsQuickWin || issueItem.IsBlocker {
 		sb.WriteString("### 🎯 Triage Insights\n")

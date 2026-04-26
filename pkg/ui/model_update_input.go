@@ -16,6 +16,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/seanmartinsmith/beadstui/pkg/agents"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
+	"github.com/seanmartinsmith/beadstui/pkg/drift"
 	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
 )
 
@@ -962,32 +963,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				m.mode = ViewList
 				m.focused = focusList
 			} else {
-				m.mode = ViewInsights
-				m.focused = focusInsights
-				// Refresh insights using the current snapshot when available (bv-mpqz).
-				var ins analysis.Insights
-				hasInsights := false
-				if m.data.snapshot != nil {
-					ins = m.data.snapshot.Insights
-					hasInsights = true
-				} else if m.data.analysis != nil {
-					ins = m.data.analysis.GenerateInsights(len(m.data.issues))
-					hasInsights = true
-				}
-				if hasInsights {
-					m.insightsPanel = NewInsightsModel(ins, m.data.issueMap, m.theme)
-					// Include priority triage (bv-91) - reuse existing analyzer/stats (bv-runn.12)
-					triage := analysis.ComputeTriageFromAnalyzer(m.data.analyzer, m.data.analysis, m.data.issues, analysis.TriageOptions{}, time.Now())
-					m.insightsPanel.SetTopPicks(triage.QuickRef.TopPicks)
-					// Set full recommendations with breakdown for priority radar (bv-93)
-					dataHash := fmt.Sprintf("v%s@%s#%d", triage.Meta.Version, triage.Meta.GeneratedAt.Format("15:04:05"), triage.Meta.IssueCount)
-					m.insightsPanel.SetRecommendations(triage.Recommendations, dataHash)
-					panelHeight := m.height - 2
-					if panelHeight < 3 {
-						panelHeight = 3
-					}
-					m.insightsPanel.SetSize(m.width, panelHeight)
-				}
+				m.openInsightsView()
 			}
 			return m, nil
 
@@ -1573,6 +1549,13 @@ func (m Model) handleNotificationsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		m.notificationsCursor = 0
 		m.closeModal()
 		return m, nil
+	case "d":
+		// Toggle dismissed-event visibility (bt-46p6.13). Reset cursor since
+		// the visible-list length changes and the previous index would point
+		// at a different row.
+		m.notifShowDismissed = !m.notifShowDismissed
+		m.notificationsCursor = 0
+		return m, nil
 	case "esc", "q":
 		m.closeModal()
 		return m, nil
@@ -1589,18 +1572,18 @@ const modalDoubleClickWindow = 500 * time.Millisecond
 // modalChromeAboveItems is the number of terminal rows above the first
 // item inside the shared alerts/notifications modal. Layered top-to-bottom:
 //  1. Panel top border (RenderTitledPanel, always 1 row).
-//  2. padContentLines top blank (renderAlertsPanel wraps body in 1-row pad).
-//  3. Summary line ("N total · K critical · …" / "K created · K closed · …").
-//  4. Blank separator written by the tab's "\n\n" after the summary.
-//  5. Above-hint / filter-label line (always written, even when empty; the
+//  2. Summary line ("N total · K critical · …" / "K created · K closed · …").
+//  3. Blank separator written by the tab's "\n\n" after the summary.
+//  4. Above-hint / filter-label line (always written, even when empty; the
 //     renderer terminates the row with "\n" so it consumes 1 row either way).
 //
-// Items begin at index 5 (0-indexed) within the modal. The notifications tab
-// uses the same layout, verified by reading renderAlertsTab and
-// renderNotificationsTab in model_alerts.go. If that chrome changes, this
-// constant must change with it — TestAlertsModalClick_ChromeOffset guards
-// against drift.
-const modalChromeAboveItems = 5
+// Items begin at modal row 4 (0-indexed). padContentLines applies horizontal
+// padding only — it does NOT add a vertical pad row, contrary to the prior
+// comment that put items at row 5 and produced a real-world off-by-one
+// (bt-46p6.13 dogfooding caught this). TestProbeNotificationChrome dumps the
+// rendered rows so future drift trips a visible failure rather than silently
+// returning the row above the click.
+const modalChromeAboveItems = 4
 
 // handleAlertsModalClick routes a MouseClickMsg when the shared alerts /
 // notifications modal is open (bt-46p6.14). Mirrors the keyboard handler
@@ -1771,10 +1754,18 @@ func (m Model) activateCurrentModalItem() (Model, tea.Cmd) {
 	if m.activeTab == TabAlerts {
 		activeAlerts := m.visibleAlerts()
 		if m.alertsCursor >= 0 && m.alertsCursor < len(activeAlerts) {
-			issueID := activeAlerts[m.alertsCursor].IssueID
-			if issueID != "" {
-				m.revealBeadIfHidden(issueID)
-				if m.selectIssueByID(issueID) {
+			alert := activeAlerts[m.alertsCursor]
+			// Graph-scope alerts have no single issue target — the value is in
+			// the rankings themselves. Route to the insights view so the user
+			// lands on the data the alert is summarizing (bt-46p6.12).
+			if alert.Type == drift.AlertCentralityChange {
+				m.openInsightsView()
+				m.closeModal()
+				return m, nil
+			}
+			if alert.IssueID != "" {
+				m.revealBeadIfHidden(alert.IssueID)
+				if m.selectIssueByID(alert.IssueID) {
 					m.focusDetailAfterJump()
 				}
 			}
@@ -1801,6 +1792,39 @@ func (m Model) activateCurrentModalItem() (Model, tea.Cmd) {
 	}
 	m.closeModal()
 	return m, nil
+}
+
+// openInsightsView switches into the insights view and rebuilds the panel
+// from the current snapshot. Shared by the "i" key toggle and the
+// alert-modal enter path for graph-scope alerts (bt-46p6.12).
+func (m *Model) openInsightsView() {
+	m.clearAttentionOverlay()
+	m.mode = ViewInsights
+	m.focused = focusInsights
+	// Refresh insights using the current snapshot when available (bv-mpqz).
+	var ins analysis.Insights
+	hasInsights := false
+	if m.data.snapshot != nil {
+		ins = m.data.snapshot.Insights
+		hasInsights = true
+	} else if m.data.analysis != nil {
+		ins = m.data.analysis.GenerateInsights(len(m.data.issues))
+		hasInsights = true
+	}
+	if hasInsights {
+		m.insightsPanel = NewInsightsModel(ins, m.data.issueMap, m.theme)
+		// Include priority triage (bv-91) - reuse existing analyzer/stats (bv-runn.12)
+		triage := analysis.ComputeTriageFromAnalyzer(m.data.analyzer, m.data.analysis, m.data.issues, analysis.TriageOptions{}, time.Now())
+		m.insightsPanel.SetTopPicks(triage.QuickRef.TopPicks)
+		// Set full recommendations with breakdown for priority radar (bv-93)
+		dataHash := fmt.Sprintf("v%s@%s#%d", triage.Meta.Version, triage.Meta.GeneratedAt.Format("15:04:05"), triage.Meta.IssueCount)
+		m.insightsPanel.SetRecommendations(triage.Recommendations, dataHash)
+		panelHeight := m.height - 2
+		if panelHeight < 3 {
+			panelHeight = 3
+		}
+		m.insightsPanel.SetSize(m.width, panelHeight)
+	}
 }
 
 // revealBeadIfHidden unhides the bead's repo in workspace mode so a jump

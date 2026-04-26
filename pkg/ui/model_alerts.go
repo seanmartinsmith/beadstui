@@ -115,17 +115,17 @@ func (m Model) visibleAlerts() []drift.Alert {
 }
 
 // visibleNotifications returns ring-buffer events filtered by dismissed state
-// and active-repo filter, newest-first. v1 hides dismissed; bt-46p6.13 may
-// expose them via filter. In workspace mode with an active repo filter,
-// events whose Repo isn't in activeRepos are hidden — mirrors the alerts
-// tab's project-scoping so 'single project' / 'multi-project select' /
-// 'global' views produce the right notification set.
+// and active-repo filter, newest-first. v1 hides dismissed; v2 (bt-46p6.13)
+// exposes them when notifShowDismissed is set. In workspace mode with an
+// active repo filter, events whose Repo isn't in activeRepos are hidden —
+// mirrors the alerts tab's project-scoping so 'single project' /
+// 'multi-project select' / 'global' views produce the right notification set.
 func (m Model) visibleNotifications() []events.Event {
 	snap := m.events.Snapshot()
 	out := make([]events.Event, 0, len(snap))
 	// Snapshot is oldest-first; reverse to newest-first.
 	for i := len(snap) - 1; i >= 0; i-- {
-		if snap[i].Dismissed {
+		if snap[i].Dismissed && !m.notifShowDismissed {
 			continue
 		}
 		// Respect workspace-mode project filter. activeRepos == nil means
@@ -484,14 +484,21 @@ func formatNotificationRow(e events.Event, width int) string {
 	timeStr := e.At.Format("15:04")
 	kindStr := e.Kind.String()
 	idStr := e.BeadID
-	// timeStr(5) + " " + kindStr + " " + idStr + " • " (3)
-	consumed := len(timeStr) + 1 + len(kindStr) + 1 + len(idStr) + 3
+	// Dismissed prefix only renders when the dismissed-filter is on (v2,
+	// bt-46p6.13); v1 callers never pass dismissed events so the prefix is
+	// effectively gated by visibleNotifications.
+	prefix := ""
+	if e.Dismissed {
+		prefix = "✕ "
+	}
+	// timeStr(5) + " " + kindStr + " " + idStr + " • " (3) + optional prefix
+	consumed := len(prefix) + len(timeStr) + 1 + len(kindStr) + 1 + len(idStr) + 3
 	titleWidth := width - consumed
 	if titleWidth < 10 {
 		titleWidth = 10
 	}
 	title := strings.ReplaceAll(e.Title, "\n", " ")
-	return timeStr + " " + kindStr + " " + idStr + " • " + truncate(title, titleWidth)
+	return prefix + timeStr + " " + kindStr + " " + idStr + " • " + truncate(title, titleWidth)
 }
 
 // renderNotificationsTab builds the notifications tab body. Reads from
@@ -653,8 +660,14 @@ func (m Model) renderNotificationsTab() string {
 	sb.WriteString(leftPart + strings.Repeat(" ", gap) + rightPart)
 
 	// Footer: centered help text (matches alerts-tab layout at the bottom).
+	// `d` toggles dismissed-event visibility (bt-46p6.13); the label flips
+	// to reflect the next action so users know what the toggle does.
 	hintStyle := mutedStyle.Italic(true)
-	hintText := hintStyle.Render("j/k: nav  enter: open  c: dismiss  C: dismiss all  esc: close")
+	dismissToggleLabel := "d: show dismissed"
+	if m.notifShowDismissed {
+		dismissToggleLabel = "d: hide dismissed"
+	}
+	hintText := hintStyle.Render(fmt.Sprintf("j/k: nav  enter: open  c: dismiss  C: dismiss all  %s  esc: close", dismissToggleLabel))
 	hintW := lipgloss.Width(hintText)
 	hintPad := (innerWidth - hintW) / 2
 	if hintPad < 0 {

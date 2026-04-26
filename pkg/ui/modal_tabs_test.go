@@ -349,6 +349,110 @@ func TestUpdateViewportContent_NoScrollWhenPendingZero(t *testing.T) {
 	}
 }
 
+// TestActivateAlert_CentralityChangeOpensInsights covers bt-46p6.12 AC1:
+// pressing enter on a centrality_change alert (which has no single-issue
+// target) routes to the insights view rather than no-op'ing or jumping
+// to a hallucinated bead.
+func TestActivateAlert_CentralityChangeOpensInsights(t *testing.T) {
+	m := NewModel(nil, nil, "", nil)
+	m.width = 120
+	m.height = 40
+	m.mode = ViewList
+	m.ready = true
+	m.alerts = []drift.Alert{{
+		Type:     drift.AlertCentralityChange,
+		Severity: drift.SeverityWarning,
+		Message:  "3 PageRank changes detected",
+		Details:  []string{"bt-x dropped from top", "bt-y entered top"},
+		// IssueID intentionally empty: graph-scope alerts don't carry one.
+	}}
+	m.activeModal = ModalAlerts
+	m.activeTab = TabAlerts
+	m.alertsCursor = 0
+
+	got, _ := m.activateCurrentModalItem()
+	if got.mode != ViewInsights {
+		t.Errorf("centrality_change activation should switch to ViewInsights, got %v", got.mode)
+	}
+	if got.activeModal == ModalAlerts {
+		t.Errorf("activation should close the modal")
+	}
+}
+
+// TestActivateAlert_StaleAlertJumpsToBead guards against the centrality
+// routing accidentally swallowing single-issue alerts.
+func TestActivateAlert_StaleAlertJumpsToBead(t *testing.T) {
+	issues := []model.Issue{{
+		ID: "bt-stale", Title: "stale", Status: model.StatusOpen, CreatedAt: time.Now(),
+	}}
+	m := NewModel(issues, nil, "", nil)
+	m.width = 120
+	m.height = 40
+	m.mode = ViewList
+	m.ready = true
+	m.alerts = []drift.Alert{{
+		Type:     drift.AlertStale,
+		Severity: drift.SeverityWarning,
+		Message:  "stale",
+		IssueID:  "bt-stale",
+	}}
+	m.activeModal = ModalAlerts
+	m.activeTab = TabAlerts
+	m.alertsCursor = 0
+
+	got, _ := m.activateCurrentModalItem()
+	if got.mode == ViewInsights {
+		t.Errorf("stale alert should not route to ViewInsights")
+	}
+	if got.activeModal == ModalAlerts {
+		t.Errorf("activation should close the modal")
+	}
+}
+
+// TestNotifications_DismissedFilterToggle covers bt-46p6.13's dismissed-events
+// filter: pressing `d` on the notifications tab flips visibility of dismissed
+// events. v1 hides dismissed unconditionally; v2 lets the user surface them
+// for audit without restoring them.
+func TestNotifications_DismissedFilterToggle(t *testing.T) {
+	m := NewModel(nil, nil, "", nil)
+	m.width = 120
+	m.height = 40
+	m.mode = ViewList
+	m.ready = true
+
+	now := time.Now()
+	m.events.Append(events.Event{ID: "evt-1", Kind: events.EventClosed, BeadID: "bt-x", Repo: "bt", Title: "live", At: now})
+	m.events.Append(events.Event{ID: "evt-2", Kind: events.EventClosed, BeadID: "bt-y", Repo: "bt", Title: "tomb", At: now})
+	m.events.Dismiss("evt-2")
+
+	if got := len(m.visibleNotifications()); got != 1 {
+		t.Fatalf("v1 default should hide dismissed; got %d visible", got)
+	}
+
+	m.activeModal = ModalAlerts
+	m.activeTab = TabNotifications
+	m.notificationsCursor = 0
+
+	got, _ := m.handleNotificationsKey(tea.KeyPressMsg{Code: 'd', Text: "d"})
+	if !got.notifShowDismissed {
+		t.Errorf("expected notifShowDismissed=true after `d`")
+	}
+	if n := len(got.visibleNotifications()); n != 2 {
+		t.Errorf("expected 2 visible after toggle (live + dismissed); got %d", n)
+	}
+	if got.notificationsCursor != 0 {
+		t.Errorf("toggle should reset cursor; got %d", got.notificationsCursor)
+	}
+
+	got2, _ := got.handleNotificationsKey(tea.KeyPressMsg{Code: 'd', Text: "d"})
+	if got2.notifShowDismissed {
+		t.Errorf("second `d` should toggle off")
+	}
+	if n := len(got2.visibleNotifications()); n != 1 {
+		t.Errorf("expected 1 visible after toggle off; got %d", n)
+	}
+}
+
 // TestActivateNotification_NonCommentEventDoesNotQueueScroll ensures only
 // EventCommented populates pendingCommentScroll. Other event kinds activate
 // normally without queueing a comment scroll.
