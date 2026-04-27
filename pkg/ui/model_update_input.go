@@ -1682,14 +1682,21 @@ func (m Model) alertsModalItemAtY(my int) (int, bool) {
 			}
 			row++
 			// The alerts tab renders a 1-row detail line beneath the selected
-			// alert whenever its IssueID resolves to a non-empty title
-			// (renderAlertsTab, line ~415). Mirror that predicate so the
-			// clickable-row map matches the rendered layout.
-			if i == m.alertsCursor && active[i].IssueID != "" && titleByID[active[i].IssueID] != "" {
-				if row == relY {
-					return -1, false // detail line — "click on selected" no-op
+			// alert when either: the alert has an IssueID with a known title
+			// (single-issue alerts), or it's a graph-scope alert with a
+			// non-empty Details slice (dependency_loop, centrality_change,
+			// etc., bt-7ye5). Mirror both predicates so click-to-row matches
+			// the rendered layout. The inline alert-type definition was
+			// removed by bt-xyjd, so it no longer factors in here.
+			if i == m.alertsCursor {
+				hasTitle := active[i].IssueID != "" && titleByID[active[i].IssueID] != ""
+				hasDetails := active[i].IssueID == "" && len(active[i].Details) > 0
+				if hasTitle || hasDetails {
+					if row == relY {
+						return -1, false // detail line — "click on selected" no-op
+					}
+					row++
 				}
-				row++
 			}
 		}
 		return -1, false

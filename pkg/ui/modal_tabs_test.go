@@ -409,6 +409,50 @@ func TestActivateAlert_StaleAlertJumpsToBead(t *testing.T) {
 	}
 }
 
+// TestAlertsRender_DependencyLoopShowsCyclePath covers bt-7ye5: the dep loop
+// alert's Details (cycle paths) must reach the modal, otherwise the user sees
+// only "N new cycle(s) detected" with no way to know which beads are looping.
+func TestAlertsRender_DependencyLoopShowsCyclePath(t *testing.T) {
+	m := seedModel()
+	m.alerts = []drift.Alert{{
+		Type:     drift.AlertDependencyLoop,
+		Severity: drift.SeverityCritical,
+		Message:  "2 new cycle(s) detected",
+		Details:  []string{"bt-x → bt-y → bt-x", "bt-z → bt-w → bt-z"},
+		// IssueID empty — graph-scope alert
+	}}
+	m = pressRune(m, '!')
+
+	rendered := m.renderAlertsPanel()
+	if !strings.Contains(rendered, "bt-x → bt-y → bt-x") {
+		t.Errorf("expected first cycle path in modal, got:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "+1 more") {
+		t.Errorf("expected '+1 more' suffix when len(Details) > 1, got:\n%s", rendered)
+	}
+}
+
+// TestAlertsRender_CentralityChangeShowsFirstChange mirrors the dep-loop case
+// for centrality_change alerts — same root cause, same fix.
+func TestAlertsRender_CentralityChangeShowsFirstChange(t *testing.T) {
+	m := seedModel()
+	m.alerts = []drift.Alert{{
+		Type:     drift.AlertCentralityChange,
+		Severity: drift.SeverityWarning,
+		Message:  "3 PageRank changes detected",
+		Details:  []string{"bt-x dropped from top", "bt-y entered top", "bt-z: 50.0% change"},
+	}}
+	m = pressRune(m, '!')
+
+	rendered := m.renderAlertsPanel()
+	if !strings.Contains(rendered, "bt-x dropped from top") {
+		t.Errorf("expected first detail entry in modal, got:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "+2 more") {
+		t.Errorf("expected '+2 more' suffix, got:\n%s", rendered)
+	}
+}
+
 // TestNotifications_DismissedFilterToggle covers bt-46p6.13's dismissed-events
 // filter: pressing `d` on the notifications tab flips visibility of dismissed
 // events. v1 hides dismissed unconditionally; v2 lets the user surface them

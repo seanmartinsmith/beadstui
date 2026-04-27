@@ -6,6 +6,49 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-26 — bt-46p6 alerts redesign epic closed (centrality nav + dismissed filter + mouse + cursor-row cleanup)
+
+**Closes the alerts redesign epic at 17/20 children. All 8 acceptance criteria were already met as of 2026-04-25; this session shipped the only genuine v1 gap (.12) and the crisp piece of v2 (.13's dismissed-events filter), then detached 3 post-AC threads to standalone beads. Live dogfooding surfaced two more bugs (mouse off-by-one, cursor-row cluttered with generic descriptions) and a feature opportunity (graph-scope alerts hide their Details), all fixed in the same session.**
+
+### What shipped
+
+- **bt-46p6.12** (P3, task, CLOSED) — PageRank/centrality exposure. Enter on a `centrality_change` alert now opens the insights view (graph-scope alerts have no single-issue target — value is in the rankings themselves). Added a Centrality section to the issue detail panel showing PageRank rank+value, betweenness rank+value, and in/out degree, gated on Phase 2 readiness. AC2 (alert usefulness): KEEP — the detector flags meaningful graph-position shifts and now has an actionable destination via enter→insights.
+
+- **bt-46p6.13** (P3, feature, CLOSED — scope-narrowed) — Notifications tab v2 phase 1: dismissed-events filter. `d` key toggles visibility of dismissed events; default unchanged (hidden), so v1 callers see no behavior change. Dismissed rows render with a leading `✕ ` marker when surfaced. Footer hint flips between `d: show dismissed` / `d: hide dismissed`. Phases 2-4 re-homed: bt-s9sg (cross-session via Source, blocked on bt-k9mp + bt-2cvx), bt-5gnr (alerts-dismissed-log spike), bt-mo70 P4 (derived-signal notifications design).
+
+- **bt-t5wy** (P2, bug, FIXED in same session) — Modal mouse off-by-one in both alerts and notifications tabs, surfaced during .13 dogfooding. `modalChromeAboveItems` was 5 (assuming a vertical pad row that `padContentLines` doesn't actually emit — it adds horizontal padding only). Corrected to 4 with `TestModalChromeAboveItems_MatchesRender` — a render-anchored guard test that asserts the first item lands on the row identified by the constant, so future drift trips a visible failure rather than the silent off-by-one.
+
+- **bt-7ye5** (P2, bug, FIXED in same session) — Graph-scope alerts hid their Details. Selecting a `dependency_loop` alert showed `2 new cycle(s) detected` with no indication of which beads were in the loop; same class for `centrality_change` showing `N PageRank changes detected` without listing them. The data was on the alert (`Alert.Details`), the renderer just dropped it. Now: when `IssueID == ""` and `Details` is non-empty, the cursor-row detail line shows the first entry with `(+N more)` when there's more.
+
+- **bt-xyjd** (P2, task, FIXED in same session) — Removed the inline italic alert-type definition under the cursor row. Generic metadata that didn't help once the user knew the type, plus variable cursor-row height (definition always + title sometimes = 2 lines vs 1 elsewhere) was the second source of mouse hit-test misalignment. Type explanations now belong in the dedicated `?` help modal (filed as bt-i20z). Cursor row is now consistent: 1 row by default, 2 when there's a title or Details preview.
+
+- **bt-46p6** (P1, EPIC, CLOSED) — All 8 AC met. The 3 remaining open children (.15 row density, .18 global aggregation deferred, .19 cross-project nav) detached to standalone beads since each has its own scope, blockers, and design questions.
+
+### New beads filed
+
+- **bt-t5wy** (P2, bug) — Mouse off-by-one (closed in same session)
+- **bt-7ye5** (P2, bug) — Graph-scope alerts hide Details (closed in same session)
+- **bt-xyjd** (P2, task) — Remove inline alert-type definitions (closed in same session)
+- **bt-q4tn** (P3, feature) — Clickable bead refs in detail pane + back/forward navigation (user feature request)
+- **bt-i20z** (P3, feature) — `?` key opens dedicated alert-type help modal (replaces removed inline definitions)
+- **bt-s9sg** (P3, feature) — Notifications: cross-session activity via Source field (blocked on bt-k9mp + bt-2cvx)
+- **bt-5gnr** (P3, task) — Alerts-dismissed-log: decide audit-trail vs restore-log semantics (design spike)
+- **bt-mo70** (P4, task) — Notifications: density/centrality/count-delta signals — design spike
+
+### Verify
+
+- `go build ./...` clean, `go vet ./...` clean
+- `go test ./... -count=1 -short` — all packages green incl. 89s e2e
+- New tests: `TestActivateAlert_CentralityChangeOpensInsights`, `TestActivateAlert_StaleAlertJumpsToBead`, `TestNotifications_DismissedFilterToggle`, `TestModalChromeAboveItems_MatchesRender` (covers both tabs), `TestAlertsRender_DependencyLoopShowsCyclePath`, `TestAlertsRender_CentralityChangeShowsFirstChange`
+
+### Why this matters
+
+bt-46p6 was the longest-running epic on the board (filed 2026-04-15). Its acceptance was already satisfied 11 days ago; what kept the parent open was a mix of post-AC scope expansion (notification center, mouse, deep-links, alert-type definitions) and a few honest follow-ups that emerged during the work. Today's wrap closed the last v1 gap (.12), shipped the user's explicit v2 ask (.13's filter), and broke the scope-creep into clean standalone beads.
+
+Live dogfooding paid for itself three times in this session: caught the mouse off-by-one (bt-t5wy, now guarded by a render-anchored probe), exposed that graph-scope alerts hid their Details (bt-7ye5, the user couldn't see which beads were in a dep loop), and surfaced that the inline alert-type definitions were both UX clutter and a second source of mouse misalignment (bt-xyjd → replaced by bt-i20z `?` help modal). Type explanations now belong on demand, not always-on.
+
+---
+
 ## 2026-04-25 — BQL --bql filter fix + bt-uh3c brainstorm reshape (post-Dolt architecture audit)
 
 **Two distinct outcomes from one session: a P1 bug fix shipped, and a major scope correction surfaced through brainstorm-driven recon — bt's correlator/sprint stack is stale relative to the post-v0.56.1 Dolt-only beads era.**

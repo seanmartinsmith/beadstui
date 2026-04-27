@@ -221,14 +221,16 @@ func (m Model) alertsPanelHeight() int {
 
 // alertsVisibleLines returns the number of alert items that fit in one page,
 // accounting for all panel chrome so the content never overflows.
-// Chrome: summary(1) + blank(1) + above+filter(1) + detail-reserve(2)
-//         + below+page(1) + blank(1) + footer(1) = 8 lines
-// detail-reserve is 2 because the selected row expands to show the alert-type
-// definition (always) and the issue title (when known) per bt-46p6.17.
+// Chrome: summary(1) + blank(1) + above+filter(1) + detail-reserve(1)
+//         + below+page(1) + blank(1) + footer(1) = 7 lines
+// detail-reserve is 1 because the selected row expands to show the issue
+// title or first Details entry (bt-46p6.17's inline alert-type definition
+// was removed by bt-xyjd; explanations now live behind the ? help modal,
+// bt-i20z, instead of cluttering every alert).
 // Panel borders consume 2 of the outer height.
 func (m Model) alertsVisibleLines() int {
 	innerHeight := m.alertsPanelHeight() - 2 // subtract top/bottom border
-	lines := innerHeight - 8                 // subtract chrome
+	lines := innerHeight - 7                 // subtract chrome
 	if lines < 3 {
 		lines = 3
 	}
@@ -392,26 +394,16 @@ func (m Model) renderAlertsTab() string {
 			sb.WriteString(rendered)
 			sb.WriteString("\n")
 
-			// Detail for selected alert: definition (always) + issue title
-			// (when known). Definition surfaces what the alert type means
-			// in plain English (bt-46p6.17); title gives the impacted
-			// issue when applicable.
+			// Detail for selected alert: issue title for single-issue alerts,
+			// or first Details entry for graph-scope alerts. The inline
+			// alert-type definition was removed by bt-xyjd because variable
+			// row height (definition + title = 2 cursor lines vs 1 elsewhere)
+			// broke mouse hit-test, and most users found the always-on
+			// description more clutter than help. Type explanations now live
+			// behind the ? help modal (bt-i20z).
 			if selected {
 				detailStyle := lipgloss.NewStyle().Foreground(t.Muted).Italic(true)
 				detailMaxWidth := innerWidth - 8
-
-				if def := drift.AlertTypeDefinition(a.Type); def != "" {
-					def = truncateRunesHelper(def, detailMaxWidth, "…")
-					styled := detailStyle.Render("    " + def)
-					styledWidth := lipgloss.Width(styled)
-					dPad := (innerWidth - styledWidth) / 2
-					if dPad < 0 {
-						dPad = 0
-					}
-					sb.WriteString(strings.Repeat(" ", dPad))
-					sb.WriteString(styled)
-					sb.WriteString("\n")
-				}
 
 				if a.IssueID != "" {
 					if title, ok := issueTitles[a.IssueID]; ok && title != "" {
@@ -426,6 +418,27 @@ func (m Model) renderAlertsTab() string {
 						sb.WriteString(styled)
 						sb.WriteString("\n")
 					}
+				} else if len(a.Details) > 0 {
+					// Graph-scope alerts (dependency_loop, centrality_change,
+					// coupling_growth, etc.) carry their payload in Details
+					// rather than IssueID — the message is just a count
+					// ("2 new cycle(s) detected"). Surface the first entry
+					// with a "+N more" suffix so users see what's actually
+					// looping or shifting (bt-7ye5).
+					first := a.Details[0]
+					if len(a.Details) > 1 {
+						first = fmt.Sprintf("%s  (+%d more)", first, len(a.Details)-1)
+					}
+					first = truncateRunesHelper(first, detailMaxWidth, "…")
+					styled := detailStyle.Render("    " + first)
+					styledWidth := lipgloss.Width(styled)
+					dPad := (innerWidth - styledWidth) / 2
+					if dPad < 0 {
+						dPad = 0
+					}
+					sb.WriteString(strings.Repeat(" ", dPad))
+					sb.WriteString(styled)
+					sb.WriteString("\n")
 				}
 			}
 		}
