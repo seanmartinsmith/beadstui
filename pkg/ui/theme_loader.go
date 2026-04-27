@@ -370,6 +370,7 @@ func ApplyThemeToThemeStruct(t *Theme, tf *ThemeFile) {
 
 	// Rebuild pre-computed styles
 	t.MutedText = lipgloss.NewStyle().Foreground(ColorMuted)
+	t.MutedTextItalic = lipgloss.NewStyle().Foreground(ColorMuted).Italic(true)
 	t.InfoText = lipgloss.NewStyle().Foreground(ColorInfo)
 	t.InfoBold = lipgloss.NewStyle().Foreground(ColorInfo).Bold(true)
 	t.SecondaryText = lipgloss.NewStyle().Foreground(t.Secondary)

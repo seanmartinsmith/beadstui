@@ -94,7 +94,8 @@ type Theme struct {
 
 	// Pre-computed delegate styles (bv-o4cj optimization)
 	// These are created once at startup instead of per-frame
-	MutedText         lipgloss.Style // Age, muted info
+	MutedText         lipgloss.Style // Age (unedited), muted info
+	MutedTextItalic   lipgloss.Style // Age (edited since creation)
 	InfoText          lipgloss.Style // Comments
 	InfoBold          lipgloss.Style // Search scores
 	SecondaryText     lipgloss.Style // ID, assignee
@@ -158,6 +159,7 @@ func DefaultTheme() Theme {
 
 	// Pre-computed delegate styles (bv-o4cj optimization)
 	t.MutedText = lipgloss.NewStyle().Foreground(ColorMuted)
+	t.MutedTextItalic = lipgloss.NewStyle().Foreground(ColorMuted).Italic(true)
 	t.InfoText = lipgloss.NewStyle().Foreground(ColorInfo)
 	t.InfoBold = lipgloss.NewStyle().Foreground(ColorInfo).Bold(true)
 	t.SecondaryText = lipgloss.NewStyle().Foreground(t.Secondary)

@@ -6,6 +6,25 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-27 (evening) — Phase 2 search UX kickoff: bt-v7um Part 1
+
+**Phase 2 of the bangout-arc plan opens with the smallest ship: surface Updated in the detail meta table and the list-row age cell.**
+
+### What shipped
+
+- **bt-v7um Part 1** (P3 feature, CLOSED) — Detail-pane meta table widened to include Updated alongside Created (both absolute via `FormatTimeAbs`, chosen for column symmetry). List-row age cell now reads from `UpdatedAt` (matches existing `board.go` convention; previously inconsistent — list used `CreatedAt`). Beads edited since creation (`UpdatedAt != CreatedAt`) prefix the age with `~` and render via new `MutedTextItalic` style; never-edited beads stay plain. Cell width bumped 8 → 9 to fit worst-case `~11mo ago`. Italic is a soft signal that degrades gracefully on terminals/fonts that don't render it (the `~` prefix carries alone). (`pkg/ui/model_filter.go`, `pkg/ui/delegate.go`, `pkg/ui/theme.go`, `pkg/ui/theme_loader.go`)
+
+### Filed
+
+- **bt-pxbc** (P3 chore, OPEN, area:tui) — Theme system debt: the project's primary teal accent is sourced from `pkg/ui/defaults/theme.yaml` in theory but duplicated across ~7 hardcoded hex literals in render code (`model_footer.go:723`, `model_view.go:435`, `theme.go:168`, `tutorial_content.go:26`, `visuals.go:86,137`). Editing the YAML would not propagate fully. Bead documents the three-layer color duplication (YAML defaults / Go fallback constants / hardcoded literals), proposes an audit doc + literal-to-reference replacement pass. Linked to **bt-54c3** (themes picker) and **bt-fd3k** (settings). Discovered while picking the visual treatment for bt-v7um Part 1.
+
+### Notes
+
+- bt-v7um Part 2 (per-field brainstorm for Reporter / Due / Estimate / External-ref / Defer / Wisp / Gate cells in the detail meta table) was NOT shipped — it gates on bt-2cvx + bt-5hl9 (session-author hydration from Dolt session columns). Will be re-filed as a fresh bead when those prereqs land per the bangout-arc Phase 3 plan.
+- Visual treatment of the edited-age signal (italic + `~`) flagged for possible revisit. Italic + tilde combined gives belt-and-suspenders signal across terminals.
+
+---
+
 ## 2026-04-27 (afternoon) — Phase 1 bug bangouts (4 ships, parallel worktree dispatch)
 
 **Phase 1 of the bangout-arc plan: 4 P2 bugs fixed in parallel via worktree subagents, all merged onto main and pushed in a single PM session.**

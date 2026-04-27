@@ -60,7 +60,7 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 	icon, iconColor := t.GetTypeIcon(string(i.Issue.IssueType))
 	idStr := i.Issue.ID
 	title := i.Issue.Title
-	ageStr := FormatTimeRel(i.Issue.CreatedAt)
+	ageStr := FormatTimeRel(i.Issue.UpdatedAt)
 	commentCount := len(i.Issue.Comments)
 
 	// Measure actual icon display width (emojis vary: 1-2 cells)
@@ -72,9 +72,19 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 
 	// Show Age and Comments only if we have reasonable width
 	if width > 60 {
-		// Age - with subtle styling (using pre-computed style)
-		rightParts = append(rightParts, t.MutedText.Render(fmt.Sprintf("%8s", ageStr)))
-		rightWidth += 9
+		// When the bead has been edited since creation (UpdatedAt !=
+		// CreatedAt), prefix the age cell with '~' AND render italic so the
+		// signal carries on terminals that don't render italic (the prefix
+		// alone suffices) and reads more strongly on those that do. Cell
+		// widened to 9 to fit the longest possible value "~11mo ago"
+		// (bt-v7um).
+		ageStyle := t.MutedText
+		if !i.Issue.UpdatedAt.Equal(i.Issue.CreatedAt) {
+			ageStr = "~" + ageStr
+			ageStyle = t.MutedTextItalic
+		}
+		rightParts = append(rightParts, ageStyle.Render(fmt.Sprintf("%9s", ageStr)))
+		rightWidth += 10
 
 		// Comments with icon - use lipgloss.Width for accurate emoji measurement
 		if commentCount > 0 {

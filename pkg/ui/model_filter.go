@@ -842,14 +842,15 @@ func (m *Model) updateViewportContent() {
 	if item.Author != "" {
 		authorCell = "@" + item.Author
 	}
-	sb.WriteString("| ID | Status | Priority | Author | Assignee | Created |\n|---|---|---|---|---|---|\n")
-	sb.WriteString(fmt.Sprintf("| **%s** | **%s** | %s | %s | @%s | %s |\n\n",
+	sb.WriteString("| ID | Status | Priority | Author | Assignee | Created | Updated |\n|---|---|---|---|---|---|---|\n")
+	sb.WriteString(fmt.Sprintf("| **%s** | **%s** | %s | %s | @%s | %s | %s |\n\n",
 		item.ID,
 		strings.ToUpper(string(item.Status)),
 		fmt.Sprintf("%s P%d", GetPriorityIcon(item.Priority), item.Priority),
 		authorCell,
 		item.Assignee,
 		FormatTimeAbs(item.CreatedAt),
+		FormatTimeAbs(item.UpdatedAt),
 	))
 
 	// Labels (bv-f103 fix: display labels in detail view)
