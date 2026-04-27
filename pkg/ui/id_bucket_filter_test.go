@@ -143,3 +143,160 @@ func TestExtractIDToken(t *testing.T) {
 		}
 	}
 }
+
+// TestMultiTokenFilter_SingleTokenPassthrough verifies that a term with no
+// comma behaves identically to invoking the inner filter directly — no
+// regression for the common case (bt-jwo3).
+func TestMultiTokenFilter_SingleTokenPassthrough(t *testing.T) {
+	targets := []string{"bt-z5jj first", "bt-uahv second", "bt-other third"}
+	inner := func(term string, _ []string) []list.Rank {
+		if term != "bt-z5jj" {
+			t.Fatalf("inner expected term=bt-z5jj, got %q", term)
+		}
+		return []list.Rank{{Index: 0, MatchedIndexes: []int{0, 1, 2, 3, 4, 5, 6}}}
+	}
+	f := multiTokenFilter(inner)
+	ranks := f("bt-z5jj", targets)
+	if len(ranks) != 1 || ranks[0].Index != 0 {
+		t.Fatalf("expected single rank for index 0, got %+v", ranks)
+	}
+}
+
+// TestMultiTokenFilter_TwoIDsUnion verifies the user's primary use case:
+// "z5jj, uahv" populates both beads (bt-jwo3).
+func TestMultiTokenFilter_TwoIDsUnion(t *testing.T) {
+	targets := []string{
+		"bt-z5jj sprint decision bead",
+		"bt-uahv data layout split bead",
+		"bt-other unrelated",
+	}
+	f := multiTokenFilter(idPriorityFilter(stubRanker))
+	ranks := f("z5jj, uahv", targets)
+
+	got := make(map[int]bool)
+	for _, r := range ranks {
+		got[r.Index] = true
+	}
+	if !got[0] || !got[1] {
+		t.Fatalf("expected both bt-z5jj (0) and bt-uahv (1) in results, got %+v", ranks)
+	}
+}
+
+// TestMultiTokenFilter_NoWhitespaceAfterComma verifies the parser tolerates
+// "z5jj,uahv" (no space) identically to "z5jj, uahv".
+func TestMultiTokenFilter_NoWhitespaceAfterComma(t *testing.T) {
+	targets := []string{"bt-z5jj a", "bt-uahv b"}
+	f := multiTokenFilter(idPriorityFilter(stubRanker))
+	ranks := f("z5jj,uahv", targets)
+	if len(ranks) < 2 {
+		t.Fatalf("expected at least 2 results, got %+v", ranks)
+	}
+}
+
+// TestMultiTokenFilter_EmptyTokensSkipped verifies trailing commas and double
+// commas don't produce empty-string queries that match everything.
+func TestMultiTokenFilter_EmptyTokensSkipped(t *testing.T) {
+	targets := []string{"bt-z5jj a", "bt-uahv b", "bt-other c"}
+	calls := 0
+	inner := func(term string, _ []string) []list.Rank {
+		calls++
+		if term == "" {
+			t.Fatalf("inner called with empty term — empty token leaked through")
+		}
+		return nil
+	}
+	f := multiTokenFilter(inner)
+	_ = f("z5jj,,uahv,", targets)
+	if calls != 2 {
+		t.Fatalf("expected inner called exactly twice (z5jj, uahv), got %d", calls)
+	}
+}
+
+// TestMultiTokenFilter_DedupesByIndex verifies that when multiple tokens hit
+// the same target, the result has one entry, not two.
+func TestMultiTokenFilter_DedupesByIndex(t *testing.T) {
+	targets := []string{"bt-z5jj sprint", "bt-uahv layout"}
+	inner := func(term string, _ []string) []list.Rank {
+		// Both tokens claim to match index 0.
+		return []list.Rank{{Index: 0, MatchedIndexes: []int{0}}}
+	}
+	f := multiTokenFilter(inner)
+	ranks := f("foo, bar", targets)
+	if len(ranks) != 1 {
+		t.Fatalf("expected dedup to 1 rank, got %d: %+v", len(ranks), ranks)
+	}
+}
+
+// TestMultiTokenFilter_MergesMatchedIndexes verifies that when two tokens
+// both match the same target, their MatchedIndexes are unioned so highlight
+// rendering covers all matched chars.
+func TestMultiTokenFilter_MergesMatchedIndexes(t *testing.T) {
+	targets := []string{"bt-z5jj-uahv combined"}
+	inner := func(term string, _ []string) []list.Rank {
+		switch term {
+		case "z5jj":
+			return []list.Rank{{Index: 0, MatchedIndexes: []int{3, 4, 5, 6}}}
+		case "uahv":
+			return []list.Rank{{Index: 0, MatchedIndexes: []int{8, 9, 10, 11}}}
+		}
+		return nil
+	}
+	f := multiTokenFilter(inner)
+	ranks := f("z5jj, uahv", targets)
+	if len(ranks) != 1 {
+		t.Fatalf("expected 1 rank, got %d", len(ranks))
+	}
+	got := ranks[0].MatchedIndexes
+	want := []int{3, 4, 5, 6, 8, 9, 10, 11}
+	if len(got) != len(want) {
+		t.Fatalf("expected merged indexes %v, got %v", want, got)
+	}
+	for i, v := range want {
+		if got[i] != v {
+			t.Fatalf("expected merged[%d]=%d, got %d (full: %v)", i, v, got[i], got)
+		}
+	}
+}
+
+// TestMultiTokenFilter_NoMatch verifies a multi-token query where neither
+// token matches anything returns empty (not the full target list).
+func TestMultiTokenFilter_NoMatch(t *testing.T) {
+	targets := []string{"bt-aaa one", "bt-bbb two"}
+	inner := func(_ string, _ []string) []list.Rank { return nil }
+	f := multiTokenFilter(inner)
+	ranks := f("zzz, qqq", targets)
+	if len(ranks) != 0 {
+		t.Fatalf("expected no matches, got %+v", ranks)
+	}
+}
+
+// TestSplitCommaTokens covers parser edge cases directly.
+func TestSplitCommaTokens(t *testing.T) {
+	cases := []struct {
+		in   string
+		want []string
+	}{
+		{"", nil},
+		{"   ", nil},
+		{"single", []string{"single"}},
+		{"  padded  ", []string{"padded"}},
+		{"a,b", []string{"a", "b"}},
+		{"a, b", []string{"a", "b"}},
+		{"a , b", []string{"a", "b"}},
+		{"a,,b", []string{"a", "b"}},
+		{",a,", []string{"a"}},
+		{",,,", nil},
+	}
+	for _, c := range cases {
+		got := splitCommaTokens(c.in)
+		if len(got) != len(c.want) {
+			t.Errorf("splitCommaTokens(%q) = %v (len %d), want %v (len %d)", c.in, got, len(got), c.want, len(c.want))
+			continue
+		}
+		for i := range got {
+			if got[i] != c.want[i] {
+				t.Errorf("splitCommaTokens(%q)[%d] = %q, want %q", c.in, i, got[i], c.want[i])
+			}
+		}
+	}
+}

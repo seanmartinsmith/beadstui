@@ -844,7 +844,8 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 	// prompt text matches the user's mental model (bt-imcn).
 	l.FilterInput.Prompt = "Search: "
 	// Pre-empt the ranker with exact-ID matches across all search modes (bt-i4yn).
-	l.Filter = idPriorityFilter(list.DefaultFilter)
+	// Outer wrapper splits comma-separated terms into an OR query (bt-jwo3).
+	l.Filter = multiTokenFilter(idPriorityFilter(list.DefaultFilter))
 	// Clear all default styles that might add extra lines
 	l.Styles.Title = lipgloss.NewStyle()
 	l.Styles.TitleBar = lipgloss.NewStyle()

@@ -680,7 +680,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		m.semanticSearchEnabled = !m.semanticSearchEnabled
 		if m.semanticSearchEnabled {
 			if m.semanticSearch != nil {
-				m.list.Filter = idPriorityFilter(m.semanticSearch.Filter)
+				m.list.Filter = multiTokenFilter(idPriorityFilter(m.semanticSearch.Filter))
 				if !m.semanticSearch.Snapshot().Ready && !m.semanticIndexBuilding {
 					m.semanticIndexBuilding = true
 					m.statusMsg = "Semantic search: building index…"
@@ -692,7 +692,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				}
 			} else {
 				m.semanticSearchEnabled = false
-				m.list.Filter = idPriorityFilter(list.DefaultFilter)
+				m.list.Filter = multiTokenFilter(idPriorityFilter(list.DefaultFilter))
 				m.statusMsg = "Semantic search unavailable"
 				m.statusIsError = true
 			}
@@ -701,7 +701,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				cmds = append(cmds, BuildHybridMetricsCmd(m.issuesForAsync()))
 			}
 		} else {
-			m.list.Filter = idPriorityFilter(list.DefaultFilter)
+			m.list.Filter = multiTokenFilter(idPriorityFilter(list.DefaultFilter))
 			m.statusMsg = "Fuzzy search enabled"
 			m.clearSemanticScores()
 		}
@@ -1267,6 +1267,15 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m = m.handleListKeys(msg)
 
 		case focusDetail:
+			// Intercept "/" so the search bar is reachable from the detail pane
+			// (bt-jwo3 follow-up). Without this the keystroke goes to viewport
+			// scroll, leaving users stuck navigating a single bead's body when
+			// they meant to start a new query.
+			if msg.String() == "/" {
+				m.focused = focusList
+				m.list.SetFilterState(list.Filtering)
+				return m, nil
+			}
 			m.viewport, cmd = m.viewport.Update(msg)
 			cmds = append(cmds, cmd)
 		}

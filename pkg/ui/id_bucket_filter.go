@@ -117,6 +117,94 @@ func looksLikeIDQuery(term string) bool {
 	return true
 }
 
+// multiTokenFilter wraps a FilterFunc so that comma-separated terms are treated
+// as an OR query (bt-jwo3). Each non-empty trimmed token runs through the inner
+// filter and the union of results is returned, deduped by target index.
+// MatchedIndexes from multiple tokens that hit the same target are merged so
+// per-token highlighting still renders.
+//
+// Comma is the separator because space already means "fuzzy substring within
+// a term" in the underlying ranker. A term with no comma passes through to
+// the inner filter unchanged, so single-token search is identical to today.
+//
+// Examples:
+//   "z5jj, uahv" → both bt-z5jj and bt-uahv populate the list
+//   "bt-z5jj"    → identical to inner(term, targets)
+//   "z5jj,,uahv" → empty middle token is silently skipped
+//
+// Wrap order: this should sit OUTSIDE idPriorityFilter so per-token ID-priority
+// bucket promotion still applies to each token independently.
+func multiTokenFilter(inner list.FilterFunc) list.FilterFunc {
+	return func(term string, targets []string) []list.Rank {
+		tokens := splitCommaTokens(term)
+		if len(tokens) <= 1 {
+			return inner(term, targets)
+		}
+
+		result := make([]list.Rank, 0)
+		seen := make(map[int]int)
+		for _, tok := range tokens {
+			for _, r := range inner(tok, targets) {
+				if pos, exists := seen[r.Index]; exists {
+					result[pos].MatchedIndexes = mergeMatchedIndexes(
+						result[pos].MatchedIndexes, r.MatchedIndexes)
+					continue
+				}
+				seen[r.Index] = len(result)
+				result = append(result, r)
+			}
+		}
+		return result
+	}
+}
+
+// splitCommaTokens splits term on commas and returns trimmed non-empty tokens.
+// A term with no comma is returned as a single-element slice (or nil if empty
+// after trim) so callers can short-circuit on len <= 1.
+func splitCommaTokens(term string) []string {
+	if !strings.ContainsRune(term, ',') {
+		t := strings.TrimSpace(term)
+		if t == "" {
+			return nil
+		}
+		return []string{t}
+	}
+	parts := strings.Split(term, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if t := strings.TrimSpace(p); t != "" {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+// mergeMatchedIndexes returns the sorted union of two matched-index slices.
+// Used when multiple comma-separated tokens hit the same target — we want
+// highlight rendering to cover every matched position, not just the first
+// token's hit.
+func mergeMatchedIndexes(a, b []int) []int {
+	if len(a) == 0 {
+		return b
+	}
+	if len(b) == 0 {
+		return a
+	}
+	seen := make(map[int]bool, len(a)+len(b))
+	for _, v := range a {
+		seen[v] = true
+	}
+	for _, v := range b {
+		seen[v] = true
+	}
+	out := make([]int, 0, len(seen))
+	for v := range seen {
+		out = append(out, v)
+	}
+	sort.Ints(out)
+	return out
+}
+
 // extractIDToken returns the first whitespace-separated token of target,
 // provided it looks like a bead ID (contains '-' separating prefix and suffix).
 // IssueItem.FilterValue() places the ID first for exactly this purpose.
