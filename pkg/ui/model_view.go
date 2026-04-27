@@ -507,6 +507,7 @@ func (m *Model) renderHelpOverlay() string {
 		{"Ctrl+d", "Page down"},
 		{"Ctrl+u", "Page up"},
 		{"Tab", "Switch focus"},
+		{"< / >", "Resize list pane"},
 		{"Enter", "View details"},
 		{"Esc", "Back / close"},
 	}

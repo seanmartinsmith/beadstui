@@ -96,33 +96,53 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 		rightWidth += 6 // 5 + 1 spacing
 	}
 
-	// Assignee (if present and we have room)
-	if width > 100 && i.Issue.Assignee != "" {
-		assignee := truncateRunesHelper(i.Issue.Assignee, 12, "…")
-		rightParts = append(rightParts, t.SecondaryText.Render(fmt.Sprintf("@%-12s", assignee)))
+	// Assignee column - reserved when above width threshold so columns stay
+	// aligned across rows (bt-foit). Rows with no assignee render blank
+	// padding of the same cell width as a populated cell.
+	if width > 100 {
+		if i.Issue.Assignee != "" {
+			assignee := truncateRunesHelper(i.Issue.Assignee, 12, "…")
+			rightParts = append(rightParts, t.SecondaryText.Render(fmt.Sprintf("@%-12s", assignee)))
+		} else {
+			rightParts = append(rightParts, strings.Repeat(" ", 13))
+		}
 		rightWidth += 14
 	}
 
-	// Author (if present and we have room) — creation-time actor, distinct
-	// from Assignee. Gated at width > 120 so the column auto-hides when the
-	// pane is narrower than ~1/3 of a 360-wide terminal. Rendered only when
-	// Author differs from Assignee to avoid visual duplication on beads
-	// where the filer is also the current holder (bt-aw4h).
-	if width > 120 && i.Issue.Author != "" && i.Issue.Author != i.Issue.Assignee {
-		author := truncateRunesHelper(i.Issue.Author, 10, "…")
-		rightParts = append(rightParts, t.MutedText.Render(fmt.Sprintf("✎%-10s", author)))
+	// Author column - creation-time actor, distinct from Assignee. Gated at
+	// width > 120. Rendered only when Author differs from Assignee to avoid
+	// visual duplication (bt-aw4h). Reserve column space even when hidden so
+	// later columns stay aligned across rows (bt-foit).
+	if width > 120 {
+		if i.Issue.Author != "" && i.Issue.Author != i.Issue.Assignee {
+			author := truncateRunesHelper(i.Issue.Author, 10, "…")
+			rightParts = append(rightParts, t.MutedText.Render(fmt.Sprintf("✎%-10s", author)))
+		} else {
+			rightParts = append(rightParts, strings.Repeat(" ", 11))
+		}
 		rightWidth += 12
 	}
 
-	// Labels (if present and we have room) - render as mini tags
-	if width > 140 && len(i.Issue.Labels) > 0 {
-		labelStr := truncateRunesHelper(strings.Join(i.Issue.Labels, ","), 20, "…")
-		labelStyle := lipgloss.NewStyle().
-			Foreground(ColorPrimary).
-			Background(ColorBgSubtle).
-			Padding(0, 1)
-		rightParts = append(rightParts, labelStyle.Render(labelStr))
-		rightWidth += lipgloss.Width(labelStyle.Render(labelStr)) + 1
+	// Labels column - render as mini tags. Reserve full label-tag width
+	// (20 chars + 2 padding = 22 cells) even when row has no labels so the
+	// column anchor stays fixed across rows (bt-foit).
+	if width > 140 {
+		if len(i.Issue.Labels) > 0 {
+			labelStr := truncateRunesHelper(strings.Join(i.Issue.Labels, ","), 20, "…")
+			labelStyle := lipgloss.NewStyle().
+				Foreground(ColorPrimary).
+				Background(ColorBgSubtle).
+				Padding(0, 1)
+			rendered := labelStyle.Render(labelStr)
+			// Pad to a stable 22-cell width so column right-edge is aligned.
+			if w := lipgloss.Width(rendered); w < 22 {
+				rendered = rendered + strings.Repeat(" ", 22-w)
+			}
+			rightParts = append(rightParts, rendered)
+		} else {
+			rightParts = append(rightParts, strings.Repeat(" ", 22))
+		}
+		rightWidth += 23
 	}
 
 	// Left side fixed columns with polished badges

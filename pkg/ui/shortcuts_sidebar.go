@@ -97,6 +97,7 @@ func (s *ShortcutsSidebar) allSections() []shortcutSection {
 				{"^d/^u", "Page ↓/↑"},
 				{"Enter", "Details"},
 				{"Esc", "Back"},
+				{"</>", "Resize list pane"},
 			},
 		},
 		{
