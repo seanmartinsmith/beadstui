@@ -6,6 +6,33 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-27 (afternoon) — Phase 1 bug bangouts (4 ships, parallel worktree dispatch)
+
+**Phase 1 of the bangout-arc plan: 4 P2 bugs fixed in parallel via worktree subagents, all merged onto main and pushed in a single PM session.**
+
+### What shipped
+
+- **bt-cl2m** (P2 bug, CLOSED) — Background data refresh no longer dismisses open modals. Added `m.shouldDeferRefresh()` helper and guarded the three watcher-driven refresh paths (`handleSnapshotReady`, `handleDataSourceReload`, `handleFileChanged`) so they re-emit themselves via `tea.Tick(200ms)` when an interactive modal is active. Data isn't dropped — it lands when the modal closes. ModalAlerts intentionally exempt to preserve live-update visibility. (`pkg/ui/model.go`, `pkg/ui/model_update_data.go`; commit 596950ce)
+- **bt-70cd** (P2 bug, CLOSED) — Unknown `bt robot` subcommands now write to stderr and exit non-zero. Added shared `unknownSubcommandRunE` helper wired onto every parent-only group under `bt robot` with `SilenceUsage: true` + `SilenceErrors: true`. Bare `bt robot` still shows help; nested groups (`bt robot sprint bogus`) also fixed. (`cmd/bt/cobra_robot.go`; commit 5b86f457)
+- **bt-nyjj** (P2 bug, CLOSED — child of bt-19vp) — History view shows friendly empty state (no red banner) when launched from a non-git cwd. New `pkg/correlation/gitrepo.go` with `IsInsideWorkTree()` using `git rev-parse --is-inside-work-tree`; distinguishes silent-fallback (path not in repo) from real failures (binary missing, permissions). `correlator.GenerateReport` probes the work tree first and returns an empty `HistoryReport` with nil error when not in a repo. (`pkg/correlation/gitrepo.go` new, `pkg/correlation/gitrepo_test.go` new, `pkg/correlation/correlator.go`; commit ab6d341e)
+- **bt-foit** (P2 bug, CLOSED) — `<` and `>` pane-resize keys documented in help overlay (`?`) and shortcuts sidebar (`;`); label column alignment no longer drifts when list pane widens. Root cause: delegate appended right-side columns (assignee, author, labels) only when populated, with no blank-padded reservation, so rows without values had different rightWidth and the title pad-to-fill produced variable left-padding. Fix: every row reserves the same cell count once each column threshold is crossed (14 assignee, 12 author, 23 labels). (`pkg/ui/delegate.go`, `pkg/ui/model_view.go`, `pkg/ui/shortcuts_sidebar.go`; commit de0f4641)
+
+### Process
+
+- All 4 dispatched as parallel worktree subagents in a single message; each returned green (`go build ./... && go vet ./... && go test ./pkg/ui/`).
+- PM cherry-picked each commit onto main (subagent branches each based on the original main commit, so only the first ff-merge succeeded; remaining three needed cherry-pick to land on the freshly-advanced main).
+- Final verify on merged main green; pushed to origin.
+- Pre-existing `pkg/view` golden test failures observed by 2 subagents and confirmed unrelated (fail on baseline main without these changes). Not in Phase 1 scope.
+
+### Notes
+
+- Wall time ~10 min for parallel dispatch + ~5 min PM merge/verify/push vs ~2h sequential estimate.
+- bt-foit replaced bt-8jds in the original quartet to avoid Phase 2 file collision on `model_update_input.go`.
+- ADR-002 Stream 6 (TUI polish): all 4 Phase 1 quartet items done.
+- Next: Phase 2 (search UX overhaul — bt-krwp + bt-ja2y + bt-v7um Part 1) after design-question pass with user.
+
+---
+
 ## 2026-04-27 — Search UX dogfood + bangout-arc planning (2 ships, 12 beads filed/updated, cross-project)
 
 **Dogfood-driven session: started as a check-in on two decision beads (bt-z5jj sprint, bt-uahv data layout), turned into a search-UX audit when the user noticed multi-token queries weren't supported. Net: 2 small ships, 12 beads filed/updated across 3 repos, and a consolidated arc plan written for the next 6-8 sessions.**

@@ -139,6 +139,13 @@ README prose rewrite drafted. Needs review against current state (the codebase h
 
 Accumulated dogfood findings. Active work as of 2026-04-14.
 
+Recent completions (2026-04-27 — Phase 1 bug bangouts, parallel worktree dispatch):
+- [x] **bt-cl2m** (P2 bug): Background data refresh no longer dismisses open modals. `m.shouldDeferRefresh()` guards three watcher-driven refresh paths; deferred via `tea.Tick(200ms)`. ModalAlerts intentionally exempt.
+- [x] **bt-70cd** (P2 bug): Unknown `bt robot` subcommands write to stderr + exit non-zero. Cobra `unknownSubcommandRunE` helper wired onto every parent group; nested groups also fixed.
+- [x] **bt-nyjj** (P2 bug, child of bt-19vp): History view shows friendly empty state (no red banner) when launched from non-git cwd. New `pkg/correlation/gitrepo.go` with `IsInsideWorkTree()` probe; real git failures still surface as red banner.
+- [x] **bt-foit** (P2 bug): `<` / `>` pane-resize keys documented in `?` overlay and `;` sidebar; label column alignment no longer drifts (delegate now reserves stable column widths once each threshold is crossed).
+- [x] All 4 dispatched as parallel worktree subagents in a single PM message; ~10 min wall vs ~2h sequential estimate.
+
 Recent completions (2026-04-27 — search UX dogfood + bangout-arc planning):
 - [x] **bt-jwo3** (P3, feature): TUI search comma-separated multi-token OR (`multiTokenFilter` wrapper added to filter chain; works across fuzzy/semantic/hybrid). Typing `z5jj, uahv` populates both beads.
 - [x] **bt-treo** (P3, bug): Detail pane intercepts `/` and teleports to search bar (filed + shipped same session).
