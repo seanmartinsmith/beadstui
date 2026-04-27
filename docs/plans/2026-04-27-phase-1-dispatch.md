@@ -326,49 +326,62 @@ prompt: |
 
 ## Post-dispatch (PM, sequential)
 
+> **Updated 2026-04-27 with Phase 1 execution learnings.** The original `git merge --ff-only` sequence was wrong for parallel-from-baseline worktrees — only the first merge succeeds because the other branches share the same baseline ancestor (no fast-forward path). Use cherry-pick instead. See "Failure modes" below for full context.
+
 After all 4 subagents return:
 
 ```bash
 # 1. List the worktree branches each subagent created
+git worktree list
 git branch --list
 
-# 2. For each branch, fast-forward merge into main (or rebase if needed)
-#    Order: cl2m, 70cd, nyjj, foit (alphabetical or whatever order they returned)
+# 2. CHECKOUT MAIN FIRST — subagent worktrees may have left a branch checked out
+#    in the PM main worktree (Phase 1 learning: bt-foit's branch leaked).
 git checkout main
-git merge --ff-only <branch-name-1>
-git merge --ff-only <branch-name-2>
-git merge --ff-only <branch-name-3>
-git merge --ff-only <branch-name-4>
-# If --ff-only fails, the subagents' worktrees diverged from main — investigate
-# before doing a merge commit.
 
-# 3. Final verify on the merged main
+# 3. Cherry-pick each subagent's commit into main (NOT ff-merge)
+#    Why: subagent worktrees all branched from the same baseline main, so they're
+#    siblings. ff-merge only works for the first one; the rest need cherry-pick.
+git cherry-pick <branch-name-1>
+git cherry-pick <branch-name-2>
+git cherry-pick <branch-name-3>
+git cherry-pick <branch-name-4>
+# If files overlap (shouldn't with this quartet — verify before dispatch), expect
+# conflicts. Resolve, `git cherry-pick --continue`.
+
+# 4. Final verify on the merged main
 go build ./... && go vet ./... && go test ./pkg/ui/
 
-# 4. Push
+# 5. Push
 git pull --rebase
 git push
 git status  # MUST show "up to date with origin"
 
-# 5. Close beads
+# 6. Close beads
 bd close bt-cl2m --reason "Summary: ... Change: ... Files: ... Verify: ... Risk: ... Notes: ..."
 bd close bt-70cd --reason "..."
 bd close bt-nyjj --reason "..."
 bd close bt-foit --reason "..."
 bd dolt push
 
-# 6. Update CHANGELOG.md with a Phase 1 entry covering all 4 ships
-# 7. Update ADR-002 Stream 6 recent completions
+# 7. Update CHANGELOG.md with a Phase 1 entry covering all 4 ships
+# 8. Update ADR-002 Stream 6 recent completions
 
-# 8. Clean up subagent worktrees if not auto-cleaned
+# 9. Clean up subagent worktrees + branches
+#    Worktrees may stay locked-and-present after subagent return (Phase 1 learning).
+#    Manual unlock + remove may be required. Then delete the branches.
 git worktree list
-git worktree remove <worktree-path-1>
-# ... etc
+git worktree unlock <worktree-path>  # if locked
+git worktree remove <worktree-path>
+git branch -D worktree-agent-<hex1> worktree-agent-<hex2> ...
+git branch -D fix/bt-foit-pane-resize-docs-and-alignment  # any explicit branch names too
 ```
 
 ---
 
 ## Failure modes to watch for
+
+> **Updated 2026-04-27 with Phase 1 execution observations.** Marked items below were observed on the first run.
 
 | Symptom | Likely cause | Action |
 |---|---|---|
@@ -376,7 +389,12 @@ git worktree remove <worktree-path-1>
 | Two subagents both touch `pkg/ui/delegate.go` | bt-foit + something unexpected | Should not happen with this quartet, but if it does — sequence them, don't merge in parallel |
 | Subagent reports "tests pass" but `go test` fails on PM merge | Subagent skipped a test, used `-run` filter, or has stale state | Run the full suite on PM side; reject and re-dispatch |
 | Subagent fails to commit ("nothing staged") | Subagent forgot or hit an editor block | Have subagent paste their diff in the report; PM stages + commits |
-| `--ff-only` merge fails | Subagent's worktree was based on a stale main | Rebase the subagent's branch onto current main, retry merge |
+| **OBSERVED: `--ff-only` merge fails after the first one** | Sibling branches from same baseline — only one can fast-forward | Use `git cherry-pick <branch>` for the second through Nth branches. Updated post-dispatch sequence above. |
+| **OBSERVED: subagent branch leaked into PM main worktree** | bt-foit's branch was checked out in the main worktree even after subagent returned | `git checkout main` BEFORE attempting any merges. Add this as the first step. |
+| **OBSERVED: worktrees stay locked and present after subagent return** | Auto-cleanup didn't fire for 3 of 4 worktrees | Manual `git worktree unlock` + `git worktree remove` + `git branch -D` per leftover. Add to cleanup checklist. |
+| **OBSERVED: subagent reports `go install` blocked by safety hook** | Hook restricts `go install` for subagents | PM runs `go install` from main session after merge to do behavioral verify. Plan around this — subagent verifies via `go test`, PM verifies via behavioral run. |
+| **OBSERVED: subagent gently corrects the dispatch prompt** | Prompt asserted something about the codebase that was wrong (e.g. "method X doesn't exist" when it does) | Subagent's correction is data; update the dispatch template to reflect new reality. Phase 1 example: cl2m subagent added `m.modalActive()` helper, so future beads can use it directly. |
+| **OBSERVED: pre-existing test failures surface as subagent reports** | Subagents run tests on baseline main + their changes; failures present on baseline get reported | Confirm against `git stash && go test` on a clean main. If pre-existing, file a follow-up bead BEFORE proceeding with merges (Phase 1 example: bt-bnji filed for `TestDetectSigils_LinearScaling` flake). Don't ignore — they'll re-surface in every future dispatch session. |
 
 ---
 
