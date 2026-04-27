@@ -1,5 +1,5 @@
 {
-  "description": "Single issue with every projection field populated, including metadata bridge keys and ClosedBySession. Fat body fields are present on input but must not appear in compact output.",
+  "description": "Single issue with every projection field populated. Session fields source from the first-class columns. Fat body fields are present on input but must not appear in compact output.",
   "issues": [
     {
       "id": "bt-full",
@@ -17,10 +17,10 @@
       "created_at": "2026-04-15T10:00:00Z",
       "updated_at": "2026-04-20T12:00:00Z",
       "due_date": "2026-05-01T00:00:00Z",
+      "created_by_session": "sess-create",
+      "claimed_by_session": "sess-claim",
       "closed_by_session": "sess-close",
       "metadata": {
-        "created_by_session": "sess-create",
-        "claimed_by_session": "sess-claim",
         "unrelated_key": "should-be-ignored"
       }
     }

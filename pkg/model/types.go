@@ -51,12 +51,15 @@ type Issue struct {
 	IsTemplate *bool   `json:"is_template,omitempty"`
 	MolType    *string `json:"mol_type,omitempty"`
 
-	// Session provenance (bt-mhwy.0)
-	// Metadata holds upstream beads' JSON metadata blob. Bridge surface for
-	// session IDs until bd-34v lands first-class columns:
-	// metadata["created_by_session"], metadata["claimed_by_session"].
-	Metadata        map[string]json.RawMessage `json:"metadata,omitempty"`
-	ClosedBySession string                     `json:"closed_by_session,omitempty"`
+	// Session provenance. All three fields are first-class columns on the
+	// upstream beads issues table (0033_add_session_columns.up.sql; bd-34v
+	// + bd-6in fork). Empty string means "not set" — beads created before
+	// the columns existed simply leave them blank. Metadata holds upstream
+	// beads' JSON metadata blob for unrelated keys.
+	Metadata         map[string]json.RawMessage `json:"metadata,omitempty"`
+	CreatedBySession string                     `json:"created_by_session,omitempty"`
+	ClaimedBySession string                     `json:"claimed_by_session,omitempty"`
+	ClosedBySession  string                     `json:"closed_by_session,omitempty"`
 }
 
 // Clone creates a deep copy of the issue

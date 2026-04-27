@@ -107,11 +107,11 @@
     },
     "created_by_session": {
       "type": "string",
-      "description": "Session identifier of the creator agent, sourced from metadata.created_by_session (bridge surface until upstream first-class column lands)."
+      "description": "Session identifier of the creator agent, sourced from the first-class created_by_session column. Empty for beads created before the column existed."
     },
     "claimed_by_session": {
       "type": "string",
-      "description": "Session identifier of the claiming agent, sourced from metadata.claimed_by_session."
+      "description": "Session identifier of the most recent claiming agent (last-writer-wins), sourced from the first-class claimed_by_session column. Empty for beads claimed before the column existed."
     },
     "closed_by_session": {
       "type": "string",

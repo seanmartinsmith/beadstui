@@ -11,11 +11,11 @@ import (
 )
 
 // listFixtureBeads exercises every slot CompactIssue cares about: core fields,
-// a populated metadata.created_by_session, a parent-child edge, a blocking
-// edge whose target is closed, and a relates-to edge.
+// populated session columns, a parent-child edge, a blocking edge whose target
+// is closed, and a relates-to edge.
 const listFixtureBeads = `{"id":"epic-1","title":"Epic parent","status":"open","priority":0,"issue_type":"epic","labels":["area:cli"],"description":"epic description that must never appear in compact output","created_at":"2026-04-15T10:00:00Z","updated_at":"2026-04-20T10:00:00Z"}
 {"id":"blk-1","title":"Closed blocker","status":"closed","priority":1,"issue_type":"task","description":"resolved","created_at":"2026-04-10T10:00:00Z","updated_at":"2026-04-12T10:00:00Z","closed_at":"2026-04-12T10:00:00Z"}
-{"id":"child-1","title":"Child with metadata","description":"child description body","design":"child design body","acceptance_criteria":"child criteria","notes":"child notes","status":"open","priority":1,"issue_type":"task","labels":["area:cli"],"metadata":{"created_by_session":"cc-sess-a","claimed_by_session":"cc-sess-a"},"dependencies":[{"issue_id":"child-1","depends_on_id":"epic-1","type":"parent-child"},{"issue_id":"child-1","depends_on_id":"blk-1","type":"blocks"},{"issue_id":"child-1","depends_on_id":"epic-1","type":"related"}],"created_at":"2026-04-16T10:00:00Z","updated_at":"2026-04-18T10:00:00Z"}
+{"id":"child-1","title":"Child with sessions","description":"child description body","design":"child design body","acceptance_criteria":"child criteria","notes":"child notes","status":"open","priority":1,"issue_type":"task","labels":["area:cli"],"created_by_session":"cc-sess-a","claimed_by_session":"cc-sess-a","dependencies":[{"issue_id":"child-1","depends_on_id":"epic-1","type":"parent-child"},{"issue_id":"child-1","depends_on_id":"blk-1","type":"blocks"},{"issue_id":"child-1","depends_on_id":"epic-1","type":"related"}],"created_at":"2026-04-16T10:00:00Z","updated_at":"2026-04-18T10:00:00Z"}
 `
 
 // setupListFixture writes a tiny project under t.TempDir() for the robot

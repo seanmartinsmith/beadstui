@@ -1,7 +1,6 @@
 package view
 
 import (
-	"encoding/json"
 	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/model"
@@ -184,8 +183,8 @@ func compactOne(
 		UpdatedAt:        src.UpdatedAt,
 		DueDate:          copyTime(src.DueDate),
 		ClosedAt:         copyTime(src.ClosedAt),
-		CreatedBySession: metadataString(src.Metadata, "created_by_session"),
-		ClaimedBySession: metadataString(src.Metadata, "claimed_by_session"),
+		CreatedBySession: src.CreatedBySession,
+		ClaimedBySession: src.ClaimedBySession,
 		ClosedBySession:  src.ClosedBySession,
 	}
 }
@@ -207,14 +206,3 @@ func copyTime(t *time.Time) *time.Time {
 	return &v
 }
 
-func metadataString(m map[string]json.RawMessage, key string) string {
-	raw, ok := m[key]
-	if !ok || len(raw) == 0 {
-		return ""
-	}
-	var s string
-	if err := json.Unmarshal(raw, &s); err != nil {
-		return ""
-	}
-	return s
-}

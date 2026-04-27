@@ -467,8 +467,8 @@ func scanGlobalIssue(rows *sql.Rows) (*model.Issue, error) {
 	var timeoutNs sql.NullInt64
 	var ephemeral, isTemplate sql.NullBool
 
-	// Session provenance columns (bt-mhwy.0)
-	var metadataRaw, closedBySession sql.NullString
+	// Session provenance columns (bt-5hl9): direct columns since bd-34v.
+	var metadataRaw, createdBySession, claimedBySession, closedBySession sql.NullString
 
 	// Author / creation-time actor (bt-aw4h)
 	var createdBy sql.NullString
@@ -482,7 +482,7 @@ func scanGlobalIssue(rows *sql.Rows) (*model.Issue, error) {
 		&closeReason,
 		&awaitType, &awaitID, &timeoutNs,
 		&ephemeral, &isTemplate, &molType,
-		&metadataRaw, &closedBySession,
+		&metadataRaw, &createdBySession, &claimedBySession, &closedBySession,
 		&createdBy,
 		&globalSource,
 	)
@@ -575,8 +575,15 @@ func scanGlobalIssue(rows *sql.Rows) (*model.Issue, error) {
 		issue.MolType = &s
 	}
 
-	// Session provenance (bt-mhwy.0)
+	// Session provenance (bt-5hl9): direct columns since bd-34v Phase 1a/1b
+	// (fork-bd, tracked by bd-6in). Empty for beads predating the columns.
 	issue.Metadata = parseIssueMetadata(metadataRaw)
+	if createdBySession.Valid && createdBySession.String != "" {
+		issue.CreatedBySession = createdBySession.String
+	}
+	if claimedBySession.Valid && claimedBySession.String != "" {
+		issue.ClaimedBySession = claimedBySession.String
+	}
 	if closedBySession.Valid && closedBySession.String != "" {
 		issue.ClosedBySession = closedBySession.String
 	}

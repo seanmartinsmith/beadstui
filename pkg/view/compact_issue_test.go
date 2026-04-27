@@ -8,14 +8,6 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
-func mustRaw(v interface{}) json.RawMessage {
-	b, err := json.Marshal(v)
-	if err != nil {
-		panic(err)
-	}
-	return json.RawMessage(b)
-}
-
 // TestCompactAllNilEmpty — safety for nil and empty input.
 func TestCompactAllNilEmpty(t *testing.T) {
 	if got := CompactAll(nil); got != nil {
@@ -47,11 +39,9 @@ func TestCompactAllFieldsCopy(t *testing.T) {
 		CreatedAt:   created,
 		UpdatedAt:   updated,
 		DueDate:     &due,
-		Metadata: map[string]json.RawMessage{
-			"created_by_session": mustRaw("sess-create"),
-			"claimed_by_session": mustRaw("sess-claim"),
-		},
-		ClosedBySession: "sess-close",
+		CreatedBySession: "sess-create",
+		ClaimedBySession: "sess-claim",
+		ClosedBySession:  "sess-close",
 	}
 
 	got := CompactAll([]model.Issue{issue})
@@ -254,16 +244,15 @@ func TestCompactAllRelatesCount(t *testing.T) {
 	}
 }
 
-// TestCompactAllMetadataBridge — session IDs are surfaced from metadata.
-func TestCompactAllMetadataBridge(t *testing.T) {
+// TestCompactAllSessionFieldsDirect — session IDs are passed through from
+// the direct columns on model.Issue (bt-5hl9; bd-34v Phase 1a/1b).
+func TestCompactAllSessionFieldsDirect(t *testing.T) {
 	issue := model.Issue{
-		ID:     "x",
-		Status: model.StatusOpen,
-		Metadata: map[string]json.RawMessage{
-			"created_by_session": mustRaw("cc-create"),
-			"claimed_by_session": mustRaw("cc-claim"),
-			"unrelated":          mustRaw("ignored"),
-		},
+		ID:               "x",
+		Status:           model.StatusOpen,
+		CreatedBySession: "cc-create",
+		ClaimedBySession: "cc-claim",
+		ClosedBySession:  "cc-close",
 	}
 	got := CompactAll([]model.Issue{issue})[0]
 	if got.CreatedBySession != "cc-create" {
@@ -272,12 +261,15 @@ func TestCompactAllMetadataBridge(t *testing.T) {
 	if got.ClaimedBySession != "cc-claim" {
 		t.Errorf("claimed_by_session = %q, want cc-claim", got.ClaimedBySession)
 	}
+	if got.ClosedBySession != "cc-close" {
+		t.Errorf("closed_by_session = %q, want cc-close", got.ClosedBySession)
+	}
 
-	// Malformed metadata entries are silently ignored.
-	issue.Metadata["created_by_session"] = json.RawMessage([]byte("not-json"))
-	got = CompactAll([]model.Issue{issue})[0]
-	if got.CreatedBySession != "" {
-		t.Errorf("malformed metadata should yield empty string, got %q", got.CreatedBySession)
+	// Empty session fields are omitted from JSON output (omitempty).
+	empty := model.Issue{ID: "y", Status: model.StatusOpen}
+	gotEmpty := CompactAll([]model.Issue{empty})[0]
+	if gotEmpty.CreatedBySession != "" || gotEmpty.ClaimedBySession != "" || gotEmpty.ClosedBySession != "" {
+		t.Errorf("empty source should produce empty session fields, got %+v", gotEmpty)
 	}
 }
 
