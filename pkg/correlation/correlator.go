@@ -39,6 +39,19 @@ type CorrelatorOptions struct {
 
 // GenerateReport generates a complete history report
 func (c *Correlator) GenerateReport(beads []BeadInfo, opts CorrelatorOptions) (*HistoryReport, error) {
+	// bt-nyjj: probe whether the path is inside a git work tree before invoking
+	// `git log`. If it is not (e.g. user launched `bt` from $HOME), return an
+	// empty report with no error so the history view shows a friendly empty
+	// state instead of a red "git log failed" banner. Real git failures
+	// (binary missing, permission errors, repo corruption) still propagate.
+	insideRepo, err := IsInsideWorkTree(c.repoPath)
+	if err != nil {
+		return nil, fmt.Errorf("checking git repository: %w", err)
+	}
+	if !insideRepo {
+		return c.emptyReport(beads, opts), nil
+	}
+
 	// Build extract options
 	extractOpts := ExtractOptions{
 		Since:  opts.Since,
@@ -95,6 +108,31 @@ func (c *Correlator) GenerateReport(beads []BeadInfo, opts CorrelatorOptions) (*
 		Histories:       histories,
 		CommitIndex:     commitIndex,
 	}, nil
+}
+
+// emptyReport builds a HistoryReport for the "cwd is not a git repo" case
+// (bt-nyjj). It populates per-bead history shells so the bead list still
+// renders, but with no events or commits — the history view's renderEmpty
+// path then shows a friendly empty state instead of an error banner.
+func (c *Correlator) emptyReport(beads []BeadInfo, opts CorrelatorOptions) *HistoryReport {
+	histories := c.buildHistories(beads, nil, nil)
+
+	if opts.BeadID != "" {
+		filtered := make(map[string]BeadHistory)
+		if h, ok := histories[opts.BeadID]; ok {
+			filtered[opts.BeadID] = h
+		}
+		histories = filtered
+	}
+
+	return &HistoryReport{
+		GeneratedAt: time.Now().UTC(),
+		DataHash:    c.calculateDataHash(beads),
+		GitRange:    c.describeGitRange(opts),
+		Stats:       c.calculateStats(histories, nil),
+		Histories:   histories,
+		CommitIndex: c.buildCommitIndex(histories),
+	}
 }
 
 // findLatestCommitSHA finds the most recent commit SHA from events and commits
