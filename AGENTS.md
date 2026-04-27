@@ -45,7 +45,7 @@ After completing significant work, update `CHANGELOG.md` and any relevant ADR-00
 cmd/bt/              # CLI entry point (cobra)
 pkg/ui/              # Bubble Tea model, update loop, views
 pkg/analysis/        # Graph metrics, triage, planning
-pkg/search/          # Hybrid semantic search (text + graph, FTS5)
+pkg/search/          # Hybrid search: hash-based semantic embeddings + lexical boost; custom .bvvi vector index under .bt/semantic/
 pkg/model/           # Core data types
 pkg/loader/          # JSONL parsing, bead loading
 pkg/export/          # Static site export
@@ -109,7 +109,7 @@ If suspect, leave a comment with the recon finding rather than diving in. Cross-
 - **Two-phase analysis**: Phase 1 (degree, topo sort, density) is instant. Phase 2 (PageRank, betweenness, HITS, eigenvector, cycles) runs async with 500ms timeout - check `status` flags in output.
 - **Robot-first API**: All `--robot-*` flags emit deterministic JSON to stdout. Human TUI is secondary.
 - **Elm architecture TUI** via bubbletea - all state transitions are message-based.
-- **Pure-Go SQLite** (`modernc.org/sqlite`) for FTS5 search index - no CGO.
+- **Pure-Go SQLite** (`modernc.org/sqlite`, no CGO) is used only by the SQLite **export** artifact (`pkg/export/sqlite_export.go`) — that output DB has FTS5 + materialized views. There is no SQLite at runtime. bt's own search index is a custom binary format (`.bvvi`) under `.bt/semantic/`, written by `pkg/search/vector_index.go`.
 - **No raw prints in production** - TUI through lipgloss; robot mode outputs JSON to stdout; errors to stderr.
 - **Error wrapping**: `fmt.Errorf("context: %w", err)` always.
 - **Division safety**: Guard against divide-by-zero before computing averages/ratios.
