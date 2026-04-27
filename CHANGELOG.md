@@ -6,6 +6,68 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-27 — bt-mhcv Dolt-migration bead audit (163/6/0 GREEN/YELLOW/RED across 169 open beads)
+
+**Phase A + B + C of the systematic audit of all open bt beads against post-v0.56.1 Dolt-only beads architecture. Subagent-driven: 14 parallel triage agents, one per `area:*` bucket (`area:tui` split into 3 chunks of 24). Total parallel wall time ~2 minutes for 169 beads. Outcome: backlog is in much better shape than the bead's worst-case framing assumed — the late-April cleanup arc (bt-uh3c brainstorm + 2026-04-25 data-source survey + AGENTS.md awareness section + ADR-003 proposal) caught most of the rot before this audit ran. Zero RED, six YELLOW, all addressable with corrective comments.**
+
+### What shipped
+
+- **bt-mhcv** (P0, task, CLOSED) — Phase A inventory + classification of all 169 open beads, Phase B corrective comments on YELLOWs + close-as-duplicate on bt-x685, Phase C retrospective doc. Per-bucket triage tables at `docs/audit/triage/<bucket>.md`; master audit at `docs/audit/2026-04-27-dolt-migration-bead-audit.md`.
+- **5 corrective comments** posted (Phase B):
+  - **bt-2cvx** — scope's "Dolt columns vs metadata JSON" decision is closed by bd-34v Phase 1a; reframe as TUI/search display work, point hydration at bt-5hl9.
+  - **bt-ldq4** — "transparent swap later" framing is stale; the swap IS bt-5hl9. Read direct columns, not metadata blob.
+  - **bt-v0mq** — `.beads/issues.jsonl` is opt-in export, not system-of-record; auto-export decision belongs in bt-uahv before fixing the symptom.
+  - **bt-if3w.1** — sprint-view extraction gated on bt-z5jj rebuild-vs-retire decision; added bt-z5jj as blocker.
+  - **bt-tq60** — paper-trail comment that bt-x685 was closed as its duplicate.
+- **1 close-as-duplicate**: **bt-x685** closed as duplicate of bt-tq60 (incidental finding — same bug, same skipped test, same proposed fix; not a stale-architecture issue).
+
+### Per-bucket totals
+
+| Bucket | Count | GREEN | YELLOW | RED |
+|---|---:|---:|---:|---:|
+| analysis | 14 | 13 | 1 | 0 |
+| bql | 5 | 5 | 0 | 0 |
+| cli | 22 | 21 | 1 | 0 |
+| correlation | 5 | 5 | 0 | 0 |
+| data | 11 | 9 | 2 | 0 |
+| docs | 6 | 6 | 0 | 0 |
+| export | 2 | 2 | 0 | 0 |
+| infra | 20 | 19 | 1 | 0 |
+| no-area | 3 | 3 | 0 | 0 |
+| search | 3 | 3 | 0 | 0 |
+| tests | 6 | 6 | 0 | 0 |
+| tui-1/2/3 | 72 | 71 | 1 | 0 |
+| **TOTAL** | **169** | **163** | **6** | **0** |
+
+### Methodology lessons (worth keeping)
+
+- **Per-area parallelism is cheap and fast**: 14 buckets x ~25 beads each completed in ~2 minutes wall time. Worth reusing for any future backlog-scale audit.
+- **JSON dossiers beat per-bead `bd show`**: each agent got a JSON file with full descriptions; agents did NOT call `bd show` per bead. No Dolt-server thrash, much cheaper.
+- **Pre-classified landmarks reduced noise**: telling agents "these 9 beads are GREEN, don't re-classify" prevented spurious YELLOW votes on the bt-mhcv / bt-08sh / bt-z5jj / bt-uahv decision-capture beads.
+- **Bias toward GREEN was correct**: rubric explicitly told agents "for ambiguous cases lean toward GREEN; the bar for YELLOW/RED is a clear stale assumption you can quote." Without that, YELLOW would have been over-applied.
+- **Duplicate detection emerged for free**: bt-x685 ↔ bt-tq60 wasn't on the agenda but the cli agent caught it because it had read both descriptions in the same pass.
+- **bd close --reason via bash command line corrupts non-ASCII**: em-dashes round-tripped through bash's cp1252 layer became mojibake in storage. Comments via `bd comments add -f file.txt` (UTF-8 file) are clean. For future close reasons with non-ASCII, prefer ASCII-only or find a file-input path.
+
+### Cross-bucket clusters surfaced (sequencing notes for later)
+
+1. History-view cluster (bt-ezk8 / bt-nyjj / bt-npnh) — surface symptoms of the multi-repo correlator gap that bt-08sh + bt-3ltq own at the data layer.
+2. Modal-rendering cluster (bt-dp41 / bt-menk / bt-lin9) — likely one OverlayCenter fix.
+3. Mouse-support cluster (bt-fbx6 / bt-km6d / bt-ks0w) — share a chrome-measurement design question.
+4. Robot-mode contract cluster (bt-70cd / bt-ah53 / bt-tq60) — bt-ah53 is the meta-fix.
+5. Pairs/refs v2 ecosystem (bt-92ic / bt-dhqw / bt-9prn / bt-xgba) — clean Dolt-era framing.
+6. Security cluster (2026-04-27 STRIDE/OWASP) — adjacent code in `internal/datasource/` could batch.
+7. bt-689s ↔ bt-thpq — both Dolt-system-table investigations; one recon could answer both.
+8. bt-search consolidation — bt-hazr ↔ bt-ox4a flagged.
+
+### Files touched
+
+- `docs/audit/2026-04-27-dolt-migration-bead-audit.md` (new)
+- `docs/audit/triage/{analysis,bql,cli,correlation,data,docs,export,infra,no-area,search,tests,tui-1,tui-2,tui-3}.md` (14 new)
+- `CHANGELOG.md` (this entry)
+- bd database: 5 comments posted, 1 dependency added, 1 issue closed, bt-mhcv updated.
+
+---
+
 ## 2026-04-26 — bt-46p6 alerts redesign epic closed (centrality nav + dismissed filter + mouse + cursor-row cleanup)
 
 **Closes the alerts redesign epic at 17/20 children. All 8 acceptance criteria were already met as of 2026-04-25; this session shipped the only genuine v1 gap (.12) and the crisp piece of v2 (.13's dismissed-events filter), then detached 3 post-AC threads to standalone beads. Live dogfooding surfaced two more bugs (mouse off-by-one, cursor-row cluttered with generic descriptions) and a feature opportunity (graph-scope alerts hide their Details), all fixed in the same session.**
