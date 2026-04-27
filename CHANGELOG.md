@@ -6,13 +6,14 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
-## 2026-04-27 (evening) — Phase 2 search UX kickoff: bt-v7um Part 1
+## 2026-04-27 (evening) — Phase 2 search UX kickoff: bt-v7um Part 1 + bt-krwp
 
-**Phase 2 of the bangout-arc plan opens with the smallest ship: surface Updated in the detail meta table and the list-row age cell.**
+**Phase 2 of the bangout-arc plan: detail-meta Updated cell ships first, then the search UX overhaul collapses Ctrl+S/H into a single mode cycle and adds quoted-exact + badge threshold.**
 
 ### What shipped
 
 - **bt-v7um Part 1** (P3 feature, CLOSED) — Detail-pane meta table widened to include Updated alongside Created (both absolute via `FormatTimeAbs`, chosen for column symmetry). List-row age cell now reads from `UpdatedAt` (matches existing `board.go` convention; previously inconsistent — list used `CreatedAt`). Beads edited since creation (`UpdatedAt != CreatedAt`) prefix the age with `~` and render via new `MutedTextItalic` style; never-edited beads stay plain. Cell width bumped 8 → 9 to fit worst-case `~11mo ago`. Italic is a soft signal that degrades gracefully on terminals/fonts that don't render it (the `~` prefix carries alone). (`pkg/ui/model_filter.go`, `pkg/ui/delegate.go`, `pkg/ui/theme.go`, `pkg/ui/theme_loader.go`)
+- **bt-krwp** (P2 feature, CLOSED) — Search UX overhaul. **Ctrl+S** now cycles `fuzzy → hybrid → semantic → fuzzy` (single key, three modes, no dead-corner state). **H** repurposed as hybrid-preset cycle (only meaningful in hybrid mode; status hint redirects to Ctrl+S otherwise). **alt+h hard-removed** per AGENTS.md rule 6. New **`quotedExactFilter`** wrapper: `"foo bar"` matches the literal phrase; multiple quoted phrases AND-joined; comma-separated mixed-mode composes via `multiTokenFilter`. New **`capPerCallFilter` (n=25)** caps per-token semantic/hybrid output to reduce noise. Score badge gated by `abs(score) >= 0.05` (new `SearchScoreBadgeMinAbs` const) — hides `[0.00]` items pulled in by graph weight. Status messages cleaned up. Composition factored into `fuzzySearchFilter()` / `semanticSearchFilter(s)` helpers used at all four call sites. Footer hint updated. Tutorial pages updated. Six pkg/ui files touched, no test breakage.
 
 ### Filed
 
@@ -22,6 +23,7 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 - bt-v7um Part 2 (per-field brainstorm for Reporter / Due / Estimate / External-ref / Defer / Wisp / Gate cells in the detail meta table) was NOT shipped — it gates on bt-2cvx + bt-5hl9 (session-author hydration from Dolt session columns). Will be re-filed as a fresh bead when those prereqs land per the bangout-arc Phase 3 plan.
 - Visual treatment of the edited-age signal (italic + `~`) flagged for possible revisit. Italic + tilde combined gives belt-and-suspenders signal across terminals.
+- bt-krwp dogfood feedback: hybrid presets (default/bug-hunting/sprint-planning/impact-first/text-only) aren't self-explanatory in the TUI; semantic and hybrid modes are noticeably slower than fuzzy (architectural — embedding compute + graph metrics, not introduced by bt-krwp). Two follow-up beads filed alongside (preset purpose copy P3, dep-graph navigation P1).
 
 ---
 

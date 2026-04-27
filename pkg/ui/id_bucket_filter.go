@@ -205,6 +205,140 @@ func mergeMatchedIndexes(a, b []int) []int {
 	return out
 }
 
+// quotedExactFilter wraps a FilterFunc so that double-quoted substrings in
+// the term are matched as literal phrases (substring-equality against
+// FilterValue) instead of going through the inner ranker (fuzzy/semantic/
+// hybrid). Bare unquoted tokens pass through unchanged (bt-krwp).
+//
+// When quotes are present, every quoted phrase must appear in the target
+// (AND semantics across phrases). Text outside quotes in the same term is
+// ignored when any quote is present — mixed quoted/bare in a single term
+// is not supported in v1; use comma-separation (handled by multiTokenFilter)
+// for OR-joined mixed queries.
+//
+// Examples:
+//   `"sprint feature"`     → exact phrase 'sprint feature'
+//   `"foo" "bar"`          → both 'foo' AND 'bar' must appear
+//   `foo bar`              → passes to inner unchanged (no quotes)
+//   `"foo bar", uahv`      → multiTokenFilter splits on ',', this wrapper
+//                            sees `"foo bar"` (exact) and `uahv` (inner)
+//                            independently, results unioned.
+//
+// Wrap order: this should sit OUTSIDE idPriorityFilter (so unquoted ID-shaped
+// tokens still get bucket promotion) and INSIDE multiTokenFilter (so each
+// comma-separated token is examined for quotes independently).
+func quotedExactFilter(inner list.FilterFunc) list.FilterFunc {
+	return func(term string, targets []string) []list.Rank {
+		phrases := extractQuotedPhrases(term)
+		if len(phrases) == 0 {
+			return inner(term, targets)
+		}
+		lowered := make([]string, len(phrases))
+		for i, p := range phrases {
+			lowered[i] = strings.ToLower(p)
+		}
+		result := make([]list.Rank, 0)
+		for i, target := range targets {
+			tlower := strings.ToLower(target)
+			allMatch := true
+			for _, p := range lowered {
+				if !strings.Contains(tlower, p) {
+					allMatch = false
+					break
+				}
+			}
+			if allMatch {
+				result = append(result, list.Rank{Index: i})
+			}
+		}
+		return result
+	}
+}
+
+// extractQuotedPhrases pulls all double-quoted substrings out of term.
+// Empty quotes ("") are skipped. Unbalanced trailing quote is ignored.
+func extractQuotedPhrases(term string) []string {
+	var phrases []string
+	inQuote := false
+	start := -1
+	for i, r := range term {
+		if r == '"' {
+			if inQuote {
+				if i > start+1 {
+					phrases = append(phrases, term[start+1:i])
+				}
+				inQuote = false
+			} else {
+				start = i
+				inQuote = true
+			}
+		}
+	}
+	return phrases
+}
+
+// capPerCallFilter wraps a FilterFunc so each call returns at most n results.
+// Used in semantic/hybrid mode to cap per-token result sets before the
+// multiTokenFilter union, keeping multi-token queries tractable and reducing
+// near-zero-relevance noise from graph-weight pull-in (bt-krwp). n <= 0
+// disables the cap.
+func capPerCallFilter(inner list.FilterFunc, n int) list.FilterFunc {
+	return func(term string, targets []string) []list.Rank {
+		ranks := inner(term, targets)
+		if n > 0 && len(ranks) > n {
+			return ranks[:n]
+		}
+		return ranks
+	}
+}
+
+// SemanticPerTokenCap is the per-token result cap applied in semantic/hybrid
+// mode by semanticSearchFilter. Tuned to match the bt-krwp acceptance.
+const SemanticPerTokenCap = 25
+
+// searchMode identifies the active TUI search ranker. The Ctrl+S cycle steps
+// through fuzzy → hybrid → semantic → fuzzy (bt-krwp). The two booleans
+// (semanticSearchEnabled, semanticHybridEnabled) on Model are the underlying
+// state; the cycle never produces the dead-corner combination
+// (semantic off, hybrid on) so that state never appears in practice.
+type searchMode int
+
+const (
+	searchModeFuzzy searchMode = iota
+	searchModeHybrid
+	searchModeSemantic
+)
+
+// nextSearchMode advances the cycle: fuzzy → hybrid → semantic → fuzzy.
+// Hybrid is one keystroke from fuzzy because it is the most generally useful
+// mode (semantic + graph weight + presets); semantic-only is the niche case
+// (text-meaning without graph influence) reachable in two presses.
+func nextSearchMode(cur searchMode) searchMode {
+	switch cur {
+	case searchModeFuzzy:
+		return searchModeHybrid
+	case searchModeHybrid:
+		return searchModeSemantic
+	default:
+		return searchModeFuzzy
+	}
+}
+
+// fuzzySearchFilter returns the canonical fuzzy-mode filter composition.
+// Outermost: comma-OR (multiTokenFilter); then quoted-exact bypass; then
+// ID-priority bucket promotion; innermost: list.DefaultFilter (sahilm fuzzy).
+func fuzzySearchFilter() list.FilterFunc {
+	return multiTokenFilter(quotedExactFilter(idPriorityFilter(list.DefaultFilter)))
+}
+
+// semanticSearchFilter returns the canonical semantic/hybrid-mode composition.
+// Same shape as fuzzy but with a per-token cap inside (semantic Filter pulls
+// large candidate sets) and the inner ranker is SemanticSearch.Filter, which
+// internally honors hybrid config set via SetHybridConfig.
+func semanticSearchFilter(s *SemanticSearch) list.FilterFunc {
+	return multiTokenFilter(quotedExactFilter(capPerCallFilter(idPriorityFilter(s.Filter), SemanticPerTokenCap)))
+}
+
 // extractIDToken returns the first whitespace-separated token of target,
 // provided it looks like a bead ID (contains '-' separating prefix and suffix).
 // IssueItem.FilterValue() places the ID first for exactly this purpose.

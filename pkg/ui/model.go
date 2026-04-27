@@ -858,9 +858,11 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 	// bar (/), and the footer shows fuzzy/semantic/hybrid search modes — so the
 	// prompt text matches the user's mental model (bt-imcn).
 	l.FilterInput.Prompt = "Search: "
-	// Pre-empt the ranker with exact-ID matches across all search modes (bt-i4yn).
-	// Outer wrapper splits comma-separated terms into an OR query (bt-jwo3).
-	l.Filter = multiTokenFilter(idPriorityFilter(list.DefaultFilter))
+	// Boot in fuzzy mode with the canonical filter composition: comma-OR
+	// (bt-jwo3) wrapping quoted-exact (bt-krwp) wrapping ID-priority bucket
+	// promotion (bt-i4yn) wrapping the default fuzzy ranker. Ctrl+S cycles
+	// to semantic/hybrid by swapping the inner ranker (model_update_input.go).
+	l.Filter = fuzzySearchFilter()
 	// Clear all default styles that might add extra lines
 	l.Styles.Title = lipgloss.NewStyle()
 	l.Styles.TitleBar = lipgloss.NewStyle()

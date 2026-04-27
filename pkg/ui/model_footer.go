@@ -510,16 +510,27 @@ func (m *Model) extractKeyHints() []string {
 	} else if m.mode == ViewHistory {
 		hints = append(hints, keyStyle.Render("j/k")+" nav", keyStyle.Render("tab")+" focus", keyStyle.Render("⏎")+" jump", keyStyle.Render("h")+" close")
 	} else if m.list.FilterState() == list.Filtering {
+		// Footer reflects the new Ctrl+S three-state cycle (bt-krwp). The mode
+		// label after "ctrl+s" is the *current* mode — pressing the key cycles
+		// to the next. H is only meaningful in hybrid mode (preset cycle); it's
+		// hidden from the footer in other modes to reduce noise.
 		mode := "fuzzy"
 		if m.semanticSearchEnabled {
-			mode = "semantic"
-			if m.semanticIndexBuilding {
-				mode = "semantic (indexing)"
+			if m.semanticHybridEnabled {
+				mode = "hybrid"
+				if m.semanticHybridBuilding {
+					mode = "hybrid (metrics)"
+				}
+			} else {
+				mode = "semantic"
+				if m.semanticIndexBuilding {
+					mode = "semantic (indexing)"
+				}
 			}
 		}
 		hints = append(hints, keyStyle.Render("esc")+" cancel", keyStyle.Render("ctrl+s")+" "+mode, keyStyle.Render("⏎")+" select")
-		if m.semanticSearchEnabled {
-			hints = append(hints, keyStyle.Render("H")+" hybrid", keyStyle.Render("alt+h")+" preset")
+		if m.semanticHybridEnabled {
+			hints = append(hints, keyStyle.Render("H")+" preset")
 		}
 	} else if m.activeModal == ModalTimeTravelInput {
 		hints = append(hints, keyStyle.Render("⏎")+" compare", keyStyle.Render("esc")+" cancel")

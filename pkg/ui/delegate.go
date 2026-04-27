@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"io"
+	"math"
 	"strings"
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
@@ -13,6 +14,13 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
+
+// SearchScoreBadgeMinAbs gates rendering of the [score] badge in semantic
+// and hybrid search modes. Items with abs(SearchScore) below this threshold
+// have effectively zero text relevance — they were pulled into the result
+// set by graph weight or fallback ordering — and rendering [0.00] is noise
+// (bt-krwp). Tune via dogfood; bumping requires a one-line change here.
+const SearchScoreBadgeMinAbs = 0.05
 
 // IssueDelegate renders issue items in the list
 type IssueDelegate struct {
@@ -235,9 +243,11 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 	statusBadgeWidth := lipgloss.Width(statusBadge)
 	leftFixedWidth += statusBadgeWidth + 1
 
-	// Search score badge (semantic/hybrid)
+	// Search score badge (semantic/hybrid). Hidden below the threshold so
+	// near-zero-relevance items (pulled in by graph weight despite ~0 text
+	// match) don't render as [0.00] noise (bt-krwp).
 	var searchBadge string
-	if d.ShowSearchScores && i.SearchScoreSet {
+	if d.ShowSearchScores && i.SearchScoreSet && math.Abs(i.SearchScore) >= SearchScoreBadgeMinAbs {
 		scoreStr := fmt.Sprintf("%.2f", i.SearchScore)
 		searchBadge = t.InfoBold.Render(fmt.Sprintf("[%s]", scoreStr))
 		leftFixedWidth += lipgloss.Width(searchBadge) + 1

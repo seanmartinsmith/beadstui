@@ -1005,10 +1005,10 @@ func defaultTutorialPages() []TutorialPage {
 ### Filtering
 | Key | Action |
 |-----|--------|
-| **/** | Fuzzy search |
-| **Ctrl+S** | Semantic search |
-| **H** | Hybrid ranking |
-| **Alt+H** | Hybrid preset |
+| **/** | Open search bar |
+| **Ctrl+S** | Cycle mode: fuzzy → hybrid → semantic |
+| **H** | Cycle hybrid preset (in hybrid mode) |
+| **"foo bar"** | Exact phrase match |
 | **o/c/r/a** | Status filter |
 
 > Press **?** in any view for context help.`,
@@ -1522,10 +1522,10 @@ Quickly narrow down what you see:
 
 | Key | Search Type |
 |-----|-------------|
-| **/** | Fuzzy search (fast, typo-tolerant) |
-| **Ctrl+S** | Semantic search (meaning-based) |
-| **H** | Hybrid ranking (semantic + graph) |
-| **Alt+H** | Cycle hybrid preset |
+| **/** | Open search bar (typo-tolerant fuzzy by default) |
+| **Ctrl+S** | Cycle mode: fuzzy → hybrid → semantic |
+| **H** | Cycle hybrid preset (only in hybrid mode) |
+| **"foo bar"** | Exact phrase / substring match |
 | **n/N** | Next/previous search result |
 
 ### Sorting
@@ -1799,10 +1799,12 @@ impact in the dependency graph.
 
 | Mode | Key | What it does |
 |------|-----|-------------|
-| Fuzzy | **/** | Literal text match (fast) |
-| Semantic | **Ctrl+S** | Meaning-based retrieval |
-| Hybrid | **H** | Semantic + graph-aware ranking |
-| Preset | **Alt+H** | Cycle hybrid presets |
+| Fuzzy   | **/**       | Open search bar (default fuzzy ranker) |
+| Cycle   | **Ctrl+S**  | Cycle ranker: fuzzy → hybrid → semantic → fuzzy |
+| Hybrid  | (in cycle)  | Semantic + graph-aware ranking (most useful general mode) |
+| Semantic| (in cycle)  | Meaning-based retrieval (no graph influence) |
+| Preset  | **H**       | Cycle hybrid presets (only meaningful in hybrid mode) |
+| Exact   | ` + "`\"foo bar\"`" + ` | Substring/phrase match — bypasses fuzzy/semantic |
 
 ### How It Works
 

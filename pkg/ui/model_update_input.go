@@ -20,6 +20,21 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
 )
 
+// currentSearchMode derives the active search ranker from the underlying
+// boolean state. The Ctrl+S cycle constrains valid combinations so the
+// dead-corner state (semantic off + hybrid on) is unreachable in normal
+// operation; if it ever appears (e.g. legacy state from a prior session),
+// it's treated as fuzzy and the next cycle press normalizes it.
+func (m Model) currentSearchMode() searchMode {
+	if m.semanticSearchEnabled && m.semanticHybridEnabled {
+		return searchModeHybrid
+	}
+	if m.semanticSearchEnabled {
+		return searchModeSemantic
+	}
+	return searchModeFuzzy
+}
+
 // handleKeyPress processes keyboard input.
 // Many branches return early; some fall through so the router can apply the list update tail.
 func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
@@ -618,92 +633,110 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		}
 	}
 
-	// Hybrid search toggle/preset cycle (bv-xbar.6)
-	if m.focused == focusList && m.list.FilterState() != list.Filtering {
-		switch msg.String() {
-		case "H":
-			m.statusIsError = false
-			m.semanticHybridEnabled = !m.semanticHybridEnabled
-			if m.semanticSearch == nil {
-				m.semanticHybridEnabled = false
-				m.statusMsg = "Hybrid search unavailable"
-				m.statusIsError = true
-				return m, nil
-			}
-			m.semanticSearch.SetHybridConfig(m.semanticHybridEnabled, m.semanticHybridPreset)
+	// H = hybrid preset cycle (bt-krwp). Only meaningful when in hybrid mode;
+	// outside hybrid it surfaces a status hint redirecting to Ctrl+S. The
+	// previous H = "toggle hybrid layer" + alt+H = "cycle preset" pair was
+	// collapsed into a single Ctrl+S three-state cycle (fuzzy → hybrid →
+	// semantic) so this binding could be reclaimed for preset cycling, which
+	// is the only operation that doesn't already have a key.
+	if m.focused == focusList && m.list.FilterState() != list.Filtering && msg.String() == "H" {
+		m.statusIsError = false
+		if !m.semanticHybridEnabled {
+			m.statusMsg = "Not in hybrid mode — press Ctrl+S to cycle there"
+			return m, nil
+		}
+		m.semanticHybridPreset = nextHybridPreset(m.semanticHybridPreset)
+		if m.semanticSearch != nil {
+			m.semanticSearch.SetHybridConfig(true, m.semanticHybridPreset)
 			m.semanticSearch.ResetCache()
+		}
+		m.clearSemanticScores()
+		m.statusMsg = fmt.Sprintf("Hybrid preset: %s", m.semanticHybridPreset)
+		if m.list.FilterState() != list.Unfiltered {
+			currentTerm := m.list.FilterInput.Value()
+			if currentTerm != "" && !m.semanticHybridBuilding {
+				cmds = append(cmds, ComputeSemanticFilterCmd(m.semanticSearch, currentTerm))
+			}
+		}
+		m.updateListDelegate()
+		return m, tea.Batch(cmds...)
+	}
+
+	// Ctrl+S cycles search modes: fuzzy → hybrid → semantic → fuzzy (bt-krwp).
+	// Single key, three states. The previous binary toggle (Ctrl+S = semantic
+	// on/off, H = hybrid on/off) had a dead corner state — hybrid on +
+	// semantic off was a no-op gated inside the ranker but the H binding
+	// silently flipped the bit. Cycle order puts hybrid one keystroke from
+	// fuzzy because hybrid is the most useful daily mode; semantic-text-only
+	// is the niche case (skip the graph signal) reachable with two presses.
+	if msg.String() == "ctrl+s" && m.focused == focusList {
+		m.statusIsError = false
+		next := nextSearchMode(m.currentSearchMode())
+
+		// Non-fuzzy modes need the semantic backend wired up. Fail fast if
+		// not, leaving state as fuzzy.
+		if next != searchModeFuzzy && m.semanticSearch == nil {
+			m.semanticSearchEnabled = false
+			m.semanticHybridEnabled = false
+			m.list.Filter = fuzzySearchFilter()
+			m.statusMsg = "Semantic search unavailable"
+			m.statusIsError = true
 			m.clearSemanticScores()
-			if m.semanticHybridEnabled && !m.semanticHybridReady && !m.semanticHybridBuilding {
+			m.updateListDelegate()
+			return m, nil
+		}
+
+		switch next {
+		case searchModeFuzzy:
+			m.semanticSearchEnabled = false
+			m.semanticHybridEnabled = false
+			m.list.Filter = fuzzySearchFilter()
+			m.statusMsg = "Fuzzy search"
+			m.clearSemanticScores()
+			if m.semanticSearch != nil {
+				m.semanticSearch.SetHybridConfig(false, m.semanticHybridPreset)
+			}
+		case searchModeSemantic:
+			m.semanticSearchEnabled = true
+			m.semanticHybridEnabled = false
+			m.semanticSearch.SetHybridConfig(false, m.semanticHybridPreset)
+			m.semanticSearch.ResetCache()
+			m.list.Filter = semanticSearchFilter(m.semanticSearch)
+			if !m.semanticSearch.Snapshot().Ready && !m.semanticIndexBuilding {
+				m.semanticIndexBuilding = true
+				m.statusMsg = "Semantic search: building index…"
+				cmds = append(cmds, BuildSemanticIndexCmd(m.issuesForAsync()))
+			} else if m.semanticIndexBuilding {
+				m.statusMsg = "Semantic search: indexing…"
+			} else {
+				m.statusMsg = "Semantic search"
+			}
+		case searchModeHybrid:
+			m.semanticSearchEnabled = true
+			m.semanticHybridEnabled = true
+			m.semanticSearch.SetHybridConfig(true, m.semanticHybridPreset)
+			m.semanticSearch.ResetCache()
+			m.list.Filter = semanticSearchFilter(m.semanticSearch)
+			switch {
+			case !m.semanticSearch.Snapshot().Ready && !m.semanticIndexBuilding:
+				m.semanticIndexBuilding = true
+				m.statusMsg = "Hybrid search: building index…"
+				cmds = append(cmds, BuildSemanticIndexCmd(m.issuesForAsync()))
+			case !m.semanticHybridReady && !m.semanticHybridBuilding:
 				m.semanticHybridBuilding = true
 				m.statusMsg = "Hybrid search: computing metrics…"
 				cmds = append(cmds, BuildHybridMetricsCmd(m.issuesForAsync()))
-			} else if m.semanticHybridEnabled {
-				m.statusMsg = fmt.Sprintf("Hybrid search enabled (%s)", m.semanticHybridPreset)
-			} else {
-				m.statusMsg = "Semantic search: text-only"
+			default:
+				m.statusMsg = fmt.Sprintf("Hybrid search [preset: %s]", m.semanticHybridPreset)
 			}
-			if m.semanticSearchEnabled && m.list.FilterState() != list.Unfiltered {
-				currentTerm := m.list.FilterInput.Value()
-				if currentTerm != "" && !m.semanticHybridBuilding {
-					cmds = append(cmds, ComputeSemanticFilterCmd(m.semanticSearch, currentTerm))
-				}
-			}
-			m.updateListDelegate()
-			return m, tea.Batch(cmds...)
-		case "alt+h", "alt+H":
-			m.statusIsError = false
-			m.semanticHybridPreset = nextHybridPreset(m.semanticHybridPreset)
-			if m.semanticSearch != nil {
-				m.semanticSearch.SetHybridConfig(m.semanticHybridEnabled, m.semanticHybridPreset)
-				m.semanticSearch.ResetCache()
-			}
-			m.clearSemanticScores()
-			if m.semanticHybridEnabled {
-				m.statusMsg = fmt.Sprintf("Hybrid preset: %s", m.semanticHybridPreset)
-			} else {
-				m.statusMsg = fmt.Sprintf("Hybrid preset set (%s)", m.semanticHybridPreset)
-			}
-			if m.semanticSearchEnabled && m.semanticHybridEnabled && m.list.FilterState() != list.Unfiltered {
-				currentTerm := m.list.FilterInput.Value()
-				if currentTerm != "" && !m.semanticHybridBuilding {
-					cmds = append(cmds, ComputeSemanticFilterCmd(m.semanticSearch, currentTerm))
-				}
-			}
-			m.updateListDelegate()
-			return m, tea.Batch(cmds...)
 		}
-	}
 
-	// Semantic search toggle (bv-9gf.3)
-	if msg.String() == "ctrl+s" && m.focused == focusList {
-		m.statusIsError = false
-		m.semanticSearchEnabled = !m.semanticSearchEnabled
-		if m.semanticSearchEnabled {
-			if m.semanticSearch != nil {
-				m.list.Filter = multiTokenFilter(idPriorityFilter(m.semanticSearch.Filter))
-				if !m.semanticSearch.Snapshot().Ready && !m.semanticIndexBuilding {
-					m.semanticIndexBuilding = true
-					m.statusMsg = "Semantic search: building index…"
-					cmds = append(cmds, BuildSemanticIndexCmd(m.issuesForAsync()))
-				} else if !m.semanticSearch.Snapshot().Ready && m.semanticIndexBuilding {
-					m.statusMsg = "Semantic search: indexing…"
-				} else {
-					m.statusMsg = "Semantic search enabled"
-				}
-			} else {
-				m.semanticSearchEnabled = false
-				m.list.Filter = multiTokenFilter(idPriorityFilter(list.DefaultFilter))
-				m.statusMsg = "Semantic search unavailable"
-				m.statusIsError = true
+		// Recompute scores for the active filter term if any.
+		if m.semanticSearchEnabled && m.list.FilterState() != list.Unfiltered {
+			currentTerm := m.list.FilterInput.Value()
+			if currentTerm != "" && !m.semanticHybridBuilding && !m.semanticIndexBuilding {
+				cmds = append(cmds, ComputeSemanticFilterCmd(m.semanticSearch, currentTerm))
 			}
-			if m.semanticHybridEnabled && !m.semanticHybridReady && !m.semanticHybridBuilding {
-				m.semanticHybridBuilding = true
-				cmds = append(cmds, BuildHybridMetricsCmd(m.issuesForAsync()))
-			}
-		} else {
-			m.list.Filter = multiTokenFilter(idPriorityFilter(list.DefaultFilter))
-			m.statusMsg = "Fuzzy search enabled"
-			m.clearSemanticScores()
 		}
 
 		// Refresh the current list filter results immediately.
