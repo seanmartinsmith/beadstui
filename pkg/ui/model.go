@@ -129,6 +129,21 @@ const (
 // modalActive returns true when any modal overlay is open.
 func (m Model) modalActive() bool { return m.activeModal != ModalNone }
 
+// shouldDeferRefresh reports whether a watcher-driven data refresh should be
+// deferred because the user has an interactive modal open (bt-cl2m). Re-rendering
+// list/board/graph state under a modal closes the modal mid-interaction. The
+// alerts/notifications modal is intentionally exempt — its design (bt-46p6.10)
+// is to stay open across reloads so live updates are visible.
+func (m Model) shouldDeferRefresh() bool {
+	if m.activeModal == ModalNone {
+		return false
+	}
+	if m.activeModal == ModalAlerts {
+		return false
+	}
+	return true
+}
+
 // openModal sets the active modal, closing any previously open modal.
 func (m *Model) openModal(t ModalType) { m.activeModal = t }
 

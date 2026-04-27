@@ -34,6 +34,18 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// Defer re-render while an interactive modal is open (bt-cl2m). Re-emit the
+	// same message after a short tick so the snapshot isn't dropped — when the
+	// modal closes, the next firing processes it. The first non-deferred snapshot
+	// (bootstrap) must always proceed so the TUI can render initial content.
+	if m.data.snapshot != nil && m.shouldDeferRefresh() {
+		deferred := msg
+		cmds = append(cmds, tea.Tick(200*time.Millisecond, func(time.Time) tea.Msg {
+			return deferred
+		}))
+		return m, tea.Batch(cmds...)
+	}
+
 	firstSnapshot := m.data.snapshotInitPending && m.data.snapshot == nil
 	m.data.snapshotInitPending = false
 	wasTimeTravel := m.timeTravelMode
@@ -430,6 +442,16 @@ func (m Model) handleDataSourceReload(msg DataSourceReloadMsg) (Model, tea.Cmd) 
 		return m, tea.Batch(cmds...)
 	}
 
+	// Defer the re-render while an interactive modal is open (bt-cl2m). Re-emit
+	// the message so the data isn't dropped; it lands the next time we tick.
+	if m.shouldDeferRefresh() {
+		deferred := msg
+		cmds = append(cmds, tea.Tick(200*time.Millisecond, func(time.Time) tea.Msg {
+			return deferred
+		}))
+		return m, tea.Batch(cmds...)
+	}
+
 	// Filter state is preserved inside setListItems (bt-nzsy).
 	m.replaceIssues(msg.Issues)
 
@@ -498,6 +520,20 @@ func (m Model) handleFileChanged(msg FileChangedMsg) (Model, tea.Cmd) {
 	}
 	if m.data.beadsPath == "" {
 		// Re-start watch for next change
+		if m.data.watcher != nil {
+			cmds = append(cmds, WatchFileCmd(m.data.watcher))
+		}
+		return m, tea.Batch(cmds...)
+	}
+
+	// Defer the synchronous reload while an interactive modal is open (bt-cl2m).
+	// Re-emit FileChangedMsg after a short tick — when the modal closes, the
+	// reload will re-run. The watcher is restarted so subsequent file changes
+	// continue to be detected.
+	if m.shouldDeferRefresh() {
+		cmds = append(cmds, tea.Tick(200*time.Millisecond, func(time.Time) tea.Msg {
+			return FileChangedMsg{}
+		}))
 		if m.data.watcher != nil {
 			cmds = append(cmds, WatchFileCmd(m.data.watcher))
 		}
