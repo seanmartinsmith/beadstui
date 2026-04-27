@@ -139,6 +139,29 @@ README prose rewrite drafted. Needs review against current state (the codebase h
 
 Accumulated dogfood findings. Active work as of 2026-04-14.
 
+Recent completions (2026-04-27 — search UX dogfood + bangout-arc planning):
+- [x] **bt-jwo3** (P3, feature): TUI search comma-separated multi-token OR (`multiTokenFilter` wrapper added to filter chain; works across fuzzy/semantic/hybrid). Typing `z5jj, uahv` populates both beads.
+- [x] **bt-treo** (P3, bug): Detail pane intercepts `/` and teleports to search bar (filed + shipped same session).
+- [x] **bt-uahv** (P3, decision): `.beads/` vs `.bt/` data-home spec. Implementation in bt-v6rw.
+- [x] Consolidated arc plan written: `docs/plans/2026-04-27-bangout-arc.md` — 5 phases sequencing 30+ beads through bug bangouts → search UX → foundation → parallel audits → decisions revisited.
+
+Open items added/refreshed by this session:
+- bt-krwp (P2): Search UX overhaul (cycle Ctrl+S, repurpose H, quoted-exact, status clarity, threshold `[0.00]`, multi-token cap in hybrid). Verification evidence attached.
+- bt-ja2y (P2): Search defaults reform (boot mode, why-switch microcopy)
+- bt-72l8.1 + bt-72l8.1.1 (P2): Ghost-features audits (broad + TUI-deep)
+- bt-gf3d.1 (P2): Hotkey/feature audit (which keys deserve top-level binding)
+- bt-6q8c (P2): TUI labels reform (`view:*` sub-area dimension)
+- bt-rbha (P2): TUI surface for type=gate + human-labeled beads (sister of bt-mbjg)
+- bt-fd3k (P3 epic): TUI settings/config surface
+- bt-v7um (P3): Detail pane meta (Updated cell + brainstorm rest)
+- bt-t8mu (P3): Natural-language surface for wisp/molecule grouping
+- bt-54c3 (P3): Themes in-TUI picker
+- bt-z5jj (decision deferred to bt-72l8.1 audit results) + bt-3suf (impl, blocked-by z5jj)
+
+Cross-project pairs filed (2026-04-27):
+- cass-ynoq (P2 in cass): Stable session-ID surface for cross-tool consumers. Data contract for the bt session-author display chain (bt-5hl9 → bt-2cvx → bt-v7um Reporter cell).
+- dotfiles-qew (P3 in .files): Document session-id-as-author convention in global CLAUDE.md.
+
 Recent completions (2026-04-24 — alerts epic redesign):
 - [x] bt-46p6.4 (P3): Alert type taxonomy renamed to human-readable names (dependency_loop, high_leverage, coupling_growth, centrality_change, issue_count_change, dependency_change, stale)
 - [x] bt-46p6.8 (P2): Scope-aware alert computation — project-scoped only, no global aggregates; baseline schema v2 with per-project sections

@@ -6,6 +6,67 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-27 — Search UX dogfood + bangout-arc planning (2 ships, 12 beads filed/updated, cross-project)
+
+**Dogfood-driven session: started as a check-in on two decision beads (bt-z5jj sprint, bt-uahv data layout), turned into a search-UX audit when the user noticed multi-token queries weren't supported. Net: 2 small ships, 12 beads filed/updated across 3 repos, and a consolidated arc plan written for the next 6-8 sessions.**
+
+### What shipped
+
+- **bt-jwo3** (P3, feature, CLOSED) — TUI search: comma-separated multi-token OR. Wrapper `multiTokenFilter` added to `pkg/ui/id_bucket_filter.go` alongside the existing `idPriorityFilter` chain. Wired at 4 sites (`model.go:847`, `model_update_analysis.go:76`, `model_update_input.go:683/695/704`). 8 new tests; full pkg/ui suite passes (22.7s). Typing `z5jj, uahv` now populates both beads in the list.
+- **bt-treo** (P3, bug, CLOSED) — Detail pane intercepts `/` and teleports to the search bar instead of forwarding to viewport. Single 5-line intercept in `pkg/ui/model_update_input.go:1269`. Filed and shipped same session.
+
+### Decisions recorded
+
+- **bt-uahv** (P3, task, CLOSED) — Decision: `.beads/` = bd-owned (Dolt server, bd config, conventions, hooks, push/export state); `.bt/` = bt-owned, regenerable or local-only (caches, indexes, audit logs). Migration files: `correlation_feedback.jsonl`, `interactions.jsonl`, `feedback.json` to move with one-release read-fallback. Implementation in **bt-v6rw** (P3, filed).
+- **bt-z5jj** (P3, feature, REOPENED — `human` label) — Sprint feature decision (A retire vs D repurpose against molecules) deferred pending **bt-72l8.1** ghost-features audit. Investigation surfaced that sprint code originated in Jeffrey's beads_viewer (epic `bv-134`, closed 2025-12) with the producer side never built — Jeffrey's bv-156 commit explicitly said "Full sprint CRUD requires bd CLI changes" that never landed upstream. Three options reframed: A (retire), D (repurpose against molecules — beads' native multi-step grouping primitive), or original C (bt as canonical sprint store). Decision waits on audit data.
+- **bt-3suf** (P3, task, OPEN — blocked-by bt-z5jj, `human` label) — Sprint retire impl, gated.
+
+### Beads filed (this session)
+
+**bt-side audits + features:**
+- **bt-72l8.1** (P2, child of bt-72l8) — Ghost-features audit: classify every `--robot-*` and TUI mode as working/stub/ghost/partial.
+- **bt-72l8.1.1** (P2, child of bt-72l8.1) — TUI-specific deeper pass (per-view completeness).
+- **bt-krwp** (P2) — Search UX overhaul: collapse Ctrl+S/H into single mode cycle, repurpose H as preset cycle, add quoted-exact, fix status clarity, threshold `[0.00]` badge, cap multi-token in hybrid. Verification comment attached with concrete dogfood evidence (4 distinct UX bugs documented from screenshots).
+- **bt-ja2y** (P2) — Search defaults reform: pick boot mode + surface why other modes exist.
+- **bt-gf3d.1** (P2, child of bt-gf3d) — Hotkey/feature audit: which keys deserve top-level binding.
+- **bt-fd3k** (P3, epic) — TUI settings/config surface (39+ BT_* env vars + 5 hybrid presets + theme + thresholds — almost none have an in-TUI surface today).
+- **bt-6q8c** (P2 — bumped from P3) — TUI labels reform: add `view:*` sub-area dimension.
+- **bt-v7um** (P3) — Detail pane meta: surface Updated cell + brainstorm rest.
+- **bt-rbha** (P2) — TUI surface for type=gate + human-labeled beads (sister of bt-mbjg; gates the close).
+- **bt-t8mu** (P3) — Natural-language surface for wisp/molecule grouping (de-jargon the operational primitives).
+- **bt-54c3** (P3) — Themes: in-TUI picker for the existing theme system.
+
+**Cross-project pairs (filed in their own repos, paired-bead notes added bt-side):**
+- **cass-ynoq** (P2 in `~/System/tools/cass`) — Stable session-ID surface for cross-tool consumers. Data contract for the bt session-author display chain.
+- **dotfiles-qew** (P3 in `~/.files`) — Document session-id-as-author convention in global CLAUDE.md (currently missing — convention is "cd over and file" but doesn't specify how origin gets traced).
+
+### Beads updated (existing)
+
+- **bt-mbjg** — confirmed default-hide gates decision; gated on bt-rbha being filed (done).
+- **bt-ba9f** — kept open (not close-superseded). Search-bar portion shipped via bt-jwo3; remaining scope is CLI flag `bt --ids=...` + dedicated modal.
+- **bt-2cvx + bt-5hl9** — paired-bead notes added linking to cass-ynoq + dotfiles-qew so the 3-way coordination chain is discoverable.
+- **bt-8jds** — linked as child of **bt-gf3d** (it was always a symptom of the keybinding overload epic).
+- **bt-72l8** (P1 epic) — description updated with Section 9 pointer to bt-72l8.1 ghost-features audit, extending the epic from "Jeffrey-era attribution" to "Jeffrey-era leftovers (attribution + ghost features)".
+
+### Discoveries
+
+- **Sprint feature provenance**: complete READER for a JSONL no producer writes. Jeffrey shipped bv-134/155/156/159/161 (display side); the bv-156 commit message explicitly said producer side requires bd CLI changes that never happened. Now post-Dolt, beads has molecules as the native multi-step grouping primitive — Option D (repurpose burndown/forecast/dashboard against molecules) is the strongest path if not retired.
+- **Hybrid search has a dead-corner UX**: H toggle without semantic on flips a hidden bit; status messages contain "text-only" with two unrelated meanings; preset cycle alt+H is no-op without an active query. Verification screenshots attached to bt-krwp.
+- **Hotkey infrastructure already exists**: `docs/audit/keybindings-audit.md` (2026-04-23) is the canonical map. Stale in spots but bt-gf3d is the parent epic for fixing it. bt-8jds is a known case of `w` overload (project picker vs wisp toggle).
+- **Search modes have 5 hybrid presets** (default, bug-hunting, sprint-planning, impact-first, text-only) but no UI surface to discover or pick — only alt+H cycle. Surfaced as gap motivating bt-fd3k.
+
+### Plan written
+
+- **`docs/plans/2026-04-27-bangout-arc.md`** — consolidated 5-phase arc plan (bug bangouts → search UX → foundation that unblocks → parallel audits → decisions revisited). Includes orientation block (full ground-truth state), per-phase done checklists, parallelization map, user-input touchpoints, cross-project coordination chain. Self-contained handoff for next session(s).
+
+### Process notes
+
+- **Cross-project bead filing**: per global CLAUDE.md convention, used `cd <repo> && bd create` for cass + .files beads. Paired-bead notes added bt-side via `--append-notes` since cross-prefix `bd link` doesn't resolve across separate Dolt instances.
+- **bd close `--reason` non-ASCII corruption**: re-confirmed the 2026-04-27 lesson from bt-mhcv. Em-dashes in bt-jwo3 close reason got mangled to `â€"` via Windows bash cp1252 layer. Re-closed with ASCII-only (`--`) — issue persists, no code-side fix yet.
+- **Hook sandboxing pattern**: planning skill activates when entering plan mode; behavioral rules in CLAUDE.md still apply if skill doesn't load.
+
+---
+
 ## 2026-04-27 — bt-mhcv Dolt-migration bead audit (163/6/0 GREEN/YELLOW/RED across 169 open beads)
 
 **Phase A + B + C of the systematic audit of all open bt beads against post-v0.56.1 Dolt-only beads architecture. Subagent-driven: 14 parallel triage agents, one per `area:*` bucket (`area:tui` split into 3 chunks of 24). Total parallel wall time ~2 minutes for 169 beads. Outcome: backlog is in much better shape than the bead's worst-case framing assumed — the late-April cleanup arc (bt-uh3c brainstorm + 2026-04-25 data-source survey + AGENTS.md awareness section + ADR-003 proposal) caught most of the rot before this audit ran. Zero RED, six YELLOW, all addressable with corrective comments.**
