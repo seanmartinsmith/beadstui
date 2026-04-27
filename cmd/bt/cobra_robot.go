@@ -23,6 +23,19 @@ var robotCmd = &cobra.Command{
 	Use:   "robot",
 	Short: "Machine-readable output for AI agents",
 	Long:  "All subcommands under 'bt robot' produce structured output (JSON or TOON) for consumption by AI agents and scripts.",
+	// Silence cobra's default usage/error printing on RunE failures so
+	// unknown-subcommand errors land on stderr (via main()) without dumping
+	// help to stdout. Robot-mode contract is stdout=structured-data only.
+	// (bt-70cd)
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	// RunE handles the "bt robot <unknown>" case. Cobra's default when no
+	// subcommand matches is to invoke the parent's Run with the leftover
+	// args, which previously printed help to stdout and exited 0 — breaking
+	// pipes to jq and shell scripts that check $?. With no args, keep the
+	// human-friendly behavior (help on stdout). With args, return an error
+	// so main() prints to stderr and exits non-zero. (bt-70cd)
+	RunE: unknownSubcommandRunE,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Run root persistent pre-run first.
 		if err := rootPersistentPreRun(cmd); err != nil {
@@ -544,11 +557,26 @@ var robotDriftCmd = &cobra.Command{
 	},
 }
 
+// unknownSubcommandRunE returns a RunE that prints help on stdout when
+// invoked bare and returns an error (routed to stderr + non-zero exit by
+// main()) for any unknown subcommand. Used on parent-only command groups
+// under `bt robot` so unknown subcommands no longer dump help to stdout
+// with exit 0. (bt-70cd)
+func unknownSubcommandRunE(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		return cmd.Help()
+	}
+	return fmt.Errorf("unknown subcommand %q for %q\nRun '%s --help' for usage", args[0], cmd.CommandPath(), cmd.CommandPath())
+}
+
 // --- Robot Sprint Subcommands ---
 
 var robotSprintCmd = &cobra.Command{
-	Use:   "sprint",
-	Short: "Sprint-related robot commands",
+	Use:           "sprint",
+	Short:         "Sprint-related robot commands",
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	RunE:          unknownSubcommandRunE,
 }
 
 var robotSprintListCmd = &cobra.Command{
@@ -584,8 +612,11 @@ var robotSprintShowCmd = &cobra.Command{
 // --- Robot Labels Subcommands ---
 
 var robotLabelsCmd = &cobra.Command{
-	Use:   "labels",
-	Short: "Label analysis robot commands",
+	Use:           "labels",
+	Short:         "Label analysis robot commands",
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	RunE:          unknownSubcommandRunE,
 }
 
 var robotLabelsHealthCmd = &cobra.Command{
@@ -631,8 +662,11 @@ var robotLabelsAttentionCmd = &cobra.Command{
 // --- Robot Files Subcommands ---
 
 var robotFilesCmd = &cobra.Command{
-	Use:   "files",
-	Short: "File-bead analysis robot commands",
+	Use:           "files",
+	Short:         "File-bead analysis robot commands",
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	RunE:          unknownSubcommandRunE,
 }
 
 var robotFilesBeadsCmd = &cobra.Command{
@@ -689,8 +723,11 @@ var robotFilesRelationsCmd = &cobra.Command{
 // --- Robot Correlation Subcommands ---
 
 var robotCorrelationCmd = &cobra.Command{
-	Use:   "correlation",
-	Short: "Correlation audit robot commands",
+	Use:           "correlation",
+	Short:         "Correlation audit robot commands",
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	RunE:          unknownSubcommandRunE,
 }
 
 var robotCorrelationExplainCmd = &cobra.Command{
@@ -1209,8 +1246,11 @@ func init() {
 
 	// baseline (under robot for robot-friendly access)
 	robotBaselineCmd := &cobra.Command{
-		Use:   "baseline",
-		Short: "Baseline management",
+		Use:           "baseline",
+		Short:         "Baseline management",
+		SilenceUsage:  true,
+		SilenceErrors: true,
+		RunE:          unknownSubcommandRunE,
 	}
 	robotBaselineCmd.AddCommand(robotBaselineSaveCmd)
 	robotBaselineCmd.AddCommand(robotBaselineInfoCmd)
