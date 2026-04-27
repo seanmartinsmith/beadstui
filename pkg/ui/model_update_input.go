@@ -691,7 +691,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.semanticSearchEnabled = false
 			m.semanticHybridEnabled = false
 			m.list.Filter = fuzzySearchFilter()
-			m.statusMsg = "Fuzzy search"
+			m.statusMsg = "Fuzzy search — fast substring/character match, best for IDs and known phrases"
 			m.clearSemanticScores()
 			if m.semanticSearch != nil {
 				m.semanticSearch.SetHybridConfig(false, m.semanticHybridPreset)
@@ -709,7 +709,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			} else if m.semanticIndexBuilding {
 				m.statusMsg = "Semantic search: indexing…"
 			} else {
-				m.statusMsg = "Semantic search"
+				m.statusMsg = "Semantic search — finds items by meaning, use when fuzzy misses the right bead"
 			}
 		case searchModeHybrid:
 			m.semanticSearchEnabled = true
@@ -727,7 +727,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				m.statusMsg = "Hybrid search: computing metrics…"
 				cmds = append(cmds, BuildHybridMetricsCmd(m.issuesForAsync()))
 			default:
-				m.statusMsg = fmt.Sprintf("Hybrid search [preset: %s]", m.semanticHybridPreset)
+				m.statusMsg = fmt.Sprintf("Hybrid search [preset: %s] — semantic + graph weight, best general-purpose mode", m.semanticHybridPreset)
 			}
 		}
 

@@ -81,14 +81,20 @@ func (m Model) handleSemanticIndexReady(msg SemanticIndexReadyMsg) (Model, tea.C
 	if m.semanticSearch != nil {
 		m.semanticSearch.SetIndex(msg.Index, msg.Embedder)
 	}
+	// Background-sync re-emissions: only surface a status when something
+	// actually changed (built or updated). The no-change "up to date" path
+	// is the steady state — every periodic refresh hits it and re-setting
+	// the message keeps the timer alive forever, defeating the 5s
+	// auto-dismiss intent (bt-14wc). Silent success is the right default
+	// for invisible background work; the footer mode badge already shows
+	// the active state.
 	if !msg.Loaded {
 		m.statusMsg = fmt.Sprintf("Semantic index built (%d embedded)", msg.Stats.Embedded)
+		m.statusIsError = false
 	} else if msg.Stats.Changed() {
 		m.statusMsg = fmt.Sprintf("Semantic index updated (+%d ~%d -%d)", msg.Stats.Added, msg.Stats.Updated, msg.Stats.Removed)
-	} else {
-		m.statusMsg = "Semantic index up to date"
+		m.statusIsError = false
 	}
-	m.statusIsError = false
 
 	if m.semanticSearchEnabled && m.list.FilterState() != list.Unfiltered {
 		prevState := m.list.FilterState()

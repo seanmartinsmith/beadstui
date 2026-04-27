@@ -477,6 +477,34 @@ func BuildHybridMetricsCmd(issues []model.Issue) tea.Cmd {
 	}
 }
 
+// bootSearchMode picks the initial Ctrl+S cycle position based on whether a
+// persisted semantic index exists for this project on disk (bt-ja2y).
+//
+//   - Index file present → boot in hybrid (best general-purpose mode; the
+//     Init dispatch loads the index in the background, search is live within
+//     a beat or two of startup).
+//   - Index file missing → boot in fuzzy (zero-cost, instant, no index
+//     needed). User can press Ctrl+S to upgrade — that path triggers the
+//     build.
+//
+// Reads the project directory from os.Getwd() so the index path matches what
+// BuildSemanticIndexCmd produces — symmetric with the build path. Returns
+// false when the cwd can't be determined or the file is missing/empty.
+// Embedding config is read from BT_SEMANTIC_* env vars.
+func bootSearchMode() (mode searchMode, indexExists bool) {
+	projectDir, err := os.Getwd()
+	if err != nil || projectDir == "" {
+		return searchModeFuzzy, false
+	}
+	cfg := search.EmbeddingConfigFromEnv()
+	indexPath := search.DefaultIndexPath(projectDir, cfg)
+	info, statErr := os.Stat(indexPath)
+	if statErr != nil || info.Size() == 0 {
+		return searchModeFuzzy, false
+	}
+	return searchModeHybrid, true
+}
+
 // BuildSemanticIndexCmd builds or updates the semantic index for the given issues.
 func BuildSemanticIndexCmd(issues []model.Issue) tea.Cmd {
 	return func() tea.Msg {

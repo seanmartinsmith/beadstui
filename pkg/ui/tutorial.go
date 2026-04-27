@@ -1823,11 +1823,12 @@ Searching for "permissions":
 - **Semantic** finds access control, roles, authorization, ACLs
 - **Hybrid** floats the items that block other work
 
-### When to Use It
+### When to Use Each Mode
 
-- **Exploratory**: "What do we have about performance?"
-- **Conceptual**: "auth bugs" / "rate limiting" / "retry logic"
-- **Prioritize**: Use **H** when you want the most important matches
+- **Fuzzy** — fast substring/character match. Best for IDs, known phrases, exact-ish lookups (e.g. "z5jj", "hybrid badge"). Default boot mode when no semantic index exists.
+- **Hybrid** — semantic + graph weight. Best general-purpose mode for daily browsing. Default boot mode once a semantic index has been built. Use **H** to cycle weight presets.
+- **Semantic** — meaning-based retrieval without graph influence. Use when fuzzy misses the right bead and you don't want graph centrality biasing the result.
+- **Exact phrase** — wrap in double quotes (e.g. ` + "`\"sprint feature\"`" + `) to bypass ranker and require literal substring match. Composes with comma-OR for mixed queries.
 
 ### Tuning (Optional)
 

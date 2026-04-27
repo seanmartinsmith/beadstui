@@ -1048,6 +1048,26 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		initialStatusErr = true
 	}
 
+	// Decide initial Ctrl+S cycle position from persisted-index presence
+	// (bt-ja2y). Hybrid auto-upgrades when an index already exists; fuzzy
+	// is the always-safe fallback. The hybrid auto-boot status hint is set
+	// only when we actually pick hybrid — the fuzzy default doesn't get a
+	// boot-time nudge, since users learn Ctrl+S from the footer label and
+	// the help overlay (this also keeps the existing footer-indicator tests
+	// working without statusMsg conflict).
+	bootMode, _ := bootSearchMode()
+	bootSemanticEnabled := bootMode != searchModeFuzzy
+	bootHybridEnabled := bootMode == searchModeHybrid
+	if initialStatus == "" && bootMode == searchModeHybrid {
+		initialStatus = fmt.Sprintf("Hybrid search [preset: %s] — semantic + graph weight, best general-purpose mode", search.PresetDefault)
+	}
+	bootListFilter := fuzzySearchFilter()
+	if bootSemanticEnabled {
+		bootListFilter = semanticSearchFilter(semanticSearch)
+		semanticSearch.SetHybridConfig(bootHybridEnabled, search.PresetDefault)
+	}
+	l.Filter = bootListFilter
+
 	// Precompute drift/health alerts (bv-168). At init, workspace mode has
 	// not yet been decided — EnableWorkspaceMode runs after NewModel returns.
 	// Pass global=false here; the next data refresh triggered by
@@ -1130,7 +1150,8 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		insightsPanel:          insightsPanel,
 		theme:                  theme,
 		semanticSearch:         semanticSearch,
-		semanticHybridEnabled:  false,
+		semanticSearchEnabled:  bootSemanticEnabled,
+		semanticHybridEnabled:  bootHybridEnabled,
 		semanticHybridPreset:   search.PresetDefault,
 		semanticHybridBuilding: false,
 		semanticHybridReady:    false,
@@ -1311,6 +1332,13 @@ func (m Model) Init() tea.Cmd {
 	// Start loading history in background
 	if len(m.data.issues) > 0 {
 		cmds = append(cmds, LoadHistoryCmd(m.issuesForAsync(), m.data.beadsPath))
+	}
+	// Boot the semantic index loader if hybrid/semantic was selected as the
+	// initial cycle position (bt-ja2y). Loads from disk asynchronously so
+	// search stays responsive; until the message lands, semanticSearch.Filter
+	// falls back to the fuzzy ranker (Ready=false guard in Filter).
+	if m.semanticSearchEnabled && !m.semanticIndexBuilding {
+		cmds = append(cmds, BuildSemanticIndexCmd(m.issuesForAsync()))
 	}
 	// Check for AGENTS.md integration prompt (bv-i8dk)
 	if m.workDir != "" && !m.workspaceMode {
