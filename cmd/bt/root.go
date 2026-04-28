@@ -25,6 +25,7 @@ import (
 
 	"github.com/seanmartinsmith/beadstui/internal/datasource"
 	"github.com/seanmartinsmith/beadstui/internal/doltctl"
+	"github.com/seanmartinsmith/beadstui/internal/settings"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/bql"
 	"github.com/seanmartinsmith/beadstui/pkg/export"
@@ -212,33 +213,12 @@ func loadIssues() error {
 		appCtx.selectedSource = &globalSource
 		appCtx.beadsPath = ""
 		appCtx.workspaceInfo = buildWorkspaceInfoFromIssues(result)
-	} else if host, port, discoverErr := datasource.DiscoverSharedServer(); discoverErr == nil {
-		// Auto-global: shared server detected.
-		globalSource := datasource.NewGlobalDataSource(host, port)
-		result, loadErr := datasource.LoadFromSource(globalSource)
-		if loadErr == nil {
-			appCtx.issues = result
-			appCtx.selectedSource = &globalSource
-			appCtx.beadsPath = ""
-			appCtx.workspaceInfo = buildWorkspaceInfoFromIssues(result)
-			appCtx.currentProjectDB = detectCurrentProjectDB()
-		} else {
-			// Shared server configured but not running - try to start it (bt-zsy8)
-			if startErr := startSharedDoltServer(envRobot); startErr == nil {
-				retryResult, retryErr := datasource.LoadFromSource(globalSource)
-				if retryErr == nil {
-					appCtx.issues = retryResult
-					appCtx.selectedSource = &globalSource
-					appCtx.beadsPath = ""
-					appCtx.workspaceInfo = buildWorkspaceInfoFromIssues(retryResult)
-					appCtx.currentProjectDB = detectCurrentProjectDB()
-				} else if !envRobot {
-					fmt.Fprintf(os.Stderr, "Warning: started shared server but load still failed (%v), falling back to local project\n", retryErr)
-				}
-			} else if !envRobot {
-				fmt.Fprintf(os.Stderr, "Warning: could not start shared server (%v), falling back to local project\n", startErr)
-			}
-		}
+	} else if loaded, autoErr := autoGlobalWithColdBoot(envRobot); autoErr != nil {
+		return autoErr
+	} else if !loaded {
+		// Auto-global did not apply (e.g. inside a project, BT_TEST_MODE,
+		// or shared-server discover failed and we have a local project to
+		// fall back to). Let the local-project loader below handle it.
 	}
 
 	if len(appCtx.issues) == 0 && appCtx.selectedSource == nil && flagAsOf == "" && flagWorkspace == "" && !flagGlobal {
@@ -848,42 +828,214 @@ func loadBackgroundModeFromUserConfig() (bool, bool) {
 	return *cfg.Experimental.BackgroundMode, true
 }
 
-// startSharedDoltServer starts the shared Dolt server by shelling out to bd.
-// Sets BEADS_DOLT_SHARED_SERVER=1 to force shared mode regardless of cwd,
-// since we only call this when DiscoverSharedServer() found the port file
-// confirming a shared server setup exists. (bt-zsy8)
-func startSharedDoltServer(robot bool) error {
+// autoGlobalWithColdBoot is the bt-mxz9 Phase 2 replacement for the old
+// auto-global fallback chain. It discovers the shared Dolt server, and
+// if discovery fails AND we're not inside a beads project, attempts a
+// cold-boot via `bd -C $anchor dolt start` using the persisted anchor
+// (or BT_ANCHOR_PROJECT). When discovery succeeds and we ARE inside a
+// project, the cwd's project path is recorded as the new anchor
+// (latest-cwd-wins) so the next boot from `~` works without setup.
+//
+// Return semantics:
+//   - (true, nil): global mode loaded successfully, appCtx populated.
+//   - (false, nil): cold-boot did not apply; the caller should fall
+//     through to the local-project loader. This happens when we're
+//     inside a project, when BT_TEST_MODE=1, or when discover-then-
+//     load failed but we're inside a project that local mode can
+//     handle.
+//   - (false, err): hard error; no fallback should be attempted. This
+//     is the "no anchor available from outside any project" case and
+//     genuine `bd -C` failures.
+func autoGlobalWithColdBoot(envRobot bool) (bool, error) {
+	host, port, discoverErr := datasource.DiscoverSharedServer()
+	if discoverErr == nil {
+		if loadGlobalMode(host, port) {
+			maybeUpdateAnchor()
+			return true, nil
+		}
+		// Discover succeeded (live listener) but load failed. If we're
+		// inside a project, falling back to local is the right call.
+		// Otherwise the user has nowhere else to go — surface the
+		// failure rather than emit a misleading "no JSONL file" error
+		// from the local-project loader (bt-6am7).
+		if currentProjectRoot() != "" {
+			return false, nil
+		}
+		return false, fmt.Errorf("shared Dolt server reachable but loading global mode failed and no local project to fall back to")
+	}
+
+	// Discover failed.
+	if os.Getenv("BT_TEST_MODE") == "1" {
+		// e2e tests always run with BT_TEST_MODE=1; cold-boot must not
+		// reach for the developer's real shared server here.
+		return false, nil
+	}
+	if currentProjectRoot() != "" {
+		// Inside a project — local-project mode is the right fallback
+		// (cheaper, no anchor indirection, exactly what the user is
+		// pointing at with their cwd).
+		return false, nil
+	}
+
+	// Outside any project: anchor is the only path to global mode.
+	g, settingsErr := settings.Load()
+	if settingsErr != nil {
+		return false, fmt.Errorf("loading bt settings: %w", settingsErr)
+	}
+	anchor := g.Anchor()
+	if anchor == "" {
+		return false, fmt.Errorf("shared Dolt server unreachable and no anchor project is set\n  reason: %v\n  fix: cd into any beads project once (so bt records it as the cold-boot anchor), or export BT_ANCHOR_PROJECT=<path>", discoverErr)
+	}
+
+	if !envRobot {
+		fmt.Fprintf(os.Stderr, "Starting shared Dolt server via anchor %s...\n", anchor)
+	}
+	if startErr := startSharedServerViaAnchor(anchor); startErr != nil {
+		if isAnchorInvalidError(startErr) && !settings.AnchorFromEnv() {
+			g.AnchorProject = ""
+			_ = g.Save()
+			return false, fmt.Errorf("anchor at %s is no longer a beads project; cd into a project once to re-anchor, or set BT_ANCHOR_PROJECT manually", anchor)
+		}
+		return false, fmt.Errorf("starting shared Dolt server via bd -C %s: %w", anchor, startErr)
+	}
+
+	// Server started — wait for the port file to appear and the listener
+	// to come up. Polling is short (50ms × 40 = 2s) because bd writes the
+	// port file immediately after binding.
+	host, port, discoverErr = waitForSharedServer()
+	if discoverErr != nil {
+		return false, fmt.Errorf("shared server started via anchor but did not become discoverable within 2s: %w", discoverErr)
+	}
+	if !loadGlobalMode(host, port) {
+		return false, fmt.Errorf("shared server started via anchor but loading global mode failed")
+	}
+	// No anchor auto-write here: cwd is not inside a project, so there's
+	// nothing to record. The anchor we used is already correct.
+	return true, nil
+}
+
+// loadGlobalMode populates appCtx with global-mode results. Returns false
+// on load failure so the caller can decide between hard-erroring and
+// falling through to local-project mode.
+func loadGlobalMode(host string, port int) bool {
+	globalSource := datasource.NewGlobalDataSource(host, port)
+	result, err := datasource.LoadFromSource(globalSource)
+	if err != nil {
+		return false
+	}
+	appCtx.issues = result
+	appCtx.selectedSource = &globalSource
+	appCtx.beadsPath = ""
+	appCtx.workspaceInfo = buildWorkspaceInfoFromIssues(result)
+	appCtx.currentProjectDB = detectCurrentProjectDB()
+	return true
+}
+
+// maybeUpdateAnchor records the cwd's project root as the cold-boot anchor
+// (bt-mxz9 Phase 2, latest-cwd-wins). Called on every successful auto-global
+// boot from inside a project. Skipped when:
+//   - BT_ANCHOR_PROJECT is set (env-supplied anchors are never auto-modified).
+//   - cwd is not inside a beads project (nothing to anchor).
+//   - the persisted anchor already matches the cwd (no-op write avoided).
+//
+// Save errors are non-fatal; boot proceeds even if the anchor file is
+// unwritable, since the live load already succeeded.
+func maybeUpdateAnchor() {
+	if settings.AnchorFromEnv() {
+		return
+	}
+	root := currentProjectRoot()
+	if root == "" {
+		return
+	}
+	abs, err := filepath.Abs(root)
+	if err != nil {
+		abs = root
+	}
+	g, err := settings.Load()
+	if err != nil {
+		return
+	}
+	if g.AnchorProject == abs {
+		return
+	}
+	g.AnchorProject = abs
+	_ = g.Save()
+}
+
+// currentProjectRoot returns the absolute path of the cwd's beads project,
+// or "" if the cwd is not inside any project. Built on loader.GetBeadsDir
+// so the discovery shape stays in sync with the rest of bt.
+//
+// Project-ness is gated on the presence of `.beads/metadata.json`. Just
+// having a `.beads/` directory isn't enough — `~/.beads/` exists on every
+// install for shared-server config and a stray dead `registry.json`, and
+// counting it as a project anchored bt to `~` (which can never start a
+// shared server). bd's own `hasBeadsProjectFiles()` excludes registry-only
+// `.beads/` from workspace resolution for the same reason.
+func currentProjectRoot() string {
+	beadsDir, err := loader.GetBeadsDir("")
+	if err != nil {
+		return ""
+	}
+	if _, err := os.Stat(filepath.Join(beadsDir, "metadata.json")); err != nil {
+		return ""
+	}
+	return filepath.Dir(beadsDir)
+}
+
+// startSharedServerViaAnchor shells out `bd -C <anchor> dolt start`. The
+// `-C` flag (upstream PR #3442, merged 2026-04-27) makes bd resolve its
+// `.beads/` discovery relative to the anchor path instead of the caller's
+// cwd, which is the upstream-blessed way for an external tool to drive bd
+// from a non-workspace directory.
+func startSharedServerViaAnchor(anchor string) error {
 	bdPath, err := exec.LookPath("bd")
 	if err != nil {
-		return fmt.Errorf("bd CLI not found")
-	}
-	if !robot {
-		fmt.Fprintln(os.Stderr, "Starting shared Dolt server...")
+		return fmt.Errorf("bd CLI not found on PATH")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, bdPath, "dolt", "start")
-	cmd.Env = append(os.Environ(), "BEADS_DOLT_SHARED_SERVER=1")
+	cmd := exec.CommandContext(ctx, bdPath, "-C", anchor, "dolt", "start")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("bd dolt start failed: %w\nOutput: %s", err, string(out))
+		return fmt.Errorf("%w\noutput: %s", err, strings.TrimSpace(string(out)))
 	}
-	// Wait for server to be ready (TCP dial retry)
-	host, port, discoverErr := datasource.DiscoverSharedServer()
-	if discoverErr != nil {
-		return fmt.Errorf("server started but port not discoverable: %w", discoverErr)
+	return nil
+}
+
+// isAnchorInvalidError matches the error shape bd emits when `-C <path>`
+// resolves to a non-beads directory. We're conservative here — only the
+// canonical "no active beads workspace" message clears the anchor.
+// Transient failures (bd missing, port collision, network) keep the
+// persisted anchor so the next boot can retry.
+func isAnchorInvalidError(err error) bool {
+	if err == nil {
+		return false
 	}
-	addr := net.JoinHostPort(host, strconv.Itoa(port))
-	deadline := time.Now().Add(10 * time.Second)
-	for time.Now().Before(deadline) {
-		conn, dialErr := net.DialTimeout("tcp", addr, 500*time.Millisecond)
-		if dialErr == nil {
-			conn.Close()
-			return nil
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "no active beads workspace")
+}
+
+// waitForSharedServer polls DiscoverSharedServer until either the server
+// is discoverable (live port file + live listener) or the timeout
+// expires. Used after `bd -C dolt start` returns successfully — bd
+// writes the port file immediately after binding, so 2s × 50ms is a
+// generous upper bound on the race.
+func waitForSharedServer() (string, int, error) {
+	const interval = 50 * time.Millisecond
+	const total = 2 * time.Second
+	deadline := time.Now().Add(total)
+	for {
+		host, port, err := datasource.DiscoverSharedServer()
+		if err == nil {
+			return host, port, nil
 		}
-		time.Sleep(500 * time.Millisecond)
+		if time.Now().After(deadline) {
+			return "", 0, err
+		}
+		time.Sleep(interval)
 	}
-	return fmt.Errorf("server started but not reachable at %s after 10s", addr)
 }
 
 // detectCurrentProjectDB reads the dolt_database name from the cwd's .beads/metadata.json.
