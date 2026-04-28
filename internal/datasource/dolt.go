@@ -107,12 +107,20 @@ func (r *DoltReader) LoadIssues() ([]model.Issue, error) {
 	return r.LoadIssuesFiltered(nil)
 }
 
-// LoadIssuesFiltered reads issues matching an optional filter function.
-func (r *DoltReader) LoadIssuesFiltered(filter func(*model.Issue) bool) ([]model.Issue, error) {
-	query := `SELECT ` + selectColumnExprs(IssuesColumnList, r.availableCols) + `
+// buildSingleDBIssuesQuery returns the SELECT for the single-DB scan path,
+// NULL-substituting any IssuesColumnList entries absent from `available`.
+// Extracted so the schema-drift behavior is unit-testable without a live
+// Dolt server (bt-edi).
+func buildSingleDBIssuesQuery(available map[string]bool) string {
+	return `SELECT ` + selectColumnExprs(IssuesColumnList, available) + `
 		FROM issues
 		WHERE status != 'tombstone'
 		ORDER BY updated_at DESC`
+}
+
+// LoadIssuesFiltered reads issues matching an optional filter function.
+func (r *DoltReader) LoadIssuesFiltered(filter func(*model.Issue) bool) ([]model.Issue, error) {
+	query := buildSingleDBIssuesQuery(r.availableCols)
 
 	rows, err := r.db.Query(query)
 	if err != nil {

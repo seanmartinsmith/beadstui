@@ -3,9 +3,55 @@ package datasource
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
+
+// bt-edi: schema-drift tolerance. When a column on the issues table is
+// absent (e.g. upstream beads drops closed_by_session for the events-table
+// redesign), the single-DB scan path must NULL-substitute it instead of
+// silently degrading to the 8-column fallback.
+func TestBuildSingleDBIssuesQuery_NullSubstitutesMissingColumns(t *testing.T) {
+	available := map[string]bool{}
+	for _, c := range IssuesColumnList {
+		available[c] = true
+	}
+	delete(available, "closed_by_session")
+
+	query := buildSingleDBIssuesQuery(available)
+
+	if !strings.Contains(query, "NULL AS closed_by_session") {
+		t.Errorf("expected NULL substitution for missing closed_by_session column.\nquery:\n%s", query)
+	}
+	if strings.Contains(query, "NULL AS id") {
+		t.Errorf("present columns must not be NULL-substituted.\nquery:\n%s", query)
+	}
+	if !strings.Contains(query, "FROM issues") {
+		t.Errorf("query must read from issues table.\nquery:\n%s", query)
+	}
+	if !strings.Contains(query, "status != 'tombstone'") {
+		t.Errorf("query must filter tombstones.\nquery:\n%s", query)
+	}
+}
+
+func TestBuildSingleDBIssuesQuery_AllPresent(t *testing.T) {
+	available := map[string]bool{}
+	for _, c := range IssuesColumnList {
+		available[c] = true
+	}
+
+	query := buildSingleDBIssuesQuery(available)
+
+	if strings.Contains(query, "NULL AS") {
+		t.Errorf("no NULL substitutions expected when all columns present.\nquery:\n%s", query)
+	}
+	for _, col := range IssuesColumnList {
+		if !strings.Contains(query, col) {
+			t.Errorf("expected column %q in SELECT list.\nquery:\n%s", col, query)
+		}
+	}
+}
 
 func TestReadDoltConfig_ValidMetadata(t *testing.T) {
 	tmpDir := t.TempDir()
