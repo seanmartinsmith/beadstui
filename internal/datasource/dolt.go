@@ -27,8 +27,9 @@ func parseIssueMetadata(raw sql.NullString) map[string]json.RawMessage {
 
 // DoltReader provides read access to a Dolt SQL server.
 type DoltReader struct {
-	db  *sql.DB
-	dsn string
+	db            *sql.DB
+	dsn           string
+	availableCols map[string]bool // issues-table columns present on this server (bt-edi)
 }
 
 // NewDoltReader opens a MySQL connection to the running Dolt server.
@@ -59,7 +60,38 @@ func NewDoltReader(source DataSource) (*DoltReader, error) {
 		return nil, fmt.Errorf("connected but no 'issues' table found - wrong database?")
 	}
 
-	return &DoltReader{db: db, dsn: source.Path}, nil
+	// Probe issues-table columns so the scan path can NULL-substitute any
+	// missing ones (bt-edi). Mirrors the multi-DB behavior in global_dolt.go;
+	// keeps bt resilient when upstream beads drops or renames a column.
+	availableCols, err := loadIssuesColumns(db)
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("cannot probe issues columns: %w", err)
+	}
+
+	return &DoltReader{db: db, dsn: source.Path, availableCols: availableCols}, nil
+}
+
+// loadIssuesColumns returns the set of column names on the current
+// database's issues table.
+func loadIssuesColumns(db *sql.DB) (map[string]bool, error) {
+	rows, err := db.Query(
+		`SELECT COLUMN_NAME FROM information_schema.columns
+		 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'issues'`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	cols := map[string]bool{}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			continue
+		}
+		cols[name] = true
+	}
+	return cols, rows.Err()
 }
 
 // Close closes the database connection.
@@ -77,7 +109,7 @@ func (r *DoltReader) LoadIssues() ([]model.Issue, error) {
 
 // LoadIssuesFiltered reads issues matching an optional filter function.
 func (r *DoltReader) LoadIssuesFiltered(filter func(*model.Issue) bool) ([]model.Issue, error) {
-	query := `SELECT ` + IssuesColumns + `
+	query := `SELECT ` + selectColumnExprs(IssuesColumnList, r.availableCols) + `
 		FROM issues
 		WHERE status != 'tombstone'
 		ORDER BY updated_at DESC`
