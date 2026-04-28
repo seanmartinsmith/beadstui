@@ -6,6 +6,33 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-28 (afternoon) — bt-mxz9 Phase 2: anchor + cold-boot via `bd -C`
+
+**Cold-boot from a non-workspace cwd now actually works (modulo a deployment dependency on bd PR #3442). The broken `BEADS_DOLT_SHARED_SERVER=1 bd dolt start` shellout that never resolved a workspace from `~` is gone, replaced by `bd -C $anchor dolt start` against a persisted anchor project at `~/.bt/settings.json`. Auto-anchor write on every successful inside-project boot (latest-cwd-wins) so the anchor self-heals. JSONL-loader fallback noise (bt-6am7's trigger) removed from the cold-boot path.**
+
+### What shipped
+
+- **bt-mxz9 Phase 2** (P2 bug, area:cli,data) — Final phase of the cold-boot fix. New `internal/settings` package owns `~/.bt/settings.json` (Global struct with `anchor_project` field today; project_paths / theme / etc. accrete here later). `Load`/`Save`/`Anchor`/`AnchorFromEnv` API. Atomic-replace writes (tempfile + rename in same dir). `BT_ANCHOR_PROJECT` env var trumps file, never auto-modified. `cmd/bt/root.go` rewrites the auto-global else-if branch (`:215-241` of pre-commit) into `autoGlobalWithColdBoot`: discover succeeds → load + anchor write; discover fails AND not in project → resolve anchor, run `bd -C $anchor dolt start`, poll port file (50ms × 40 = 2s), retry discover, load global; no anchor → single-line "no anchor available; cd into a project once or export BT_ANCHOR_PROJECT" error and exit non-zero (no JSONL leak); anchor invalid (bd reports "no active beads workspace") → blank persisted field, surface clear "anchor at X is no longer a beads project" message. `currentProjectRoot` gated on `.beads/metadata.json` so the shared-server-only `~/.beads/` doesn't false-positive as a project. `BT_TEST_MODE=1` still skips the cold-boot shellout (e2e fixtures intact). Old `startSharedDoltServer` + the `BEADS_DOLT_SHARED_SERVER` shellout removed entirely. (`internal/settings/global.go`, `internal/settings/global_test.go`, `cmd/bt/root.go`)
+
+### Verify
+
+- `go build ./...` clean. `go vet ./...` clean. `go test ./...` — all 30 packages pass (cmd/bt 107s, internal/settings 0.4s, e2e 130s).
+- Live: boot from project → anchor written to project root.
+- Live: boot from `~` with live server → exit 0, anchor preserved (path-correctness regression caught and fixed pre-commit: original `currentProjectRoot` accepted any `.beads/` and would have anchored bt to `~`).
+- Live: boot from isolated tmpdir HOME with no anchor + no server → exit 1, single-line "no anchor available" message, no JSONL leak.
+
+### Deployment dependency (not a bt code issue)
+
+User's `bd 1.0.3` predates upstream PR #3442 (`-C` flag, merged 2026-04-27 as `7358de693`, no release yet). Cold-boot will surface `unknown shorthand flag: 'C'` until `bd` is rebuilt from a branch including that commit. The local fork branch `local/p0-1a-1b-stack` (session columns, tracked by bd-6in) also needs to pick up `7358de693` for cold-boot to fire end-to-end. Once bd is rebuilt, the live "kill server, cd ~, boot bt, expect server to come back" scenario will pass without further bt changes.
+
+### Notes
+
+- All three bt-mxz9 acceptance criteria are now satisfied at the code level: AC #1 (cold-boot starts the server) via Phase 2's `bd -C` shellout; AC #2 (no trust of stale port file) via Phase 1's TCP probe; AC #3 (no JSONL false-flag) via Phase 2's hard-error path. AC #1's live-end-to-end verification gates on bd binary upgrade.
+- bt-6am7's trigger is gone in the cold-boot path. The bead stays open as a follow-up only if any other code path still surfaces the legacy "no JSONL file found" error on bare-Dolt installs.
+- `bt-fd3k` Phase 2 / `bt-oiaj` Phase 1 will extend `~/.bt/settings.json` with new fields (theme, project_paths, etc.) and reuse the same Load/Save shape — no migration needed.
+
+---
+
 ## 2026-04-28 (morning) — Global-mode boot resilience: bt-ebzy schema drift + bt-mxz9 Phase 1
 
 **Two related data-layer fixes shipped together. P0 hotfix for the bt-5hl9 regression that broke global mode against mixed-schema Dolt databases (bt-ebzy), plus the first phase of bt-mxz9 — TCP liveness probe in `DiscoverSharedServer` so a stale port file pointing at a dead listener gets a clean error instead of routing into the misleading start-and-retry cascade.**
