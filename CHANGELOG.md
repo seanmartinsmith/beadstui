@@ -6,6 +6,28 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-28 (evening) — bt-edi: schema-drift tolerance in single-DB scan path
+
+**Single-DB Dolt reader now NULL-substitutes missing columns on the issues table, mirroring the multi-DB behavior in `global_dolt.go`. Pre-emptive hygiene for the bd-edi events-table redesign (which may drop `closed_by_session`), but valuable independently — keeps bt resilient across any upstream schema change instead of silently degrading to the 8-column fallback that drops dependencies and comments.**
+
+### What shipped
+
+- **bt-edi** (P2 task, paired with bd-edi in the beads project, area:data) — `NewDoltReader` now probes `information_schema.columns` for the `issues` table at connection time and caches the result on `DoltReader.availableCols`. New `buildSingleDBIssuesQuery(available)` helper composes the SELECT via `selectColumnExprs(IssuesColumnList, available)` so absent columns become `NULL AS <col>`. Replaces direct `IssuesColumns` concatenation in `LoadIssuesFiltered`. Mechanically identical to the proven `global_dolt.go` pattern. (`internal/datasource/dolt.go`, `internal/datasource/dolt_test.go`)
+
+### Verify
+
+- `go build ./...` clean. `go vet ./...` clean. `go test ./...` — full suite pass (30 packages).
+- New unit tests: `TestBuildSingleDBIssuesQuery_NullSubstitutesMissingColumns` (asserts `NULL AS closed_by_session` when absent, no false NULL on present columns), `TestBuildSingleDBIssuesQuery_AllPresent` (asserts no NULL substitution and every `IssuesColumnList` entry appears).
+- Live-fixture (synthetic Dolt DB with a column dropped) and TUI-smoke (mindmap + graph against the same fixture) deferred — `selectColumnExprs` already has unit coverage in `global_dolt_test.go` and the call-site logic is now testable without a live server.
+
+### Notes
+
+- Path-agnostic value: ships independent of how bd-edi resolves (drop column, JOIN-derived view, or stalls in maintainer review). bt is correct in all three branches.
+- No public API change. No schema dependency. Read-path-only fix; no impact on `pkg/model/types.go` or `pkg/view/schemas/compact_issue.v1.json`.
+- The existing silent fallback to `loadIssuesSimple` (degraded 8-column query) stays as a defensive net for genuine SQL errors, but schema drift no longer triggers it.
+
+---
+
 ## 2026-04-28 (afternoon) — bt-mxz9 Phase 2: anchor + cold-boot via `bd -C`
 
 **Cold-boot from a non-workspace cwd now actually works (modulo a deployment dependency on bd PR #3442). The broken `BEADS_DOLT_SHARED_SERVER=1 bd dolt start` shellout that never resolved a workspace from `~` is gone, replaced by `bd -C $anchor dolt start` against a persisted anchor project at `~/.bt/settings.json`. Auto-anchor write on every successful inside-project boot (latest-cwd-wins) so the anchor self-heals. JSONL-loader fallback noise (bt-6am7's trigger) removed from the cold-boot path.**
