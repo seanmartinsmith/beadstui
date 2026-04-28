@@ -833,30 +833,69 @@ func (m *Model) updateViewportContent() {
 	}
 
 	// Title Block
-	sb.WriteString(fmt.Sprintf("# %s %s\n", GetTypeIconMD(string(item.IssueType)), item.Title))
+	sb.WriteString(fmt.Sprintf("# %s %s\n\n", GetTypeIconMD(string(item.IssueType)), item.Title))
 
-	// Meta Table. "Author" is the creation-time actor (bead's created_by),
-	// distinct from Assignee (current holder). Rendered as em-dash when absent
-	// so the column stays visually stable across beads (bt-aw4h).
-	authorCell := "—"
-	if item.Author != "" {
-		authorCell = "@" + item.Author
-	}
-	sb.WriteString("| ID | Status | Priority | Author | Assignee | Created | Updated |\n|---|---|---|---|---|---|---|\n")
-	sb.WriteString(fmt.Sprintf("| **%s** | **%s** | %s | %s | @%s | %s | %s |\n\n",
+	// Identity strip: ID, status, priority on a single prose line. Type lives
+	// in the title icon already, so don't duplicate it here. The wide markdown
+	// table this replaces (bt-aw4h) ran out of horizontal room around 5 fields
+	// — see bt-2cvx. Property block below scales without truncation.
+	sb.WriteString(fmt.Sprintf("**%s**  ·  **%s**  ·  %s P%d\n\n",
 		item.ID,
 		strings.ToUpper(string(item.Status)),
-		fmt.Sprintf("%s P%d", GetPriorityIcon(item.Priority), item.Priority),
-		authorCell,
-		item.Assignee,
-		FormatTimeAbs(item.CreatedAt),
-		FormatTimeAbs(item.UpdatedAt),
+		GetPriorityIcon(item.Priority), item.Priority,
 	))
 
-	// Labels (bv-f103 fix: display labels in detail view)
-	if len(item.Labels) > 0 {
-		sb.WriteString(fmt.Sprintf("**Labels:** %s\n\n", strings.Join(item.Labels, ", ")))
+	// Property block: aligned key/value rows in a fenced code block. Glamour
+	// renders fences as monospaced cards, which buys us:
+	//   - exact column alignment (impossible inside markdown prose)
+	//   - no bullet noise
+	//   - empty fields can be skipped without breaking row shape
+	//
+	// We collect only-populated rows first, then format with a uniform label
+	// width so eyes can scan down the value column.
+	type metaRow struct{ label, value string }
+	rows := []metaRow{}
+	if item.Author != "" {
+		rows = append(rows, metaRow{"Author", "@" + item.Author})
 	}
+	if item.Assignee != "" {
+		rows = append(rows, metaRow{"Assignee", "@" + item.Assignee})
+	}
+	if item.SourceRepo != "" {
+		rows = append(rows, metaRow{"Source", item.SourceRepo})
+	}
+	rows = append(rows, metaRow{"Created", FormatTimeAbs(item.CreatedAt)})
+	rows = append(rows, metaRow{"Updated", FormatTimeAbs(item.UpdatedAt)})
+	if item.ClosedAt != nil {
+		rows = append(rows, metaRow{"Closed", FormatTimeAbs(*item.ClosedAt)})
+	}
+	if len(item.Labels) > 0 {
+		rows = append(rows, metaRow{"Labels", strings.Join(item.Labels, " · ")})
+	}
+	// Session provenance (bt-2cvx) folds into the same block. Each session row
+	// is paired with its time field above so the eye can connect "when" with
+	// "by which session". Raw UUIDs by design — cass-joa1 will introduce a
+	// short-id surface; don't gold-plate trimming here.
+	if item.CreatedBySession != "" {
+		rows = append(rows, metaRow{"Created by", item.CreatedBySession})
+	}
+	if item.ClaimedBySession != "" {
+		rows = append(rows, metaRow{"Claimed by", item.ClaimedBySession})
+	}
+	if item.ClosedBySession != "" {
+		rows = append(rows, metaRow{"Closed by", item.ClosedBySession})
+	}
+	labelWidth := 0
+	for _, r := range rows {
+		if n := len(r.label); n > labelWidth {
+			labelWidth = n
+		}
+	}
+	sb.WriteString("```\n")
+	for _, r := range rows {
+		sb.WriteString(fmt.Sprintf("%-*s  %s\n", labelWidth, r.label, r.value))
+	}
+	sb.WriteString("```\n\n")
 
 	// State dimensions (bt-jprp) - parsed from dimension:value labels
 	if dims := parseStateDimensions(item.Labels); len(dims) > 0 {
@@ -1245,6 +1284,18 @@ func shortError(err error) string {
 		s = s[:57] + "..."
 	}
 	return s
+}
+
+// sessionCell renders a session-id field for the detail pane Sessions block.
+// Empty values render as em-dash; otherwise the full UUID is rendered inside
+// a code span so it copies cleanly and is visually distinct from prose.
+// cass-joa1 will introduce a short-id format (workspace_xxxxxx) — when that
+// lands, swap the inner string here without touching call sites.
+func sessionCell(uuid string) string {
+	if uuid == "" {
+		return "—"
+	}
+	return "`" + uuid + "`"
 }
 
 // truncateString truncates a string to maxLen runes with ellipsis.
