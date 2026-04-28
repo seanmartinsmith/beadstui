@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log/slog"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -14,6 +15,12 @@ import (
 
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
+
+// sharedServerLivenessTimeout is how long DiscoverSharedServer waits for a
+// TCP connect when probing whether the recorded port still has a live
+// listener. Short enough to keep cold-boot snappy when the file is stale,
+// long enough to tolerate a momentarily-busy server.
+const sharedServerLivenessTimeout = 250 * time.Millisecond
 
 // systemDatabases is the deny-list of non-beads databases on a Dolt server.
 var systemDatabases = map[string]bool{
@@ -35,6 +42,14 @@ type GlobalDoltReader struct {
 
 // DiscoverSharedServer locates the shared Dolt server's host and port.
 // Priority: BT_GLOBAL_DOLT_PORT env var > ~/.beads/shared-server/dolt-server.port file.
+//
+// When the port file is used (not the env override), DiscoverSharedServer
+// also probes TCP liveness with a short timeout (bt-mxz9). A stale port
+// file pointing at a dead process used to route bt into the start-and-retry
+// branch, which then printed misleading "Starting shared Dolt server..." +
+// fallback noise. Now bt fails fast with a clear "no listener" error so the
+// caller can decide between attempting a real start or surfacing the truth.
+//
 // Returns an error immediately when BT_TEST_MODE=1, preventing e2e tests from
 // accidentally connecting to the developer's shared Dolt server instead of their
 // JSONL fixtures.
@@ -45,7 +60,9 @@ func DiscoverSharedServer() (host string, port int, err error) {
 
 	host = "127.0.0.1"
 
-	// Env var override takes highest priority
+	// Env var override takes highest priority. The user is asserting "this
+	// port is live" — skip the liveness probe so explicit overrides aren't
+	// second-guessed (useful for connecting to a remote/forwarded port).
 	if v := os.Getenv("BT_GLOBAL_DOLT_PORT"); v != "" {
 		p, parseErr := strconv.Atoi(strings.TrimSpace(v))
 		if parseErr == nil && p > 0 {
@@ -67,6 +84,16 @@ func DiscoverSharedServer() (host string, port int, err error) {
 	if err != nil || p <= 0 {
 		return "", 0, fmt.Errorf("invalid port in %s: %q", portPath, strings.TrimSpace(string(data)))
 	}
+
+	// Liveness check (bt-mxz9): the port file is a hint, not a guarantee.
+	// A dead server leaves the file behind. Refuse to return success unless
+	// we can actually open a TCP connection.
+	addr := net.JoinHostPort(host, strconv.Itoa(p))
+	conn, dialErr := net.DialTimeout("tcp", addr, sharedServerLivenessTimeout)
+	if dialErr != nil {
+		return "", 0, fmt.Errorf("shared Dolt server not running: port file %s records port %d but no listener responded (%v)", portPath, p, dialErr)
+	}
+	_ = conn.Close()
 
 	return host, p, nil
 }
@@ -194,6 +221,69 @@ func databasesWithTable(db *sql.DB, databases []string, tableName string) []stri
 	return result
 }
 
+// columnsByDatabase returns per-database column membership for the named table.
+// Used to handle schema drift across mixed-version Dolt databases (bt-ebzy):
+// some databases may have been initialized by a stock bd binary that predates
+// columns later added on the local fork.
+//
+// A single information_schema query returns rows for every (schema, column)
+// pair, then we group by schema. Databases with no rows get an empty set —
+// callers should treat that as "all columns missing" and substitute NULL for
+// every column that matters.
+func columnsByDatabase(db *sql.DB, databases []string, tableName string) map[string]map[string]bool {
+	result := make(map[string]map[string]bool, len(databases))
+	for _, d := range databases {
+		result[d] = map[string]bool{}
+	}
+	if len(databases) == 0 {
+		return result
+	}
+
+	var inParts []string
+	for _, d := range databases {
+		inParts = append(inParts, "'"+escapeSQLString(d)+"'")
+	}
+
+	query := fmt.Sprintf(
+		`SELECT TABLE_SCHEMA, COLUMN_NAME FROM information_schema.columns
+		WHERE TABLE_NAME = '%s' AND TABLE_SCHEMA IN (%s)`,
+		escapeSQLString(tableName), strings.Join(inParts, ","))
+
+	rows, err := db.Query(query)
+	if err != nil {
+		slog.Warn("columnsByDatabase query failed", "table", tableName, "error", err)
+		return result
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var schema, col string
+		if err := rows.Scan(&schema, &col); err != nil {
+			continue
+		}
+		if cols, ok := result[schema]; ok {
+			cols[col] = true
+		}
+	}
+	return result
+}
+
+// selectColumnExprs builds a comma-separated SELECT expression list where
+// columns missing from `available` are emitted as "NULL AS <col>". This keeps
+// every segment of a UNION ALL query producing the same number of columns in
+// the same order, even when the underlying databases have drifted schemas.
+func selectColumnExprs(cols []string, available map[string]bool) string {
+	parts := make([]string, len(cols))
+	for i, col := range cols {
+		if available[col] {
+			parts[i] = col
+		} else {
+			parts[i] = "NULL AS " + col
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
 // FilterSystemDatabases removes system/internal databases from a list.
 // Exported for testing.
 func FilterSystemDatabases(names []string) []string {
@@ -212,7 +302,8 @@ func (r *GlobalDoltReader) LoadIssues() ([]model.Issue, error) {
 		return nil, fmt.Errorf("no databases to query")
 	}
 
-	query, err := buildIssuesQuery(r.databases)
+	columnsByDB := columnsByDatabase(r.db, r.databases, "issues")
+	query, err := buildIssuesQuery(r.databases, columnsByDB)
 	if err != nil {
 		return nil, err
 	}
@@ -272,12 +363,13 @@ func (r *GlobalDoltReader) LoadIssuesAsOf(timestamp time.Time) ([]model.Issue, e
 	}
 
 	tsStr := timestamp.UTC().Format("2006-01-02T15:04:05")
+	columnsByDB := columnsByDatabase(r.db, r.databases, "issues")
 	var allIssues []model.Issue
 	var dbErrors []string
 	successCount := 0
 
 	for _, dbName := range r.databases {
-		query := buildIssuesQueryAsOf(dbName, tsStr)
+		query := buildIssuesQueryAsOf(dbName, tsStr, columnsByDB[dbName])
 		rows, err := r.db.Query(query)
 		if err != nil {
 			slog.Warn("AS OF query failed for database",
@@ -331,16 +423,27 @@ func (r *GlobalDoltReader) Databases() []string {
 }
 
 // buildIssuesQueryAsOf generates an AS OF query for a single database.
-// Uses the same IssuesColumns as the regular query plus _global_source.
+// Substitutes "NULL AS <col>" for any column missing from the database's
+// live schema (bt-ebzy). Note this assumes the historical snapshot's schema
+// is congruent with current — if a column was added between snapshot time
+// and now, the snapshot may still have it under a different shape; in that
+// case the query may still error and the per-DB AS OF caller skips with a
+// log warning.
 // Dolt AS OF syntax: SELECT ... FROM `db`.issues AS OF '<timestamp>'
-func buildIssuesQueryAsOf(dbName, tsStr string) string {
+func buildIssuesQueryAsOf(dbName, tsStr string, available map[string]bool) string {
 	quoted := backtickQuote(dbName)
+	cols := selectColumnExprs(IssuesColumnList, available)
 	return fmt.Sprintf("SELECT %s, '%s' AS _global_source FROM %s.issues AS OF '%s' WHERE status != 'tombstone'",
-		IssuesColumns, escapeSQLString(dbName), quoted, escapeSQLString(tsStr))
+		cols, escapeSQLString(dbName), quoted, escapeSQLString(tsStr))
 }
 
 // buildIssuesQuery generates a UNION ALL query across all databases.
-func buildIssuesQuery(databases []string) (string, error) {
+// columnsByDB maps each database name to its set of available columns on
+// the issues table. Columns missing from a database are emitted as
+// "NULL AS <col>" so the UNION stays uniform across mixed-version schemas
+// (bt-ebzy: this is what lets bt boot when one of the discovered databases
+// was initialized by stock bd before fork-only columns were added).
+func buildIssuesQuery(databases []string, columnsByDB map[string]map[string]bool) (string, error) {
 	if len(databases) == 0 {
 		return "", fmt.Errorf("no databases provided")
 	}
@@ -348,8 +451,9 @@ func buildIssuesQuery(databases []string) (string, error) {
 	var parts []string
 	for _, db := range databases {
 		quoted := backtickQuote(db)
+		cols := selectColumnExprs(IssuesColumnList, columnsByDB[db])
 		part := fmt.Sprintf("SELECT %s, '%s' AS _global_source FROM %s.issues WHERE status != 'tombstone'",
-			IssuesColumns, escapeSQLString(db), quoted)
+			cols, escapeSQLString(db), quoted)
 		parts = append(parts, part)
 	}
 

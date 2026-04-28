@@ -36,8 +36,26 @@ func stripANSI(s string) string {
 func isCSITerm(b byte) bool { return b >= 0x40 && b <= 0x7e }
 
 func findRenderedItemY(rendered, needle string) int {
+	return findRenderedItemYInPane(rendered, needle, 0)
+}
+
+// findRenderedItemYInPane scans a joined two-pane render but bounds the search
+// to the leftmost paneWidth runes of each (ANSI-stripped) line. Pass 0 to
+// search the whole line. Use a positive paneWidth in split-view tests to avoid
+// matching content that bled in from the detail pane on the right (bt-2cvx
+// added ID rendering near the top of the detail pane, which used to never
+// contain "bd-xxx" needles before). Box-drawing and emoji glyphs are
+// multi-byte, so we slice runes — not bytes — to keep the bound aligned with
+// visual columns and avoid cutting characters in half.
+func findRenderedItemYInPane(rendered, needle string, paneWidth int) int {
 	for i, line := range strings.Split(rendered, "\n") {
-		if strings.Contains(stripANSI(line), needle) {
+		stripped := stripANSI(line)
+		if paneWidth > 0 {
+			if runes := []rune(stripped); len(runes) > paneWidth {
+				stripped = string(runes[:paneWidth])
+			}
+		}
+		if strings.Contains(stripped, needle) {
 			return i
 		}
 	}
@@ -115,7 +133,10 @@ func TestMouseClick_FormulaMatchesRender_NarrowPane(t *testing.T) {
 		t.Fatalf("precondition: listInnerWidth=%d, expected narrow (< raw header length)", m.list.Width())
 	}
 	formulaY := m.splitViewListChromeHeight()
-	actualY := findRenderedItemY(m.View().Content, "bd-xaa")
+	// Bound search to the list pane's column range — the detail pane's
+	// identity strip now contains the bead ID near its top (bt-2cvx) and
+	// would otherwise be matched first at narrow split ratios.
+	actualY := findRenderedItemYInPane(m.View().Content, "bd-xaa", m.list.Width())
 	if formulaY != actualY {
 		t.Errorf("chrome height drifted at narrow pane (listW=%d): formula=%d actual=%d",
 			m.list.Width(), formulaY, actualY)
