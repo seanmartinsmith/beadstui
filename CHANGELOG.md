@@ -6,6 +6,27 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-28 (morning) — Global-mode boot resilience: bt-ebzy schema drift + bt-mxz9 Phase 1
+
+**Two related data-layer fixes shipped together. P0 hotfix for the bt-5hl9 regression that broke global mode against mixed-schema Dolt databases (bt-ebzy), plus the first phase of bt-mxz9 — TCP liveness probe in `DiscoverSharedServer` so a stale port file pointing at a dead listener gets a clean error instead of routing into the misleading start-and-retry cascade.**
+
+### What shipped
+
+- **bt-ebzy** (P0 bug, CLOSED, area:data,ux) — Yesterday's bt-5hl9 commit (`7ab7113c`) added `created_by_session, claimed_by_session` to `IssuesColumns`. The first time bt booted from PATH this morning against a workspace with 17 Dolt databases — only some of them on the local fork's schema — the UNION ALL query failed with `Error 1105 (HY000): column "created_by_session" could not be found in any table in scope`, falling back to local-project mode (and failing entirely from `~`). Fix: `IssuesColumns` constant split into `IssuesColumnList []string` (canonical) plus a derived joined string. New `columnsByDatabase()` probes each enumerated database's column set in one `information_schema.columns` query. New `selectColumnExprs()` emits `NULL AS <col>` for absent columns so every UNION segment produces the same column count and order. Both `buildIssuesQuery` and `buildIssuesQueryAsOf` updated to take per-DB column maps. New tests cover mixed-schema substitution (`TestBuildIssuesQuery_MixedSchema`) and the substitution helper (`TestSelectColumnExprs`). Verified live: 17-DB global mode boots clean from `~` (3365 issues, no warnings, exit 0). (`internal/datasource/columns.go`, `internal/datasource/global_dolt.go`, `internal/datasource/global_dolt_test.go`)
+- **bt-mxz9 Phase 1** (P2 bug, IN_PROGRESS, area:cli,data) — Liveness check on `DiscoverSharedServer()`. After reading `~/.beads/shared-server/dolt-server.port`, bt now does a `net.DialTimeout("tcp", ..., 250ms)` against the recorded port. If nothing's listening, returns a clear "no listener responded" error naming the port file path and dial reason — instead of returning success on a stale file and routing the caller into the start-and-retry branch that would print the misleading "Starting shared Dolt server..." cascade. `BT_GLOBAL_DOLT_PORT` env override explicitly skips the probe (user is asserting "this port is live"; useful for forwarded/remote ports). Existing `TestDiscoverSharedServer_PortFile` updated to spin up a real `net.Listen("127.0.0.1:0")` listener with an OS-assigned port. New `TestDiscoverSharedServer_StalePortFile` proves the rejection contract. New `TestDiscoverSharedServer_EnvOverrideSkipsLiveness` proves the override branch bypasses the probe. Satisfies bead AC #2 + partial AC #3; AC #1 + full AC #3 still owe Phase 2 (anchor + `bd -C $anchor dolt start`). (`internal/datasource/global_dolt.go`, `internal/datasource/global_dolt_test.go`)
+
+### Filed
+
+- **bt-6am7** (P2 bug, OPEN, area:cli,ux) — Fallback path leaks legacy JSONL-loader error when both global and local are unavailable (booting from non-workspace dir). Symptom of bt-ebzy's fallback chain plus pre-Dolt loader still wired in. Lower priority because bt-ebzy fix mostly avoids the trigger.
+
+### Notes
+
+- Lesson for future schema-aware changes (folded back into bt-5hl9 as a regression comment): "fork-only column" + "queried in a UNION across all databases" requires explicit testing against a mixed-schema workspace, not just one freshly initialized on the new schema. bt-5hl9's acceptance criterion 5 ("Cross-project queries preserve session context") was technically checked but only against the all-columns-present case.
+- DoltReader (single-DB, local mode) at `internal/datasource/dolt.go:80` has the same shape as the broken global path — it builds a SELECT with `IssuesColumns` directly. Not patched in this fix because (a) the user's local DBs all have the columns (fork-bd has been initializing them since they shipped), and (b) the symptom hasn't been reported. If a stock-bd-initialized local repo is opened by fork-bt, the same `Error 1105` would surface. Worth tracking as a follow-up only if it bites.
+- Boot UX detail noted: `cmd/bt/root.go:215-241`'s else-if branch at line 226 has a misleading comment ("shared server configured but not running") — its trigger is actually "load failed for any reason," which is why a column-not-found error printed "starting shared Dolt server" before the duplicate INFO line during the regression. Not changing in this fix; flagged for later.
+
+---
+
 ## 2026-04-27 (evening) — Phase 2 search UX complete: bt-v7um Part 1 + bt-krwp + bt-ja2y
 
 **Phase 2 of the bangout-arc plan: detail-meta Updated cell, search UX overhaul (Ctrl+S cycle / quoted-exact / badge threshold), and search defaults reform (boot-as-hybrid-when-index-exists + mode-purpose copy). All three closed in one session, four follow-ups filed.**
