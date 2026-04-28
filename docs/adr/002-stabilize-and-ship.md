@@ -48,14 +48,14 @@ Scope:
 - [x] Source filter — persistent `--source <project>[,<project>...]` robot flag scopes output to projects (bt-mhwy.6, 2026-04-21)
 - [x] Pairs v2 — intent-based identity via cross-prefix dep edges (BFS over connected components); `--schema=v2` routing (bt-gkyn, 2026-04-21)
 - [x] Refs v2 — intent-based identity via syntactic sigils (hand-rolled tokenizer + three recognizer modes); default `--schema` flipped to v2 for both pairs and refs (bt-vxu9, 2026-04-21)
-- [ ] Fix envelope bypass in robot-search, robot-diff
-- [ ] Add positional arg warning/support
-- [ ] Document all 18 missing env vars in --robot-docs env
-- [ ] Consolidate duplicate confidence/agent-count flags
+- [x] Fix envelope bypass in robot-search (bt-0cht, closed 2026-04-22). Robot-diff tail tracked separately in bt-tq60 (P2, root-level `--diff-since` log leak).
+- [x] Add positional arg warning/support — resolved by Cobra migration (bt-0cht close)
+- [x] Document missing env vars in `--robot-docs env` — 18 → 37 documented (bt-citd, closed 2026-04-22)
+- [x] Consolidate duplicate confidence/agent-count flags (bt-citd, closed 2026-04-22)
 - [x] Fix --bql filter no-op'd in robot list — was bypassing robotPreRun (bt-111w, 2026-04-25)
 - [ ] **Sub-stream surfaced 2026-04-25: post-Dolt migration of bt-derived data layer.** bt's correlator (`pkg/correlation/`) and sprint loader (`pkg/loader/sprint.go`) were built against the pre-v0.56.1 era of beads (JSONL backups available alongside Dolt). Beads is Dolt-only since v1.0.1. Affected subcommands: `history`, `related`, `causality` (correlator-bound — bt-08sh), `forecast`, `sprint show` (sprint-bound — bt-z5jj). Plus an ADR-flavored decision about canonical `.beads/` vs `.bt/` data-home split (bt-uahv). bt-vhn2 closed as superseded; original "--global routing" framing was wrong. **Extended 2026-04-25 by [ADR-003](003-data-source-architecture-post-dolt.md)** — addresses the SourceType abstraction shape itself. Accepted 2026-04-25 with option (b): collapse to `Dolt | DoltGlobal | JSONLFallback`. Implementation tracked in bt-05zt (Phase 1 = SQLite removal mechanical; Phase 2 = abstraction collapse). Foundation survey: `docs/audit/2026-04-25-data-source-architecture-survey.md`.
-- [ ] Robot mode I/O contract: documented invariants + verify-test sweep (bt-ah53). Locks in stdout=structured-only / stderr=errors-only / exit-code-correct contract; prevents F2/F11-style regressions.
-- [ ] Unknown `bt robot` subcommand prints help to stdout (bt-70cd). Cobra default; consumed by F-CONTRACT verify-test.
+- [ ] Robot mode I/O contract: documented invariants + verify-test sweep (bt-ah53, **bumped P2 → P1 on 2026-04-28** per OOO synthesis — regression net for the just-shipped contract). Locks in stdout=structured-only / stderr=errors-only / exit-code-correct contract; prevents F2/F11-style regressions.
+- [x] Unknown `bt robot` subcommand prints help to stdout (bt-70cd, closed 2026-04-27). Cobra `unknownSubcommandRunE` helper wired onto every parent group; nested groups also fixed.
 - [ ] Standalone `bt robot comments <id> --global` (bt-82w8). Cross-project comment fetch.
 - [ ] Per-subcommand flag manifest in `bt robot schema` (bt-3qfa). Agent introspection.
 - [ ] BQL parse-error hints for `id:` shorthand (bt-llh2). Smaller UX polish.
