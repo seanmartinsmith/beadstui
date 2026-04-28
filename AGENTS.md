@@ -20,6 +20,8 @@ This is the spine document. It tracks:
 
 After completing significant work, update `CHANGELOG.md` and any relevant ADR-002 stream statuses.
 
+> **Note on artifact locations**: bead descriptions filed in the 2026-04-27 cluster reorg reference scratch paths under `.bt/tmp/` (gitignored, project-scoped scratch convention). Durable canonical copies of those artifacts live at `docs/plans/2026-04-27-bt-cluster-reorg-proposal.md` and `docs/audit/2026-04-27-{bt-cluster-map,bd-surface-map,tui-productization-gap,writable-tui-design-surface}.md`. If a bead reference under `.bt/tmp/` is missing on a fresh checkout, read the corresponding `docs/` file with the same trailing name.
+
 ## Core Rules
 
 1. **No file deletion** without explicit written permission. No exceptions.
