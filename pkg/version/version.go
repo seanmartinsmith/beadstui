@@ -14,7 +14,8 @@ var version string
 
 // fallback is the hardcoded version kept in sync with the latest release tag.
 // Used only when both ldflags and debug.ReadBuildInfo fail to provide a version.
-const fallback = "v0.0.1"
+// Bump this constant whenever cutting a new release, alongside the git tag.
+const fallback = "v0.1.0"
 
 // Version is the resolved application version, populated by init().
 var Version string
@@ -28,8 +29,13 @@ func init() {
 		// 2. Module version from "go install ...@vX.Y.Z".
 		Version = versionFromBuildInfo()
 	default:
-		// 3. Hardcoded fallback (always available, manually bumped per release).
-		Version = fallback
+		// 3. Local development build: ldflags missing AND build info shows
+		// "(devel)" / pseudo-version / dirty tree. Append "-dev" so the
+		// updater's compareVersions recognizes this as a dev build and
+		// suppresses the update prompt — even if `fallback` drifts behind
+		// the latest release tag, dev builds won't get false-positive
+		// downgrade prompts.
+		Version = fallback + "-dev"
 	}
 }
 
