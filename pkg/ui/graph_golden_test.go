@@ -102,8 +102,9 @@ func TestGraphView_GoldenASCII(t *testing.T) {
 			stats := analyzer.AnalyzeWithConfig(analysis.FullAnalysisConfig())
 			insights := (&stats).GenerateInsights(len(issues))
 
-			// Force dark mode for deterministic golden file output
-			isDarkBackground = true
+			// Dark mode is the package default (see theme.go); rely on it for
+			// deterministic golden output without writing the global from
+			// parallel subtests (would race under -race).
 			theme := DefaultTheme()
 
 			g := NewGraphModel(issues, &insights, theme)
