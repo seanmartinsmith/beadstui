@@ -40,7 +40,7 @@ const AgentBlurb = `<!-- bt-agent-instructions-v2 -->
 
 ## bt + beads for AI Agents
 
-This project uses [beads](https://github.com/steveyegge/beads) (the ` + "`bd`" + ` CLI) for
+This project uses [beads](https://github.com/gastownhall/beads) (the ` + "`bd`" + ` CLI) for
 issue tracking and [beadstui](https://github.com/seanmartinsmith/beadstui) (the ` + "`bt`" + `
 binary) as the agent-facing analysis surface over those issues.
 

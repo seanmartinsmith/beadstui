@@ -166,7 +166,7 @@ func FindJSONLPathWithWarnings(beadsDir string, warnFunc func(msg string)) (stri
 
 	// Priority order for beads files - matches bd's canonical naming (bv-96):
 	// 1. beads.jsonl (canonical - what bd writes to in stealth/direct mode)
-	// 2. issues.jsonl (legacy from steveyegge/beads pre-commit hook)
+	// 2. issues.jsonl (legacy from upstream beads pre-commit hook)
 	// 3. beads.base.jsonl (fallback, may be present during merge resolution)
 	// 4. First candidate
 	preferredNames := PreferredJSONLNames

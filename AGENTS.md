@@ -105,6 +105,8 @@ go install ./cmd/bt/    # Install binary
 
 Beads-the-tool (`bd`) migrated to Dolt-only storage in v1.0.1 (March 2026). Some bt code and bt beads predate this migration and assume the older JSONL-backed layout. **Before scoping or implementing any bead that touches data layer, correlations, sprints, session columns, or git-history-derived features, verify against current beads architecture rather than assumed prior state.** A systematic audit of all open bt beads against this reality is tracked in **bt-mhcv (P0)**.
 
+> **Upstream URL migration (April 2026)**: the canonical beads repo moved from `github.com/steveyegge/beads` to `github.com/gastownhall/beads` (community stewardship). The old URL still redirects, but new release work, issue trackers, and PRs live at the gastownhall path. When citing upstream, link to `gastownhall/beads`. Historical references in `docs/archive/` retain the original URL by design (period-accurate). Recorded as a project decision; see `bd decision list`.
+
 ### Current beads architecture
 
 - **Storage**: Dolt is the only backend. JSONL export is opt-in for portability, not the system of record. The Dolt server data lives in `.beads/dolt/`.
@@ -178,7 +180,7 @@ Scoping: `--label <name>`, `--as-of <ref>`, `--recipe actionable|high-impact`
 <!-- BEGIN BEADS INTEGRATION v:4 profile:full -->
 ## Issue Tracking
 
-> This project uses [beads](https://github.com/steveyegge/beads) for task tracking.
+> This project uses [beads](https://github.com/gastownhall/beads) for task tracking.
 
 **MANDATORY**: Read these files before creating, updating, or closing any issue:
 1. `.beads/conventions/reference.md` - issue lifecycle, field triggers, close format

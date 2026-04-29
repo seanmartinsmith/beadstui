@@ -87,7 +87,7 @@ func TestIssueType_IsValid(t *testing.T) {
 		{"Chore", TypeChore, true},
 		// Any non-empty type is valid (extensibility for Beads ecosystem)
 		{"CustomType", "custom", true},
-		// Gastown orchestration types (steveyegge/beads)
+		// Gastown orchestration types (upstream beads)
 		{"GastownRole", "role", true},
 		{"GastownAgent", "agent", true},
 		{"GastownMolecule", "molecule", true},
