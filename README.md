@@ -16,7 +16,7 @@ This started as a fork of Jeffrey Emanuel's [beads_viewer](https://github.com/Di
 
 ## Install
 
-Requires a working [beads](https://github.com/gastownhall/beads) installation with Dolt. (If you don't have beads yet, start with the upstream [install guide](https://github.com/gastownhall/beads#install).)
+Requires a working [beads](https://github.com/gastownhall/beads) installation with Dolt. For the full first-time setup walkthrough — prerequisites, init flow, common failures — see [`docs/install.md`](docs/install.md). The short version is below.
 
 ### Pre-built binaries (no Go toolchain needed)
 
