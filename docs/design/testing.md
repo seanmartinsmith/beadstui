@@ -1,6 +1,8 @@
-# Testing Guide for bv Contributors
+# Testing Guide for bt Contributors
 
-This guide explains how to write and run tests for the bv codebase. All contributions should include appropriate tests.
+This guide explains how to write and run tests for the bt codebase. All contributions should include appropriate tests.
+
+> **Module path**: `github.com/seanmartinsmith/beadstui`. Binary: `bt`. The legacy "bv" prefix from the upstream beads_viewer fork has been retired everywhere — see `pkg/agents/`-region naming for the one place where filename "AGENTS.md" remains hard-coded by design.
 
 ## Testing Philosophy
 
@@ -256,7 +258,7 @@ PERF_TEST=1 go test -v ./pkg/analysis/... -run TestE2EStartup
 
 ## E2E Tests
 
-E2E tests verify the complete `bv` binary behavior:
+E2E tests verify the complete `bt` binary behavior:
 
 ### Running
 
@@ -274,8 +276,8 @@ go test ./tests/e2e
 
 ```go
 func TestEndToEnd_Feature(t *testing.T) {
-    // 1. Use the shared bv binary (built once in TestMain)
-    bv := buildBvBinary(t)
+    // 1. Use the shared bt binary (built once in TestMain)
+    bt := buildBtBinary(t)
 
     // 2. Create test environment
     envDir := t.TempDir()
@@ -283,7 +285,7 @@ func TestEndToEnd_Feature(t *testing.T) {
     os.WriteFile(filepath.Join(envDir, ".beads", "beads.jsonl"), []byte(jsonl), 0644)
 
     // 3. Execute command
-    runCmd := exec.Command(bv, "--robot-triage")
+    runCmd := exec.Command(bt, "robot", "triage")
     runCmd.Dir = envDir
     out, err := runCmd.CombinedOutput()
     if err != nil {
@@ -305,7 +307,7 @@ func TestEndToEnd_Feature(t *testing.T) {
 
 ### Robot Command Testing
 
-Test all `--robot-*` flags produce valid JSON:
+Test all `bt robot <subcmd>` invocations produce valid JSON:
 
 ```go
 // Verify JSON output

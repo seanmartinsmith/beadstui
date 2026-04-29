@@ -223,4 +223,4 @@ stats.PageRankAll(func(id string, score float64) bool {
 - `pkg/analysis/graph.go` - Implementation
 - `pkg/analysis/graph_accessor_test.go` - Unit tests
 - `pkg/analysis/graph_accessor_benchmark_test.go` - Benchmarks
-- `docs/accessor_pattern.md` - This documentation
+- `docs/design/accessor_pattern.md` - This documentation

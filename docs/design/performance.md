@@ -1,10 +1,10 @@
 # Performance Tuning Guide
 
-This guide explains `bv`'s performance characteristics, how to diagnose slow startup, and available tuning options.
+This guide explains `bt`'s performance characteristics, how to diagnose slow startup, and available tuning options.
 
 ## Graph Analysis Performance
 
-`bv` computes 9 graph-theoretic metrics on startup. Their computational complexity varies significantly:
+`bt` computes 9 graph-theoretic metrics on startup. Their computational complexity varies significantly:
 
 | Metric | Complexity | 100 nodes | 500 nodes | 1000 nodes | 2000 nodes |
 |--------|-----------|-----------|-----------|------------|------------|
@@ -21,7 +21,7 @@ This guide explains `bv`'s performance characteristics, how to diagnose slow sta
 
 ## Two-Phase Startup Architecture
 
-`bv` uses a two-phase startup to ensure responsive UI:
+`bt` uses a two-phase startup to ensure responsive UI:
 
 ### Phase 1: Instant (<50ms)
 Computes metrics needed for initial render:
@@ -72,7 +72,7 @@ A complete graph with 20 nodes has 19! ≈ 10^17 cycles. This is why cycle detec
 
 ## Size-Based Algorithm Selection
 
-`bv` automatically adjusts algorithm selection based on graph size:
+`bt` automatically adjusts algorithm selection based on graph size:
 
 ### Small Graphs (<100 nodes)
 - All metrics computed with **exact algorithms**
@@ -98,7 +98,7 @@ A complete graph with 20 nodes has 19! ≈ 10^17 cycles. This is why cycle detec
 
 ## Sampling-Based Betweenness Approximation
 
-For large graphs (500+ nodes), `bv` uses a sampling-based approximation of betweenness centrality instead of the exact O(V×E) algorithm:
+For large graphs (500+ nodes), `bt` uses a sampling-based approximation of betweenness centrality instead of the exact O(V×E) algorithm:
 
 ### How It Works
 Instead of computing shortest paths from ALL nodes, we sample k pivot nodes and extrapolate:
@@ -130,77 +130,32 @@ The approximation is sufficient for ranking purposes (identifying which nodes ar
 
 ## CLI Flags for Performance
 
-### Diagnostic Flags
-
-```bash
-# Show detailed startup timing breakdown
-bv --profile-startup
-
-# Machine-readable timing (JSON)
-bv --profile-startup --profile-json
-```
-
-**Sample `--profile-startup` output:**
-```
-Startup Profile for /path/to/.beads/beads.jsonl
-================================================
-Data: 847 issues, 2341 dependencies, density=0.003
-
-Phase 1 (blocking):
-  Build graph:     12ms
-  Degree:           3ms
-  TopoSort:         5ms
-  Total Phase 1:   20ms
-
-Phase 2 (async):
-  PageRank:        45ms
-  Betweenness:    312ms (timeout: NO)
-  Eigenvector:     28ms
-  HITS:            19ms
-  Cycles:          67ms (found: 3)
-  Critical Path:   11ms
-  Total Phase 2:  482ms
-
-Total startup:    502ms
-
-Recommendations:
-  ✓ Startup within acceptable range (<1s)
-  ⚠ Betweenness taking 60% of Phase 2 time
-    Consider: --force-full-analysis only when needed
-```
-
 ### Performance Control Flags
 
 ```bash
-# Force compute ALL metrics regardless of graph size
+# Force compute ALL metrics regardless of graph size, on baseline operations
 # (May be slow for large graphs - use sparingly)
-bv --force-full-analysis
+bt baseline save --force-full-analysis
+bt baseline check --force-full-analysis
 ```
 
 ## Troubleshooting Slow Startup
 
-### Step 1: Profile Startup
+### Step 1: Check Graph Size
 ```bash
-bv --profile-startup
-```
-
-Identify which phase/metric is slow.
-
-### Step 2: Check Graph Size
-```bash
-bv --robot-insights | jq '.stats | {nodeCount, edgeCount, density}'
+bt robot insights | jq '.stats | {nodeCount, edgeCount, density}'
 ```
 
 For large graphs (>500 nodes), some metrics are automatically skipped.
 
-### Step 3: Check for Cycles
+### Step 2: Check for Cycles
 ```bash
-bv --robot-insights | jq '.cycles'
+bt robot insights | jq '.cycles'
 ```
 
 Many cycles can cause slowdowns even with timeouts due to memory pressure.
 
-### Step 4: Try Without Problem Metrics
+### Step 3: Try Without Problem Metrics
 
 If betweenness is the bottleneck:
 - Check if your graph is >500 nodes - it should auto-skip
@@ -209,15 +164,6 @@ If betweenness is the bottleneck:
 If cycles are the bottleneck:
 - Review your dependencies for circular patterns
 - Use `bd` to break cycles: `bd unblock A --from B`
-
-### Step 5: Report Issues
-
-If startup is slow and profiling shows unexpected behavior:
-```bash
-bv --profile-startup --profile-json > profile.json
-```
-
-Include `profile.json` in your bug report.
 
 ## Performance Targets
 
@@ -249,16 +195,17 @@ These targets assume Phase 1 (blocking) startup. Phase 2 completes asynchronousl
 
 ### For AI Agents
 
-1. **Use robot flags for programmatic access**
-   - `--robot-insights` for metrics
-   - `--robot-plan` for actionable items
+1. **Use robot subcommands for programmatic access**
+   - `bt robot insights` for metrics
+   - `bt robot plan` for actionable items
+   - `bt robot triage` for ranked recommendations
 
 2. **Check for timeouts in robot output**
-   - Timeout flags indicate metrics may be incomplete
+   - `status` flags indicate metrics may be incomplete
    - Design agents to handle partial data gracefully
 
 3. **For large repositories**
-   - Use `--robot-plan` for immediate actionable items
+   - Use `bt robot plan` for immediate actionable items
    - Avoid forcing full analysis unless needed
 
 ## Timeout Configuration
