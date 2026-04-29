@@ -20,7 +20,36 @@ This is the spine document. It tracks:
 
 After completing significant work, update `CHANGELOG.md` and any relevant ADR-002 stream statuses.
 
-> **Note on artifact locations**: bead descriptions filed in the 2026-04-27 cluster reorg reference scratch paths under `.bt/tmp/` (gitignored, project-scoped scratch convention). Durable canonical copies of those artifacts live at `docs/plans/2026-04-27-bt-cluster-reorg-proposal.md` and `docs/audits/2026-04-27-{bt-cluster-map,bd-surface-map,tui-productization-gap,writable-tui-design-surface}.md`. If a bead reference under `.bt/tmp/` is missing on a fresh checkout, read the corresponding `docs/` file with the same trailing name.
+> **Note on artifact locations**: bead descriptions filed in the 2026-04-27 cluster reorg reference scratch paths under `.beads/tmp/` (gitignored, beads-context scratch convention). Durable canonical copies of those artifacts live at `docs/plans/2026-04-27-bt-cluster-reorg-proposal.md` and `docs/audits/2026-04-27-{bt-cluster-map,bd-surface-map,tui-productization-gap,writable-tui-design-surface}.md`. If a bead reference under `.beads/tmp/` is missing on a fresh checkout, read the corresponding `docs/` file with the same trailing name.
+
+## Docs Structure Conventions
+
+Project-canonical paths for documentation. Override agent/skill defaults when they conflict.
+
+| What | Where | Notes |
+|---|---|---|
+| ADRs | `docs/adr/` | Permanent decision records, never archive |
+| Audit reports | `docs/audits/<YYYY-MM-DD>-<slug>/` or `docs/audits/<topic>.md` | Active references; use plural |
+| Plans | `docs/plans/` | All plan documents regardless of source plugin (no nesting under `docs/superpowers/`) |
+| Specs | `docs/specs/` | Stable artifact descriptions; evolve in place |
+| Designs / engineering reference | `docs/design/` | Pattern explanations, perf tuning, testing guides, evergreen technical docs |
+| Brainstorms (published) | `docs/brainstorms/` | Canonical brainstorm artifacts |
+| Brainstorms (active scratch) | `.superpowers/brainstorm/` (gitignored) | Working state; publish to `docs/brainstorms/` when ready |
+| Archived plans | `docs/archive/plans/` | Executed plans no longer referenced by ADRs or active beads |
+| Archived audits | `docs/archive/audit/` | Completed audit work no longer in active reference set |
+| General archive | `docs/archive/` | Loose historical artifacts (UPGRADE_LOG, one-off audit reports) |
+| Screenshots / assets | `docs/screenshots/` | Image assets for README |
+
+## Scratch Conventions
+
+| What | Where | Tracked? |
+|---|---|---|
+| Beads-context scratch (descriptions, close reasons, comments, audit findings) | `.beads/tmp/` | gitignored |
+| General temp / non-beads scratch | `_tmp/` | gitignored |
+| bt runtime caches (semantic index, baselines) | `.bt/` | partially gitignored |
+| Per-agent worktrees | `.claude/worktrees/` | gitignored |
+
+Distinction: `.beads/tmp/` is for content that will become part of bead state (drafts that get loaded with `--body-file`, comment text via `bd comments add -f`, audit findings worth preserving). `_tmp/` is everything else - image conversions, debug dumps, third-party clones for reference (e.g., `_tmp/perles/` is a competitor TUI clone for analysis).
 
 ## Core Rules
 
