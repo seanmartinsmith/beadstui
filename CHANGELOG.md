@@ -1205,7 +1205,7 @@ Tests added for all fixes. Full suite passes (27 packages, 0 failures).
 
 **Global hub design verification**: Verified 5 assumptions from the beads session's design doc against actual codebase. Updated open questions with findings. Key correction: poll system needs real refactoring, not just a query swap.
 
-**Global hub data layer plan**: `docs/plans/2026-04-03-feat-global-hub-data-layer-plan.md` - 4-phase implementation plan for GlobalDoltReader. Batch N+1 queries into 3 UNION ALL, single aggregated MAX for poll, --global flag, workspace UI reuse.
+**Global hub data layer plan**: `docs/archive/plans/2026-04-03-feat-global-hub-data-layer-plan.md` - 4-phase implementation plan for GlobalDoltReader. Batch N+1 queries into 3 UNION ALL, single aggregated MAX for poll, --global flag, workspace UI reuse.
 
 **Beads closed**: bt-bjk4 (BQL bugs), bt-28g8 (keybinding audit), bt-xft1 (data separation)
 **ADR-002 updated**: Stream 2 bugs all checked off, Stream 1 robot-bql checked off
@@ -1273,7 +1273,7 @@ No code changes. Post-takeover roadmap brainstorm + codebase audit design.
 - Key decision: CRUD via bd shell-out (no beads fork needed)
 - Designed 8-team parallel codebase audit (~190k LOC)
 - Created 8 dogfood beads from TUI usage
-- Docs: `docs/brainstorms/2026-03-12-post-takeover-roadmap.md`, `docs/plans/2026-03-12-codebase-audit-plan.md`
+- Docs: `docs/brainstorms/2026-03-12-post-takeover-roadmap.md`, `docs/archive/plans/2026-03-12-codebase-audit-plan.md`
 
 ## 2026-03-11b - Dolt freshness + responsive help
 

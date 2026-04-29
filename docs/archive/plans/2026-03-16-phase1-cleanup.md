@@ -8,7 +8,7 @@
 
 **Tech Stack:** Go 1.25, no new dependencies (only removing dead code)
 
-**Parent doc:** `docs/plans/2026-03-16-post-audit-roadmap.md` (Phase 1)
+**Parent doc:** `docs/archive/plans/2026-03-16-post-audit-roadmap.md` (Phase 1)
 **Audit reports:** `docs/audit/team-*.md` (source of truth for line numbers and justifications)
 
 ---

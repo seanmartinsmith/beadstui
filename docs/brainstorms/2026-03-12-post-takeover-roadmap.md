@@ -155,7 +155,7 @@ Use everything available:
 
 ## Next Steps
 
-1. ~~Design the audit process~~ - DONE: docs/plans/2026-03-12-codebase-audit-plan.md
+1. ~~Design the audit process~~ - DONE: docs/archive/plans/2026-03-12-codebase-audit-plan.md
 2. Resolve remaining open questions (above)
 3. Execute Phase 1 audit (Session A: scan, Session B: synthesis)
 4. Create ADR-002 skeleton (during Session B)

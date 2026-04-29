@@ -167,7 +167,7 @@ This ADR is the spine. Each work stream spawns its own plan (linked above). With
 
 | 2026-03-11 (session 11) | **Dogfood polish session**. Added absolute timestamps (FormatTimeAbs) to details pane meta table and expanded card. Priority shows P0-P4 text next to icon. Status bar "Reloaded N issues" auto-clears after 3s (statusClearMsg + seq counter). Help overlay: centered titles (CenterTitle PanelOpts), auto-sized panels to content width, restructured from 3x3 to 4x2 grid, separated Status Indicators to own panel. Board: auto-hide empty columns on card expand. Shortcut audit found 22 undocumented keys (backtick=tutorial, F1-F4, 0/$, n/N, v, E, V, U). Created beads: bt-79eg (test audit), bt-2bns (divider centering), bt-lgbz (card expand+empty cols), bt-aog1 (help narrow terminals), bt-xavk P1 (help system redesign per Nielsen heuristics), bt-3ynd (Dolt status bar redesign). Researched Dolt freshness system - STALE indicator conflates "no changes" with "broken". |
 | 2026-03-11 (session 12) | **bt-3ynd**: Fixed false STALE indicator - freshness now tracks last successful Dolt poll (DoltVerifiedMsg) instead of snapshot build time. Poll confirms data is current even when unchanged, preventing false STALE after 2min. Added doltConnected state tracking. **bt-aog1**: Responsive help overlay - 4x2 grid for wide (>=140), 2x4 for medium (>=80), single column for narrow. Status indicators panel auto-hides when terminal too short. **bt-xavk**: Created design plan (docs/plans/help-system-redesign.md) - 3-layer progressive disclosure system. |
-| 2026-03-12 (session 13) | **Brainstorm + audit planning session** (no code changes). Investigated Dolt keepalive mechanism - confirmed bt's 5s poll prevents idle timeout. Created 8 dogfood beads: bt-tebr (P2, auto-start Dolt), bt-ztrz (P3, manual refresh keybind), bt-pfic (P3, CLI ergonomics audit), bt-ks0w (P2, mouse click support), bt-spzz (P2, smarter reload status), bt-thpq (P3, Dolt changelog/history), bt-b8gl (P2, status bar contrast), bt-46fa (P3, column header redesign), bt-95mp (P2, alerts panel visual refresh). Added bd subcommand permissions to settings.json. **Post-takeover roadmap brainstorm**: defined 4 phases (Audit -> Stabilize -> Polish -> Interactive). Key decisions: CRUD via bd shell-out (no beads fork), domain-based audit with 8 parallel teams, facts-from-agents/taste-from-human rubric. **Codebase audit plan** designed: 8 teams covering ~190k LOC, structured report template, 2-session execution (scan + synthesis). Codebase is ~88k production Go + ~102k test lines across 431 files. ADR-002 to be created during synthesis session. Docs: `docs/brainstorms/2026-03-12-post-takeover-roadmap.md`, `docs/plans/2026-03-12-codebase-audit-plan.md`. |
+| 2026-03-12 (session 13) | **Brainstorm + audit planning session** (no code changes). Investigated Dolt keepalive mechanism - confirmed bt's 5s poll prevents idle timeout. Created 8 dogfood beads: bt-tebr (P2, auto-start Dolt), bt-ztrz (P3, manual refresh keybind), bt-pfic (P3, CLI ergonomics audit), bt-ks0w (P2, mouse click support), bt-spzz (P2, smarter reload status), bt-thpq (P3, Dolt changelog/history), bt-b8gl (P2, status bar contrast), bt-46fa (P3, column header redesign), bt-95mp (P2, alerts panel visual refresh). Added bd subcommand permissions to settings.json. **Post-takeover roadmap brainstorm**: defined 4 phases (Audit -> Stabilize -> Polish -> Interactive). Key decisions: CRUD via bd shell-out (no beads fork), domain-based audit with 8 parallel teams, facts-from-agents/taste-from-human rubric. **Codebase audit plan** designed: 8 teams covering ~190k LOC, structured report template, 2-session execution (scan + synthesis). Codebase is ~88k production Go + ~102k test lines across 431 files. ADR-002 to be created during synthesis session. Docs: `docs/brainstorms/2026-03-12-post-takeover-roadmap.md`, `docs/archive/plans/2026-03-12-codebase-audit-plan.md`. |
 
 ## Review Criteria (Next Session)
 
@@ -224,7 +224,7 @@ Before moving to new feature work, a fresh session should review this ADR's exec
 - **LOC delta**: -123 net (179 added, 302 removed)
 
 ### 2026-03-17 - Session 18: Phase 2 monolith splitting (2 parallel tasks)
-- **Executed**: `docs/plans/2026-03-17-phase2-monolith-splitting.md` - 2 parallel agents + 1 follow-up
+- **Executed**: Phase 2 monolith-splitting plan (working artifact, not preserved as a standalone file) - 2 parallel agents + 1 follow-up
 - **model.go split** (8,332 -> 3,482 LOC): 8 new files + semantic_search.go additions
   - model_keys.go (1,009), model_view.go (1,081), model_footer.go (688), model_filter.go (905)
   - model_modes.go (271), model_export.go (280), model_editor.go (402), model_alerts.go (194)
@@ -240,7 +240,7 @@ Before moving to new feature work, a fresh session should review this ADR's exec
 - **Next**: Phase 3 investigation items (duplicate funcs, lock migration, robot reload bug)
 
 ### 2026-03-16 - Session 17: Phase 1 mechanical cleanup (8 parallel tasks)
-- **Executed**: `docs/plans/2026-03-16-phase1-cleanup.md` - 8 parallel agents, conflict-free file partitioning
+- **Executed**: `docs/archive/plans/2026-03-16-phase1-cleanup.md` - 8 parallel agents, conflict-free file partitioning
 - **Dead code deleted** (~1.5k+ LOC Go, ~7.5k LOC Rust):
   - `internal/datasource/watch.go` (355 LOC) + `diff.go` (269 LOC) - SourceWatcher/AutoRefreshManager/SourceDiff never instantiated
   - 8 deprecated functions from `pkg/analysis/` (computeCounts, buildBlockersToClear, ComputeTriageScores variants, ComputeImpactScore, TopImpactScores, ParallelGain)
@@ -264,7 +264,7 @@ Before moving to new feature work, a fresh session should review this ADR's exec
 - **Verification**: go build + go vet + go test ./... all pass (0 failures, 26 packages)
 
 ### 2026-03-16 - Session 16: Codebase audit scan (Session A)
-- **Executed**: 9-team parallel codebase audit per `docs/plans/2026-03-16-codebase-audit-plan-v2.md`
+- **Executed**: 9-team parallel codebase audit per `docs/archive/plans/2026-03-16-codebase-audit-plan-v2.md`
 - **Reports**: 10 team files now in `docs/archive/audit/` (teams 1a, 1b, 2, 3, 4, 5, 6, 7, 8a, 8b)
 - **Architecture map**: `docs/audits/architecture-map.md` - cross-domain dependency graph + findings synthesis
 - **Scale scanned**: ~88k production Go + ~102k test Go + ~7.5k Rust (WASM) + build/CI configs

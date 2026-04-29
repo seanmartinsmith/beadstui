@@ -3,7 +3,7 @@
 **Context**: Phases A-C are complete. The beads prefix is `bt-`, `beads.role=maintainer` is set, and the folder has been renamed from `beads_viewer` to `bt`. This doc covers Phases D+E.
 
 **Orientation files**:
-- `docs/plans/2026-03-05-beads-migration-design.md` - approved design
+- `docs/archive/plans/2026-03-05-beads-migration-design.md` - approved design
 - `docs/adr/001-btui-fork-takeover.md` - project spine
 - `~/.claude/projects/C--Users-sms-System-tools-bt/memory/MEMORY.md` - auto-memory (new path)
 

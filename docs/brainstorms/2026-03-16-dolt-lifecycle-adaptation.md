@@ -95,7 +95,7 @@ Priority order (matching beads upstream):
 
 ## What This Doesn't Cover
 
-- Codebase audit (planned separately - 8 domain teams, see docs/plans/2026-03-12-codebase-audit-plan.md)
+- Codebase audit (planned separately - 8 domain teams, see docs/archive/plans/2026-03-12-codebase-audit-plan.md)
 - Specific UI changes for interactive editing (needs its own brainstorm)
 - Claude Code tasks viewer integration (parked for later)
 - Release strategy / when to cut v0.0.1

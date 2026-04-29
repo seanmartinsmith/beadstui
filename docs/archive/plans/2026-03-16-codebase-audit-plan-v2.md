@@ -2,7 +2,7 @@
 
 **Date**: 2026-03-16 (Session 15)
 **Parent**: docs/brainstorms/2026-03-12-post-takeover-roadmap.md
-**Previous version**: docs/plans/2026-03-12-codebase-audit-plan.md (v1, session 13)
+**Previous version**: docs/archive/plans/2026-03-12-codebase-audit-plan.md (v1, session 13)
 **Executes in**: Session A (scan) + Session B (synthesis)
 
 > **Why v2?** Sessions 14-15 rewrote the Dolt lifecycle and fixed all 39 Windows

@@ -25,7 +25,7 @@ Output artifacts:
 ### Pre-flight
 
 Before launching teams, the orchestrator should:
-1. Read this audit plan (`docs/plans/2026-03-12-codebase-audit-plan.md`) for full context
+1. Read this audit plan (`docs/archive/plans/2026-03-12-codebase-audit-plan.md`) for full context
 2. Read the brainstorm (`docs/brainstorms/2026-03-12-post-takeover-roadmap.md`) for goals/decisions
 3. Read `AGENTS.md` for project conventions (auto-imported from root `CLAUDE.md`)
 4. Run `go build ./cmd/bt/` to confirm the build is clean

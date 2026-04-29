@@ -2,7 +2,7 @@
 date: 2026-03-26
 topic: bd-bt-audit-supplement
 source: beads repo session - cross-project analysis of bd<>bt relationship
-parent: docs/plans/2026-03-16-codebase-audit-plan-v2.md
+parent: docs/archive/plans/2026-03-16-codebase-audit-plan-v2.md
 related:
   - ~/System/tools/bt/docs/brainstorms/2026-03-26-bd-bt-compatibility-surface.md
   - ~/System/tools/beads/docs/brainstorms/2026-03-26-global-beads-exploration.md

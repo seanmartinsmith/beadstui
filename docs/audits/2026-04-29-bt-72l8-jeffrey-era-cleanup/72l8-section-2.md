@@ -47,11 +47,11 @@ Severity legend: `informational` | `needs-fix` | `leave-as-historical` | `intent
 - `docs/brainstorms/2026-03-12-post-takeover-roadmap.md:46,129` — brainstorm doc; references "beads_viewer issues" and "Jeffrey's GitHub issues". **leave-as-historical** — brainstorming archive, not user-facing.
 - `docs/brainstorms/2026-03-16-dolt-lifecycle-adaptation.md:16` — narrative scaffold reference. **leave-as-historical**.
 - `docs/brainstorms/2026-04-09-product-vision-brainstorm.md:103` — brainstorm narrative. **leave-as-historical**.
-- `docs/plans/2026-03-05-beads-migration-design.md:8,11,17,18,65` — explicit migration-plan doc that *names* the rename. **leave-as-historical** — the plan describes the rename event itself; rewriting would erase the plan's own context.
-- `docs/plans/2026-03-07-beads-migration-session2.md:3,32` — same migration plan, session 2. **leave-as-historical**.
-- `docs/plans/2026-03-12-codebase-audit-plan.md:180` — references stale-bv-naming as a checklist item. **leave-as-historical**.
-- `docs/plans/2026-03-26-bd-bt-audit-supplement.md:128-129` — narrative "Most were built by Jeffrey Emmanuel for beads_viewer". **leave-as-historical** — supplemental audit analysis. (Note: typo `Emmanuel` vs `Emanuel`.)
-- `docs/plans/2026-04-09-refactor-charm-v2-cobra-migration-plan.md:35,53` — "inherited a monolithic architecture from beads_viewer", "Jeffrey's design decisions". **leave-as-historical** — refactor plan needs the historical framing to motivate the work.
+- `docs/archive/plans/2026-03-05-beads-migration-design.md:8,11,17,18,65` — explicit migration-plan doc that *names* the rename. **leave-as-historical** — the plan describes the rename event itself; rewriting would erase the plan's own context.
+- `docs/archive/plans/2026-03-07-beads-migration-session2.md:3,32` — same migration plan, session 2. **leave-as-historical**.
+- `docs/archive/plans/2026-03-12-codebase-audit-plan.md:180` — references stale-bv-naming as a checklist item. **leave-as-historical**.
+- `docs/archive/plans/2026-03-26-bd-bt-audit-supplement.md:128-129` — narrative "Most were built by Jeffrey Emmanuel for beads_viewer". **leave-as-historical** — supplemental audit analysis. (Note: typo `Emmanuel` vs `Emanuel`.)
+- `docs/archive/plans/2026-04-09-refactor-charm-v2-cobra-migration-plan.md:35,53` — "inherited a monolithic architecture from beads_viewer", "Jeffrey's design decisions". **leave-as-historical** — refactor plan needs the historical framing to motivate the work.
 - `docs/plans/2026-04-27-bt-cluster-reorg-proposal.md:127`, `docs/plans/2026-04-27-bangout-arc.md:84` — both reference bt-72l8 itself ("Jeffrey-era leftovers epic"). **leave-as-historical** — meta references to this audit.
 - `docs/audit/2026-04-27-bt-cluster-map.md:42` — meta reference to this audit. **leave-as-historical**.
 - `docs/audit/triage/infra.md:10` — meta reference to this audit. **leave-as-historical**.
