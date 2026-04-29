@@ -155,7 +155,7 @@ func TestMultiTokenFilter_SingleTokenPassthrough(t *testing.T) {
 		}
 		return []list.Rank{{Index: 0, MatchedIndexes: []int{0, 1, 2, 3, 4, 5, 6}}}
 	}
-	f := multiTokenFilter(inner)
+	f := multiTokenFilter(inner, 0)
 	ranks := f("bt-z5jj", targets)
 	if len(ranks) != 1 || ranks[0].Index != 0 {
 		t.Fatalf("expected single rank for index 0, got %+v", ranks)
@@ -170,7 +170,7 @@ func TestMultiTokenFilter_TwoIDsUnion(t *testing.T) {
 		"bt-uahv data layout split bead",
 		"bt-other unrelated",
 	}
-	f := multiTokenFilter(idPriorityFilter(stubRanker))
+	f := multiTokenFilter(idPriorityFilter(stubRanker), 0)
 	ranks := f("z5jj, uahv", targets)
 
 	got := make(map[int]bool)
@@ -186,7 +186,7 @@ func TestMultiTokenFilter_TwoIDsUnion(t *testing.T) {
 // "z5jj,uahv" (no space) identically to "z5jj, uahv".
 func TestMultiTokenFilter_NoWhitespaceAfterComma(t *testing.T) {
 	targets := []string{"bt-z5jj a", "bt-uahv b"}
-	f := multiTokenFilter(idPriorityFilter(stubRanker))
+	f := multiTokenFilter(idPriorityFilter(stubRanker), 0)
 	ranks := f("z5jj,uahv", targets)
 	if len(ranks) < 2 {
 		t.Fatalf("expected at least 2 results, got %+v", ranks)
@@ -205,7 +205,7 @@ func TestMultiTokenFilter_EmptyTokensSkipped(t *testing.T) {
 		}
 		return nil
 	}
-	f := multiTokenFilter(inner)
+	f := multiTokenFilter(inner, 0)
 	_ = f("z5jj,,uahv,", targets)
 	if calls != 2 {
 		t.Fatalf("expected inner called exactly twice (z5jj, uahv), got %d", calls)
@@ -220,7 +220,7 @@ func TestMultiTokenFilter_DedupesByIndex(t *testing.T) {
 		// Both tokens claim to match index 0.
 		return []list.Rank{{Index: 0, MatchedIndexes: []int{0}}}
 	}
-	f := multiTokenFilter(inner)
+	f := multiTokenFilter(inner, 0)
 	ranks := f("foo, bar", targets)
 	if len(ranks) != 1 {
 		t.Fatalf("expected dedup to 1 rank, got %d: %+v", len(ranks), ranks)
@@ -241,7 +241,7 @@ func TestMultiTokenFilter_MergesMatchedIndexes(t *testing.T) {
 		}
 		return nil
 	}
-	f := multiTokenFilter(inner)
+	f := multiTokenFilter(inner, 0)
 	ranks := f("z5jj, uahv", targets)
 	if len(ranks) != 1 {
 		t.Fatalf("expected 1 rank, got %d", len(ranks))
@@ -263,10 +263,101 @@ func TestMultiTokenFilter_MergesMatchedIndexes(t *testing.T) {
 func TestMultiTokenFilter_NoMatch(t *testing.T) {
 	targets := []string{"bt-aaa one", "bt-bbb two"}
 	inner := func(_ string, _ []string) []list.Rank { return nil }
-	f := multiTokenFilter(inner)
+	f := multiTokenFilter(inner, 0)
 	ranks := f("zzz, qqq", targets)
 	if len(ranks) != 0 {
 		t.Fatalf("expected no matches, got %+v", ranks)
+	}
+}
+
+// TestMultiTokenFilter_SingleTokenIgnoresCap verifies that a single-token
+// query bypasses the per-token cap entirely — the cap exists to bound
+// per-token noise in multi-token unions, and single-token has no union to
+// defend against (bt-da4f).
+func TestMultiTokenFilter_SingleTokenIgnoresCap(t *testing.T) {
+	// Inner returns 50 ranks for any non-empty term.
+	targets := make([]string, 50)
+	for i := range targets {
+		targets[i] = "target"
+	}
+	inner := func(_ string, _ []string) []list.Rank {
+		ranks := make([]list.Rank, 50)
+		for i := range ranks {
+			ranks[i] = list.Rank{Index: i}
+		}
+		return ranks
+	}
+	// Cap of 25 is set; single-token "foo" should still return all 50.
+	f := multiTokenFilter(inner, 25)
+	ranks := f("foo", targets)
+	if len(ranks) != 50 {
+		t.Fatalf("single-token query must bypass cap; expected 50, got %d", len(ranks))
+	}
+}
+
+// TestMultiTokenFilter_MultiTokenAppliesCap verifies that multi-token queries
+// cap each per-token result set before union (bt-krwp's noise reduction —
+// preserved by bt-da4f).
+func TestMultiTokenFilter_MultiTokenAppliesCap(t *testing.T) {
+	// Inner returns 50 distinct ranks for each token. Token "a" returns
+	// indexes 0-49; token "b" returns indexes 100-149. With cap=25, union
+	// should be 25 (from "a") + 25 (from "b") = 50, not 100.
+	targets := make([]string, 200)
+	for i := range targets {
+		targets[i] = "target"
+	}
+	inner := func(term string, _ []string) []list.Rank {
+		base := 0
+		if term == "b" {
+			base = 100
+		}
+		ranks := make([]list.Rank, 50)
+		for i := range ranks {
+			ranks[i] = list.Rank{Index: base + i}
+		}
+		return ranks
+	}
+	f := multiTokenFilter(inner, 25)
+	ranks := f("a, b", targets)
+	if len(ranks) != 50 {
+		t.Fatalf("multi-token must cap each token at 25, expected union=50, got %d", len(ranks))
+	}
+	// First 25 should be from token "a" (indexes 0-24), next 25 from "b" (100-124).
+	for i := 0; i < 25; i++ {
+		if ranks[i].Index != i {
+			t.Fatalf("expected ranks[%d].Index=%d (from token a), got %d", i, i, ranks[i].Index)
+		}
+	}
+	for i := 25; i < 50; i++ {
+		want := 100 + (i - 25)
+		if ranks[i].Index != want {
+			t.Fatalf("expected ranks[%d].Index=%d (from token b), got %d", i, want, ranks[i].Index)
+		}
+	}
+}
+
+// TestMultiTokenFilter_ZeroCapDisables verifies perTokenCap=0 disables capping
+// even for multi-token queries (used by fuzzy mode).
+func TestMultiTokenFilter_ZeroCapDisables(t *testing.T) {
+	targets := make([]string, 200)
+	for i := range targets {
+		targets[i] = "target"
+	}
+	inner := func(term string, _ []string) []list.Rank {
+		base := 0
+		if term == "b" {
+			base = 100
+		}
+		ranks := make([]list.Rank, 50)
+		for i := range ranks {
+			ranks[i] = list.Rank{Index: base + i}
+		}
+		return ranks
+	}
+	f := multiTokenFilter(inner, 0)
+	ranks := f("a, b", targets)
+	if len(ranks) != 100 {
+		t.Fatalf("perTokenCap=0 must disable cap; expected 100, got %d", len(ranks))
 	}
 }
 

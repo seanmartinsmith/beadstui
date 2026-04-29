@@ -127,14 +127,20 @@ func looksLikeIDQuery(term string) bool {
 // a term" in the underlying ranker. A term with no comma passes through to
 // the inner filter unchanged, so single-token search is identical to today.
 //
+// perTokenCap bounds each per-token result set before union, used in
+// semantic/hybrid mode to cap graph-weight-pulled noise (bt-krwp). Cap applies
+// only when there are multiple tokens (single-token queries do not union, so
+// no per-token noise floor exists to defend against — bt-da4f). Pass 0 to
+// disable the cap entirely (fuzzy mode).
+//
 // Examples:
 //   "z5jj, uahv" → both bt-z5jj and bt-uahv populate the list
-//   "bt-z5jj"    → identical to inner(term, targets)
+//   "bt-z5jj"    → identical to inner(term, targets), cap ignored
 //   "z5jj,,uahv" → empty middle token is silently skipped
 //
 // Wrap order: this should sit OUTSIDE idPriorityFilter so per-token ID-priority
 // bucket promotion still applies to each token independently.
-func multiTokenFilter(inner list.FilterFunc) list.FilterFunc {
+func multiTokenFilter(inner list.FilterFunc, perTokenCap int) list.FilterFunc {
 	return func(term string, targets []string) []list.Rank {
 		tokens := splitCommaTokens(term)
 		if len(tokens) <= 1 {
@@ -144,7 +150,11 @@ func multiTokenFilter(inner list.FilterFunc) list.FilterFunc {
 		result := make([]list.Rank, 0)
 		seen := make(map[int]int)
 		for _, tok := range tokens {
-			for _, r := range inner(tok, targets) {
+			ranks := inner(tok, targets)
+			if perTokenCap > 0 && len(ranks) > perTokenCap {
+				ranks = ranks[:perTokenCap]
+			}
+			for _, r := range ranks {
 				if pos, exists := seen[r.Index]; exists {
 					result[pos].MatchedIndexes = mergeMatchedIndexes(
 						result[pos].MatchedIndexes, r.MatchedIndexes)
@@ -277,23 +287,10 @@ func extractQuotedPhrases(term string) []string {
 	return phrases
 }
 
-// capPerCallFilter wraps a FilterFunc so each call returns at most n results.
-// Used in semantic/hybrid mode to cap per-token result sets before the
-// multiTokenFilter union, keeping multi-token queries tractable and reducing
-// near-zero-relevance noise from graph-weight pull-in (bt-krwp). n <= 0
-// disables the cap.
-func capPerCallFilter(inner list.FilterFunc, n int) list.FilterFunc {
-	return func(term string, targets []string) []list.Rank {
-		ranks := inner(term, targets)
-		if n > 0 && len(ranks) > n {
-			return ranks[:n]
-		}
-		return ranks
-	}
-}
-
 // SemanticPerTokenCap is the per-token result cap applied in semantic/hybrid
-// mode by semanticSearchFilter. Tuned to match the bt-krwp acceptance.
+// mode by semanticSearchFilter, passed to multiTokenFilter. Cap takes effect
+// only for multi-token queries (bt-da4f). Tuned to match the bt-krwp
+// acceptance.
 const SemanticPerTokenCap = 25
 
 // searchMode identifies the active TUI search ranker. The Ctrl+S cycle steps
@@ -325,18 +322,20 @@ func nextSearchMode(cur searchMode) searchMode {
 }
 
 // fuzzySearchFilter returns the canonical fuzzy-mode filter composition.
-// Outermost: comma-OR (multiTokenFilter); then quoted-exact bypass; then
-// ID-priority bucket promotion; innermost: list.DefaultFilter (sahilm fuzzy).
+// Outermost: comma-OR (multiTokenFilter, no cap); then quoted-exact bypass;
+// then ID-priority bucket promotion; innermost: list.DefaultFilter (sahilm
+// fuzzy).
 func fuzzySearchFilter() list.FilterFunc {
-	return multiTokenFilter(quotedExactFilter(idPriorityFilter(list.DefaultFilter)))
+	return multiTokenFilter(quotedExactFilter(idPriorityFilter(list.DefaultFilter)), 0)
 }
 
 // semanticSearchFilter returns the canonical semantic/hybrid-mode composition.
-// Same shape as fuzzy but with a per-token cap inside (semantic Filter pulls
-// large candidate sets) and the inner ranker is SemanticSearch.Filter, which
-// internally honors hybrid config set via SetHybridConfig.
+// Same shape as fuzzy but multiTokenFilter applies SemanticPerTokenCap to each
+// token's results before union (multi-token only — single-token bypasses, see
+// bt-da4f). The inner ranker is SemanticSearch.Filter, which honors hybrid
+// config set via SetHybridConfig.
 func semanticSearchFilter(s *SemanticSearch) list.FilterFunc {
-	return multiTokenFilter(quotedExactFilter(capPerCallFilter(idPriorityFilter(s.Filter), SemanticPerTokenCap)))
+	return multiTokenFilter(quotedExactFilter(idPriorityFilter(s.Filter)), SemanticPerTokenCap)
 }
 
 // extractIDToken returns the first whitespace-separated token of target,
