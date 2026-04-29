@@ -7,7 +7,7 @@ decision: option-b-collapse
 decision-makers: [seanmartinsmith]
 parent: 002-stabilize-and-ship.md
 related-beads: [bt-mhcv, bt-08sh, bt-z5jj, bt-uahv, bt-3ltq, bt-05zt]
-foundation: docs/audits/2026-04-25-data-source-architecture-survey.md
+foundation: docs/audits/architecture/2026-04-25-data-source-architecture-survey.md
 ---
 
 # ADR-003: Data Source Architecture Post-Dolt-Migration
@@ -36,7 +36,7 @@ That world ended at **beads v0.56.1** (SQLite removal) and was finalized at **v1
 
 2. **The abstraction's value proposition has collapsed.** Smart multi-source discovery+priority+selection made sense when there were genuinely multiple co-equal backends to choose between. With Dolt as the only system of record and JSONL as opt-in legacy, we're really just answering "Dolt available? use it. Else legacy file present? use it. Else error." That's not a multi-source problem anymore.
 
-See `docs/audits/2026-04-25-data-source-architecture-survey.md` for the full inventory.
+See `docs/audits/architecture/2026-04-25-data-source-architecture-survey.md` for the full inventory.
 
 ## Decision options
 
@@ -164,7 +164,7 @@ If rejected / deferred indefinitely:
 
 ## References
 
-- `docs/audits/2026-04-25-data-source-architecture-survey.md` — the foundation
+- `docs/audits/architecture/2026-04-25-data-source-architecture-survey.md` — the foundation
 - ADR-002 sub-stream "post-Dolt migration of bt-derived data layer" (line 56)
 - AGENTS.md "Beads architecture awareness" section (verified 2026-04-25)
 - bt session 190df5ce (2026-04-25) — discovery context

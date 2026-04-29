@@ -3,7 +3,7 @@ title: "feat: Beads feature surfacing in bt TUI"
 type: feat
 status: active
 date: 2026-04-13
-origin: docs/audits/bt-mol-fk82-synthesis.md
+origin: docs/audits/gaps/2026-04-13-bt-mol-fk82-synthesis.md
 parent_issue: bt-53du
 ---
 
@@ -19,7 +19,7 @@ Read these files before implementing:
 
 | File | Purpose |
 |------|---------|
-| `docs/audits/bt-mol-fk82-synthesis.md` | Research findings and wave definitions |
+| `docs/audits/gaps/2026-04-13-bt-mol-fk82-synthesis.md` | Research findings and wave definitions |
 | `internal/datasource/columns.go:9-14` | IssuesColumns constant (single extension point) |
 | `internal/datasource/dolt.go:64-176` | LoadIssuesFiltered scan pattern |
 | `internal/datasource/global_dolt.go:420-502` | scanGlobalIssue (must match dolt.go) |
@@ -289,7 +289,7 @@ After completing Sessions 0-4, update ADR-002 with Stream 8 status.
 
 ### Origin
 - **Research-audit molecule**: bt-mol-qvjm (completed 2026-04-13)
-- **Synthesis doc**: [docs/audits/bt-mol-fk82-synthesis.md](../audits/bt-mol-fk82-synthesis.md) - wave definitions, dependency graph, implementation estimates
+- **Synthesis doc**: [docs/audits/gaps/2026-04-13-bt-mol-fk82-synthesis.md](../../audits/gaps/2026-04-13-bt-mol-fk82-synthesis.md) - wave definitions, dependency graph, implementation estimates
 - **Feature audit**: bd-0il (beads project) - 103 subcommands cataloged, 65% invisible to agents
 
 ### Internal References
