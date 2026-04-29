@@ -84,8 +84,7 @@ _tmp/
 # Security audit working files
 security-audit-results.tsv
 
-# Git worktrees
-.worktrees/
+# Git worktrees (Claude Code agent isolation)
 .claude/worktrees/
 
 # Claude Code runtime artifacts
