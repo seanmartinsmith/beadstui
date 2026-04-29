@@ -1,6 +1,6 @@
 # bt
 
-A terminal UI for [beads](https://github.com/steveyegge/beads) - keyboard-driven issue tracking in your terminal.
+A terminal UI for [beads](https://github.com/gastownhall/beads) - keyboard-driven issue tracking in your terminal.
 
 ![bt list and detail view](docs/screenshots/01-list-detail.webp)
 
@@ -8,7 +8,7 @@ A terminal UI for [beads](https://github.com/steveyegge/beads) - keyboard-driven
 
 ## What is bt
 
-[Beads](https://github.com/steveyegge/beads) is a git-native issue tracker backed by [Dolt](https://www.dolthub.com/) (a version-controlled MySQL-compatible database). `bt` is a TUI that sits on top of it - board views, detail panels, dependency graphs, and graph-based triage, all without leaving your terminal.
+[Beads](https://github.com/gastownhall/beads) is a git-native issue tracker backed by [Dolt](https://www.dolthub.com/) (a version-controlled MySQL-compatible database). `bt` is a TUI that sits on top of it - board views, detail panels, dependency graphs, and graph-based triage, all without leaving your terminal.
 
 Think lazygit, but for issue tracking.
 
@@ -16,7 +16,7 @@ This started as a fork of Jeffrey Emanuel's [beads_viewer](https://github.com/Di
 
 ## Install
 
-Requires Go 1.25+ and a working [beads](https://github.com/steveyegge/beads) installation with Dolt.
+Requires Go 1.25+ and a working [beads](https://github.com/gastownhall/beads) installation with Dolt.
 
 ```bash
 go install github.com/seanmartinsmith/beadstui/cmd/bt@latest
@@ -138,8 +138,11 @@ See [AGENTS.md](AGENTS.md) for output schemas, recipes, and integration guidance
 
 ## Contributing
 
+PRs welcome - including AI-assisted ones. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the maintainer posture, hygiene rules, and PR decision tree.
+
 If you're new here, start with these:
 
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) - PR workflow, hygiene rules, decision tree
 - [`AGENTS.md`](AGENTS.md) - project conventions, commit format, issue-tracking workflow
 - [`docs/design/testing.md`](docs/design/testing.md) - test patterns, fixtures, coverage thresholds
 - [`docs/adr/`](docs/adr/) - architecture decisions ([index](docs/adr/README.md))
