@@ -1,6 +1,5 @@
 # Single-Value Accessor Pattern for GraphStats
 
-**Task Reference:** (legacy ref bv-4jfr)
 **Status:** Implemented
 
 ## Overview

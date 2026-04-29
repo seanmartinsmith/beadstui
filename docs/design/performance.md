@@ -130,6 +130,18 @@ The approximation is sufficient for ranking purposes (identifying which nodes ar
 
 ## CLI Flags for Performance
 
+### Diagnostic Flags
+
+```bash
+# Detailed startup timing breakdown (human-readable)
+bt --profile-startup
+
+# Machine-readable timing (JSON, suitable for piping to jq or attaching to bug reports)
+bt --profile-startup --profile-json
+```
+
+`--profile-startup` reports per-phase timings (graph build, Phase 1 metrics, Phase 2 metrics) so you can see which step dominates startup. Pair with `--profile-json` for structured output.
+
 ### Performance Control Flags
 
 ```bash
@@ -141,21 +153,28 @@ bt baseline check --force-full-analysis
 
 ## Troubleshooting Slow Startup
 
-### Step 1: Check Graph Size
+### Step 1: Profile Startup
+```bash
+bt --profile-startup
+```
+
+Identifies which phase or metric is slow. For machine-parseable output, add `--profile-json` and pipe to `jq`.
+
+### Step 2: Check Graph Size
 ```bash
 bt robot insights | jq '.stats | {nodeCount, edgeCount, density}'
 ```
 
 For large graphs (>500 nodes), some metrics are automatically skipped.
 
-### Step 2: Check for Cycles
+### Step 3: Check for Cycles
 ```bash
 bt robot insights | jq '.cycles'
 ```
 
 Many cycles can cause slowdowns even with timeouts due to memory pressure.
 
-### Step 3: Try Without Problem Metrics
+### Step 4: Try Without Problem Metrics
 
 If betweenness is the bottleneck:
 - Check if your graph is >500 nodes - it should auto-skip
@@ -221,7 +240,7 @@ All expensive algorithms have configurable timeouts:
 
 When a timeout triggers:
 - The metric is skipped or returns partial results
-- A warning appears in the profile output
+- A warning appears in the `--profile-startup` output (or stderr in robot mode)
 - The UI marks the metric as unavailable
 
 ## Advanced: Memory Considerations
