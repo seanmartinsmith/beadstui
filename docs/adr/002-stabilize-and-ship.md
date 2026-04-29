@@ -32,7 +32,7 @@ Note: Charm v2 migration was originally a separate future phase but was complete
 **Status**: Partially done
 **Priority**: P1
 **Bead**: bt-0cht
-**Foundation**: `docs/audit/cli-ergonomics-audit.md`, `docs/design/2026-04-20-bt-mhwy-1-compact-output.md`
+**Foundation**: `docs/audits/cli-ergonomics-audit.md`, `docs/design/2026-04-20-bt-mhwy-1-compact-output.md`
 
 The robot API is bt's primary agent interface. Phase 3 (Cobra migration) resolved the CLI structure issues. Robot log suppression fixed (2026-04-10). Compact output landed 2026-04-20 (bt-mhwy.1): default `bt robot list` dropped from 383KB to 38KB on 100 issues. Remaining items are envelope consistency and documentation.
 
@@ -53,7 +53,7 @@ Scope:
 - [x] Document missing env vars in `--robot-docs env` — 18 → 37 documented (bt-citd, closed 2026-04-22)
 - [x] Consolidate duplicate confidence/agent-count flags (bt-citd, closed 2026-04-22)
 - [x] Fix --bql filter no-op'd in robot list — was bypassing robotPreRun (bt-111w, 2026-04-25)
-- [ ] **Sub-stream surfaced 2026-04-25: post-Dolt migration of bt-derived data layer.** bt's correlator (`pkg/correlation/`) and sprint loader (`pkg/loader/sprint.go`) were built against the pre-v0.56.1 era of beads (JSONL backups available alongside Dolt). Beads is Dolt-only since v1.0.1. Affected subcommands: `history`, `related`, `causality` (correlator-bound — bt-08sh), `forecast`, `sprint show` (sprint-bound — bt-z5jj). Plus an ADR-flavored decision about canonical `.beads/` vs `.bt/` data-home split (bt-uahv). bt-vhn2 closed as superseded; original "--global routing" framing was wrong. **Extended 2026-04-25 by [ADR-003](003-data-source-architecture-post-dolt.md)** — addresses the SourceType abstraction shape itself. Accepted 2026-04-25 with option (b): collapse to `Dolt | DoltGlobal | JSONLFallback`. Implementation tracked in bt-05zt (Phase 1 = SQLite removal mechanical; Phase 2 = abstraction collapse). Foundation survey: `docs/audit/2026-04-25-data-source-architecture-survey.md`.
+- [ ] **Sub-stream surfaced 2026-04-25: post-Dolt migration of bt-derived data layer.** bt's correlator (`pkg/correlation/`) and sprint loader (`pkg/loader/sprint.go`) were built against the pre-v0.56.1 era of beads (JSONL backups available alongside Dolt). Beads is Dolt-only since v1.0.1. Affected subcommands: `history`, `related`, `causality` (correlator-bound — bt-08sh), `forecast`, `sprint show` (sprint-bound — bt-z5jj). Plus an ADR-flavored decision about canonical `.beads/` vs `.bt/` data-home split (bt-uahv). bt-vhn2 closed as superseded; original "--global routing" framing was wrong. **Extended 2026-04-25 by [ADR-003](003-data-source-architecture-post-dolt.md)** — addresses the SourceType abstraction shape itself. Accepted 2026-04-25 with option (b): collapse to `Dolt | DoltGlobal | JSONLFallback`. Implementation tracked in bt-05zt (Phase 1 = SQLite removal mechanical; Phase 2 = abstraction collapse). Foundation survey: `docs/audits/2026-04-25-data-source-architecture-survey.md`.
 - [ ] Robot mode I/O contract: documented invariants + verify-test sweep (bt-ah53, **bumped P2 → P1 on 2026-04-28** per OOO synthesis — regression net for the just-shipped contract). Locks in stdout=structured-only / stderr=errors-only / exit-code-correct contract; prevents F2/F11-style regressions.
 - [x] Unknown `bt robot` subcommand prints help to stdout (bt-70cd, closed 2026-04-27). Cobra `unknownSubcommandRunE` helper wired onto every parent group; nested groups also fixed.
 - [ ] Standalone `bt robot comments <id> --global` (bt-82w8). Cross-project comment fetch.
@@ -64,7 +64,7 @@ Scope:
 **Status**: Core shipped, bugs fixed, features remain
 **Priority**: P2
 **Bead**: bt-faaw (highlighting), bt-sytt (recipes)
-**Foundation**: `docs/audit/bql-gap-analysis.md`
+**Foundation**: `docs/audits/bql-gap-analysis.md`
 
 BQL parser, memory executor, TUI modal, and CLI flags are shipped. All five bugs from gap analysis fixed (2026-04-03).
 
@@ -84,7 +84,7 @@ Remaining features:
 **Status**: Partially done
 **Priority**: P2
 **Bead**: bt-5dvl, bt-t82t (Phase 4)
-**Foundation**: `docs/audit/test-suite-audit.md`
+**Foundation**: `docs/audits/test-suite-audit.md`
 
 Phase 0.5 (2026-04-10) built the test foundation for the refactor. Cross-platform fixes shipped in sessions 14-15. Some items remain.
 
@@ -267,13 +267,16 @@ Open:
 
 ## Audit Reports (foundation for this ADR)
 
-All in `docs/audit/`:
+Active foundations in `docs/audits/`:
 - `test-suite-audit.md` - 268 test files categorized
 - `cli-ergonomics-audit.md` - 97 flags inventoried, severity-ranked issues
-- `charm-v2-migration-scout.md` - 76 files, impact assessment, migration order
 - `bql-gap-analysis.md` - 5 bugs, 3 remaining features, priority order
 - `global-mode-readiness.md` - readiness audit for cross-project features
-- Earlier audit (session 16): 10 team reports + architecture map from codebase audit
+- `architecture-map.md` - cross-domain dependency graph (session 16)
+
+Archived in `docs/archive/audit/`:
+- `charm-v2-migration-scout.md` - 76 files, impact assessment, migration order
+- 10 team reports from codebase audit (1a, 1b, 2, 3, 4, 5, 6, 7, 8a, 8b)
 
 Draft in `docs/drafts/`:
 - `README-draft.md` - complete prose rewrite for review
