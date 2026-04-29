@@ -48,9 +48,10 @@ tests/testdata/benchmark/
 # E2E test logs
 test_results_e2e_*.log
 
-# Ephemeral/temporary files (agent workflow artifacts)
-RESEARCH_FINDINGS.md
-TOON_INTEGRATION_BRIEF.md
+# Ephemeral/temporary files (agent workflow artifacts) - root-anchored so
+# archived/preserved copies under docs/ are not unintentionally ignored.
+/RESEARCH_FINDINGS.md
+/TOON_INTEGRATION_BRIEF.md
 cov_*.out
 rustc-ice-*.txt
 *.snap.new
@@ -81,8 +82,9 @@ _tmp/
 # to avoid shell-escaping issues. Ephemeral per-session scratch; never committed.
 .beads/tmp/
 
-# Security audit working files
-security-audit-results.tsv
+# Security audit working files - root-anchored so committed audit
+# reports under docs/audits/security/ are not unintentionally ignored.
+/security-audit-results.tsv
 
 # Git worktrees (Claude Code agent isolation)
 .claude/worktrees/

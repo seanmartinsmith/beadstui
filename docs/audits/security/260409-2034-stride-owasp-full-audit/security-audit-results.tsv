@@ -1,0 +1,32 @@
+iteration	vector	severity	owasp	stride	confidence	location	description
+0	-	-	-	-	-	-	baseline: govulncheck 0 symbol vulns, 1 package vuln (edwards25519, not called), 1 module vuln (x/image TIFF, not used)
+1	cmd-injection-url	Medium	A03	EoP	Confirmed	pkg/export/github.go:610, pkg/export/cloudflare.go:347	Windows cmd /c start <url> allows shell metacharacter injection (&, |) in URLs constructed from user input
+2	hook-command-exec	Medium	A05	EoP	Confirmed	pkg/hooks/executor.go:121	.bt/hooks.yaml commands execute via sh -c without sandboxing - malicious repo clone = arbitrary code execution
+3	bql-recursion-dos	Medium	A04	DoS	Confirmed	pkg/bql/parser.go:125-153, pkg/bql/memory_executor.go:53	No recursion depth limit in BQL parser or executor - deeply nested query causes stack overflow via CLI --bql
+4	bql-date-sql-injection	Medium	A03	Tampering	Confirmed	pkg/bql/sql.go:219-229	dateToSQL interpolates values via fmt.Sprintf without parameterization - LATENT (SQLBuilder not yet used in production)
+5	git-sha-arg-injection	Medium	A03	Tampering	Confirmed	pkg/correlation/incremental.go:200,226,257; pkg/correlation/stream.go:415; pkg/correlation/reverse.go:174	Git SHA args from bead data not validated as hex - crafted JSONL could inject git arguments starting with --
+6	bql-field-sql-fallback	Low	A03	Tampering	Confirmed	pkg/bql/sql.go:186	fieldToColumn returns "i." + field for unknown fields - no self-validation. LATENT (validator provides upstream protection)
+7	global-dolt-db-interpolation	Low	A03	Tampering	Likely	internal/datasource/global_dolt.go:229-231	Database names interpolated into UNION ALL SQL via backtickQuote. Correct escaping but no regex validation on db names
+8	bql-unbounded-in-list	Low	A04	DoS	Confirmed	pkg/bql/parser.go:216-230	No limit on IN (...) value count - millions of values cause linear memory exhaustion via CLI --bql
+9	updater-no-size-limit	Low	A08	DoS	Confirmed	pkg/updater/updater.go:548	io.Copy from tar to disk without io.LimitReader - decompression bomb possible. Mitigated by expected size check on download
+10	dsn-in-error-messages	Low	A05	InfoDisc	Confirmed	internal/datasource/load.go:159	Dolt DSN (root@tcp(127.0.0.1:port)/db) surfaces in user-visible status bar errors via shortError()
+11	git-grep-no-escape	Low	A03	Tampering	Confirmed	pkg/correlation/explicit.go:231-233	Bead IDs passed to git --grep without regex escaping - crafted IDs could manipulate grep pattern matching
+12	swallowed-errors	Low	A05	Repudiation	Confirmed	cmd/bt/main.go:494; pkg/hooks/config.go:93; pkg/recipe/loader.go:74	Silent error swallowing: ResolveRevision failure uses zero value; Getwd failure leaves empty project dir
+13	windows-lock-toctou	Low	A04	DoS	Possible	pkg/instance/lock_windows.go:218-229	Windows lock takeover uses Remove+Rename (not atomic rename) - narrow TOCTOU race could allow two instances
+14	dolt-hardcoded-root	Low	A07	Spoofing	Confirmed	internal/datasource/metadata.go:63	Dolt DSN uses hardcoded root user with no password. Expected for local Dolt but prevents future remote use
+15	edwards25519-cve	Info	A06	-	Confirmed	go.mod (filippo.io/edwards25519@v1.1.0)	GO-2026-4503: MultiScalarMult invalid results. Not exploitable - bt never calls affected function
+16	x-image-cve	Info	A06	-	Confirmed	go.mod (golang.org/x/image@v0.35.0)	GO-2026-4815: TIFF decoder OOM. Not exploitable - bt only uses font/basicfont, never TIFF decoder
+17	editor-allowlist	Info	A01	EoP	Confirmed	pkg/ui/model_editor.go:236-401	EDITOR/VISUAL handling uses strict allowlist - blocks terminal editors, shells, interpreters. Well-mitigated
+18	updater-integrity	Info	A08	Tampering	Confirmed	pkg/updater/updater.go:496-513,640-644	Self-updater uses SHA256 checksum verification. Auth header stripped on non-GitHub redirects. Solid integrity chain
+19	hook-expandenv	Info	A03	Tampering	Confirmed	pkg/hooks/executor.go:172-183	expandEnv resolves ${VAR} in hook env values from combined OS+context env. No injection - variables from trusted YAML
+20	tui-unrecovered-panic	Low	A04	DoS	Possible	pkg/ui/ (Update/View functions)	Panics in TUI main thread not recovered - would crash terminal. Standard Bubble Tea behavior
+21	yaml-billion-laughs	Info	A03	DoS	Confirmed	pkg/ui/theme_loader.go, pkg/hooks/config.go, etc.	All 10 YAML unmarshal sites use typed structs. yaml.v3 disables anchors for billion-laughs by default. Safe
+22	jsonl-buffer-limit	Info	A04	DoS	Confirmed	pkg/loader/loader.go:392-418	JSONL reader has 10MB per-line buffer cap via bufio.ReaderSize. Malformed lines skipped. DoS-resistant
+23	workspace-dir-traversal	Info	A01	Tampering	Confirmed	pkg/workspace/types.go:184-209	FindWorkspaceConfig walks up to root seeking .bt/workspace.yaml. No user-controlled path injection. Safe
+24	github-token-scoping	Info	A02	InfoDisc	Confirmed	pkg/updater/updater.go:34-57,412-416	GITHUB_TOKEN only sent to GitHub domains. isGitHubHost check + redirect auth stripping prevents token leakage
+25	bg-worker-concurrency	Info	A04	Tampering	Confirmed	pkg/ui/background_worker.go	Background worker uses sync.RWMutex + atomic types. Tea msgs for cross-goroutine comms. No data races found
+26	clipboard-data	Info	A05	InfoDisc	Confirmed	pkg/ui/cass_session_modal.go:350	Clipboard write-only, copies cass search commands. No sensitive data (passwords/tokens) ever written
+27	file-permissions	Info	A05	-	Confirmed	All file creation sites	Files created 0644, dirs 0755, binaries 0755. Appropriate permissions throughout
+28	dolt-reconnect-loop	Info	A04	DoS	Confirmed	pkg/ui/model.go, internal/doltctl/doltctl.go	Auto-reconnect after 3 failures calls EnsureServer. Bounded by poll interval (5s). No amplification
+29	export-wizard-names	Info	A03	-	Confirmed	pkg/export/github.go:196, cloudflare.go:384	Repo/project names from wizard passed to exec.Command directly (not shell). No injection via exec.Command
+30	toon-go-dependency	Info	A06	-	Possible	go.mod (github.com/Dicklesworthstone/toon-go)	Nascent dependency (2 stars, 11 commits). Shells out to external tru binary. Low current risk, worth monitoring
