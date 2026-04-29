@@ -272,7 +272,7 @@ Active foundations in `docs/audits/`:
 - `global-mode-readiness.md` - readiness audit for cross-project features
 - `architecture-map.md` - cross-domain dependency graph (session 16)
 
-Archived in `docs/archive/audit/`:
+Archived in `docs/archive/audits/`:
 - `charm-v2-migration-scout.md` - 76 files, impact assessment, migration order
 - 10 team reports from codebase audit (1a, 1b, 2, 3, 4, 5, 6, 7, 8a, 8b)
 

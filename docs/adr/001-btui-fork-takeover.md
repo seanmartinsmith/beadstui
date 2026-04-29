@@ -265,7 +265,7 @@ Before moving to new feature work, a fresh session should review this ADR's exec
 
 ### 2026-03-16 - Session 16: Codebase audit scan (Session A)
 - **Executed**: 9-team parallel codebase audit per `docs/archive/plans/2026-03-16-codebase-audit-plan-v2.md`
-- **Reports**: 10 team files now in `docs/archive/audit/` (teams 1a, 1b, 2, 3, 4, 5, 6, 7, 8a, 8b)
+- **Reports**: 10 team files now in `docs/archive/audits/` (teams 1a, 1b, 2, 3, 4, 5, 6, 7, 8a, 8b)
 - **Architecture map**: `docs/audits/architecture-map.md` - cross-domain dependency graph + findings synthesis
 - **Scale scanned**: ~88k production Go + ~102k test Go + ~7.5k Rust (WASM) + build/CI configs
 - **Key findings**:

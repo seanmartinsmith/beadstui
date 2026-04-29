@@ -36,7 +36,7 @@ Project-canonical paths for documentation. Override agent/skill defaults when th
 | Brainstorms (published) | `docs/brainstorms/` | Canonical brainstorm artifacts |
 | Brainstorms (active scratch) | `.superpowers/brainstorm/` (gitignored) | Working state; publish to `docs/brainstorms/` when ready |
 | Archived plans | `docs/archive/plans/` | Executed plans no longer referenced by ADRs or active beads |
-| Archived audits | `docs/archive/audit/` | Completed audit work no longer in active reference set |
+| Archived audits | `docs/archive/audits/` | Completed audit work no longer in active reference set |
 | General archive | `docs/archive/` | Loose historical artifacts (UPGRADE_LOG, one-off audit reports) |
 | Screenshots / assets | `docs/screenshots/` | Image assets for README |
 

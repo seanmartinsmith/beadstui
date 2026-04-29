@@ -59,7 +59,7 @@ Severity legend: `informational` | `needs-fix` | `leave-as-historical` | `intent
 ### docs/archive/ (everything is archival by directory convention)
 
 - `docs/archive/README.md:3,5,6` — explicit "Historical development artifacts from the beads_viewer era (pre-fork)" header + `jeffrey-era/` subdir reference. **intentional** — user explicitly archived these with the `jeffrey-era/` naming during the takeover (see ADR-001:114). Leave.
-- `docs/archive/AGENT_FRIENDLINESS_REPORT.md`, `docs/archive/optimization-research/*`, `docs/archive/jeffrey-era/*` — all pre-fork artifacts under the archive convention. Saturated with `BV_*`, `bv` binary, `beads_viewer`, etc. **intentional / leave-as-historical** — archive dir is the canonical home for this content.
+- `docs/archive/bv-era/**` (incl. `AGENT_FRIENDLINESS_REPORT.md`, `optimization/*`, etc.) — all pre-fork artifacts under the archive convention. Saturated with `BV_*`, `bv` binary, `beads_viewer`, etc. **intentional / leave-as-historical** — archive dir is the canonical home for this content. (Reorganized 2026-04-29 under bt-llgj: jeffrey-era/ and optimization-research/ merged into bv-era/, loose root files filed under bv-era/.)
 
 ### Severity breakdown
 
