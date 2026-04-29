@@ -138,13 +138,17 @@ See [AGENTS.md](AGENTS.md) for output schemas, recipes, and integration guidance
 
 ## Contributing
 
+If you're new here, start with these:
+
+- [`AGENTS.md`](AGENTS.md) - project conventions, commit format, issue-tracking workflow
+- [`docs/design/testing.md`](docs/design/testing.md) - test patterns, fixtures, coverage thresholds
+- [`docs/adr/`](docs/adr/) - architecture decisions ([index](docs/adr/README.md))
+
 ```bash
 go build ./cmd/bt/     # build
 go test ./...          # run all tests
 go vet ./...           # static analysis
 ```
-
-For test patterns, fixtures, and coverage thresholds, see [`docs/design/testing.md`](docs/design/testing.md). For project conventions, commit format, and the issue-tracking workflow, see [`AGENTS.md`](AGENTS.md). ADRs live in [`docs/adr/`](docs/adr/) — start with the [index](docs/adr/README.md).
 
 The codebase is cross-platform (Windows + Unix) with ~92k lines of production Go and ~102k lines of tests across 27 packages.
 
