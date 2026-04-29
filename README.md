@@ -4,7 +4,7 @@ A terminal UI for [beads](https://github.com/gastownhall/beads) - keyboard-drive
 
 ![bt list and detail view](docs/screenshots/01-list-detail.webp)
 
-> **Pre-alpha.** Actively developed, not yet released.
+> **Alpha.** v0.1.0 is the first public cut. Active development; APIs, keybindings, and on-disk formats may change before v1.0.
 
 ## What is bt
 
@@ -16,13 +16,19 @@ This started as a fork of Jeffrey Emanuel's [beads_viewer](https://github.com/Di
 
 ## Install
 
-Requires Go 1.25+ and a working [beads](https://github.com/gastownhall/beads) installation with Dolt.
+Requires a working [beads](https://github.com/gastownhall/beads) installation with Dolt. (If you don't have beads yet, start with the upstream [install guide](https://github.com/gastownhall/beads#install).)
+
+### Pre-built binaries (no Go toolchain needed)
+
+Download the binary for your platform from the [latest release](https://github.com/seanmartinsmith/beadstui/releases/latest). Available for macOS, Linux, and Windows on both amd64 and arm64. Verify with the included `checksums.txt`, extract the archive, and place `bt` somewhere on your `PATH`.
+
+### From source (requires Go 1.25+)
 
 ```bash
 go install github.com/seanmartinsmith/beadstui/cmd/bt@latest
 ```
 
-Or build from source:
+Or build from a clone:
 
 ```bash
 git clone https://github.com/seanmartinsmith/beadstui.git
