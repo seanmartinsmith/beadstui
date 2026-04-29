@@ -1279,7 +1279,7 @@ No code changes. Post-takeover roadmap brainstorm + codebase audit design.
 
 - **bt-3ynd**: Fixed false STALE indicator - freshness tracks last successful poll, not snapshot build time
 - **bt-aog1**: Responsive help overlay - 4x2 grid (wide), 2x4 (medium), single column (narrow)
-- **bt-xavk**: Created help system redesign plan (docs/plans/help-system-redesign.md)
+- **bt-xavk**: Created help system redesign plan (docs/plans/2026-03-11-help-system-redesign.md)
 
 ## 2026-03-11a - Dogfood polish
 

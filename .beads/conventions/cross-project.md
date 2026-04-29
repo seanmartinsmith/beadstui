@@ -166,10 +166,10 @@ There is no automated apply mode and there won't be one.
 
 ## Cross-references
 
-- Plan: `docs/plans/2026-04-21-feat-cross-project-intent-taxonomy-pairs-refs-v2-plan.md`
+- Plan: `docs/plans/2026-04-21-feat-cross-project-intent-taxonomy-pairs-refs-v2.md`
 - Design: `docs/design/2026-04-21-pairs-refs-v2.md` — algorithm rationale,
   labeling rubric, FPR gate
-- Brainstorm: `docs/brainstorms/2026-04-21-cross-project-intent-taxonomy-brainstorm.md`
+- Brainstorm: `docs/brainstorms/2026-04-21-cross-project-intent-taxonomy.md`
 - Beads:
   - `bt-gkyn` — pairs v2 reader (closed after Phase 2)
   - `bt-vxu9` — refs v2 reader (open through Phase 6)

@@ -294,7 +294,7 @@ After completing Sessions 0-4, update ADR-002 with Stream 8 status.
 
 ### Internal References
 - ADR-002: [docs/adr/002-stabilize-and-ship.md](../adr/002-stabilize-and-ship.md) - project spine
-- Product vision: [docs/brainstorms/2026-04-09-product-vision-brainstorm.md](../brainstorms/2026-04-09-product-vision-brainstorm.md) - three pillars, development arc
+- Product vision: [docs/brainstorms/2026-04-09-product-vision.md](../brainstorms/2026-04-09-product-vision.md) - three pillars, development arc
 - Column constant: `internal/datasource/columns.go:9-14`
 - Badge patterns: `pkg/ui/styles.go:190-252`
 - Detail rendering: `pkg/ui/model_filter.go:615-788`

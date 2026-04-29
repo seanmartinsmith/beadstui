@@ -3,7 +3,7 @@ title: "feat: Cross-Project Management"
 type: feat
 status: active
 date: 2026-04-12
-origin: docs/brainstorms/2026-04-12-cross-project-management-brainstorm.md
+origin: docs/brainstorms/2026-04-12-cross-project-management.md
 parent_issue: bt-ph1z
 ---
 
@@ -25,7 +25,7 @@ bt loads issues from all projects today but doesn't analyze them cross-project. 
 
 Eight phases (0-7), each independently shippable. Phase 0 fixes a known blocker. Phases 1-7 build features incrementally with shared infrastructure extracted as it emerges.
 
-(see brainstorm: `docs/brainstorms/2026-04-12-cross-project-management-brainstorm.md`)
+(see brainstorm: `docs/brainstorms/2026-04-12-cross-project-management.md`)
 
 ## Technical Approach
 
@@ -438,7 +438,7 @@ Phase 2 can start immediately (no dependency on Phase 0). Phases 1 and 5 can run
 
 ### Origin
 
-- **Brainstorm document:** [docs/brainstorms/2026-04-12-cross-project-management-brainstorm.md](docs/brainstorms/2026-04-12-cross-project-management-brainstorm.md) - Key decisions: progressive disclosure for all views, AS OF timestamps not commit refs, DR is docs+status not management commands.
+- **Brainstorm document:** [docs/brainstorms/2026-04-12-cross-project-management.md](docs/brainstorms/2026-04-12-cross-project-management.md) - Key decisions: progressive disclosure for all views, AS OF timestamps not commit refs, DR is docs+status not management commands.
 
 ### Internal References
 

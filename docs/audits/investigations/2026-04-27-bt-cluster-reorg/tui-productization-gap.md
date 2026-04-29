@@ -397,8 +397,8 @@ These improve feel and approachability but don't gate workflow completion.
 
 ### Beads / docs that align with these gaps
 
-- `docs/brainstorms/2026-04-09-product-vision-brainstorm.md` — vision and resolved questions (esp. §"Vision: Main Board/List View" and §"Vision: Global Mode")
-- `docs/brainstorms/2026-04-12-cross-project-management-brainstorm.md` — portfolio dashboard (foundational gap §3, workflow-completing #4)
+- `docs/brainstorms/2026-04-09-product-vision.md` — vision and resolved questions (esp. §"Vision: Main Board/List View" and §"Vision: Global Mode")
+- `docs/brainstorms/2026-04-12-cross-project-management.md` — portfolio dashboard (foundational gap §3, workflow-completing #4)
 - `docs/adr/002-stabilize-and-ship.md` Stream 7 — bt-oiaj writable TUI
 - bt-s4b7 — project navigation UI (workflow-completing, ties into multi-project sidebar/breadcrumb)
 - bt-xavk — help system redesign (already P1, aligns with leader-popup and command-palette work)

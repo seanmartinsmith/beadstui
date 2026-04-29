@@ -26,19 +26,19 @@ After completing significant work, update `CHANGELOG.md` and any relevant ADR-00
 
 Project-canonical paths for documentation. Override agent/skill defaults when they conflict.
 
-| What | Where | Notes |
-|---|---|---|
-| ADRs | `docs/adr/` | Permanent decision records, never archive |
-| Audit reports | `docs/audits/<YYYY-MM-DD>-<slug>/` or `docs/audits/<topic>.md` | Active references; use plural |
-| Plans | `docs/plans/` | All plan documents regardless of source plugin (no nesting under `docs/superpowers/`) |
-| Specs | `docs/specs/` | Stable artifact descriptions; evolve in place |
-| Designs / engineering reference | `docs/design/` | Pattern explanations, perf tuning, testing guides, evergreen technical docs |
-| Brainstorms (published) | `docs/brainstorms/` | Canonical brainstorm artifacts |
-| Brainstorms (active scratch) | `.superpowers/brainstorm/` (gitignored) | Working state; publish to `docs/brainstorms/` when ready |
-| Archived plans | `docs/archive/plans/` | Executed plans no longer referenced by ADRs or active beads |
-| Archived audits | `docs/archive/audits/` | Completed audit work no longer in active reference set |
-| General archive | `docs/archive/` | Loose historical artifacts (UPGRADE_LOG, one-off audit reports) |
-| Screenshots / assets | `docs/screenshots/` | Image assets for README |
+> **Canonical doc map**: `docs/README.md`. The table below is a one-screen scan; that file has the deeper layout, naming conventions, and decision tree for "where does my doc go?"
+
+| What | Where | Filename pattern | Notes |
+|---|---|---|---|
+| ADRs | `docs/adr/` | `<NNN>-<slug>.md` | Permanent. See `docs/adr/README.md` for index. |
+| Audits | `docs/audits/` | Theme buckets + dated files | See `docs/audits/README.md`. Investigations under `audits/investigations/<YYYY-MM-DD>-<slug>/`. |
+| Plans | `docs/plans/` | `<YYYY-MM-DD>-<slug>.md` | No `-plan` suffix — dir name carries the type. |
+| Specs | `docs/specs/` | `<YYYY-MM-DD>-<slug>.md` | Living docs; evolve in place. |
+| Designs | `docs/design/` | Dated `<YYYY-MM-DD>-<bead-id>-<slug>.md` for bead-specific; `<lowercase-slug>.md` (no date) for evergreen guides | Two shapes coexist by intent. |
+| Brainstorms (published) | `docs/brainstorms/` | `<YYYY-MM-DD>-<slug>.md` | No `-brainstorm` suffix. |
+| Brainstorms (scratch) | `.superpowers/brainstorm/` (gitignored) | n/a | Working state; publish to `docs/brainstorms/` when ready. |
+| Archive | `docs/archive/` | 4-bucket layout | See `docs/archive/README.md`. Read-only; period-accurate. |
+| Screenshots | `docs/screenshots/` | n/a | Image assets for README. |
 
 ## Scratch Conventions
 

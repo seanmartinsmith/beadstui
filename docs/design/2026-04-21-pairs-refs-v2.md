@@ -1,8 +1,8 @@
 # pairs v2 + refs v2 — implementation design
 
 > **Status:** Active (Phase 4 consolidation). Phases 2–3 shipped; Phase 5 (corpus + FPR gate) outstanding.
-> Plan: `docs/plans/2026-04-21-feat-cross-project-intent-taxonomy-pairs-refs-v2-plan.md`.
-> Brainstorm: `docs/brainstorms/2026-04-21-cross-project-intent-taxonomy-brainstorm.md`.
+> Plan: `docs/plans/2026-04-21-feat-cross-project-intent-taxonomy-pairs-refs-v2.md`.
+> Brainstorm: `docs/brainstorms/2026-04-21-cross-project-intent-taxonomy.md`.
 > Convention pointer: `.beads/conventions/cross-project.md`.
 
 ## Scope
@@ -373,8 +373,8 @@ data migration, no consumer breakage, no state to clean up.
 
 ### Plans and conventions
 
-- Plan: `docs/plans/2026-04-21-feat-cross-project-intent-taxonomy-pairs-refs-v2-plan.md`
-- Brainstorm: `docs/brainstorms/2026-04-21-cross-project-intent-taxonomy-brainstorm.md`
+- Plan: `docs/plans/2026-04-21-feat-cross-project-intent-taxonomy-pairs-refs-v2.md`
+- Brainstorm: `docs/brainstorms/2026-04-21-cross-project-intent-taxonomy.md`
 - bt-side convention: `.beads/conventions/cross-project.md`
 - v1 pairs design: `docs/design/2026-04-20-bt-mhwy-2-pairs.md`
 - v1 refs design: `docs/design/2026-04-20-bt-mhwy-3-refs.md`

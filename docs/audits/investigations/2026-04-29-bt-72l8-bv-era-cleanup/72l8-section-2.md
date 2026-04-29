@@ -46,7 +46,7 @@ Severity legend: `informational` | `needs-fix` | `leave-as-historical` | `intent
 - `docs/design/2026-04-20-bt-mhwy-1-compact-output.md:312` — passing mention of `BV_*` env in fork-history context. **informational**.
 - `docs/brainstorms/2026-03-12-post-takeover-roadmap.md:46,129` — brainstorm doc; references "beads_viewer issues" and "Jeffrey's GitHub issues". **leave-as-historical** — brainstorming archive, not user-facing.
 - `docs/brainstorms/2026-03-16-dolt-lifecycle-adaptation.md:16` — narrative scaffold reference. **leave-as-historical**.
-- `docs/brainstorms/2026-04-09-product-vision-brainstorm.md:103` — brainstorm narrative. **leave-as-historical**.
+- `docs/brainstorms/2026-04-09-product-vision.md:103` — brainstorm narrative. **leave-as-historical**.
 - `docs/archive/plans/2026-03-05-beads-migration-design.md:8,11,17,18,65` — explicit migration-plan doc that *names* the rename. **leave-as-historical** — the plan describes the rename event itself; rewriting would erase the plan's own context.
 - `docs/archive/plans/2026-03-07-beads-migration-session2.md:3,32` — same migration plan, session 2. **leave-as-historical**.
 - `docs/archive/plans/2026-03-12-codebase-audit-plan.md:180` — references stale-bv-naming as a checklist item. **leave-as-historical**.

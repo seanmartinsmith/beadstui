@@ -188,7 +188,7 @@ Recent completions (2026-04-13):
 
 Open items:
 - bt-s4b7 (P1): Project navigation redesign - quick switcher, categories (partially done - filter picker redesigned, full redesign ongoing)
-- bt-xavk (P1): Help system redesign - plan exists at docs/plans/help-system-redesign.md
+- bt-xavk (P1): Help system redesign - plan exists at docs/plans/2026-03-11-help-system-redesign.md
 - bt-m9te (P2): Footer status bar rethink - layout, notifications, information hierarchy
 - bt-dcby (P1): Global mode features don't respect project filter (filter matching fixed, child bugs may remain)
 - bt-eorx (P1): Label picker freezes terminal when typing filter text

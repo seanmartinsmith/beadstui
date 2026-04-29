@@ -3,7 +3,7 @@ title: "feat: BQL Import - Composable Structured Search"
 type: feat
 status: completed
 date: 2026-04-01
-origin: docs/brainstorms/2026-04-01-bql-import-brainstorm.md
+origin: docs/brainstorms/2026-04-01-bql-import.md
 ---
 
 # feat: BQL Import - Composable Structured Search
@@ -16,7 +16,7 @@ Vendor the BQL (Beads Query Language) parser from zjrosen/perles (MIT), write a 
 
 Read these before implementing:
 
-- **Brainstorm**: `docs/brainstorms/2026-04-01-bql-import-brainstorm.md` - all design decisions
+- **Brainstorm**: `docs/brainstorms/2026-04-01-bql-import.md` - all design decisions
 - **Issue model**: `pkg/model/types.go` - the Issue struct BQL filters against
 - **Filter system**: `pkg/ui/model_filter.go` - `matchesCurrentFilter()` and `applyFilter()`
 - **Modal pattern**: `pkg/ui/label_picker.go` - the pattern to follow for the BQL modal
@@ -578,6 +578,6 @@ Ensure no regressions. Existing filter tests should still pass since BQL is addi
 
 ## Sources
 
-- **Origin brainstorm:** [docs/brainstorms/2026-04-01-bql-import-brainstorm.md](docs/brainstorms/2026-04-01-bql-import-brainstorm.md) - activation keybind, scope, executor strategy, copy list, competitive context, global beads future
+- **Origin brainstorm:** [docs/brainstorms/2026-04-01-bql-import.md](docs/brainstorms/2026-04-01-bql-import.md) - activation keybind, scope, executor strategy, copy list, competitive context, global beads future
 - **Perles BQL source:** github.com/zjrosen/perles (MIT license) - parser, lexer, AST, validator, SQL builder
 - **bt compatibility surface:** [docs/brainstorms/2026-03-26-bd-bt-compatibility-surface.md](docs/brainstorms/2026-03-26-bd-bt-compatibility-surface.md) - bd CLI commands, schema contract

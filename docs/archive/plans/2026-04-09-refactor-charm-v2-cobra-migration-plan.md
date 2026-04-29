@@ -3,7 +3,7 @@ title: "Refactor: pkg/ui Decomposition + Charm v2 Migration + Cobra CLI"
 type: refactor
 status: active
 date: 2026-04-09
-origin: docs/brainstorms/2026-04-09-product-vision-brainstorm.md
+origin: docs/brainstorms/2026-04-09-product-vision.md
 bead: bt-if3w
 ---
 
@@ -216,7 +216,7 @@ bt robot insights     # robot insights output
 
 **Effort:** 1 agent session, low risk. Added 2026-04-10 after gap analysis revealed 2 pre-existing test failures and undocumented blast radius.
 
-**Origin:** [docs/brainstorms/2026-04-10-phase-0.5-test-foundation-brainstorm.md](../brainstorms/2026-04-10-phase-0.5-test-foundation-brainstorm.md)
+**Origin:** [docs/brainstorms/2026-04-10-phase-0.5-test-foundation.md](../brainstorms/2026-04-10-phase-0.5-test-foundation.md)
 
 ### Context
 
@@ -479,7 +479,7 @@ Blast radius analysis (Phase 0.5) found only ~6 test files need explicit updates
 - For the 6 affected files: update direct field access to use accessors, or add setter methods where tests need to set up state
 - No separate `testModel()` helper needed - `NewModel()` already serves this role
 
-See: `docs/audit/test-baseline-2026-04-10.md` and `docs/brainstorms/2026-04-10-phase-0.5-test-foundation-brainstorm.md`
+See: `docs/audit/test-baseline-2026-04-10.md` and `docs/brainstorms/2026-04-10-phase-0.5-test-foundation.md`
 
 ### Acceptance Criteria
 - [x] Model struct has ViewMode enum (no boolean view flags) - Step 1.1, commit 4c3c1e81
@@ -748,7 +748,7 @@ See: `security/260409-2034-stride-owasp-full-audit/overview.md` for full audit.
 ## Sources & References
 
 ### Origin
-- **Brainstorm document:** [docs/brainstorms/2026-04-09-product-vision-brainstorm.md](../brainstorms/2026-04-09-product-vision-brainstorm.md) - Key decisions: combined refactor+Charm v2 stream, proper Go best practices, cobra migration, project-first global mode.
+- **Brainstorm document:** [docs/brainstorms/2026-04-09-product-vision.md](../brainstorms/2026-04-09-product-vision.md) - Key decisions: combined refactor+Charm v2 stream, proper Go best practices, cobra migration, project-first global mode.
 
 ### Internal References
 - Charm v2 scout report: [docs/audit/charm-v2-migration-scout.md](../audit/charm-v2-migration-scout.md)

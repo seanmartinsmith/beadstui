@@ -4,7 +4,7 @@ type: feat
 status: completed
 date: 2026-04-14
 bead: bt-kkql
-origin: docs/brainstorms/2026-04-12-cross-project-management-brainstorm.md
+origin: docs/brainstorms/2026-04-12-cross-project-management.md
 ---
 
 # bt robot list
@@ -90,7 +90,7 @@ Note: `--repo`, `--global`, and `--format` are already root persistent flags - t
 
 ## Context
 
-- Brainstorm origin: `docs/brainstorms/2026-04-12-cross-project-management-brainstorm.md` - portfolio health dashboard needs this data layer
+- Brainstorm origin: `docs/brainstorms/2026-04-12-cross-project-management.md` - portfolio health dashboard needs this data layer
 - Cross-project refs: cass-zzi (cass wants cross-project bead awareness), cass-ked (daily digest), bd-la5 (agents must not use raw SQL)
 - Bead labels should be `area:cli` (not `area:global` or `area:robot` which don't exist in the taxonomy)
 

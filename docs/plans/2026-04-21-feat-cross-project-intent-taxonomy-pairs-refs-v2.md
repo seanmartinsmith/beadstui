@@ -3,7 +3,7 @@ title: Cross-project intent taxonomy — pairs v2 + refs v2 readers
 type: feat
 status: active
 date: 2026-04-21
-origin: docs/brainstorms/2026-04-21-cross-project-intent-taxonomy-brainstorm.md
+origin: docs/brainstorms/2026-04-21-cross-project-intent-taxonomy.md
 beads: [bt-gkyn, bt-vxu9]
 paired_beads: [mkt-gkyn, mkt-vxu9]
 ---
@@ -74,7 +74,7 @@ Enforcement (a PreToolUse hook that auto-stamps the dep edge + `Paired-With:` no
 
 **Ship pair.v2 + ref.v2 as schema-bumped readers that filter v1 output to intent-bearing records, preserving `--schema=v1` for one-release transitional pinning.** Add a tunable `--sigils` flag for refs with three documented modes. Introduce two test artifacts: existing-pattern goldens (regenerable) plus a new labeled corpus JSON fixture (`pkg/view/testdata/labeled_corpus.json`) driving an FPR-gate test asserting ≤5% broken FPR on refs and <10% total-pair FPR on pairs.
 
-Key decision crystallized from brainstorm: **dep edge alone is the pair detection signal; the `Paired-With:` notes line is output-only provenance**, not an OR-channel. If the hook fails to stamp the dep, that's a hook bug to surface, not a reader workaround to hide (see brainstorm: `docs/brainstorms/2026-04-21-cross-project-intent-taxonomy-brainstorm.md` §Key Decisions #4).
+Key decision crystallized from brainstorm: **dep edge alone is the pair detection signal; the `Paired-With:` notes line is output-only provenance**, not an OR-channel. If the hook fails to stamp the dep, that's a hook bug to surface, not a reader workaround to hide (see brainstorm: `docs/brainstorms/2026-04-21-cross-project-intent-taxonomy.md` §Key Decisions #4).
 
 ## Technical Approach
 
@@ -640,7 +640,7 @@ Marketplace-side docs (`harness/skills/cross-project/SKILL.md` extensions, sigil
 
 ### Origin
 
-- **Brainstorm:** [`docs/brainstorms/2026-04-21-cross-project-intent-taxonomy-brainstorm.md`](../brainstorms/2026-04-21-cross-project-intent-taxonomy-brainstorm.md) — Key decisions carried forward: (1) pair detection = dep edge alone, notes = provenance-only; (2) refs = tunable sigils with default verb; (3) schema bump to v2 with envelope mode + per-record provenance; (4) forward-only backfill for ~5 intentional pairs; (5) labeled corpus + goldens as separate acceptance artifacts; (6) marketplace-side ownership of hook + skill extension under `mkt-gkyn` / `mkt-vxu9`.
+- **Brainstorm:** [`docs/brainstorms/2026-04-21-cross-project-intent-taxonomy.md`](../brainstorms/2026-04-21-cross-project-intent-taxonomy.md) — Key decisions carried forward: (1) pair detection = dep edge alone, notes = provenance-only; (2) refs = tunable sigils with default verb; (3) schema bump to v2 with envelope mode + per-record provenance; (4) forward-only backfill for ~5 intentional pairs; (5) labeled corpus + goldens as separate acceptance artifacts; (6) marketplace-side ownership of hook + skill extension under `mkt-gkyn` / `mkt-vxu9`.
 
 ### Internal References
 
@@ -660,7 +660,7 @@ Marketplace-side docs (`harness/skills/cross-project/SKILL.md` extensions, sigil
 - `pkg/view/schemas/pair_record.v1.json` + `ref_record.v1.json` — single-record schema format (mirror for v2)
 - `docs/design/2026-04-20-bt-mhwy-2-pairs.md` — v1 pairs design (authority on identity rule, drift dimensions)
 - `docs/design/2026-04-20-bt-mhwy-3-refs.md` — v1 refs design (authority on scope, URL stripping, prefix scoping)
-- `docs/brainstorms/2026-04-12-cross-project-management-brainstorm.md` — prior cross-project brainstorm (different scope; portfolio/temporal/deps)
+- `docs/brainstorms/2026-04-12-cross-project-management.md` — prior cross-project brainstorm (different scope; portfolio/temporal/deps)
 
 ### Related Work
 
