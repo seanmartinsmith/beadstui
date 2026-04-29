@@ -13,13 +13,13 @@ State assessments at a point in time. Each file here is a snapshot — what was 
 | `security/` | Security audits. Each is its own dated subdirectory with overview / findings / threat-model / etc. |
 | `triage/` | Per-area bead triage from cross-cutting audit efforts. Currently a single 14-file effort; recurring-style folder. |
 | `screenshots/` | Image assets referenced by audit findings. |
-| `<YYYY-MM-DD>-<bead-or-slug>-<descriptor>/` | Multi-file cluster-investigation snapshots (e.g., `2026-04-27-bt-cluster-reorg/`). One folder per cluster effort. |
+| `investigations/` | Multi-file audit investigations. One dated subfolder per investigation, each with its own README explaining the cluster. Pattern: `investigations/<YYYY-MM-DD>-<bead-or-slug>-<descriptor>/`. |
 
 ## Conventions
 
-- **Filename date prefix.** `YYYY-MM-DD-<slug>.md`. The date is when the audit ran, not when it was filed. Files inside dated cluster folders skip the prefix (the folder carries the date).
-- **One audit, one file.** If an audit has multiple coherent sections, file as a multi-file cluster folder, not one giant file.
+- **Filename date prefix.** `YYYY-MM-DD-<slug>.md`. The date is when the audit ran, not when it was filed. Files inside dated investigation folders skip the prefix (the folder carries the date).
+- **One audit, one file.** If an audit will produce 3+ coherent files, file under `investigations/<YYYY-MM-DD>-<bead-or-slug>-<descriptor>/` with a README inside. Otherwise pick a theme bucket (`architecture/`, `domain/`, `gaps/`).
 - **Don't edit old audits.** Period accuracy is the value. If reality has shifted, run a new audit at today's date and reference the prior one.
-- **Cluster folders are dated.** Pattern: `<YYYY-MM-DD>-<bead-or-slug>-<descriptor>/`. Examples: `2026-04-27-bt-cluster-reorg/`, `2026-04-29-bt-72l8-bv-era-cleanup/`. The first segment is always a date.
+- **Investigation folders.** Each subfolder under `investigations/` is one effort, dated by start. Pattern: `<YYYY-MM-DD>-<bead-or-slug>-<descriptor>/`. Each gets a `README.md` inside explaining the file cluster, what drove it, and any related plans/beads. See `investigations/2026-04-27-bt-cluster-reorg/README.md` as the template.
 - **Inbox discipline.** New audits land in `inbox/` if their bucket isn't obvious; sort with the user when 3+ items accumulate.
 - **AGENTS.md applies as a fallback.** When in doubt, see the *Docs Structure Conventions* table in `AGENTS.md` at repo root.
