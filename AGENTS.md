@@ -109,7 +109,7 @@ If suspect, leave a comment with the recon finding rather than diving in. Cross-
 ## Key Design Constraints
 
 - **Two-phase analysis**: Phase 1 (degree, topo sort, density) is instant. Phase 2 (PageRank, betweenness, HITS, eigenvector, cycles) runs async with 500ms timeout - check `status` flags in output.
-- **Robot-first API**: All `--robot-*` flags emit deterministic JSON to stdout. Human TUI is secondary.
+- **Robot-first API**: All `bt robot <subcmd>` invocations emit deterministic JSON to stdout. Human TUI is secondary.
 - **Elm architecture TUI** via bubbletea - all state transitions are message-based.
 - **Pure-Go SQLite** (`modernc.org/sqlite`, no CGO) is used only by the SQLite **export** artifact (`pkg/export/sqlite_export.go`) — that output DB has FTS5 + materialized views. There is no SQLite at runtime. bt's own search index is a custom binary format (`.bvvi`) under `.bt/semantic/`, written by `pkg/search/vector_index.go`.
 - **No raw prints in production** - TUI through lipgloss; robot mode outputs JSON to stdout; errors to stderr.
@@ -127,19 +127,21 @@ If suspect, leave a comment with the recon finding rather than diving in. Cross-
 
 ## bt Robot Mode (for agents)
 
-**CRITICAL: Use ONLY `--robot-*` flags. Bare `bt` launches an interactive TUI that blocks your session.**
+**CRITICAL: Use ONLY `bt robot <subcmd>` invocations. Bare `bt` launches an interactive TUI that blocks your session.**
 
 ```bash
-bt --robot-triage                    # THE entry point: ranked recs, quick wins, blockers, health
-bt --robot-next                      # Single top pick + claim command
-bt --robot-plan                      # Parallel execution tracks
-bt --robot-priority                  # Priority misalignment detection
-bt --robot-insights                  # Full graph metrics
-bt --robot-alerts                    # Stale issues, blocking cascades
-bt --robot-diff --diff-since <ref>   # Changes since git ref
-bt --robot-forecast <id|all>         # ETA predictions
-bt --robot-suggest                   # Hygiene: duplicates, missing deps
+bt robot triage                    # THE entry point: ranked recs, quick wins, blockers, health
+bt robot next                      # Single top pick + claim command
+bt robot plan                      # Parallel execution tracks
+bt robot priority                  # Priority misalignment detection
+bt robot insights                  # Full graph metrics
+bt robot alerts                    # Stale issues, blocking cascades
+bt robot diff --diff-since <ref>   # Changes since git ref
+bt robot forecast <id|all>         # ETA predictions
+bt robot suggest                   # Hygiene: duplicates, missing deps
 ```
+
+See `bt robot --help` for the full subcmd list (~30+ subcommands incl. nested groups: `bt robot files`, `bt robot correlation`, `bt robot labels`, `bt robot baseline`).
 
 Scoping: `--label <name>`, `--as-of <ref>`, `--recipe actionable|high-impact`
 
