@@ -121,17 +121,15 @@ Executed as a 4-phase refactor plan (`docs/plans/` has the execution plan):
 The two open beads compete against the broader backlog on their own merits rather than inheriting urgency from the epic frame. Gate bt-bo4a (8-day-old "what's in scope" gate) closed with this decision recorded.
 
 ### Stream 5: README and docs
-**Status**: Draft ready, needs review
-**Priority**: P2
-**Bead**: bt-iuqy
-**Foundation**: `docs/drafts/README-draft.md`
+**Status**: Shipped (2026-04-29)
+**Priority**: P2 (closed)
+**Beads**: bt-iuqy (closed superseded), bt-q0xx (polished screenshots/demo, follow-up), bt-llgj (docs cleanup + retag, P0 handoff)
 
-README prose rewrite drafted. Needs review against current state (the codebase has changed significantly since the draft was written).
+Polished README replaced placeholder version 2026-04-29 with 4 screenshots (list+detail, kanban, label filter, insights) at `docs/screenshots/`. Origin story condensed to one sentence in body; full attribution in Acknowledgments + LICENSE. Robot mode syntax modernized to `bt robot <subcmd>`. Draft retired.
 
-- [ ] Review draft accuracy against current codebase
-- [ ] Verify screenshot references exist
-- [ ] Diff against current README.md
-- [ ] Replace when verified
+Follow-up work tracked separately:
+- bt-q0xx: polished captures + demo video (v1 placeholders are live)
+- bt-llgj: aggressive docs cleanup + ADR cross-reference updates + design-doc currency audit + retag v0.1.0
 
 ### Stream 6: Polish (UX bugs and visual fixes)
 **Status**: Active - dogfooding in progress

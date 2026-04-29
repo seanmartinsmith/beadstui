@@ -60,6 +60,7 @@ Distinction: `.beads/tmp/` is for content that will become part of bead state (d
 5. **Default branch is `main`.** Never reference `master` in code or docs.
 6. **No backwards compatibility shims.** Early development, no users. Fix code directly.
 7. **Verify after changes:** `go build ./...` and `go vet ./...` after any code change.
+8. **bd writes via bash command line corrupt non-ASCII** (Windows bash routes through cp1252). For ANY non-ASCII content (em-dashes, smart quotes, Unicode), use `bd close --reason-file <path>`, `bd update --body-file <path>`, `bd create --body-file <path>`, `bd comments add -f <path>`. Inline strings via `--reason=`/`-d` corrupt em-dashes to `â€"`. Default to ASCII (hyphens, straight quotes) when writing inline; switch to file-based for anything richer.
 
 ## Project Identity
 
