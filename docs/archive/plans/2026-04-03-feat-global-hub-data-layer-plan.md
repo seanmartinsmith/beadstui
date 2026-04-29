@@ -3,7 +3,7 @@ title: "feat: Global Hub Data Layer (bt-6wbd phase 1)"
 type: feat
 status: active
 date: 2026-04-03
-origin: docs/plans/2026-04-03-global-hub-design.md
+origin: docs/archive/plans/2026-04-03-global-hub-design.md
 bead: bt-6wbd
 ---
 
@@ -458,7 +458,7 @@ These run against a real shared Dolt server with test databases. Gated behind `B
 ## Sources & References
 
 ### Origin
-- **Design doc:** [docs/plans/2026-04-03-global-hub-design.md](../plans/2026-04-03-global-hub-design.md) - empirical verification of shared server queries, open questions answered by codebase verification (session 18)
+- **Design doc:** [docs/archive/plans/2026-04-03-global-hub-design.md](2026-04-03-global-hub-design.md) - empirical verification of shared server queries, open questions answered by codebase verification (session 18)
 - Key decisions carried forward: multi-database federation (Option B), UNION ALL approach, shared server discovery path
 
 ### Internal References
