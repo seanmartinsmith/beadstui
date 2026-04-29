@@ -49,7 +49,7 @@ Project-canonical paths for documentation. Override agent/skill defaults when th
 | bt runtime caches (semantic index, baselines) | `.bt/` | partially gitignored |
 | Per-agent worktrees | `.claude/worktrees/` | gitignored |
 
-Distinction: `.beads/tmp/` is for content that will become part of bead state (drafts that get loaded with `--body-file`, comment text via `bd comments add -f`, audit findings worth preserving). `_tmp/` is everything else - image conversions, debug dumps, third-party clones for reference (e.g., `_tmp/perles/` is a competitor TUI clone for analysis).
+Distinction: `.beads/tmp/` is for content that will become part of bead state (drafts that get loaded with `--body-file`, comment text via `bd comments add -f`, audit findings worth preserving). `_tmp/` is everything else - image conversions, debug dumps, third-party clones for reference (e.g., `_tmp/perles/` is a peer beads-TUI project from Zach Rosen kept for reference; bt's BQL parser in `pkg/bql/` is adapted from it under MIT, see `pkg/bql/LICENSE`).
 
 ## Core Rules
 

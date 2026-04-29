@@ -61,7 +61,7 @@ bt                 # launches the TUI
 
 ![Insights view](docs/screenshots/02-insights.webp)
 
-**BQL (Beads Query Language)** - Composable search and filter from inside the TUI. Press `:` to open the query bar.
+**BQL (Beads Query Language)** - Composable search and filter from inside the TUI. Press `:` to open the query bar. The parser is adapted from [Perles](https://github.com/zjrosen/perles), MIT-licensed; see [`pkg/bql/LICENSE`](pkg/bql/LICENSE).
 
 ```
 status = open AND priority <= P2
@@ -166,4 +166,5 @@ Copyright (c) 2026 Sean Martin Smith
 
 - [Jeffrey Emanuel](https://github.com/Dicklesworthstone) for building beads_viewer - the TUI architecture and graph algorithms this project is built on
 - [Steve Yegge](https://github.com/steveyegge) for beads
+- [Perles](https://github.com/zjrosen/perles) by Zach Rosen, the source for bt's adapted BQL parser (`pkg/bql/`, MIT)
 - [Charm](https://charm.sh) for the terminal UI ecosystem
