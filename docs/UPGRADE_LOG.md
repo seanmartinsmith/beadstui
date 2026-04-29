@@ -1,6 +1,6 @@
 # Dependency Upgrade Log
 
-**Date:** 2026-01-18  |  **Project:** beads_viewer  |  **Language:** Go
+**Date:** 2026-01-18  |  **Project:** beadstui  |  **Language:** Go
 
 ## Summary
 - **Updated:** 27 modules

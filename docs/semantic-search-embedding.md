@@ -1,6 +1,6 @@
-# Semantic Search — Embedding Approach (bv-9gf.1)
+# Semantic Search — Embedding Approach (legacy ref bv-9gf.1)
 
-This document records the embedding-generation decision for `bv-9gf` (Semantic Vector Search).
+This document records the embedding-generation decision for Semantic Vector Search (legacy ref bv-9gf).
 
 ## Goal
 
@@ -8,7 +8,7 @@ Enable natural language search over beads (title + description) by converting te
 
 Constraints:
 - Cross-platform (macOS/Linux/Windows) releases via GoReleaser
-- Keep the `bv` binary small and fast to start
+- Keep the `bt` binary small and fast to start
 - Local-first by default (no required network)
 - Deterministic + cacheable (embed once per content hash)
 
@@ -73,7 +73,7 @@ Rationale:
 
 Rationale:
 - Enables deterministic tests and a “no external deps” baseline
-- Provides a usable vector format for storage/index work (`bv-9gf.2`) even when Python is unavailable
+- Provides a usable vector format for storage/index work (legacy ref bv-9gf.2) even when Python is unavailable
 - Not truly semantic, but acceptable as a fallback and for correctness tests
 
 Implementation note:
@@ -82,10 +82,10 @@ Implementation note:
 
 ## Future Extensions
 
-- Proposed configuration knobs (for `bv-9gf.2`/`.3`):
-  - `BV_SEMANTIC_EMBEDDER=python-sentence-transformers|openai|hash|none`
-  - `BV_SEMANTIC_MODEL=all-MiniLM-L6-v2` (provider-specific)
-  - `BV_SEMANTIC_DIM=384` (only for non-model providers like `hash`)
+- Proposed configuration knobs (legacy ref bv-9gf.2/.3):
+  - `BT_SEMANTIC_EMBEDDER=python-sentence-transformers|openai|hash|none`
+  - `BT_SEMANTIC_MODEL=all-MiniLM-L6-v2` (provider-specific)
+  - `BT_SEMANTIC_DIM=384` (only for non-model providers like `hash`)
 
 - Optional API provider (e.g. `openai`) behind explicit user opt-in.
 - Optional Go-native provider behind build tags once the feature proves valuable.

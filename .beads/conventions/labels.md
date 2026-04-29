@@ -19,7 +19,6 @@ of the change.
 | `area:export` | pkg/export/ - static site, HTML bundle, browser open |
 | `area:correlation` | pkg/correlation/ - bead-to-commit correlation |
 | `area:infra` | pkg/updater, watcher, hooks, drift, agents, cass, version, instance |
-| `area:wasm` | bv-graph-wasm/ - Rust WASM graph visualization |
 | `area:docs` | docs/, README, ADRs, AGENTS.md, CHANGELOG |
 | `area:tests` | tests/e2e/, test infrastructure, coverage |
 
