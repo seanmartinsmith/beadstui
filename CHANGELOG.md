@@ -6,6 +6,52 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-04-29 — public-consumption polish + canonical-state pass
+
+**End-to-end cleanup positioning bt for v0.1.0 retag. Phase A audit (11 parallel agents) covering all 9 sections of bt-72l8 plus robot/TUI ghost-feature classification. Root + folder reorganization. Audit folder canonicalized to `docs/audits/` (plural). README replaced with polished version + 4 screenshots. AGENTS.md modernized to current `bt robot <subcmd>` syntax. Doc structure conventions documented. Scratch-dir convention switched from `.bt/tmp/` to `.beads/tmp/`.**
+
+### What shipped
+
+- **bt-zq6z** (P2 bug, area:tui) — removed redundant `isDarkBackground = true` in `pkg/ui/graph_golden_test.go` line 106. Was a data race on package-level mutable global; the variable defaults to true in `pkg/ui/theme.go:15` so deletion is behavior-neutral. (commit `fd2132d1`)
+- **bt-72l8** (P1 epic, audit, CLOSED) — Jeffrey-era leftover audit. 11 parallel subagents covered all 9 sections + ghost-features sub-audit (bt-72l8.1) + TUI ghost-features (bt-72l8.1.1). 11 remediation beads filed (bt-4hq9, bt-73a2, bt-7r2m, bt-198o, bt-jqyg, bt-5s3u, bt-oo6y, bt-klmz, bt-5u6i, bt-ydjw, bt-qgbx). Findings preserved at `docs/audits/2026-04-29-bt-72l8-jeffrey-era-cleanup/`.
+- **bt-t82t** (P1 task, CLOSED superseded) — 100x scope discovery (~24 estimated bv- refs vs 2599 actual). Work redistributed to bt-jqyg (robot help), bt-n05m (comment-ref policy), bt-bjkm (doc surfaces).
+- **bt-bjkm** (P3 docs, CLOSED) — fixed 4 user-facing doc surfaces: `docs/design/semantic-search-embedding.md` env var refresh (`BV_SEMANTIC_*` → `BT_SEMANTIC_*`), `.beads/conventions/labels.md` dead `area:wasm` row removed, `docs/UPGRADE_LOG.md` and `docs/design/accessor_pattern.md` legacy-ref annotations.
+- **bt-jqyg** (P2 cli, CLOSED) — modernized `cmd/bt/robot_help.go` and `robot_graph.go`: `--robot-FOO` flag form replaced with `bt robot FOO` subcmd form, `bv-` IDs replaced with `bt-`. Discovered + fixed 4 unwired filter flag names that never matched real cobra bindings.
+- **bt-evhr** (P2 infra, CLOSED) — `install.sh` deleted (was actively misleading: pointed at brew tap that no longer exists post bt-brid).
+- **Root cleanup** — deleted `.ubsignore`, `bv_test` (49 KB Linux ELF binary in git), `codecov.yml` (never wired), `flake.{nix,lock}` (Nix unused), `install.ps1`. Moved `SKILL.md` → `docs/archive/`, `bt-audit-report.md` → `docs/archive/`.
+- **Folder reorg** — `security/` → `docs/audits/security/`, `screenshots/` deleted (Jeffrey-era, replaced by new captures), `convert_webp.py` preserved at `scripts/`.
+- **Archive sweep** — 28 executed plans + one-off team audits moved to `docs/archive/{plans,audit}/`.
+- **Audit folder canonicalized** — `docs/audit/` → `docs/audits/` (plural, user preference). 16 files + 3 subdirs moved. ADR-001/002/003 + AGENTS.md path references updated.
+- **`.bt/tmp/` migration** — 9 audit findings moved to `docs/audits/2026-04-29-bt-72l8-jeffrey-era-cleanup/` (durable record). 132 scratch files archived to `.beads/tmp/2026-04-29-bt-72l8-archive/` (gitignored). `.bt/tmp/` convention replaced by `.beads/tmp/` in project memory.
+- **Superpowers flatten** — `docs/superpowers/{plans,specs}/` → `docs/plans/` + `docs/specs/` (3 files).
+- **README replaced** — polished version with hero + kanban + label filter + insights screenshots in `docs/screenshots/`. Origin story condensed to one sentence in "What is bt"; full attribution in Acknowledgments + LICENSE.
+- **v0.0.1 release body curated** — replaced auto-generated commit list (which included `Initial codebase from Dicklesworthstone/beads_viewer`) with curated pre-alpha framing.
+- **AGENTS.md modernization** — robot mode syntax updated to `bt robot <subcmd>` form. Added "Docs Structure Conventions" + "Scratch Conventions" sections documenting where each doc category lives and the `.beads/tmp/` vs `_tmp/` split.
+- **Worktree branch cleanup** — 5 stale worktrees + 9 unmerged branches removed.
+- **`.gitignore` cleanup** — dropped redundant `.worktrees/` pattern (`.claude/worktrees/` is canonical).
+
+### Beads filed (active backlog)
+
+P2: bt-evhr (CLOSED), bt-k6n8 (scripts/ bv-era cleanup), bt-bjkm (CLOSED), bt-4hq9, bt-jqyg (CLOSED), bt-5s3u, bt-5u6i, bt-ydjw, bt-q0xx (screenshots+demo polish).
+
+P3: bt-n05m (bv-comment-ref policy), bt-198o (Dolt records), bt-73a2, bt-7r2m, bt-oo6y, bt-klmz, bt-qgbx.
+
+P0 handoff: **bt-llgj** — docs cleanup + retag v0.1.0 next session. Sequenced: aggressive archive + ADR link updates + design-doc currency check + gap audit, THEN tag.
+
+### Verify
+
+- `go build ./...` and `go vet ./...` clean throughout the session.
+- Tree clean, all 16+ commits pushed to `origin/main`. Final HEAD: `4a940311`.
+- v0.0.1 release page now reads as curated pre-alpha pitch; binaries unchanged (will be replaced on v0.1.0 retag per bt-llgj).
+
+### Notes
+
+- The retag was deliberately deferred to bt-llgj so v0.1.0 inherits a clean docs/ tree, not one with stale ADR-referenced plans or out-of-date design docs.
+- Tool-call count for the session was ~580. Phase A's 11 parallel-agent dispatch was the highest-leverage single act; the canonicalization decisions (audit/audits, scratch dirs, docs structure) each consumed ~5-10 calls of recon + execute + verify.
+- See bt-llgj for the next-session handoff: complete description + checklist.
+
+---
+
 ## 2026-04-28 (evening) — bt-edi: schema-drift tolerance in single-DB scan path
 
 **Single-DB Dolt reader now NULL-substitutes missing columns on the issues table, mirroring the multi-DB behavior in `global_dolt.go`. Pre-emptive hygiene for the bd-edi events-table redesign (which may drop `closed_by_session`), but valuable independently — keeps bt resilient across any upstream schema change instead of silently degrading to the 8-column fallback that drops dependencies and comments.**
