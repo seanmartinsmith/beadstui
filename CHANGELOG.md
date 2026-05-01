@@ -6,6 +6,37 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-05-01 — detail-pane action keys + V correlator architecture surfacing
+
+**Dogfooding finding turned into surgical fix: eight Action keys advertised in the shortcuts sidebar were silently swallowed by `viewport.Update` when focus was on the detail pane. Routed them through `handleListKeys` before the viewport fallthrough. Side investigation of the V (cass session modal) code path produced cross-project coordination notes on the open bt + cass beads in that cluster, surfacing a shared `pkg/cass/resolver.go` design that collapses two open beads into one feature.**
+
+### What shipped
+
+- **bt-x5b7** (P2 bug, area:tui, CLOSED) — `pkg/ui/model_update_input.go:1302-1322`. Eight keys (`y, C, O, R, t, T, U, V`) advertised in the shortcuts sidebar's Actions group (context: `list/detail/split`) silently failed when `m.focused == focusDetail` because the only key intercepted there was `/` (the bt-jwo3 search escape hatch); everything else fell through to `viewport.Update` and was swallowed. Added a switch on `msg.String()` matching the eight keys and routing through `m.handleListKeys(msg)` before the viewport fallthrough. The two remaining Actions keys (`x`, `'`) already worked because they dispatch from the global key block above the focus switch. Filter-context keys (`o`, `c`, `r`, `l`) intentionally NOT routed — sidebar marks them list/split-only and gating filter mutations on list focus is correct.
+
+### Cross-project coordination (no code, just bead-state)
+
+- **bt-4yn4** (open P2 bug, area:tui) — V correlator returns "No correlated sessions" for IDs that exist in cass. Investigation confirmed root cause is `pkg/cass/correlation.go` having zero awareness of the session columns (`Created/Claimed/ClosedBySession`) that bd-34v Phase 1a populated. Added synthesis comment with `StrategyDirectSession` plan: a 4th strategy at the top of `Correlate()` that resolves session UUIDs against cass directly via the cass-joa1 surface, falling through to the existing three text-search strategies for older beads.
+- **bt-q0f3** (open P2 feature, area:correlation) — bt-side resolver for hydrating cass `session_short_id` in the detail-pane property block. Added synthesis comment noting the shared-resolver synergy with bt-4yn4: one `pkg/cass/resolver.go` feeds both q0f3's display path and 4yn4's `StrategyDirectSession`. Recommended sequencing: q0f3 first (resolver foundation), 4yn4 second (~30 lines of glue), then watch cass-uh3c which would collapse the entire 700-line `correlation.go` into a thin `cass trace --robot` consumer when shipped.
+- **bt-4yn4 ↔ bt-q0f3** linked via `bd dep relate` (shared resolver, neither blocks the other).
+- **cass-yxjp** (open P2 epic, beads↔cass integration umbrella) — added back-pointer comment surfacing bt-q0f3 + bt-4yn4 as bt-side consumers.
+- **cass-uh3c** (open P2 feature, `cass trace <bead-id>`) — added consumer-side detail comment with concrete code-collapse estimate (700 → 50 lines) plus two minor JSON field-shape suggestions (session_short_id alongside session_id; `source: history|mention` distinction).
+
+### Verify
+
+- `go build ./...` and `go vet ./...` clean.
+- `go test ./pkg/ui/... -count=1` passes (23.0s + 0.3s on events).
+- `go install ./cmd/bt` succeeds; `bt v0.1.0-dev` on PATH.
+- Interactive TUI smoke-test deferred to user dogfooding (cannot drive Bubble Tea from agent shell).
+
+### Notes
+
+- The bt-x5b7 fix follows the same surgical-routing precedent as bt-jwo3 (the `/` interception added earlier in the same focusDetail branch).
+- Stale `bv-5bqh / bv-y836 / bv-182` ID references in `pkg/ui/model_export.go` comments are Jeffrey-fork legacy IDs that don't exist in current Dolt. Tracked under bt-mhcv's systematic audit; not addressed this session.
+- The four cross-project comments are self-contained — each carries the full context another agent would need to act on it without round-tripping into another bead.
+
+---
+
 ## 2026-04-29 — public-consumption polish + canonical-state pass
 
 **End-to-end cleanup positioning bt for v0.1.0 retag. Phase A audit (11 parallel agents) covering all 9 sections of bt-72l8 plus robot/TUI ghost-feature classification. Root + folder reorganization. Audit folder canonicalized to `docs/audits/` (plural). README replaced with polished version + 4 screenshots. AGENTS.md modernized to current `bt robot <subcmd>` syntax. Doc structure conventions documented. Scratch-dir convention switched from `.bt/tmp/` to `.beads/tmp/`.**

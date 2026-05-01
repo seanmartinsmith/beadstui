@@ -1309,6 +1309,15 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				m.list.SetFilterState(list.Filtering)
 				return m, nil
 			}
+			// Action keys advertised in the shortcuts sidebar's "Actions" group
+			// (context: list/detail/split). These all read m.list.SelectedItem()
+			// or change global mode, so focus is irrelevant - without this
+			// dispatch they get swallowed by viewport.Update (bt-x5b7).
+			switch msg.String() {
+			case "y", "C", "O", "R", "t", "T", "U", "V":
+				m = m.handleListKeys(msg)
+				return m, nil
+			}
 			m.viewport, cmd = m.viewport.Update(msg)
 			cmds = append(cmds, cmd)
 		}
