@@ -735,6 +735,16 @@ func runTUIProgram(m ui.Model) error {
 	)
 	// Mouse input is enabled per-view via tea.View.MouseMode = tea.MouseModeCellMotion
 	// (see pkg/ui/model_view.go). bt-d8d1 wires MouseClickMsg into Update.
+	//
+	// Mouse-mode teardown (bt-ll7): every reachable exit path here funnels
+	// through tea.Program.shutdown() -> cursedRenderer.close(), which emits
+	// the matching disable sequence (\e[?1002l\e[?1003l\e[?1006l). The paths:
+	//   - normal quit (q / Esc-Y / ctrl+c key in raw mode -> tea.Quit)
+	//   - SIGINT/SIGTERM via the signal handler below (Quit then Kill after 5s)
+	//   - panics in Update/View/Cmd (bubbletea v2 has built-in defer recover)
+	//   - BT_TUI_AUTOCLOSE_MS (Quit then Kill after 2s)
+	// SIGKILL / taskkill /F bypass userland entirely and cannot be caught from
+	// inside the process; users can recover with `bt reset-terminal`.
 
 	runDone := make(chan struct{})
 	defer close(runDone)

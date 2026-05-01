@@ -6,6 +6,45 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-05-01 — bt-ll7 mouse-tracking leak audit + reset-terminal recovery
+
+**Audited bt's TUI exit paths against the bt-ll7 / dotfiles-ll7 mouse-tracking-leak symptom (DECSET 1006 bleeding into the host terminal as `\e[<...M` text after an unclean exit). Code review + empirical autoclose capture confirms every userland-reachable exit path emits the disable-mouse sequence. Only SIGKILL / taskkill /F / parent-process kill bypass it — added `bt reset-terminal` so users can recover those cases with one command, plus a regression test that locks the View()'s MouseMode invariant.**
+
+### What shipped
+
+- **bt-ll7** (P1 bug, area:tui, CLOSED) — three changes:
+  - `cmd/bt/cobra_reset_terminal.go` (new) — `bt reset-terminal` (alias `reset`) emits `\e[?1000l\e[?1002l\e[?1003l\e[?1006l\e[?2004l\e[?1049l\e[?25h` to the controlling terminal (CONOUT$ / /dev/tty via `tea.OpenTTY`), falling back to stderr if the TTY is unreachable. Idempotent on a healthy terminal.
+  - `pkg/ui/mouse_mode_invariant_test.go` (new) — locks the invariant: every ready `Model.View()` returns `MouseMode = MouseModeCellMotion` and `AltScreen = true`. 9 sub-cases covering each top-level view + every modal overlay. Catches future regressions where a new view branch forgets to set MouseMode.
+  - `cmd/bt/root.go` — added a comment block on `runTUIProgram` documenting the four reachable exit paths (normal quit, SIGINT/SIGTERM signal handler, panic recovery, BT_TUI_AUTOCLOSE_MS) and explicitly noting SIGKILL as the unrecoverable case.
+
+### Investigation summary (full audit in bt-ll7 close reason)
+
+- **Mouse-mode enable site**: single point — `pkg/ui/model_view.go:163` (`v.MouseMode = tea.MouseModeCellMotion`).
+- **Single `tea.NewProgram` site**: `cmd/bt/root.go:732`. No sub-programs exist that could bypass cleanup.
+- **Bubble Tea v2 teardown is sound**: `Program.Run()` always calls `p.shutdown(killed)` at `tea.go:1152` before returning. `shutdown` -> `stopRenderer(kill)` -> `cursedRenderer.close()` (`cursed_renderer.go:142-186`) which always emits the matching `\e[?1002l\e[?1003l\e[?1006l` sequence when `MouseMode != None`. The `kill` flag only skips the final frame flush; cleanup itself is unconditional.
+- **Empirical**: `BT_TUI_AUTOCLOSE_MS=500 bt > /tmp/out.bin` produced output ending in `\e[?1049l\e[?25h\e[?2004l\e[?1002l\e[?1003l\e[?1006l` — exactly the reverse of the setup sequence. Confirms the Quit -> shutdown(false) path on Windows.
+- **Panic recovery**: bt does NOT set `tea.WithoutCatchPanics()`, so bubbletea's `defer recover()` (`tea.go:1006-1014`) catches Update/View panics; Cmd-goroutine panics flow through `recoverFromGoPanic` -> `cancel()` -> event loop exit -> `shutdown(true)`.
+- **Signal handling**: bt uses `tea.WithoutSignalHandler()` and installs its own at `root.go:743` for `os.Interrupt` + `syscall.SIGTERM`, calling `p.Quit()` then `p.Kill()` after a 5s grace window. Both paths funnel through `shutdown`.
+
+### Out-of-scope / documented limitation
+
+- SIGKILL, `taskkill /F`, or parent-process termination (e.g., the CC harness's `uv_spawn EUNKNOWN` cascade observed alongside the bug) bypass userland entirely and cannot be intercepted from inside bt. `bt reset-terminal` is the recovery path. Wrapper-script-based hardening was considered and deferred — single-command recovery is sufficient for the observed frequency.
+- The co-occurring `PreToolUse:Bash hook error` / frozen WT tab cluster on the harness side stays out of scope per the bead; track separately if it recurs without the mouse leak preceding it.
+
+### Verify
+
+- `go build ./...` and `go vet ./...` clean.
+- `go test ./pkg/ui/ -run TestView_MouseModeInvariant -v` — 9/9 PASS.
+- `go test ./pkg/ui/` — full pkg/ui suite PASS (23s).
+- `go test ./cmd/bt/` — full cmd/bt suite PASS (69s; rebuilds bt for sigil tests, hence slow).
+- `bt reset-terminal --help` shows the new command; running it produces no captured stdout/stderr (bytes go to CONOUT$ as designed).
+
+### Cross-project
+
+- **dotfiles-ll7** updated with one-line pointer to this fix commit; harness-side bead can close once the user confirms the recovery works in practice.
+
+---
+
 ## 2026-05-01 — detail-pane action keys + V correlator architecture surfacing
 
 **Dogfooding finding turned into surgical fix: eight Action keys advertised in the shortcuts sidebar were silently swallowed by `viewport.Update` when focus was on the detail pane. Routed them through `handleListKeys` before the viewport fallthrough. Side investigation of the V (cass session modal) code path produced cross-project coordination notes on the open bt + cass beads in that cluster, surfacing a shared `pkg/cass/resolver.go` design that collapses two open beads into one feature.**
