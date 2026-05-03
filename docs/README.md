@@ -16,6 +16,7 @@ If you're an agent or first-time contributor: read this first, then go to whiche
 | `specs/` | Stable artifact descriptions — what something *is*, evolving in place as the artifact evolves. | Living docs. |
 | `screenshots/` | Image assets referenced by the README and other docs. | As needed. |
 | `archive/` | Historical artifacts kept for reference — executed plans, retired audits, bv-era documents. Read [`archive/README.md`](archive/README.md). | Read-only. Period accuracy is the value here. |
+| `robot/` | `bt robot <subcmd>` API reference — one section per subcommand, output shapes, flags, usage examples. Read [`robot/README.md`](robot/README.md). | Living reference; update when subcommands are added or their output shapes change. |
 
 ## Naming conventions
 

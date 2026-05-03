@@ -175,6 +175,8 @@ bt robot suggest                   # Hygiene: duplicates, missing deps
 
 See `bt robot --help` for the full subcmd list (~30+ subcommands incl. nested groups: `bt robot files`, `bt robot correlation`, `bt robot labels`, `bt robot baseline`).
 
+**Full reference**: [`docs/robot/README.md`](docs/robot/README.md) - one section per subcommand with output shapes, flags, and examples.
+
 Scoping: `--label <name>`, `--as-of <ref>`, `--recipe actionable|high-impact`
 
 <!-- BEGIN BEADS INTEGRATION v:4 profile:full -->

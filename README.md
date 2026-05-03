@@ -132,7 +132,7 @@ bt robot alerts          # stale issues, blocking cascades
 
 Run `bt robot --help` for the full subcommand list (~30+ subcmds including nested groups: `bt robot files`, `bt robot correlation`, `bt robot labels`).
 
-See [AGENTS.md](AGENTS.md) for output schemas, recipes, and integration guidance.
+See [AGENTS.md](AGENTS.md) for the quick-reference table. Full API reference - output shapes, flags, examples - at [`docs/robot/README.md`](docs/robot/README.md).
 
 ## Built with
 
