@@ -548,12 +548,6 @@ bt robot graph --graph-format dot | dot -Tpng > graph.png
 
 ---
 
-### bt robot diff
-
-(See above under top-level subcommands.)
-
----
-
 ### bt robot related
 
 **Purpose**: Find beads related to a specific bead by graph proximity, label overlap, and semantic similarity.
