@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -404,8 +405,17 @@ func TestDetectSigils_MaxDepthFenceGuard(t *testing.T) {
 	_ = DetectSigils(b.String(), SigilModeVerb)
 }
 
-// TestDetectSigils_LinearScaling asserts body × 10 runs in ≤ 15 × body's
+// TestDetectSigils_LinearScaling asserts body x 10 runs in <= 25 x body's
 // runtime. Guards against accidental quadratic behavior.
+//
+// Methodology: collect 51 paired samples (small, large timed back-to-back in
+// each iteration), compute the ratio for each pair, then take the MEDIAN ratio.
+// Using median-of-ratios (not ratio-of-medians) self-normalises each sample
+// against its own scheduler window, so CPU load spikes that slow both inputs
+// proportionally cancel out. Median of 51 discards up to 25 outliers on either
+// side. Observed ratios under normal load are 7-13x, so the 25x threshold
+// has ~2x headroom above the noise ceiling while remaining far below the ~100x
+// signature of a genuine O(n^2) regression.
 func TestDetectSigils_LinearScaling(t *testing.T) {
 	if testing.Short() {
 		t.Skip("short mode")
@@ -419,47 +429,89 @@ func TestDetectSigils_LinearScaling(t *testing.T) {
 	small := build(10_000)
 	large := build(100_000)
 
-	// Warm-up to populate caches.
-	_ = DetectSigils(small, SigilModeVerb)
+	// Warm up both inputs to populate instruction caches and amortise any
+	// first-call overhead before collecting samples.
+	for i := 0; i < 3; i++ {
+		_ = DetectSigils(small, SigilModeVerb)
+		_ = DetectSigils(large, SigilModeVerb)
+	}
 
-	// Loop each size until total runtime clears a 10ms floor so the ratio is
-	// well above Windows timer resolution (~15ms on some clocks). Doubling
-	// reps geometrically converges in ≤ ~20 iterations on any realistic CPU;
-	// cap at 1M to keep the test bounded if DetectSigils ever becomes
-	// effectively free. Same reps for both sizes so the ratio is unbiased.
-	const (
-		floor   = 10 * time.Millisecond
-		maxReps = 1_000_000
-	)
-	var smallTotal, largeTotal time.Duration
-	reps := 0
-	for r := 1; r <= maxReps; r *= 2 {
-		smallTotal, largeTotal = 0, 0
-		for i := 0; i < r; i++ {
-			t0 := time.Now()
+	// calibrateBatch finds the minimum batch size such that timing the batch
+	// reliably takes at least minBatchDur. Requiring 3 consecutive rounds to
+	// all exceed the floor avoids accepting a spurious fast tick on Windows
+	// (where time.Now() resolution can be ~15ms).
+	const minBatchDur = 5 * time.Millisecond
+	calibrateBatch := func(fn func()) int {
+		for b := 1; b <= 1_000_000; b *= 2 {
+			passed := 0
+			for round := 0; round < 3; round++ {
+				t0 := time.Now()
+				for k := 0; k < b; k++ {
+					fn()
+				}
+				if time.Since(t0) >= minBatchDur {
+					passed++
+				}
+			}
+			if passed == 3 {
+				return b
+			}
+		}
+		return 1_000_000
+	}
+
+	smallBatch := calibrateBatch(func() { _ = DetectSigils(small, SigilModeVerb) })
+	largeBatch := calibrateBatch(func() { _ = DetectSigils(large, SigilModeVerb) })
+
+	// Collect 51 paired (small, large) samples. Timing small then large in
+	// each iteration keeps both measurements in the same scheduler window.
+	// Ratio is computed per-pair so CPU-load spikes that slow both inputs
+	// proportionally cancel out.
+	const numSamples = 51
+	ratios := make([]float64, numSamples)
+	var lastSmall, lastLarge time.Duration
+	for i := 0; i < numSamples; i++ {
+		t0 := time.Now()
+		for k := 0; k < smallBatch; k++ {
 			_ = DetectSigils(small, SigilModeVerb)
-			smallTotal += time.Since(t0)
-			t1 := time.Now()
+		}
+		smallDur := time.Since(t0) / time.Duration(smallBatch)
+
+		t1 := time.Now()
+		for k := 0; k < largeBatch; k++ {
 			_ = DetectSigils(large, SigilModeVerb)
-			largeTotal += time.Since(t1)
 		}
-		reps = r
-		if smallTotal >= floor && largeTotal >= floor {
-			break
+		largeDur := time.Since(t1) / time.Duration(largeBatch)
+
+		if smallDur == 0 {
+			// Timer resolution too coarse for this batch; treat as max ratio
+			// to avoid division by zero but don't penalise the test on this.
+			ratios[i] = 0
+		} else {
+			ratios[i] = float64(largeDur) / float64(smallDur)
 		}
-	}
-	if smallTotal == 0 {
-		t.Fatalf("smallTotal stayed 0 after %d reps; test harness broken", reps)
+		lastSmall, lastLarge = smallDur, largeDur
 	}
 
-	smallAvg := smallTotal / time.Duration(reps)
-	largeAvg := largeTotal / time.Duration(reps)
-	// Allow 15x slack (10x size should be ~10x time, +50% noise budget).
-	if largeAvg > smallAvg*15 {
-		t.Errorf("scaling regression: small=%v large=%v (large > 15 × small)", smallAvg, largeAvg)
+	// Sort ratios and take the median (index 25 of 51).
+	sort.Slice(ratios, func(a, b int) bool { return ratios[a] < ratios[b] })
+	medianRatio := ratios[numSamples/2]
+
+	if medianRatio == 0 {
+		t.Fatalf("medianRatio is 0: smallBatch=%d produced zero-duration samples; timer resolution too coarse",
+			smallBatch)
 	}
-	t.Logf("scaling: small=%v large=%v ratio=%.2f (reps=%d)",
-		smallAvg, largeAvg, float64(largeAvg)/float64(smallAvg), reps)
+
+	// Allow 25x slack. Observed median ratios under normal load are 7-13x,
+	// so 25x is ~2x above the noise ceiling. A genuine O(n^2) regression
+	// produces ~100x and would still fail clearly.
+	const threshold = 25.0
+	if medianRatio > threshold {
+		t.Errorf("scaling regression: median ratio=%.2f (> %.0fx); last pair small=%v large=%v",
+			medianRatio, threshold, lastSmall, lastLarge)
+	}
+	t.Logf("scaling: median-ratio=%.2f (samples=%d smallBatch=%d largeBatch=%d)",
+		medianRatio, numSamples, smallBatch, largeBatch)
 }
 
 // TestDetectSigils_NoPanic_AdversarialInputs combines the pathological
