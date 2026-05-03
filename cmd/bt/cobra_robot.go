@@ -103,6 +103,9 @@ func init() {
 // Call this at the start of each robot subcommand's RunE.
 func robotPreRun() (*robotCtx, error) {
 	if err := loadIssues(); err != nil {
+		if !flagGlobal {
+			return nil, fmt.Errorf("%w (try --global to query the global Dolt server)", err)
+		}
 		return nil, err
 	}
 
@@ -329,6 +332,9 @@ var robotBQLCmd = &cobra.Command{
 	Short: "Output BQL-filtered issues as JSON",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := loadIssues(); err != nil {
+			if !flagGlobal {
+				return fmt.Errorf("%w (try --global to query the global Dolt server)", err)
+			}
 			return err
 		}
 		query, _ := cmd.Flags().GetString("query")
@@ -353,16 +359,35 @@ var robotBQLCmd = &cobra.Command{
 		executor := bql.NewMemoryExecutor()
 		filtered := executor.Execute(parsed, issues, bql.ExecuteOpts{IssueMap: issueMap})
 
+		// Apply --offset and --limit for pagination.
+		limit, _ := cmd.Flags().GetInt("limit")
+		offset, _ := cmd.Flags().GetInt("offset")
+		totalCount := len(filtered)
+		if offset > 0 {
+			if offset >= len(filtered) {
+				filtered = nil
+			} else {
+				filtered = filtered[offset:]
+			}
+		}
+		if limit > 0 && len(filtered) > limit {
+			filtered = filtered[:limit]
+		}
+
 		bqlHash := analysis.ComputeDataHash(filtered)
 		output := struct {
 			RobotEnvelope
-			Query  string        `json:"query"`
-			Count  int           `json:"count"`
-			Issues []model.Issue `json:"issues"`
+			Query      string        `json:"query"`
+			TotalCount int           `json:"total_count"`
+			Count      int           `json:"count"`
+			Offset     int           `json:"offset,omitempty"`
+			Issues     []model.Issue `json:"issues"`
 		}{
 			RobotEnvelope: NewRobotEnvelope(bqlHash),
 			Query:         query,
+			TotalCount:    totalCount,
 			Count:         len(filtered),
+			Offset:        offset,
 			Issues:        filtered,
 		}
 		enc := newRobotEncoder(os.Stdout)
@@ -474,15 +499,28 @@ var robotRecipesCmd = &cobra.Command{
 var robotSchemaCmd = &cobra.Command{
 	Use:   "schema",
 	Short: "Output JSON Schema definitions for all robot commands",
+	Long: "Output JSON Schema definitions for all robot command outputs. " +
+		"Use --command to fetch a single schema. Accepts both the cobra path form " +
+		"(e.g., --command=triage) and the legacy robot-prefixed form " +
+		"(e.g., --command=robot-triage); the cobra path form is preferred.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		schemas := generateRobotSchemas()
 		schemaCmd, _ := cmd.Flags().GetString("command")
 		if schemaCmd != "" {
-			if schema, ok := schemas.Commands[schemaCmd]; ok {
+			// Accept both cobra path form ("triage") and legacy form ("robot-triage").
+			// Normalize: if the key is not found as-is, try prepending "robot-".
+			resolvedCmd := schemaCmd
+			if _, ok := schemas.Commands[resolvedCmd]; !ok {
+				withPrefix := "robot-" + resolvedCmd
+				if _, ok2 := schemas.Commands[withPrefix]; ok2 {
+					resolvedCmd = withPrefix
+				}
+			}
+			if schema, ok := schemas.Commands[resolvedCmd]; ok {
 				singleOutput := map[string]interface{}{
 					"schema_version": schemas.SchemaVersion,
 					"generated_at":   schemas.GeneratedAt,
-					"command":        schemaCmd,
+					"command":        resolvedCmd,
 					"schema":         schema,
 				}
 				encoder := newRobotEncoder(os.Stdout)
@@ -493,7 +531,7 @@ var robotSchemaCmd = &cobra.Command{
 				return nil
 			}
 			fmt.Fprintf(os.Stderr, "Unknown command: %s\n", schemaCmd)
-			fmt.Fprintln(os.Stderr, "Available commands:")
+			fmt.Fprintln(os.Stderr, "Available commands (use cobra path form, e.g., 'triage' not 'robot-triage'):")
 			for c := range schemas.Commands {
 				fmt.Fprintf(os.Stderr, "  %s\n", c)
 			}
@@ -880,6 +918,9 @@ var robotImpactNetworkCmd = &cobra.Command{
 var robotCausalityCmd = &cobra.Command{
 	Use:   "causality [bead-id]",
 	Short: "Output causal chain analysis as JSON",
+	Long: "Traces the causal chain for a bead: why it exists, what it unblocks, and what it was blocked by. " +
+		"Requires --global when run outside a workspace (no local .beads/ project), because causality " +
+		"analysis needs to resolve cross-project dependency chains from the shared Dolt server.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		rc, err := robotPreRun()
 		if err != nil {
@@ -1115,6 +1156,8 @@ func init() {
 
 	// bql
 	robotBQLCmd.Flags().String("query", "", "BQL query string")
+	robotBQLCmd.Flags().Int("limit", 0, "Max issues to return (0 = unlimited)")
+	robotBQLCmd.Flags().Int("offset", 0, "Skip first N issues (for pagination)")
 	robotCmd.AddCommand(robotBQLCmd)
 
 	// list
