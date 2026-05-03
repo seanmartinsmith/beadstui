@@ -81,7 +81,7 @@ Supports `=`, `!=`, `<`, `>`, `~` (regex), `IN`, `NOT IN`, `AND`/`OR`/`NOT`, par
 
 **Theme system** - Ships with Tomorrow Night (dark) and Tomorrow Day (light). Fully customizable via YAML - user-level (`~/.config/bt/theme.yaml`) or project-level (`.bt/theme.yaml`).
 
-**Robot mode** - Machine-readable JSON output via `bt robot <subcmd>` for AI agent integration. Triage recommendations, execution plans, priority analysis, graph metrics - all as structured JSON to stdout. See [AGENTS.md](AGENTS.md) for the full API.
+**Robot mode** - Machine-readable JSON output via `bt robot <subcmd>` for AI agent integration. Triage recommendations, execution plans, priority analysis, graph metrics - all as structured JSON to stdout. See [docs/robot/README.md](docs/robot/README.md) for the full API.
 
 ## Key bindings
 

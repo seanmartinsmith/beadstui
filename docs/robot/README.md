@@ -462,7 +462,7 @@ bt robot list --global --status in_progress
 **Unique flags**:
 - `--query <bql>`: BQL query string
 
-**Note**: BQL syntax is documented at `docs/design/bql-reference.md`. Also accepts `--bql` global flag as a pre-filter on top of the local `--query`.
+**Note**: BQL syntax is documented in code; a dedicated reference is tracked in bt-01pk. Also accepts `--bql` global flag as a pre-filter on top of the local `--query`.
 
 **Examples**:
 ```bash
