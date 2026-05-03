@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/lipgloss/v2"
 	"github.com/mattn/go-runewidth"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
@@ -365,6 +366,38 @@ func RenderDependencyTree(node *DependencyNode) string {
 	return sb.String()
 }
 
+// statusTreeStyle returns a lipgloss style appropriate for the given bead
+// status in a dependency tree row. Closed nodes are dimmed so they recede
+// visually; open/in_progress/blocked nodes are styled to pop. Uses package-
+// level ColorStatus* vars so light/dark adaptation is automatic.
+func statusTreeStyle(status string) lipgloss.Style {
+	switch status {
+	case "closed", "tombstone":
+		// Recede: dim so closed work doesn't compete with still-open items.
+		return lipgloss.NewStyle().Foreground(ColorStatusClosed).Faint(true)
+	case "open":
+		// Default: visible but not emphasized.
+		return lipgloss.NewStyle().Foreground(ColorStatusOpen)
+	case "in_progress":
+		// Accent: bright to signal active work.
+		return lipgloss.NewStyle().Foreground(ColorStatusInProgress).Bold(true)
+	case "blocked":
+		// Warning: red foreground to demand attention.
+		return lipgloss.NewStyle().Foreground(ColorStatusBlocked).Bold(true)
+	case "deferred":
+		// Parked: italic + dim, distinct from both closed and open.
+		return lipgloss.NewStyle().Foreground(ColorStatusDeferred).Italic(true).Faint(true)
+	case "pinned":
+		return lipgloss.NewStyle().Foreground(ColorStatusPinned)
+	case "hooked":
+		return lipgloss.NewStyle().Foreground(ColorStatusHooked)
+	case "review":
+		return lipgloss.NewStyle().Foreground(ColorStatusReview)
+	default:
+		return lipgloss.NewStyle().Foreground(ColorMuted)
+	}
+}
+
 func renderTreeNode(sb *strings.Builder, node *DependencyNode, prefix string, isLast bool, isRoot bool) {
 	if node == nil {
 		return
@@ -387,16 +420,24 @@ func renderTreeNode(sb *strings.Builder, node *DependencyNode, prefix string, is
 	// Truncate title if too long (UTF-8 safe)
 	title := truncateRunesHelper(node.Title, 40, "...")
 
-	// Render this node
-	sb.WriteString(fmt.Sprintf("%s%s%s %s %s %s (%s) [%s]\n",
-		prefix,
-		connector,
-		statusIcon,
-		typeIcon,
+	// Style the row body (ID + title + status) based on status for legibility
+	// at a scan. The prefix and connector are unstyled so tree structure stays
+	// readable against any background.
+	style := statusTreeStyle(node.Status)
+	rowBody := style.Render(fmt.Sprintf("%s %s %s (%s) [%s]",
 		node.ID,
 		title,
+		statusIcon,
 		node.Status,
 		node.Type,
+	))
+
+	// Render this node: unstyled structural prefix + connector, then styled body
+	sb.WriteString(fmt.Sprintf("%s%s%s %s\n",
+		prefix,
+		connector,
+		typeIcon,
+		rowBody,
 	))
 
 	// Calculate prefix for children
@@ -444,6 +485,8 @@ func GetStatusIcon(s string) string {
 		return "🔴"
 	case "closed":
 		return "⚫"
+	case "deferred":
+		return "❄"
 	default:
 		return "⚪"
 	}

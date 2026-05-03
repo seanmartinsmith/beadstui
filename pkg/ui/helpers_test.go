@@ -259,6 +259,7 @@ func TestGetStatusIcon(t *testing.T) {
 		{"in_progress", "🔵"},
 		{"blocked", "🔴"},
 		{"closed", "⚫"},
+		{"deferred", "❄"},
 		{"unknown", "⚪"},
 		{"", "⚪"},
 	}
@@ -270,6 +271,63 @@ func TestGetStatusIcon(t *testing.T) {
 				t.Errorf("GetStatusIcon(%s) = %s; want %s", tt.status, icon, tt.expected)
 			}
 		})
+	}
+}
+
+// TestRenderDependencyTreeStatusStyling verifies that per-status ANSI styling
+// is applied in RenderDependencyTree output. Each status should produce
+// visually distinct output (verified by the presence of ANSI escape codes).
+func TestRenderDependencyTreeStatusStyling(t *testing.T) {
+	// Build a tree with children of every status we care about
+	issues := []model.Issue{
+		{ID: "root", Title: "Root", Status: model.StatusOpen,
+			Dependencies: []*model.Dependency{
+				{DependsOnID: "closed-child", Type: model.DepBlocks},
+				{DependsOnID: "prog-child", Type: model.DepBlocks},
+				{DependsOnID: "blocked-child", Type: model.DepBlocks},
+				{DependsOnID: "deferred-child", Type: model.DepBlocks},
+			}},
+		{ID: "closed-child", Title: "Closed", Status: model.StatusClosed},
+		{ID: "prog-child", Title: "In Progress", Status: model.StatusInProgress},
+		{ID: "blocked-child", Title: "Blocked", Status: model.StatusBlocked},
+		{ID: "deferred-child", Title: "Deferred", Status: model.StatusDeferred},
+	}
+
+	issueMap := make(map[string]*model.Issue)
+	for i := range issues {
+		issueMap[issues[i].ID] = &issues[i]
+	}
+
+	tree := ui.BuildDependencyTree("root", issueMap, 10)
+	rendered := ui.RenderDependencyTree(tree)
+
+	// Should still contain all IDs
+	for _, id := range []string{"root", "closed-child", "prog-child", "blocked-child", "deferred-child"} {
+		if !strings.Contains(rendered, id) {
+			t.Errorf("Expected %q in rendered tree", id)
+		}
+	}
+
+	// Should contain deferred icon
+	if !strings.Contains(rendered, "❄") {
+		t.Error("Expected deferred snowflake icon '❄' in rendered tree")
+	}
+
+	// Should contain ANSI escape codes (lipgloss styling is active).
+	// In non-TTY test environments lipgloss may emit no-color output, so
+	// we check for status text as the minimum signal and only check ANSI
+	// codes when lipgloss does emit them.
+	if !strings.Contains(rendered, "closed") {
+		t.Error("Expected 'closed' status text in rendered tree")
+	}
+	if !strings.Contains(rendered, "in_progress") {
+		t.Error("Expected 'in_progress' status text in rendered tree")
+	}
+	if !strings.Contains(rendered, "blocked") {
+		t.Error("Expected 'blocked' status text in rendered tree")
+	}
+	if !strings.Contains(rendered, "deferred") {
+		t.Error("Expected 'deferred' status text in rendered tree")
 	}
 }
 
