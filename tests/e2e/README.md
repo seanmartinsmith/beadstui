@@ -15,15 +15,15 @@ run build ./bv --version
 
 section "robot-plan"
 run robot_plan ./bv --robot-plan
-jq_field "$BV_E2E_LOG_DIR/robot_plan.out" '.plan.tracks | length > 0'
+jq_field "$BT_E2E_LOG_DIR/robot_plan.out" '.plan.tracks | length > 0'
 
 section "robot-insights"
 run robot_insights ./bv --robot-insights
-jq_field "$BV_E2E_LOG_DIR/robot_insights.out" '.data_hash'
+jq_field "$BT_E2E_LOG_DIR/robot_insights.out" '.data_hash'
 ```
 
 Environment:
-- `BV_E2E_LOG_DIR` (optional) — log directory (default: `./.e2e-logs`).
+- `BT_E2E_LOG_DIR` (optional) — log directory (default: `./.e2e-logs`).
 
 Helpers:
 - `run <name> <cmd...>` — timestamps, captures stdout/stderr to named files.
