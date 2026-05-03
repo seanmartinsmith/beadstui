@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# BV TOON E2E Test Script
+# BT TOON E2E Test Script
 # Tests TOON format support across all robot commands
-# NOTE: TOON provides minimal savings for bv due to deeply nested output structure
+# NOTE: TOON provides minimal savings for bt due to deeply nested output structure
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 
-# Ensure we use the correct bv binary (project binary or user's local install)
+# Ensure we use the correct bt binary (project binary or user's local install)
 BT_BIN="${PROJECT_DIR}/bt"
 if [[ ! -x "$BT_BIN" ]]; then
     if [[ -x "/home/ubuntu/.local/bin/bt" ]]; then
         BT_BIN="/home/ubuntu/.local/bin/bt"
     else
         # Try to build from project
-        echo "Building bv..."
-        (cd "$PROJECT_DIR" && go build -o bv ./cmd/bt/) || {
-            echo "Failed to build bv"
+        echo "Building bt..."
+        (cd "$PROJECT_DIR" && go build -o bt ./cmd/bt/) || {
+            echo "Failed to build bt"
             exit 1
         }
         BT_BIN="${PROJECT_DIR}/bt"
@@ -39,7 +39,7 @@ record_fail() { ((TESTS_FAILED++)) || true; log_fail "$1"; }
 record_skip() { ((TESTS_SKIPPED++)) || true; log_skip "$1"; }
 
 log "=========================================="
-log "BV (BEADS VIEWER) TOON E2E TEST"
+log "BT (BEADSTUI) TOON E2E TEST"
 log "=========================================="
 log ""
 
@@ -69,9 +69,9 @@ log ""
 # Phase 1: Prerequisites
 log "--- Phase 1: Prerequisites ---"
 
-# Check prerequisites (bv is already verified above)
-log_info "bv: $BT_BIN"
-record_pass "bv available"
+# Check prerequisites (bt is already verified above)
+log_info "bt: $BT_BIN"
+record_pass "bt available"
 
 for cmd in tru jq; do
     if command -v "$cmd" &>/dev/null; then
@@ -216,7 +216,7 @@ done
 if [[ $total_json_bytes -gt 0 ]]; then
     overall_savings=$(( (total_json_bytes - total_toon_bytes) * 100 / total_json_bytes ))
     log_info "Overall: JSON=${total_json_bytes}b TOON=${total_toon_bytes}b (${overall_savings}% savings)"
-    # Note: We don't require 40% savings for bv because its output is deeply nested
+    # Note: We don't require 40% savings for bt because its output is deeply nested
     # TOON is optimized for tabular/flat data
     if [[ $overall_savings -ge 0 ]]; then
         record_pass "Token savings measurement complete"
@@ -293,7 +293,7 @@ log ""
 log "=========================================="
 log "SUMMARY: Passed=$TESTS_PASSED Failed=$TESTS_FAILED Skipped=$TESTS_SKIPPED"
 log ""
-log "NOTE: TOON provides minimal savings for bv output due to deeply"
+log "NOTE: TOON provides minimal savings for bt output due to deeply"
 log "      nested structure. This is expected behavior - TOON is optimized"
 log "      for tabular data and simple key-value structures."
 [[ $TESTS_FAILED -gt 0 ]] && exit 1 || exit 0

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# E2E tests for bv datasource smart selection
+# E2E tests for bt datasource smart selection
 # Tests: source discovery, validation, fallback, inconsistency detection
 
-LOG_FILE="/tmp/bv_datasource_test_$(date +%Y%m%d_%H%M%S).log"
+LOG_FILE="/tmp/bt_datasource_test_$(date +%Y%m%d_%H%M%S).log"
 
 PASS=0
 FAIL=0
@@ -16,11 +16,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 BT_BIN="${PROJECT_DIR}/bt"
 
-# Check if bv binary exists
+# Check if bt binary exists
 if [[ ! -x "$BT_BIN" ]]; then
-    log "Building bv..."
-    cd "$PROJECT_DIR" && go build -o bv ./cmd/bt/ || {
-        log "Failed to build bv"
+    log "Building bt..."
+    cd "$PROJECT_DIR" && go build -o bt ./cmd/bt/ || {
+        log "Failed to build bt"
         exit 1
     }
 fi
@@ -207,8 +207,8 @@ EOF
 
 # Run all tests
 log "========================================="
-log "Starting bv datasource E2E tests"
-log "BV binary: $BT_BIN"
+log "Starting bt datasource E2E tests"
+log "BT binary: $BT_BIN"
 log "========================================="
 
 test_unit_tests

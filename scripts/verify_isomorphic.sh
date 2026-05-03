@@ -62,8 +62,8 @@ TEST_DIR=$(mktemp -d)
 log_verbose "Using temporary directory: $TEST_DIR"
 
 # Binary paths
-BASELINE_BIN="$TEST_DIR/bv_baseline"
-CURRENT_BIN="$TEST_DIR/bv_current"
+BASELINE_BIN="$TEST_DIR/bt_baseline"
+CURRENT_BIN="$TEST_DIR/bt_current"
 
 # Track current branch to restore later
 ORIGINAL_BRANCH=$(git -C "$PROJECT_ROOT" branch --show-current || git -C "$PROJECT_ROOT" rev-parse HEAD)

@@ -1,5 +1,5 @@
 #!/bin/bash
-# capture_baseline.sh - Capture comprehensive performance baseline for bv
+# capture_baseline.sh - Capture comprehensive performance baseline for bt
 #
 # This script measures performance BEFORE implementing background worker changes.
 # Run this to establish the baseline against which improvements are measured.
@@ -80,7 +80,7 @@ capture_baseline() {
     check_testdata
 
     # Header
-    echo "=== BV Performance Baseline ===" > "$BASELINE_FILE"
+    echo "=== BT Performance Baseline ===" > "$BASELINE_FILE"
     echo "Date: $(date)" >> "$BASELINE_FILE"
     echo "Git commit: $(git rev-parse HEAD 2>/dev/null || echo 'not in git repo')" >> "$BASELINE_FILE"
     echo "Git branch: $(git branch --show-current 2>/dev/null || echo 'unknown')" >> "$BASELINE_FILE"

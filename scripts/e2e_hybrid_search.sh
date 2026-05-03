@@ -30,11 +30,11 @@ export BT_SEMANTIC_EMBEDDER=hash
 export BT_SEMANTIC_DIM=384
 
 log "Running text-only search..."
-TEXT_JSON=$(bv --search "$QUERY" --search-limit "$LIMIT" --search-mode text --robot-search)
+TEXT_JSON=$(bt --search "$QUERY" --search-limit "$LIMIT" --search-mode text --robot-search)
 log "Text-only results (top IDs): $(echo "$TEXT_JSON" | jq -r '.results[].issue_id' | paste -sd ',' -)"
 
 log "Running hybrid search (impact-first)..."
-HYBRID_JSON=$(bv --search "$QUERY" --search-limit "$LIMIT" --search-mode hybrid --search-preset impact-first --robot-search)
+HYBRID_JSON=$(bt --search "$QUERY" --search-limit "$LIMIT" --search-mode hybrid --search-preset impact-first --robot-search)
 log "Hybrid results (top IDs): $(echo "$HYBRID_JSON" | jq -r '.results[].issue_id' | paste -sd ',' -)"
 
 log "Hybrid metadata: mode=$(echo "$HYBRID_JSON" | jq -r '.mode') preset=$(echo "$HYBRID_JSON" | jq -r '.preset')"

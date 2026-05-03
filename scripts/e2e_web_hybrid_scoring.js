@@ -10,8 +10,8 @@ function log(msg) {
   process.stdout.write(`[${ts}] ${msg}\n`);
 }
 
-function runBv(args, env) {
-  const out = execFileSync('bv', args, { env, encoding: 'utf8' });
+function runBt(args, env) {
+  const out = execFileSync('bt', args, { env, encoding: 'utf8' });
   return JSON.parse(out);
 }
 
@@ -62,7 +62,7 @@ function topIds(results, n = 5) {
 async function main() {
   const root = path.resolve(__dirname, '..');
   const fixture = path.join(root, 'tests', 'testdata', 'search_hybrid.jsonl');
-  const tmpDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'bv-web-hybrid-'));
+  const tmpDir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'bt-web-hybrid-'));
   const beadsDir = path.join(tmpDir, '.beads');
   fs.mkdirSync(beadsDir, { recursive: true });
   fs.copyFileSync(fixture, path.join(beadsDir, 'beads.jsonl'));
@@ -81,11 +81,11 @@ async function main() {
   log(`Fixture issues: ${issues.length}`);
   log(`BEADS_DIR=${beadsDir}`);
 
-  const insights = runBv(['--robot-insights'], env);
+  const insights = runBt(['--robot-insights'], env);
   const pagerank = insights?.full_stats?.pagerank || {};
 
-  const text = runBv(['--search', 'auth', '--search-mode', 'text', '--search-limit', String(issues.length), '--robot-search'], env);
-  const hybrid = runBv(['--search', 'auth', '--search-mode', 'hybrid', '--search-preset', 'impact-first', '--search-limit', String(issues.length), '--robot-search'], env);
+  const text = runBt(['--search', 'auth', '--search-mode', 'text', '--search-limit', String(issues.length), '--robot-search'], env);
+  const hybrid = runBt(['--search', 'auth', '--search-mode', 'hybrid', '--search-preset', 'impact-first', '--search-limit', String(issues.length), '--robot-search'], env);
 
   log(`Text top IDs: ${topIds(text.results)}`);
   log(`Hybrid top IDs: ${topIds(hybrid.results)}`);
