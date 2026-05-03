@@ -47,7 +47,8 @@ func TestRobotRecipesContract(t *testing.T) {
 	}
 }
 
-// TestRobotHelpContract verifies --robot-help output is non-empty text.
+// TestRobotHelpContract verifies robot help output is non-empty text containing
+// the cobra subcommand forms for the core robot commands.
 func TestRobotHelpContract(t *testing.T) {
 	bt := buildBtBinary(t)
 	env := t.TempDir()
@@ -65,12 +66,12 @@ func TestRobotHelpContract(t *testing.T) {
 		t.Fatalf("robot-help output too short: %d bytes", len(helpText))
 	}
 
-	// Verify key sections
+	// Verify key subcommands are documented (cobra subcommand style, not legacy --robot-* flags).
 	expectedSections := []string{
-		"--robot-triage",
-		"--robot-plan",
-		"--robot-insights",
-		"--robot-next",
+		"bt robot triage",
+		"bt robot plan",
+		"bt robot insights",
+		"bt robot next",
 	}
 	for _, section := range expectedSections {
 		if !strings.Contains(helpText, section) {
