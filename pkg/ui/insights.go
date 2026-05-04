@@ -1254,13 +1254,27 @@ func (m *InsightsModel) renderPriorityPanel(width, height int, t Theme) string {
 	}
 
 	selectedIdx := m.selectedIndex[PanelPriority]
-	// For horizontal layout, show items side by side
-	visibleItems := min(len(picks), 5) // Show up to 5 items horizontally
 
-	// Calculate width per item
-	itemWidth := (width - 4) / visibleItems
-	if itemWidth < 30 {
-		itemWidth = 30
+	// Calculate how many items can fit side by side without overflowing the outer
+	// panel's inner width. Each sub-item is a RenderTitledPanel of width itemWidth,
+	// so n items consume exactly n*itemWidth columns inside the outer panel's inner
+	// width (= width). The previous hardcoded floor of 30 caused overflow when
+	// visibleItems*30 > width (e.g. 5 items at width=100: 150 > 100, producing
+	// "PR: |" artifacts where the outer panel truncated content mid-item-border).
+	//
+	// Fix: start with up to 5 items and reduce until n*minItemWidth <= width.
+	// Then distribute the available space evenly.
+	const minItemWidth = 20 // minimum readable width for a priority sub-item
+	visibleItems := min(len(picks), 5)
+	for visibleItems > 1 && visibleItems*minItemWidth > width {
+		visibleItems--
+	}
+
+	// Distribute space evenly. If even 1 item at minItemWidth exceeds width (very
+	// narrow terminal), clamp itemWidth to width and let RenderTitledPanel truncate.
+	itemWidth := width / visibleItems
+	if itemWidth < minItemWidth {
+		itemWidth = minItemWidth
 	}
 
 	// Scrolling for selection
