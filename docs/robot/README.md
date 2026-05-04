@@ -703,6 +703,41 @@ bt robot metrics
 
 ---
 
+### bt robot health
+
+**Purpose**: Disk-only diagnostic state — bt version, on-disk cache sizes (`.bt/semantic`, `.bt/baseline`), and the events log (`~/.bt/events.jsonl`) size + entry count + age range. The agent-facing twin of `bt status`. Does NOT load beads or contact Dolt, so it works on first-run installs and runs in <10ms.
+
+**Top-level fields**:
+| Field | Type | Description |
+|---|---|---|
+| `binary.version` | string | bt version (e.g. `v0.1.0`, `v0.1.0-dev`) |
+| `binary.go_version` | string | Go runtime version |
+| `binary.os` / `binary.arch` | string | OS and architecture |
+| `event_log.path` | string | Absolute path to `~/.bt/events.jsonl` |
+| `event_log.exists` | bool | False on first-run installs |
+| `event_log.size_bytes` | int | File size in bytes |
+| `event_log.entry_count` | int | Non-blank line count (one event per line) |
+| `event_log.oldest_at` | string | RFC3339 timestamp of first entry; omitted if file empty |
+| `event_log.newest_at` | string | RFC3339 timestamp of last entry; omitted if file empty |
+| `cache.semantic_index_path` | string | Absolute path to `.bt/semantic/` (under cwd) |
+| `cache.semantic_index_bytes` | int | Recursive size; 0 if dir missing |
+| `cache.baseline_path` | string | Absolute path to `.bt/baseline/` (under cwd) |
+| `cache.baseline_bytes` | int | Recursive size; 0 if dir missing |
+
+**Notes**:
+- `data_hash` is intentionally empty in the envelope - this command reads disk state, not bead state.
+- The events log is append-only with no truncation policy by design (long-horizon activity queries depend on it). Use this command to monitor growth.
+- For human-readable output, use `bt status`.
+
+**Examples**:
+```bash
+bt robot health
+bt robot health | jq '.event_log | {size: .size_bytes, entries: .entry_count}'
+bt robot health | jq '.cache.semantic_index_bytes + .cache.baseline_bytes' # total bt cache bytes
+```
+
+---
+
 ### bt robot orphans
 
 **Purpose**: Commits that don't correlate to any known bead - candidates for retroactive tagging or cleanup. Requires git history + beads data.

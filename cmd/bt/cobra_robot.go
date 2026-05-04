@@ -1201,6 +1201,9 @@ func init() {
 	// help (robot-specific)
 	robotCmd.AddCommand(robotHelpCmd)
 
+	// health (disk-only diagnostic, paired with `bt status`; bt-uu73)
+	robotCmd.AddCommand(robotHealthCmd)
+
 	// drift
 	robotCmd.AddCommand(robotDriftCmd)
 
