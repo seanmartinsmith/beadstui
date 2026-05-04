@@ -731,7 +731,7 @@ func (fd FooterData) Render() string {
 	workspaceSection := ""
 	if fd.WorkspaceSummary != "" {
 		workspaceStyle := lipgloss.NewStyle().
-			Background(ThemeBg("#8abeb7")).
+			Background(ColorPrimary).
 			Foreground(ColorBg).
 			Bold(true).
 			Padding(0, 1)

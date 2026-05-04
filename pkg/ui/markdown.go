@@ -184,6 +184,11 @@ func buildStyleFromTheme(theme Theme, isDark bool) ansi.StyleConfig {
 	// to the 16-color palette. Using nil lets the terminal's own background
 	// show through, which is correct for every theme. (fixes #101)
 	var docBgPtr *string // nil = terminal default background
+	// docFg mirrors ColorText's light/dark defaults. Hardcoded because
+	// glamour needs both sides available regardless of the current
+	// isDarkBackground state, and resolveColor() returns just one side.
+	// Treated as a Go-fallback per bt-pxbc audit; keep these in sync
+	// with theme.yaml `text:` if defaults change.
 	var docFg string
 	if isDark {
 		docFg = "#c5c8c6"

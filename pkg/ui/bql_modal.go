@@ -140,13 +140,13 @@ func (m BQLQueryModal) View() string {
 
 	// Error line (if any)
 	if m.err != "" {
-		errStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff5555"))
+		errStyle := lipgloss.NewStyle().Foreground(ColorDanger)
 		sb.WriteString(errStyle.Render(fmt.Sprintf("  %s", m.err)))
 		sb.WriteString("\n")
 	}
 
 	// Help hint
-	hint := lipgloss.NewStyle().Foreground(lipgloss.Color("#666666"))
+	hint := lipgloss.NewStyle().Foreground(ColorMuted)
 	sb.WriteString(hint.Render("  enter: apply | esc: cancel | up/down: history"))
 
 	content := sb.String()

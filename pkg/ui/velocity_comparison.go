@@ -264,17 +264,17 @@ func (m *VelocityComparisonModel) View() string {
 				displayLabel = displayLabel[:labelWidth-1] + "…"
 			}
 
-			// Format trend with color
+			// Format trend with color (bt-pxbc: track semantic theme tokens)
 			trendStyle := lipgloss.NewStyle()
 			switch row.Trend {
 			case "accelerating":
-				trendStyle = trendStyle.Foreground(ThemeFg("#b5bd68"))
+				trendStyle = trendStyle.Foreground(ColorSuccess)
 			case "decelerating":
-				trendStyle = trendStyle.Foreground(ThemeFg("#cc6666"))
+				trendStyle = trendStyle.Foreground(ColorDanger)
 			case "stable":
 				trendStyle = trendStyle.Foreground(t.Secondary)
 			case "erratic":
-				trendStyle = trendStyle.Foreground(ThemeFg("#de935f"))
+				trendStyle = trendStyle.Foreground(ColorWarning)
 			default:
 				trendStyle = trendStyle.Foreground(t.Secondary)
 			}
@@ -285,7 +285,7 @@ func (m *VelocityComparisonModel) View() string {
 			}
 
 			// Format sparkline
-			sparkStyle := lipgloss.NewStyle().Foreground(ThemeFg("#81a2be"))
+			sparkStyle := lipgloss.NewStyle().Foreground(ColorInfo)
 
 			// Build row string
 			rowText := fmt.Sprintf("%-*s %*d %*d %*d %*d %*.1f ",

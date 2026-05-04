@@ -16,15 +16,15 @@ func RenderStructuredPage(page StructuredTutorialPage, theme Theme, width int) s
 	return renderElements(page.Elements, theme, width)
 }
 
-// tutorialColors returns resolved colors for status flow diagrams.
-// Called inline rather than cached at package level because they need
-// to respect the current isDarkBackground state.
-func tutorialColorOpen() color.Color       { return resolveColor("#718c00", "#b5bd68") }
-func tutorialColorInProgress() color.Color { return resolveColor("#4271ae", "#81a2be") }
-func tutorialColorBlocked() color.Color    { return resolveColor("#c82829", "#cc6666") }
-func tutorialColorClosed() color.Color     { return resolveColor("#8e908c", "#969896") }
-func tutorialColorPrimary() color.Color    { return resolveColor("#3e999f", "#8abeb7") }
-func tutorialColorFeature() color.Color    { return resolveColor("#f5871f", "#de935f") }
+// tutorialColors return resolved colors for status flow diagrams.
+// Track the semantic theme tokens so YAML retones propagate to the
+// tutorial flow diagrams (bt-pxbc).
+func tutorialColorOpen() color.Color       { return ColorStatusOpen }
+func tutorialColorInProgress() color.Color { return ColorStatusInProgress }
+func tutorialColorBlocked() color.Color    { return ColorStatusBlocked }
+func tutorialColorClosed() color.Color     { return ColorStatusClosed }
+func tutorialColorPrimary() color.Color    { return ColorPrimary }
+func tutorialColorFeature() color.Color    { return ColorTypeFeature }
 
 // structuredTutorialPages returns tutorial content using the component system
 func structuredTutorialPages() []StructuredTutorialPage {

@@ -1,5 +1,26 @@
 package ui
 
+// Why hex literals appear in this file (and theme_loader.go / styles.go):
+//
+// pkg/ui/defaults/theme.yaml is the source-of-truth for color tokens at
+// runtime. The Go constants in DefaultTheme() below intentionally MIRROR
+// that YAML so the app still renders themed correctly when the embedded
+// YAML cannot be loaded — embed failures, future build configurations
+// that strip embeds, tests that bypass the loader, and partial-override
+// scenarios where the user's overlay omits a key (loader falls back to
+// these defaults via getDefaults() / themeColorDefaults).
+//
+// If you change a default color, change it in BOTH the YAML AND the
+// Go-fallback constants. Do not dedupe these by removing the Go side
+// without first proving the embedded YAML is loadable in every supported
+// build configuration. See bt-pxbc audit (docs/audits/architecture/
+// 2026-05-03-theme-system.md) for the full layer hierarchy.
+//
+// Render code in pkg/ui/ should NOT introduce new hex literals — use
+// the Color* package vars (styles.go) or theme fields. Hex literals
+// outside the three documented files (this file, theme_loader.go,
+// styles.go) are presumed bugs and tracked under the bt-pxbc audit.
+
 import (
 	"image/color"
 	"os"
@@ -164,11 +185,14 @@ func DefaultTheme() Theme {
 	t.InfoBold = lipgloss.NewStyle().Foreground(ColorInfo).Bold(true)
 	t.SecondaryText = lipgloss.NewStyle().Foreground(t.Secondary)
 	t.PrimaryBold = lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
-	t.PriorityUpArrow = lipgloss.NewStyle().Foreground(ThemeFg("#cc6666")).Bold(true)
-	t.PriorityDownArrow = lipgloss.NewStyle().Foreground(ThemeFg("#8abeb7")).Bold(true)
+	t.PriorityUpArrow = lipgloss.NewStyle().Foreground(ColorDanger).Bold(true)
+	t.PriorityDownArrow = lipgloss.NewStyle().Foreground(ColorPrimary).Bold(true)
+	// TriageStar has no semantic Color* counterpart yet; closest is yellow
+	// (ColorPrioMedium). Kept as ThemeFg literal for now — see bt-pxbc
+	// audit follow-up #2 (promote to YAML token or alias).
 	t.TriageStar = lipgloss.NewStyle().Foreground(ThemeFg("#f0c674"))
-	t.TriageUnblocks = lipgloss.NewStyle().Foreground(ThemeFg("#b5bd68"))
-	t.TriageUnblocksAlt = lipgloss.NewStyle().Foreground(ThemeFg("#969896"))
+	t.TriageUnblocks = lipgloss.NewStyle().Foreground(ColorSuccess)
+	t.TriageUnblocksAlt = lipgloss.NewStyle().Foreground(ColorSecondary)
 
 	return t
 }

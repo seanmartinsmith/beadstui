@@ -430,14 +430,15 @@ func (m *Model) renderHelpOverlay() string {
 
 	gapWidth := 3 // gap between panels in river layout
 
-	// Tomorrow Night gradient for help overlay sections
+	// Tomorrow Night gradient for help overlay sections.
+	// Maps to semantic theme tokens so YAML retones propagate (bt-pxbc).
 	colors := []color.Color{
-		resolveColor("#3e999f", "#8abeb7"), // Teal (primary)
-		resolveColor("#4271ae", "#81a2be"), // Blue
-		resolveColor("#718c00", "#b5bd68"), // Green
-		resolveColor("#f5871f", "#de935f"), // Orange
-		resolveColor("#8959a8", "#b294bb"), // Purple
-		resolveColor("#eab700", "#f0c674"), // Yellow
+		ColorPrimary,   // Teal
+		ColorInfo,      // Blue
+		ColorSuccess,   // Green
+		ColorWarning,   // Orange
+		ColorTypeEpic,  // Purple
+		ColorTypeTask,  // Yellow
 	}
 
 	// Helper to render a section panel (auto-sized to content).

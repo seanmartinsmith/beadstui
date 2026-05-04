@@ -1,5 +1,21 @@
 package ui
 
+// Why hex literals appear in this file (and theme.go / styles.go):
+//
+// pkg/ui/defaults/theme.yaml is the source-of-truth for color tokens at
+// runtime. The Go default tables below (globalColorDefaults and
+// themeColorDefaults) intentionally MIRROR that YAML so the loader can
+// fall back per-key when a user's overlay omits a value, and so the app
+// still renders themed correctly when the embedded YAML cannot be loaded
+// (embed failures, future build configurations that strip embeds, tests
+// that bypass the loader).
+//
+// If you change a default color, change it in BOTH the YAML AND the
+// Go-fallback tables. Do not dedupe these by removing the Go side
+// without first proving the embedded YAML is loadable in every supported
+// build configuration. See bt-pxbc audit (docs/audits/architecture/
+// 2026-05-03-theme-system.md) for the full layer hierarchy.
+
 import (
 	"embed"
 	"image/color"
@@ -376,7 +392,10 @@ func ApplyThemeToThemeStruct(t *Theme, tf *ThemeFile) {
 	t.SecondaryText = lipgloss.NewStyle().Foreground(t.Secondary)
 	t.PrimaryBold = lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
 	t.PriorityUpArrow = lipgloss.NewStyle().Foreground(ColorDanger).Bold(true)
-	t.PriorityDownArrow = lipgloss.NewStyle().Foreground(ColorSuccess).Bold(true)
+	t.PriorityDownArrow = lipgloss.NewStyle().Foreground(ColorPrimary).Bold(true)
+	// TriageStar has no semantic Color* counterpart yet; closest is yellow
+	// (ColorPrioMedium). Kept as ThemeFg literal for now — see bt-pxbc
+	// audit follow-up #2 (promote to YAML token or alias).
 	t.TriageStar = lipgloss.NewStyle().Foreground(ThemeFg("#f0c674"))
 	t.TriageUnblocks = lipgloss.NewStyle().Foreground(ColorSuccess)
 	t.TriageUnblocksAlt = lipgloss.NewStyle().Foreground(ColorSecondary)
