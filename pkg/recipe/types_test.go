@@ -7,6 +7,58 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/recipe"
 )
 
+func TestParseRelativeTimeHours(t *testing.T) {
+	now := time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
+
+	cases := []struct {
+		input    string
+		wantHrs  int // hours subtracted from now
+	}{
+		{"1h", 1},
+		{"24h", 24},
+		{"6h", 6},
+		{"48h", 48},
+	}
+	for _, tc := range cases {
+		t.Run(tc.input, func(t *testing.T) {
+			result, err := recipe.ParseRelativeTime(tc.input, now)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
+			expected := now.Add(time.Duration(-tc.wantHrs) * time.Hour)
+			if !result.Equal(expected) {
+				t.Errorf("Expected %v, got %v", expected, result)
+			}
+		})
+	}
+}
+
+func TestParseRelativeTimeHoursCaseInsensitive(t *testing.T) {
+	now := time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
+
+	result, err := recipe.ParseRelativeTime("6H", now)
+	if err != nil {
+		t.Fatalf("Unexpected error for uppercase H: %v", err)
+	}
+	expected := now.Add(-6 * time.Hour)
+	if !result.Equal(expected) {
+		t.Errorf("Expected %v, got %v", expected, result)
+	}
+}
+
+func TestParseRelativeTimeZeroHoursInvalid(t *testing.T) {
+	now := time.Now()
+	// 0h is syntactically valid (n=0) but results in now itself, not an error.
+	// The parser doesn't reject zero — it returns now. Verify it doesn't error.
+	result, err := recipe.ParseRelativeTime("0h", now)
+	if err != nil {
+		t.Fatalf("0h should not error (returns now): %v", err)
+	}
+	if !result.Equal(now) {
+		t.Errorf("0h: expected now (%v), got %v", now, result)
+	}
+}
+
 func TestParseRelativeTimeDays(t *testing.T) {
 	now := time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
 

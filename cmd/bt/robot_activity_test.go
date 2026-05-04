@@ -172,6 +172,9 @@ func TestResolveActivityRange_RelativeAndIsoSince(t *testing.T) {
 		wantStart time.Time
 	}{
 		{"ISO date", "2025-09-01", time.Date(2025, 9, 1, 0, 0, 0, 0, activityFixedNow.Location())},
+		{"1h", "1h", activityFixedNow.Add(-1 * time.Hour)},
+		{"24h", "24h", activityFixedNow.Add(-24 * time.Hour)},
+		{"6h", "6h", activityFixedNow.Add(-6 * time.Hour)},
 		{"7d", "7d", activityFixedNow.AddDate(0, 0, -7)},
 		{"2w", "2w", activityFixedNow.AddDate(0, 0, -14)},
 		{"1mo (brief-mandated)", "1mo", activityFixedNow.AddDate(0, -1, 0)},

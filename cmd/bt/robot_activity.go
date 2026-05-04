@@ -316,11 +316,11 @@ func computePresetRange(af activityFlags, now time.Time, label string) (parsedRa
 	return rng, nil
 }
 
-// activityRelativePattern matches relative durations like "7d", "2w", "1mo",
-// "1m" (single-letter month form), "1y". Layered on top of the recipe parser
-// because the brief mandates `1mo` syntax, which the recipe parser doesn't
-// recognize on its own.
-var activityRelativePattern = regexp.MustCompile(`^(?i)(\d+)(d|w|mo|m|y)$`)
+// activityRelativePattern matches relative durations like "24h", "7d", "2w",
+// "1mo", "1m" (single-letter month form), "1y". Layered on top of the recipe
+// parser because the brief mandates `1mo` syntax, which the recipe parser
+// doesn't recognize on its own.
+var activityRelativePattern = regexp.MustCompile(`^(?i)(\d+)(h|d|w|mo|m|y)$`)
 
 // parseActivityTime accepts the same inputs as recipe.ParseRelativeTime plus
 // the brief-mandated `1mo` form for months. Anything that doesn't match the
@@ -484,8 +484,8 @@ func projectActivityCompact(in []events.Event) []CompactActivityEvent {
 }
 
 func init() {
-	robotActivityCmd.Flags().String("since", "", "Events at or after this time (relative like 7d/2w/1mo/1y or ISO date)")
-	robotActivityCmd.Flags().String("until", "", "Events strictly before this time (relative or ISO date; default: unbounded)")
+	robotActivityCmd.Flags().String("since", "", "Events at or after this time (relative like 1h/24h/7d/2w/1mo/1y or ISO date)")
+	robotActivityCmd.Flags().String("until", "", "Events strictly before this time (relative like 1h/24h/7d or ISO date; default: unbounded)")
 	robotActivityCmd.Flags().String("kind", "", "Filter by event kind: comma-separated list of created,edited,closed,commented,bulk,system")
 	robotActivityCmd.Flags().String("bead", "", "Filter to one bead's activity timeline (exact ID match, e.g. bt-1puf)")
 	robotActivityCmd.Flags().String("repo", "", "Filter by bead-prefix / source repo (e.g. bt, bd, mkt)")

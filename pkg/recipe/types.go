@@ -59,11 +59,11 @@ type ExportConfig struct {
 	Template     string `yaml:"template,omitempty" json:"template,omitempty"`           // Custom template path
 }
 
-// relativeTimePattern matches relative time expressions like "14d", "2w", "1m", "1y"
-var relativeTimePattern = regexp.MustCompile(`^(\d+)([dwmy])$`)
+// relativeTimePattern matches relative time expressions like "14d", "2w", "1m", "1y", "24h"
+var relativeTimePattern = regexp.MustCompile(`^(\d+)([hdwmy])$`)
 
 // ParseRelativeTime converts a relative time string to an absolute time.
-// Supports: Nd (days), Nw (weeks), Nm (months), Ny (years)
+// Supports: Nh (hours), Nd (days), Nw (weeks), Nm (months), Ny (years)
 // If the string is not a relative time, it tries to parse as ISO 8601.
 // Returns zero time if parsing fails.
 func ParseRelativeTime(s string, now time.Time) (time.Time, error) {
@@ -79,6 +79,8 @@ func ParseRelativeTime(s string, now time.Time) (time.Time, error) {
 		unit := matches[2]
 
 		switch unit {
+		case "h":
+			return now.Add(time.Duration(-n) * time.Hour), nil
 		case "d":
 			return now.AddDate(0, 0, -n), nil
 		case "w":
@@ -115,5 +117,5 @@ type TimeParseError struct {
 }
 
 func (e *TimeParseError) Error() string {
-	return "invalid time format: " + e.Input + " (expected relative like '14d', '2w', '1m' or ISO date)"
+	return "invalid time format: " + e.Input + " (expected relative like '1h', '24h', '14d', '2w', '1m' or ISO date)"
 }

@@ -773,8 +773,8 @@ bt robot history --history-limit 200
 Distinct from `bd list --updated-after`, which returns the **current state** of beads filtered by mtime. Activity returns the **stream** of captured changes — a bead created, edited, closed, reopened, and commented today is one row in `bd list` but five rows here.
 
 **Unique flags**:
-- `--since <date|relative>` — events at or after (e.g., `2026-01-01`, `7d`, `2w`, `1mo`, `1y`)
-- `--until <date>` — events strictly before (default: unbounded)
+- `--since <date|relative>` — events at or after (e.g., `1h`, `24h`, `7d`, `2w`, `1mo`, `1y`, `2026-01-01`)
+- `--until <date|relative>` — events strictly before (e.g., `1h`, `7d` or ISO date; default: unbounded)
 - `--kind <comma-list>` — filter by EventKind: `created,edited,closed,commented,bulk,system`
 - `--bead <id>` — filter to one bead's activity timeline
 - `--repo <prefix>` — filter by bead-prefix (e.g., `bt`, `bd`, `mkt`)
@@ -815,6 +815,9 @@ Distinct from `bd list --updated-after`, which returns the **current state** of 
 
 **Examples**:
 ```bash
+bt robot activity --since 1h
+bt robot activity --since 24h
+bt robot activity --since 6h --kind closed
 bt robot activity --this-month
 bt robot activity --since 2025-09-01 --until 2025-10-01
 bt robot activity --in 2025-09
