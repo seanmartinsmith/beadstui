@@ -1,0 +1,17 @@
+round	persona	findings_produced	findings_revised	challenges_issued	flip_count	status
+0	Architecture Reviewer	8	0	0	0	independent_analysis
+0	Security Analyst	8	0	0	0	independent_analysis
+0	Performance Engineer	7	0	0	0	independent_analysis
+0	Reliability Engineer	8	0	0	0	independent_analysis
+0	Devil's Advocate	7	0	0	0	independent_analysis
+1	Architecture Reviewer	8	0	5	0	debate_round_1
+1	Security Analyst	8	0	5	0	debate_round_1
+1	Performance Engineer	7	0	5	0	debate_round_1
+1	Reliability Engineer	8	0	5	0	debate_round_1
+1	Devil's Advocate	7	0	15	0	debate_round_1
+2	Architecture Reviewer	8	0	1	0	debate_round_2
+2	Security Analyst	8	0	1	0	debate_round_2
+2	Performance Engineer	7	0	1	0	debate_round_2
+2	Reliability Engineer	8	0	1	0	debate_round_2
+2	Devil's Advocate	7	2	5	2	debate_round_2
+F	synthesis	38	4	57	4	consensus_aggregation

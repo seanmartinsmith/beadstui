@@ -6,6 +6,66 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-05-03 — Parallel-stream landing: predict-swarm P0/P1 fixes (Streams A/B/C)
+
+**Three concurrent worktree-isolated streams from the 2026-05-03 multi-persona predict swarm landed in one session: AGENTS.md correctness sweep (Stream A), bt-05zt Phase 1 mechanical SQLite removal per ADR-003 (Stream B), and SA-1 hooks default-deny + TOFU trust DB (Stream C, CRITICAL P0 security). Closes 4 of the swarm's top findings.**
+
+### Stream A — bt-uikz (P2, area:docs, CLOSED) — commit 31342bf1
+
+Closes findings DA-1, DA-4, DA-6 (pkg/ui subset).
+
+- Extracted `agents.AgentsFileName = "AGENTS.md"` constant in `pkg/agents/file.go`. Replaced literal references in non-test code paths (`pkg/agents/blurb.go::SupportedAgentFiles[0]`, `pkg/agents/detect.go::GetPreferredAgentFilePath`). The file-count claim becomes a verifiable single-source invariant rather than asserted prose.
+- Fixed AGENTS.md "Key Directories": removed phantom `internal/dolt/` and `internal/models/` (don't exist), added `internal/doltctl/` and `pkg/view/` (real and load-bearing for robot output). Datasource description corrected to `(Dolt, JSONL fallback)`.
+- Rewrote AGENTS.md filename-claim at lines 84 + 158 to point at the new constant instead of asserting "15 Go files" (actual: 19 files; 8 use the literal string in 57 places).
+- Swept all 95 `bv-` (beads_viewer-era) sigil references in `pkg/ui/tutorial.go` (73) and `pkg/ui/board_test.go` (22). Parenthetical `(bv-XXXX)` annotations dropped; example IDs translated to `bt-` prefix; test fixture IDs updated. Zero `bv-` matches remain in those files.
+
+### Stream B — bt-05zt Phase 1 (P2, area:data, CLOSED — Phase 1 only) — commits 77d478aa + 9e468e2f
+
+Closes findings AR-2, code half of DA-3, partial AR-8. Implements ADR-003 Phase 1.
+
+- Deleted `internal/datasource/sqlite.go` (397 LOC). The reader has been unreachable since beads v0.56.1 (March 2026); stale `.beads/beads.db` files outranking JSONL=50 was the active hazard (PrioritySQLite=100).
+- Removed `SourceTypeSQLite`, `PrioritySQLite`, `discoverSQLiteSources` from `internal/datasource/source.go`. Removed SQLite branches from `LoadFromSource` (load.go), `ValidateSource` (validate.go, -89 LOC), and `select.go`. Test cases dropped from `source_test.go` (-329 LOC) and `dolt_test.go`.
+- Updated `cmd/bt/root.go:247` (fallback enum case) and `cmd/bt/pages.go:580-582` (direct `NewSQLiteReader` instantiation, plus the `meta.Database` branch in `metadataPreferredSource` which had to drop because it returned the deleted type — minimum surgery, comment marker for Phase 2).
+- Updated AGENTS.md line 72 (Project Identity "Data backend") to acknowledge Phase 1 removal.
+- **Comment sweep follow-up commit (9e468e2f)**: cleaned 3 stale comments still claiming SQLite-as-source — `cmd/bt/cobra_tail.go:105`, `pkg/ui/background_worker.go:1422+1494`, `pkg/tail/stream.go:15`. Comments now match the code.
+- pkg/export/sqlite_export.go (the EXPORT artifact, not the data source) is untouched; the `modernc.org/sqlite` driver stays vendored and linked via that path.
+
+**Phase 2 deliberately not done**: enum collapse to 3 values, drop priority constants, simplify `SelectBestSource`, fold `pages.go::metadataPreferredSource`. Tracked in same bead bt-05zt as remaining work.
+
+### Stream C — bt-zcs0 (P0 bug, area:cli + security, CLOSED) — commit c86185bd
+
+Closes finding SA-1 (CRITICAL — RCE via cloned repos with malicious `.bt/hooks.yaml`).
+
+- New trust model: `(absolute path of hooks.yaml, sha256 of content)` binding. Edit hooks.yaml -> trust resets. Move project -> trust resets. Trust DB at `~/.bt/hook-trust.json`, mode 0600 on POSIX, default user-profile ACL on Windows.
+- New `pkg/hooks/trust.go` with `TrustDB` schema, `LoadTrustDB`, `SaveTrustDB`, `IsTrusted`, `RegisterTrust`, `HashHooksFile`, `UntrustedHooksError`. Schema versioned (`trustDBVersion = 1`). Testable seam via `trustDBPath` package-level var.
+- Trust gate lives in `Executor.SetTrustGate` (called by new `hooks.RunHooks` convenience wrapper). NOT in `Loader.Load` — loading stays read-only so `bt hooks list` can show what would run without triggering refusal.
+- **Breaking flag flip**: removed `--no-hooks` (default false, unsafe), added `--allow-hooks` (default false, safe). Without `--allow-hooks`, untrusted hooks refuse with exit 78 and stderr remediation message pointing at `bt hooks trust <path>`. With `--allow-hooks`, trust check is bypassed (CI escape hatch).
+- New `cmd/bt/cobra_hooks.go` with `bt hooks list [path]` and `bt hooks trust [path]` subcommands.
+- Pre-run announcement `bt: would run hook '<phase>': <command>` emitted to stderr for every hook regardless of trust state (defense-in-depth observability).
+- `cmd/bt/root.go` legacy `runExportMDCommand` (the pre-cobra `bt --export-md` path) flipped consistently — would have been a backdoor for unsafe behavior if untouched.
+- 9 new tests in `pkg/hooks/trust_test.go`: unknown path, matching hash, mismatched hash, persistence round-trip, missing-DB-empty, executor-untrusted-refuses, allow-hooks-bypass, trusted-file-runs, RunHooks wires the gate.
+- New `SECURITY.md` documents the threat model and the known limitation (external scripts referenced by hooks are NOT covered by the hash; document, don't fix in Phase 1).
+
+### Out-of-scope follow-ups filed during the session
+
+- **bt-xwt5** (P2, area:tests + platform:windows) — `.gitattributes` doesn't pin `*.json` to `eol=lf`. New worktrees check out `pkg/view/testdata/golden/*.json` with CRLF, causing byte-equal-looking-but-failing comparisons. Misled all three subagents into reporting "pre-existing failures" that exist only in worktrees, not on main.
+- **bt-1gp2** (P3, area:cli) — Stream C left near-duplicate `handleHookError` (cobra_export.go) and `exitOnHookError` (root.go) helpers. Consolidate into one.
+
+### Verify
+
+- `go build ./...` and `go vet ./...` clean on main post-merge.
+- `go test ./...` — all 32 packages PASS, including pkg/view (LF golden files in main's checkout).
+- AGENTS.md merge conflict between Stream A (lines 84-91 structural fix) and Stream B (line 87 wording) resolved manually: kept A's structural fixes + "(Dolt, JSONL fallback)" wording, kept B's line 72 update.
+- `git log --oneline` shows: `31342bf1` (A), `77d478aa` + `9e468e2f` (B), `c86185bd` (C), `fa99ee07` and `6825f9d9` merge commits.
+
+### Risk
+
+- Removal of `--no-hooks` is a deliberate breaking change. Existing callers passing `--no-hooks` get an unknown-flag error from cobra — intended; forces re-evaluation under safer default.
+- Stream B's forced `metadataPreferredSource` edit (cmd/bt/pages.go:521-555) is documented as Phase 2 cleanup target; minimum surgery applied.
+- Trust mechanism does not cover external scripts referenced by hook commands. Documented in SECURITY.md, listed as Phase 2 hardening candidate.
+
+---
+
 ## 2026-05-01 — bt-ll7 mouse-tracking leak audit + reset-terminal recovery
 
 **Audited bt's TUI exit paths against the bt-ll7 / dotfiles-ll7 mouse-tracking-leak symptom (DECSET 1006 bleeding into the host terminal as `\e[<...M` text after an unclean exit). Code review + empirical autoclose capture confirms every userland-reachable exit path emits the disable-mouse sequence. Only SIGKILL / taskkill /F / parent-process kill bypass it — added `bt reset-terminal` so users can recover those cases with one command, plus a regression test that locks the View()'s MouseMode invariant.**
