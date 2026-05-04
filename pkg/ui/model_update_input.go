@@ -1805,15 +1805,28 @@ func (m Model) alertsModalItemAtY(my int) (int, bool) {
 	if end > len(active) {
 		end = len(active)
 	}
+	// Day-separator trim must mirror renderNotificationsTab (bt-l5zk) so
+	// click-to-row math stays aligned with the visible layout.
+	end = trimEndForDaySeparators(active, start, end, pageSize)
 	row := 0
+	var prevDate string
 	for i := start; i < end; i++ {
+		curDate := active[i].At.Format("2006-01-02")
+		if curDate != prevDate {
+			// Separator row: clicks here are no-ops, mirroring chrome.
+			if row == relY {
+				return -1, false
+			}
+			row++
+			prevDate = curDate
+		}
 		if row == relY {
 			return i, true
 		}
 		row++
 		if i == m.notificationsCursor {
 			// Summary line is rendered only when Summary is non-empty after
-			// newline-sanitization + trim (renderNotificationsTab, ~line 617).
+			// newline-sanitization + trim (renderNotificationsTab).
 			s := strings.TrimSpace(strings.ReplaceAll(active[i].Summary, "\n", " "))
 			if s != "" {
 				if row == relY {

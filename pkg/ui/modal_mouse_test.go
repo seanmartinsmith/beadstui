@@ -131,10 +131,12 @@ func TestNotificationsModal_ClickRowMovesCursor(t *testing.T) {
 	}
 
 	firstItemY := 5 + modalChromeAboveItems
-	// Cursor starts at 0; click the third visible row.
-	// Selected item writes a 1-row summary only if Summary is non-empty; our
-	// fixtures have empty Summary, so rows are consecutive.
-	msg := tea.MouseClickMsg{X: 40, Y: firstItemY + 2, Button: tea.MouseLeft}
+	// Cursor starts at 0; click the third visible event row. bt-l5zk inserts
+	// a leading day-separator row at relY=0 (all three fixtures share today's
+	// date, so only the anchor separator is emitted). Events therefore occupy
+	// relY=1,2,3. Selected item writes a 1-row summary only if Summary is
+	// non-empty; our fixtures have empty Summary, so rows are consecutive.
+	msg := tea.MouseClickMsg{X: 40, Y: firstItemY + 3, Button: tea.MouseLeft}
 	got, _ := m.handleMouseClick(msg)
 	if got.notificationsCursor != 2 {
 		t.Fatalf("expected notificationsCursor=2, got %d", got.notificationsCursor)

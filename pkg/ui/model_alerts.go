@@ -502,6 +502,50 @@ func (m Model) renderAlertsTab() string {
 	return sb.String()
 }
 
+// formatDaySeparator renders the day-boundary marker shown above the first
+// event of each day in the notifications tab (bt-l5zk). Format:
+// "─── 2026-05-04 ───" centered in width, padded with horizontal box-drawing
+// dashes. Caller must apply muted styling.
+func formatDaySeparator(date string, width int) string {
+	label := " " + date + " "
+	if width <= len(label) {
+		return label
+	}
+	pad := width - len(label)
+	left := pad / 2
+	right := pad - left
+	return strings.Repeat("─", left) + label + strings.Repeat("─", right)
+}
+
+// trimEndForDaySeparators reduces `end` so the events from `start` to the
+// returned end, plus one separator per distinct day among them and one
+// before the first event, fit inside pageSize. Returns the original end if
+// no trimming is needed (e.g. last page is short).
+func trimEndForDaySeparators(active []events.Event, start, end, pageSize int) int {
+	if start >= end {
+		return end
+	}
+	// Walk events in window, count separators (one per new date), stop when
+	// adding the next event would exceed pageSize. The cursor-expand row
+	// budget is already deducted from pageSize by the caller.
+	rows := 0
+	var prevDate string
+	for i := start; i < end; i++ {
+		curDate := active[i].At.Format("2006-01-02")
+		needSep := curDate != prevDate
+		needed := 1
+		if needSep {
+			needed++
+		}
+		if rows+needed > pageSize {
+			return i
+		}
+		rows += needed
+		prevDate = curDate
+	}
+	return end
+}
+
 // formatNotificationRow renders a single ring-buffer event as a one-line
 // notification. Format: "15:04 closed bt-46p6.1 • Fix: modal expands…"
 // Single space between time/kind/id; " • " separates id from title.
@@ -644,6 +688,7 @@ func (m Model) renderNotificationsTab() string {
 	cursorStyle := lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
 	rowStyle := lipgloss.NewStyle().Foreground(t.Base.GetForeground())
 	summaryStyle := mutedStyle.Italic(true)
+	separatorStyle := mutedStyle
 
 	// Usable width for the row content after our "▸ " / "   " prefix (3)
 	// and a right-side margin (2) to keep text from kissing the border.
@@ -652,8 +697,23 @@ func (m Model) renderNotificationsTab() string {
 		rowWidth = 20
 	}
 
+	// Day separators (bt-l5zk): insert a separator row before each event whose
+	// date differs from the previous event in the rendered window, plus one
+	// before the very first row of the page so users always know which day
+	// they are anchored on. Each separator consumes a row from the page
+	// budget; trim `end` so events + separators still fit within pageSize.
+	end = trimEndForDaySeparators(active, start, end, pageSize)
+
 	rowsWritten := 0
+	var prevDate string
 	for i := start; i < end; i++ {
+		curDate := active[i].At.Format("2006-01-02")
+		if curDate != prevDate {
+			sb.WriteString("   " + separatorStyle.Render(formatDaySeparator(curDate, rowWidth)))
+			sb.WriteString("\n")
+			rowsWritten++
+			prevDate = curDate
+		}
 		row := formatNotificationRow(active[i], rowWidth)
 		if i == m.notificationsCursor {
 			sb.WriteString(" " + cursorStyle.Render("▸ "+row))
