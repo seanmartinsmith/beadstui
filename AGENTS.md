@@ -79,14 +79,14 @@ pkg/ui/              # Bubble Tea model, update loop, views
 pkg/analysis/        # Graph metrics, triage, planning
 pkg/search/          # Hybrid search: hash-based semantic embeddings + lexical boost; custom .bvvi vector index under .bt/semantic/
 pkg/model/           # Core data types
+pkg/view/            # CompactIssue projections (robot output)
 pkg/loader/          # JSONL parsing, bead loading
 pkg/export/          # Static site export
-pkg/agents/          # Agent detection (AGENTS.md filename hardcoded in 15 Go files)
+pkg/agents/          # Agent detection (filename pinned by agents.AgentsFileName constant)
 pkg/correlation/     # Bead-to-commit correlation
 pkg/watcher/         # Filesystem watching, daemon mode
-internal/datasource/ # Data loading (JSONL, SQLite, Dolt)
-internal/dolt/       # Dolt-specific reader
-internal/models/     # Issue data structures
+internal/datasource/ # Data loading (Dolt, JSONL fallback)
+internal/doltctl/    # Dolt server lifecycle
 docs/adr/            # Architecture decision records (spine: 002-stabilize-and-ship.md)
 tests/               # Cross-package integration / E2E tests
 ```
@@ -155,7 +155,7 @@ If suspect, leave a comment with the recon finding rather than diving in. Cross-
 
 - Binary: `bt`, Env vars: `BT_*`, CLI references: `bd` (beads CLI)
 - Module: `github.com/seanmartinsmith/beadstui`, Data dir: `.bt/`
-- AGENTS.md filename is hardcoded in `pkg/agents/` (15 Go files) - content can change, filename must stay.
+- AGENTS.md filename is pinned via the `agents.AgentsFileName` constant in `pkg/agents/file.go`. Content can change; filename must stay. (Comment-only references to "AGENTS.md" exist in additional files but are not load-bearing.)
 
 ## bt Robot Mode (for agents)
 

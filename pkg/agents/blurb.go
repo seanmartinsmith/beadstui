@@ -181,8 +181,10 @@ git status   # must show 'up to date with origin'
 <!-- end-bt-agent-instructions -->`
 
 // SupportedAgentFiles lists the filenames that can contain agent instructions.
+// AgentsFileName (the canonical name) is the first entry; the others are accepted
+// fallbacks for projects with pre-existing CLAUDE.md or lowercase variants.
 var SupportedAgentFiles = []string{
-	"AGENTS.md",
+	AgentsFileName,
 	"CLAUDE.md",
 	"agents.md",
 	"claude.md",

@@ -134,5 +134,5 @@ func DetectAgentFileInParents(workDir string, maxLevels int) AgentFileDetection 
 // GetPreferredAgentFilePath returns the path where a new agent file should be created.
 // It returns the path for AGENTS.md (preferred format).
 func GetPreferredAgentFilePath(workDir string) string {
-	return filepath.Join(workDir, "AGENTS.md")
+	return filepath.Join(workDir, AgentsFileName)
 }

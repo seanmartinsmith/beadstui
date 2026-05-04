@@ -96,7 +96,7 @@ func TestBoardModel_SetSnapshot(t *testing.T) {
 
 // TestAdaptiveColumns verifies navigation behavior with empty columns
 // In Status mode, all 4 columns are shown (including empty), navigation can enter them
-// In Priority/Type modes, empty columns are hidden and navigation skips them (bv-tf6j)
+// In Priority/Type modes, empty columns are hidden and navigation skips them.
 func TestAdaptiveColumns(t *testing.T) {
 	theme := createTheme()
 
@@ -425,8 +425,8 @@ func TestViewRendering(t *testing.T) {
 	}
 }
 
-// TestBoardRichCardContent verifies the bv-1daf rich card content rendering
-// Tests that cards with dependencies render correctly with blocked-by and blocks indicators
+// TestBoardRichCardContent verifies rich card content rendering.
+// Tests that cards with dependencies render correctly with blocked-by and blocks indicators.
 func TestBoardRichCardContent(t *testing.T) {
 	theme := createTheme()
 
@@ -483,7 +483,7 @@ func TestBoardRichCardContent(t *testing.T) {
 	}
 }
 
-// TestBoardAgeColorCoding verifies age indicators show different colors (bv-1daf)
+// TestBoardAgeColorCoding verifies age indicators show different colors.
 func TestBoardAgeColorCoding(t *testing.T) {
 	theme := createTheme()
 
@@ -525,7 +525,7 @@ func TestBoardAgeColorCoding(t *testing.T) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Swimlane Mode Tests (bv-wjs0)
+// Swimlane Mode Tests
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // TestSwimLaneModeByStatus verifies default status-based grouping
@@ -650,7 +650,7 @@ func TestSwimLaneModeCycles(t *testing.T) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Enhanced Navigation Tests (bv-yg39)
+// Enhanced Navigation Tests
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // TestJumpToColumn verifies direct column jumping with 1-4 keys
@@ -679,7 +679,7 @@ func TestJumpToColumn(t *testing.T) {
 		t.Errorf("Expected ID 2 after JumpToColumn(1), got %v", sel)
 	}
 
-	// Jump to empty column 2 (Blocked) - in Status mode (bv-tf6j), empty columns are visible
+	// Jump to empty column 2 (Blocked) - in Status mode, empty columns are visible
 	// so JumpToColumn goes directly to the empty column, SelectedIssue returns nil
 	b.JumpToColumn(2)
 	sel = b.SelectedIssue()
@@ -736,7 +736,7 @@ func TestGGComboState(t *testing.T) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Search Functionality Tests (bv-yg39)
+// Search Functionality Tests
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // TestSearchBasic verifies basic search functionality
@@ -744,9 +744,9 @@ func TestSearchBasic(t *testing.T) {
 	theme := createTheme()
 
 	issues := []model.Issue{
-		{ID: "bv-abc", Title: "Fix authentication bug", Status: model.StatusOpen},
-		{ID: "bv-def", Title: "Add user profile page", Status: model.StatusOpen},
-		{ID: "bv-ghi", Title: "Update auth tokens", Status: model.StatusInProgress},
+		{ID: "bt-abc", Title: "Fix authentication bug", Status: model.StatusOpen},
+		{ID: "bt-def", Title: "Add user profile page", Status: model.StatusOpen},
+		{ID: "bt-ghi", Title: "Update auth tokens", Status: model.StatusInProgress},
 	}
 
 	b := ui.NewBoardModel(issues, theme)
@@ -785,9 +785,9 @@ func TestSearchNavigation(t *testing.T) {
 	theme := createTheme()
 
 	issues := []model.Issue{
-		{ID: "bv-1", Title: "Test one", Status: model.StatusOpen},
-		{ID: "bv-2", Title: "Test two", Status: model.StatusOpen},
-		{ID: "bv-3", Title: "Test three", Status: model.StatusOpen},
+		{ID: "bt-1", Title: "Test one", Status: model.StatusOpen},
+		{ID: "bt-2", Title: "Test two", Status: model.StatusOpen},
+		{ID: "bt-3", Title: "Test three", Status: model.StatusOpen},
 	}
 
 	b := ui.NewBoardModel(issues, theme)
@@ -916,9 +916,9 @@ func TestSearchFinishKeepsResults(t *testing.T) {
 func TestSearchCaseInsensitive(t *testing.T) {
 	theme := createTheme()
 	issues := []model.Issue{
-		{ID: "BV-ABC", Title: "UPPERCASE TITLE", Status: model.StatusOpen},
-		{ID: "bv-def", Title: "lowercase title", Status: model.StatusOpen},
-		{ID: "Bv-Ghi", Title: "Mixed Case Title", Status: model.StatusOpen},
+		{ID: "BT-ABC", Title: "UPPERCASE TITLE", Status: model.StatusOpen},
+		{ID: "bt-def", Title: "lowercase title", Status: model.StatusOpen},
+		{ID: "Bt-Ghi", Title: "Mixed Case Title", Status: model.StatusOpen},
 	}
 	b := ui.NewBoardModel(issues, theme)
 
@@ -934,7 +934,7 @@ func TestSearchCaseInsensitive(t *testing.T) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Detail Panel Tests (bv-r6kh)
+// Detail Panel Tests
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // TestDetailPanelToggle verifies detail panel visibility
@@ -1018,7 +1018,7 @@ func TestDetailPanelRenderWithWidth(t *testing.T) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Layout Tests at Various Widths (bv-4agf)
+// Layout Tests at Various Widths
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // TestLayoutNarrow80 verifies board renders at narrow terminal
@@ -1106,7 +1106,7 @@ func TestLayoutMinimalHeight(t *testing.T) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Filter Integration Tests (bv-4agf)
+// Filter Integration Tests
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // TestSetIssuesClearsSearch verifies SetIssues clears stale search state
@@ -1164,7 +1164,7 @@ func TestSetIssuesPreservesSwimLaneMode(t *testing.T) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Edge Case Tests (bv-4agf)
+// Edge Case Tests
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // TestSingleColumnOnly verifies board works with all items in one column
@@ -1187,7 +1187,7 @@ func TestSingleColumnOnly(t *testing.T) {
 		}
 	}
 
-	// In Status mode (bv-tf6j), all 4 columns are visible
+	// In Status mode, all 4 columns are visible
 	// MoveRight moves to InProgress (empty) - SelectedIssue returns nil
 	b.MoveRight()
 	sel := b.SelectedIssue()
@@ -1276,7 +1276,7 @@ func TestManyIssuesPerformance(t *testing.T) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Column Statistics Tests (bv-nl8a)
+// Column Statistics Tests
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // TestColumnStatsNarrowWidth verifies minimal stats at narrow width (<100)
@@ -1477,7 +1477,7 @@ func TestColumnStatsAfterSetIssues(t *testing.T) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Empty Column Handling Tests (bv-tf6j)
+// Empty Column Handling Tests
 // ═══════════════════════════════════════════════════════════════════════════════
 
 // TestEmptyColumnHandlingStatusMode verifies Status mode always shows all 4 columns
@@ -1651,7 +1651,7 @@ func TestEmptyColumnTitleBarRendering(t *testing.T) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Inline Card Expansion Tests (bv-i3ii)
+// Inline Card Expansion Tests
 // ═══════════════════════════════════════════════════════════════════════════
 
 // TestInlineCardExpansion_Toggle verifies basic expand/collapse behavior

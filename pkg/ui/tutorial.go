@@ -17,7 +17,7 @@ type TutorialPage struct {
 	Contexts []string // Which view contexts this page applies to (empty = all)
 }
 
-// tutorialFocus tracks which element has focus (bv-wdsd)
+// tutorialFocus tracks which element has focus.
 type tutorialFocus int
 
 const (
@@ -38,10 +38,10 @@ type TutorialModel struct {
 	contextMode  bool   // If true, filter pages by current context
 	context      string // Current view context (e.g., "list", "board", "graph")
 
-	// Markdown rendering with Glamour (bv-lb0h)
+	// Markdown rendering with Glamour
 	markdownRenderer *MarkdownRenderer
 
-	// Keyboard navigation state (bv-wdsd)
+	// Keyboard navigation state
 	focus       tutorialFocus // Current focus: content or TOC
 	shouldClose bool          // Signal to parent to close tutorial
 	tocCursor   int           // Cursor position in TOC when focused
@@ -78,7 +78,7 @@ func (m TutorialModel) Init() tea.Cmd {
 	return nil
 }
 
-// Update handles keyboard input for the tutorial with focus management (bv-wdsd).
+// Update handles keyboard input for the tutorial with focus management.
 func (m TutorialModel) Update(msg tea.Msg) (TutorialModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
@@ -129,7 +129,7 @@ func (m TutorialModel) Update(msg tea.Msg) (TutorialModel, tea.Cmd) {
 	return m, nil
 }
 
-// handleContentKeys handles keys when content area has focus (bv-wdsd).
+// handleContentKeys handles keys when content area has focus.
 func (m TutorialModel) handleContentKeys(msg tea.KeyMsg) TutorialModel {
 	switch msg.String() {
 	// Page navigation
@@ -180,7 +180,7 @@ func (m TutorialModel) handleContentKeys(msg tea.KeyMsg) TutorialModel {
 	return m
 }
 
-// handleTOCKeys handles keys when TOC has focus (bv-wdsd).
+// handleTOCKeys handles keys when TOC has focus.
 func (m TutorialModel) handleTOCKeys(msg tea.KeyMsg) TutorialModel {
 	pages := m.visiblePages()
 
@@ -461,7 +461,7 @@ func (m TutorialModel) renderStructuredContent(page StructuredTutorialPage, widt
 	return content
 }
 
-// renderTOC renders the table of contents sidebar with focus indication (bv-wdsd).
+// renderTOC renders the table of contents sidebar with focus indication.
 func (m TutorialModel) renderTOC(pages []TutorialPage) string {
 
 	// Use different border style when TOC has focus
@@ -550,7 +550,7 @@ func (m TutorialModel) renderTOC(pages []TutorialPage) string {
 	return tocStyle.Render(b.String())
 }
 
-// renderFooter renders context-sensitive navigation hints (bv-wdsd).
+// renderFooter renders context-sensitive navigation hints.
 func (m TutorialModel) renderFooter(totalPages int) string {
 
 	keyStyle := lipgloss.NewStyle().
@@ -712,12 +712,12 @@ func (m TutorialModel) IsComplete() bool {
 	return len(pages) > 0
 }
 
-// ShouldClose returns true if user requested to close the tutorial (bv-wdsd).
+// ShouldClose returns true if user requested to close the tutorial.
 func (m TutorialModel) ShouldClose() bool {
 	return m.shouldClose
 }
 
-// ResetClose resets the close flag (call after handling close) (bv-wdsd).
+// ResetClose resets the close flag (call after handling close).
 func (m *TutorialModel) ResetClose() {
 	m.shouldClose = false
 }
@@ -773,11 +773,11 @@ func (m TutorialModel) CenterTutorial(termWidth, termHeight int) string {
 }
 
 // defaultTutorialPages returns the built-in tutorial content.
-// Content organized by section - see bv-kdv2, bv-sbib, bv-36wz, etc.
+// Content organized by section.
 func defaultTutorialPages() []TutorialPage {
 	return []TutorialPage{
 		// =============================================================
-		// INTRODUCTION & PHILOSOPHY (bv-kdv2)
+		// INTRODUCTION & PHILOSOPHY
 		// =============================================================
 		{
 			ID:      "intro-welcome",
@@ -805,7 +805,7 @@ func defaultTutorialPages() []TutorialPage {
 		},
 
 		// =============================================================
-		// CORE CONCEPTS (bv-sbib)
+		// CORE CONCEPTS
 		// =============================================================
 		{
 			ID:      "concepts-beads",
@@ -839,7 +839,7 @@ func defaultTutorialPages() []TutorialPage {
 		},
 
 		// =============================================================
-		// VIEWS & NAVIGATION (bv-36wz, bv-wra5, bv-h6jw)
+		// VIEWS & NAVIGATION
 		// =============================================================
 		{
 			ID:      "views-nav-fundamentals",
@@ -898,7 +898,7 @@ func defaultTutorialPages() []TutorialPage {
 		},
 
 		// =============================================================
-		// ADVANCED FEATURES (bv-19gf)
+		// ADVANCED FEATURES
 		// =============================================================
 		{
 			ID:      "advanced-semantic-search",
@@ -944,7 +944,7 @@ func defaultTutorialPages() []TutorialPage {
 		},
 
 		// =============================================================
-		// REAL-WORLD WORKFLOWS (bv-a2rv)
+		// REAL-WORLD WORKFLOWS
 		// =============================================================
 		{
 			ID:      "workflow-new-feature",
@@ -1017,7 +1017,7 @@ func defaultTutorialPages() []TutorialPage {
 }
 
 // =============================================================================
-// INTRODUCTION & PHILOSOPHY CONTENT (bv-kdv2)
+// INTRODUCTION & PHILOSOPHY CONTENT
 // =============================================================================
 
 // introWelcomeContent is Page 1 of the Introduction section.
@@ -1147,7 +1147,7 @@ Or press **q** to exit and start exploring!
 > **Tip:** Press **?** anytime you need a quick reference.`
 
 // =============================================================================
-// CORE CONCEPTS CONTENT (bv-sbib)
+// CORE CONCEPTS CONTENT
 // =============================================================================
 
 // conceptsBeadsContent is Page 1 of the Core Concepts section.
@@ -1161,7 +1161,7 @@ the complete picture.
 
 ` + "```" + `
 ┌─────────────────────────────────────────────────────────┐
-│ bv-abc123                               ← Unique ID     │
+│ bt-abc123                               ← Unique ID     │
 ├─────────────────────────────────────────────────────────┤
 │ Title: Fix authentication timeout                       │
 │ Type: bug                  Status: open                 │
@@ -1173,7 +1173,7 @@ the complete picture.
 │ Users report being logged out after 5 minutes...        │
 ├─────────────────────────────────────────────────────────┤
 │ Dependencies:                                           │
-│   Blocks: bv-xyz789 (Production deploy)                 │
+│   Blocks: bt-xyz789 (Production deploy)                 │
 │   Blocked-by: (none)                                    │
 └─────────────────────────────────────────────────────────┘
 ` + "```" + `
@@ -1194,8 +1194,8 @@ the complete picture.
 Your issues live in ` + "`.beads/issues.jsonl`" + ` — a simple JSON Lines file:
 
 ` + "```" + `json
-{"id":"bv-abc123","title":"Fix auth","type":"bug","priority":1,...}
-{"id":"bv-def456","title":"Add dark mode","type":"feature",...}
+{"id":"bt-abc123","title":"Fix auth","type":"bug","priority":1,...}
+{"id":"bt-def456","title":"Add dark mode","type":"feature",...}
 ` + "```" + `
 
 This means your issues are:
@@ -1215,12 +1215,12 @@ This is where **dependencies** come in.
 
 ` + "```" + `
     ┌───────────┐         ┌───────────┐
-    │  bv-abc1  │ ──────► │  bv-def2  │
+    │  bt-abc1  │ ──────► │  bt-def2  │
     │  (Auth)   │ blocks  │ (Deploy)  │
     └───────────┘         └───────────┘
 
-    bv-abc1 BLOCKS bv-def2
-    bv-def2 is BLOCKED BY bv-abc1
+    bt-abc1 BLOCKS bt-def2
+    bt-def2 is BLOCKED BY bt-abc1
 ` + "```" + `
 
 In plain terms: **You can't deploy until auth is fixed.**
@@ -1253,7 +1253,7 @@ blocking them — you can start any of them right now.
 
 From the command line:
 
-` + "```bash\nbd dep add bv-def2 bv-abc1   # def2 depends on abc1\n```" + `
+` + "```bash\nbd dep add bt-def2 bt-abc1   # def2 depends on abc1\n```" + `
 
 This creates the blocking relationship shown above.
 
@@ -1279,7 +1279,7 @@ and priorities. Use them for anything that doesn't fit elsewhere.
 Issues can have multiple labels:
 
 ` + "```" + `
-bv-abc123  [bug] [P1]  auth, security, needs-review
+bt-abc123  [bug] [P1]  auth, security, needs-review
 ` + "```" + `
 
 This issue is a high-priority auth bug that needs security review.
@@ -1373,7 +1373,7 @@ This surfaces issues that are both important AND blocking other work.
 
 Or from the command line:
 
-` + "```bash\nbr update bv-abc123 --priority=P1\nbr update bv-abc123 --status=in_progress\n```" + `
+` + "```bash\nbr update bt-abc123 --priority=P1\nbr update bt-abc123 --status=in_progress\n```" + `
 
 > Press **→** to continue.`
 
@@ -1387,20 +1387,20 @@ but the concept is simple: work flows in one direction, with no cycles.
 
 ` + "```" + `
                     ┌─────────┐
-                    │ bv-001  │  (Epic: User Auth)
+                    │ bt-001  │  (Epic: User Auth)
                     │  EPIC   │
                     └────┬────┘
                          │
           ┌──────────────┼──────────────┐
           ▼              ▼              ▼
      ┌─────────┐   ┌─────────┐   ┌─────────┐
-     │ bv-002  │   │ bv-003  │   │ bv-004  │
+     │ bt-002  │   │ bt-003  │   │ bt-004  │
      │ Login   │   │ Signup  │   │ Reset   │
      └────┬────┘   └────┬────┘   └─────────┘
           │              │
           ▼              ▼
      ┌─────────┐   ┌─────────┐
-     │ bv-005  │   │ bv-006  │
+     │ bt-005  │   │ bt-006  │
      │ Tests   │   │ Tests   │
      └─────────┘   └─────────┘
 
@@ -1448,7 +1448,7 @@ The graph reveals:
 > Press **→** to continue to Views & Navigation.`
 
 // =============================================================================
-// VIEWS & NAVIGATION CONTENT (bv-36wz)
+// VIEWS & NAVIGATION CONTENT
 // =============================================================================
 
 // viewsNavFundamentalsContent is Page 1 of the Views section.
@@ -1500,10 +1500,10 @@ The **List view** is your issue inbox — where you'll spend most of your time.
 
 ` + "```" + `
 ┌─────────────────────────────────────────────────────┐
-│ bv-abc1  [P1] [bug] Fix login timeout              │ ← selected
-│ bv-def2  [P2] [feature] Add dark mode              │
-│ bv-ghi3  [P2] [task] Update dependencies           │
-│ bv-jkl4  [P3] [chore] Clean up test fixtures       │
+│ bt-abc1  [P1] [bug] Fix login timeout              │ ← selected
+│ bt-def2  [P2] [feature] Add dark mode              │
+│ bt-ghi3  [P2] [task] Update dependencies           │
+│ bt-jkl4  [P3] [chore] Clean up test fixtures       │
 └─────────────────────────────────────────────────────┘
 ` + "```" + `
 
@@ -1548,7 +1548,7 @@ Press **Enter** on any issue to see its full details.
 
 ` + "```" + `
 ┌─────────────────────────────────────────────────────┐
-│ bv-abc1: Fix login timeout                         │
+│ bt-abc1: Fix login timeout                         │
 ├─────────────────────────────────────────────────────┤
 │ Status: open          Priority: P1                 │
 │ Type: bug             Created: 2025-01-15          │
@@ -1560,7 +1560,7 @@ Press **Enter** on any issue to see its full details.
 │ of inactivity. Should be 30 minutes per spec.      │
 │                                                     │
 │ ## Dependencies                                     │
-│ Blocks: bv-xyz9 (Deploy to production)             │
+│ Blocks: bt-xyz9 (Deploy to production)             │
 │                                                     │
 └─────────────────────────────────────────────────────┘
 ` + "```" + `
@@ -1590,10 +1590,10 @@ Press **Tab** from Detail view to enter Split view — list and detail side by s
 
 ` + "```" + `
 ┌────────────────────┬────────────────────────────────┐
-│ bv-abc1 [P1] bug   │ bv-abc1: Fix login timeout     │
-│ bv-def2 [P2] feat  │ ────────────────────────────── │
-│ bv-ghi3 [P2] task  │ Status: open    Priority: P1   │
-│ bv-jkl4 [P3] chore │                                │
+│ bt-abc1 [P1] bug   │ bt-abc1: Fix login timeout     │
+│ bt-def2 [P2] feat  │ ────────────────────────────── │
+│ bt-ghi3 [P2] task  │ Status: open    Priority: P1   │
+│ bt-jkl4 [P3] chore │                                │
 │                    │ ## Description                 │
 │                    │ Users report being logged...   │
 └────────────────────┴────────────────────────────────┘
@@ -1626,10 +1626,10 @@ Press **b** to switch to the Kanban-style board.
 ┌─────────────┬─────────────┬─────────────┬─────────────┐
 │    OPEN     │ IN PROGRESS │   BLOCKED   │   CLOSED    │
 ├─────────────┼─────────────┼─────────────┼─────────────┤
-│ bv-abc1     │ bv-mno7     │ bv-stu0     │ bv-vwx1     │
-│ bv-def2     │             │             │ bv-yza2     │
-│ bv-ghi3     │             │             │ bv-bcd3     │
-│ bv-jkl4     │             │             │             │
+│ bt-abc1     │ bt-mno7     │ bt-stu0     │ bt-vwx1     │
+│ bt-def2     │             │             │ bt-yza2     │
+│ bt-ghi3     │             │             │ bt-bcd3     │
+│ bt-jkl4     │             │             │             │
 └─────────────┴─────────────┴─────────────┴─────────────┘
 ` + "```" + `
 
@@ -1663,18 +1663,18 @@ Press **g** to visualize issue dependencies as a graph.
 
 ` + "```" + `
                     ┌─────────┐
-                    │ bv-abc1 │
+                    │ bt-abc1 │
                     └────┬────┘
                          │
               ┌──────────┼──────────┐
               ▼          ▼          ▼
          ┌─────────┐ ┌─────────┐ ┌─────────┐
-         │ bv-def2 │ │ bv-ghi3 │ │ bv-jkl4 │
+         │ bt-def2 │ │ bt-ghi3 │ │ bt-jkl4 │
          └────┬────┘ └─────────┘ └────┬────┘
               │                       │
               ▼                       ▼
          ┌─────────┐            ┌─────────┐
-         │ bv-mno5 │            │ bv-pqr6 │
+         │ bt-mno5 │            │ bt-pqr6 │
          └─────────┘            └─────────┘
 ` + "```" + `
 
@@ -1748,10 +1748,10 @@ Press **h** to see the git-integrated timeline of your project.
 ` + "```" + `
 ┌─────────────────────────────────────────────────────┐
 │ 2025-01-15 14:32  abc1234  feat: Add login flow    │
-│   └─ bv-abc1 opened, bv-def2 closed                │
+│   └─ bt-abc1 opened, bt-def2 closed                │
 │                                                     │
 │ 2025-01-15 10:15  def5678  fix: Timeout issue      │
-│   └─ bv-ghi3 status → in_progress                  │
+│   └─ bt-ghi3 status → in_progress                  │
 │                                                     │
 │ 2025-01-14 16:45  ghi9012  chore: Bump deps        │
 │   └─ (no bead changes)                             │
@@ -1785,7 +1785,7 @@ This is read-only — you're viewing the past, not changing it.
 > **Use case:** "What was our backlog like before the big refactor?"`
 
 // =============================================================================
-// ADVANCED FEATURES CONTENT (bv-19gf)
+// ADVANCED FEATURES CONTENT
 // =============================================================================
 
 // advancedSemanticSearchContent is the Semantic Search tutorial page.
@@ -1969,7 +1969,7 @@ Share your project status with people who don't use the terminal.
 
 Press **x** in any view to export current state to markdown:
 
-` + "```markdown\n# Project Status - 2025-01-15\n\n## Open Issues (24)\n| ID | Priority | Title |\n|----|----------|-------|\n| bv-abc1 | P1 | Fix login timeout |\n...\n\n## Blocked Issues (5)\n...\n```" + `
+` + "```markdown\n# Project Status - 2025-01-15\n\n## Open Issues (24)\n| ID | Priority | Title |\n|----|----------|-------|\n| bt-abc1 | P1 | Fix login timeout |\n...\n\n## Blocked Issues (5)\n...\n```" + `
 
 Great for:
 - Pasting into Slack/Discord
@@ -2167,16 +2167,16 @@ Regular bv is for humans. **Robot mode** is for agents:
 
 ### What --robot-triage Returns
 
-` + "```json\n{\n  \"quick_ref\": {\n    \"open_count\": 24,\n    \"actionable_count\": 18,\n    \"top_picks\": [...]\n  },\n  \"recommendations\": [\n    {\n      \"id\": \"bv-abc1\",\n      \"score\": 0.85,\n      \"reasons\": [\"High PageRank\", \"Unblocks 3 items\"],\n      \"action\": \"work\"\n    }\n  ],\n  \"quick_wins\": [...],\n  \"blockers_to_clear\": [...]\n}\n```" + `
+` + "```json\n{\n  \"quick_ref\": {\n    \"open_count\": 24,\n    \"actionable_count\": 18,\n    \"top_picks\": [...]\n  },\n  \"recommendations\": [\n    {\n      \"id\": \"bt-abc1\",\n      \"score\": 0.85,\n      \"reasons\": [\"High PageRank\", \"Unblocks 3 items\"],\n      \"action\": \"work\"\n    }\n  ],\n  \"quick_wins\": [...],\n  \"blockers_to_clear\": [...]\n}\n```" + `
 
 ### Agent Workflow Example
 
 ` + "```" + `
 1. Agent calls: bt --robot-next
-2. Receives: { "id": "bv-abc1", "title": "Fix auth" }
-3. Agent runs: br update bv-abc1 --status=in_progress
+2. Receives: { "id": "bt-abc1", "title": "Fix auth" }
+3. Agent runs: br update bt-abc1 --status=in_progress
 4. Agent does the work...
-5. Agent runs: bd close bv-abc1
+5. Agent runs: bd close bt-abc1
 6. Agent calls: bt --robot-next (repeat)
 ` + "```" + `
 
@@ -2201,7 +2201,7 @@ See this project's AGENTS.md for a complete example.
 > Press **→** to continue to Workflows section.`
 
 // =============================================================================
-// REAL-WORLD WORKFLOWS CONTENT (bv-a2rv)
+// REAL-WORLD WORKFLOWS CONTENT
 // =============================================================================
 
 // workflowNewFeatureContent is the New Feature workflow tutorial page.
@@ -2227,7 +2227,7 @@ Check: Is anything blocking this? Are there related tasks?
 
 ### Step 3: Claim the Work
 
-` + "```bash\nbr update bv-xyz1 --status=in_progress\n```" + `
+` + "```bash\nbr update bt-xyz1 --status=in_progress\n```" + `
 
 The issue moves to "In Progress" — other agents/devs know it's claimed.
 
@@ -2235,15 +2235,15 @@ The issue moves to "In Progress" — other agents/devs know it's claimed.
 
 As you work, you realize there are sub-tasks:
 
-` + "```bash\nbr create --title=\"Implement auth logic\" --type=task --priority=2\nbr create --title=\"Add API endpoint\" --type=task --priority=2\nbr create --title=\"Write tests\" --type=task --priority=2\n\n# Set dependencies\nbd dep add bv-tests bv-endpoint   # Tests depend on endpoint\nbd dep add bv-endpoint bv-auth    # Endpoint depends on auth\n```" + `
+` + "```bash\nbr create --title=\"Implement auth logic\" --type=task --priority=2\nbr create --title=\"Add API endpoint\" --type=task --priority=2\nbr create --title=\"Write tests\" --type=task --priority=2\n\n# Set dependencies\nbd dep add bt-tests bt-endpoint   # Tests depend on endpoint\nbd dep add bt-endpoint bt-auth    # Endpoint depends on auth\n```" + `
 
 ### Step 5: Work Through Sub-Tasks
 
-` + "```bash\n# Start first sub-task\nbr update bv-auth --status=in_progress\n# ... do the work ...\nbd close bv-auth\n\n# Endpoint is now unblocked!\nbr update bv-endpoint --status=in_progress\n# ... continue ...\n```" + `
+` + "```bash\n# Start first sub-task\nbr update bt-auth --status=in_progress\n# ... do the work ...\nbd close bt-auth\n\n# Endpoint is now unblocked!\nbr update bt-endpoint --status=in_progress\n# ... continue ...\n```" + `
 
 ### Step 6: Complete and Sync
 
-` + "```bash\nbd close bv-xyz1              # Close parent feature\nbd sync                        # Commit all changes to git\n```" + `
+` + "```bash\nbd close bt-xyz1              # Close parent feature\nbd sync                        # Commit all changes to git\n```" + `
 
 ### Pro Tips
 
@@ -2275,7 +2275,7 @@ In bv, select the new issue and press **S** for triage suggestions:
 ├─────────────────────────────────────────────────────┤
 │ Priority: P1 (blocks user workflows)                │
 │ Labels: auth, bug, user-reported                    │
-│ Similar: bv-def2 "Email validation issue"           │
+│ Similar: bt-def2 "Email validation issue"           │
 └─────────────────────────────────────────────────────┘
 ` + "```" + `
 
@@ -2288,7 +2288,7 @@ In bv, select the new issue and press **S** for triage suggestions:
 | Medium | P2 | Feature degraded |
 | Low | P3-P4 | Minor, cosmetic |
 
-` + "```bash\nbr update bv-bug1 --priority=1   # This is P1 - blocks logins\n```" + `
+` + "```bash\nbr update bt-bug1 --priority=1   # This is P1 - blocks logins\n```" + `
 
 ### Step 4: Add Labels for Categorization
 
@@ -2301,14 +2301,14 @@ Press **L** to open label picker, select:
 
 Does this bug block other work?
 
-` + "```bash\nbd dep add bv-feature1 bv-bug1  # Feature is blocked by this bug\n```" + `
+` + "```bash\nbd dep add bt-feature1 bt-bug1  # Feature is blocked by this bug\n```" + `
 
-Now bv-feature1 won't show in ` + "`bd ready`" + ` until the bug is fixed.
+Now bt-feature1 won't show in ` + "`bd ready`" + ` until the bug is fixed.
 
 ### Step 6: Assign or Leave for Pickup
 
 Option A: Assign to someone
-` + "```bash\nbr update bv-bug1 --assignee=@alice\n```" + `
+` + "```bash\nbr update bt-bug1 --assignee=@alice\n```" + `
 
 Option B: Leave unassigned
 - High-priority bugs surface in ` + "`bd ready`" + ` automatically
@@ -2342,8 +2342,8 @@ Open the Insights panel with **i**:
 │ Open: 45   In Progress: 8   Blocked: 12            │
 │                                                     │
 │ Top Blockers (unblock most work):                   │
-│   bv-auth  → would unblock 5 items                  │
-│   bv-api   → would unblock 3 items                  │
+│   bt-auth  → would unblock 5 items                  │
+│   bt-api   → would unblock 3 items                  │
 │                                                     │
 │ Priority Distribution:                              │
 │   P0: 2   P1: 8   P2: 25   P3+: 18                  │
@@ -2366,9 +2366,9 @@ Press **r** to show only unblocked issues:
 ┌─────────────────────────────────────────────────────┐
 │ READY ISSUES (18 actionable)                        │
 ├─────────────────────────────────────────────────────┤
-│ ▶ [P1] bv-abc1  Fix auth timeout                    │
-│   [P1] bv-def2  API rate limiting                   │
-│   [P2] bv-ghi3  Dashboard redesign                  │
+│ ▶ [P1] bt-abc1  Fix auth timeout                    │
+│   [P1] bt-def2  API rate limiting                   │
+│   [P2] bt-ghi3  Dashboard redesign                  │
 │   ...                                               │
 └─────────────────────────────────────────────────────┘
 ` + "```" + `
@@ -2385,7 +2385,7 @@ For each sprint candidate:
 
 Press **x** to export the filtered list to markdown:
 
-` + "```markdown\n# Sprint 42 Plan\n\n## P1 - Must Complete\n- [ ] bv-abc1: Fix auth timeout\n- [ ] bv-def2: API rate limiting\n\n## P2 - Should Complete  \n- [ ] bv-ghi3: Dashboard redesign\n...\n```" + `
+` + "```markdown\n# Sprint 42 Plan\n\n## P1 - Must Complete\n- [ ] bt-abc1: Fix auth timeout\n- [ ] bt-def2: API rate limiting\n\n## P2 - Should Complete  \n- [ ] bt-ghi3: Dashboard redesign\n...\n```" + `
 
 Share in Slack, email, or sprint planning doc.
 

@@ -7,6 +7,12 @@ import (
 	"runtime"
 )
 
+// AgentsFileName is the canonical filename for AGENTS.md project documentation.
+// Referenced from non-test code paths to avoid drift between the doc and the
+// codebase. Test files keep literal "AGENTS.md" strings — they're asserting the
+// constant's value implicitly.
+const AgentsFileName = "AGENTS.md"
+
 // AppendBlurbToFile appends the agent blurb to the specified file.
 // Uses atomic write to prevent corruption.
 func AppendBlurbToFile(filePath string) error {
