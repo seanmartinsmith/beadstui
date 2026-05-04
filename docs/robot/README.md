@@ -731,6 +731,66 @@ bt robot history --history-limit 200
 
 ---
 
+### bt robot activity
+
+**Purpose**: Long-horizon CLI consumer of the bead-activity event stream at `~/.bt/events.jsonl`. Returns individual Created/Edited/Closed/Commented/Bulk/System events (not collapsed per-bead state) for orientation queries that span weeks, months, or years. Reads the unbounded on-disk file directly, bypassing the TUI notifications modal's 7-day hydration window.
+
+Distinct from `bd list --updated-after`, which returns the **current state** of beads filtered by mtime. Activity returns the **stream** of captured changes — a bead created, edited, closed, reopened, and commented today is one row in `bd list` but five rows here.
+
+**Unique flags**:
+- `--since <date|relative>` — events at or after (e.g., `2026-01-01`, `7d`, `2w`, `1mo`, `1y`)
+- `--until <date>` — events strictly before (default: unbounded)
+- `--kind <comma-list>` — filter by EventKind: `created,edited,closed,commented,bulk,system`
+- `--bead <id>` — filter to one bead's activity timeline
+- `--repo <prefix>` — filter by bead-prefix (e.g., `bt`, `bd`, `mkt`)
+- `--actor <name>` — filter by actor (events with empty actor are excluded when set)
+- `--limit <n>` — cap result count (default: 500; 0 = unlimited)
+- `--reverse` — newest-first (default: oldest-first)
+
+**Calendar presets** (mutually exclusive with `--since`/`--until`):
+- `--today`, `--this-week`, `--this-month`, `--this-year`
+- `--last-month`, `--last-year`
+- `--in <YYYY-MM>` — specific calendar month (e.g., `--in 2025-09` for September 2025)
+
+**Top-level fields**:
+| Field | Type | Description |
+|---|---|---|
+| `generated_at` | string (ISO 8601) | Timestamp |
+| `schema` | string | `activity.v1` (compact shape only) |
+| `query` | object | Echo of applied filters (`since`, `until`, `preset`, `kind`, `bead`, `repo`, `actor`, `reverse`, `limit`) |
+| `count` | integer | Number of events returned |
+| `events` | array | Event records |
+
+**Compact event fields** (`--shape compact`, default):
+| Field | Type | Description |
+|---|---|---|
+| `id` | string | Stable hash of bead+kind+timestamp |
+| `at` | string (RFC3339) | Event timestamp |
+| `kind` | string | `created`, `edited`, `closed`, `commented`, `bulk`, `system` |
+| `bead` | string | Bead ID (empty for `system` events) |
+| `repo` | string | Project prefix (empty for `system` events) |
+| `title` | string | Bead title at event time (frozen, not updated later) |
+| `summary` | string | Kind-dependent summary text |
+| `actor` | string | Bead assignee at event time, when populated |
+
+**Notes**:
+- `--global` is accepted and ignored — `~/.bt/events.jsonl` is per-user, not per-project, so the flag has no scope to apply.
+- Empty result and missing file both return `[]` with exit 0 (robot-mode convention).
+- The events file is append-only with no expiry; long-horizon queries are the design intent.
+
+**Examples**:
+```bash
+bt robot activity --this-month
+bt robot activity --since 2025-09-01 --until 2025-10-01
+bt robot activity --in 2025-09
+bt robot activity --bead bt-1puf
+bt robot activity --kind created --since 7d
+bt robot activity --kind created,closed --this-week
+bt robot activity --repo bt --reverse --limit 50
+```
+
+---
+
 ### bt robot pairs
 
 **Purpose**: Cross-project paired beads detection - finds beads with the same ID suffix across different project prefixes (e.g. `bt-zsy8` + `bd-zsy8`). Always requires `--global`.
