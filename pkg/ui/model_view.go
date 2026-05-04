@@ -246,15 +246,15 @@ func (m Model) renderSearchRow(width int) string {
 		query := strings.TrimSpace(m.list.FilterInput.Value())
 		if query == "" {
 			// Edge: applied with empty query — fall through to placeholder.
-			left = hintStyle.Render("  /  search")
-			right = countStyle.Render(fmt.Sprintf("  %d beads  ", totalItems))
+			left = labelStyle.Render("  Search: ") + hintStyle.Render("/")
+			right = countStyle.Render(fmt.Sprintf("  %d  ", totalItems))
 		} else {
 			left = labelStyle.Render("  Search: ") + queryStyle.Render(query)
 			right = countStyle.Render(fmt.Sprintf("  %d/%d matches  ", visibleItems, totalItems))
 		}
 	default: // list.Unfiltered
-		left = hintStyle.Render("  /  search")
-		right = countStyle.Render(fmt.Sprintf("  %d beads  ", totalItems))
+		left = labelStyle.Render("  Search: ") + hintStyle.Render("/")
+		right = countStyle.Render(fmt.Sprintf("  %d  ", totalItems))
 	}
 
 	leftWidth := lipgloss.Width(left)
