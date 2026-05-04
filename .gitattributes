@@ -1,3 +1,8 @@
 
 # Use bd merge for beads JSONL files
 .beads/beads.jsonl merge=beads
+
+# Force LF for pkg/view golden files. Tests use bytes.Equal against
+# json.MarshalIndent output (always LF), so CRLF normalization on
+# fresh worktree checkout breaks comparisons. See bt-xwt5.
+pkg/view/testdata/golden/* text eol=lf
