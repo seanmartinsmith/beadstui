@@ -146,7 +146,12 @@ func (m Model) View() tea.View {
 		body = OverlayCenter(body, m.labelPicker.View(), m.width, m.height-1)
 	}
 	if m.activeModal == ModalAlerts {
-		body = OverlayCenter(body, m.renderAlertsPanel(), m.width, m.height-1)
+		// Dimmed backdrop variant (bt-v8he): the alerts/notifications modal
+		// renders at a content-comfortable width and relies on the dimmed
+		// surrounding cells for occlusion — preserves the pop-up aesthetic
+		// while still preventing detail-pane bleed-through from competing
+		// with the modal for attention.
+		body = OverlayCenterDimBackdrop(body, m.renderAlertsPanel(), m.width, m.height-1)
 	}
 
 	footer := m.renderFooter()

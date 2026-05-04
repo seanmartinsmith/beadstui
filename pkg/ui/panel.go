@@ -269,3 +269,73 @@ func OverlayCenter(bg, fg string, bgWidth, bgHeight int) string {
 
 	return strings.Join(bgLines, "\n")
 }
+
+// OverlayCenterDimBackdrop composites fg centered on top of bg like
+// OverlayCenter, but additionally dims the entire visible bg so the modal
+// reads as a true pop-up rather than a content-shaped panel embedded in the
+// underlying view (bt-v8he).
+//
+// Visual goal: the modal renders at a content-comfortable width while the
+// surrounding cells visually recede. This satisfies both the bleed-through
+// guard from bt-l5xu (background can no longer compete for attention with the
+// modal) and the pop-up aesthetic — the modal needn't span the terminal.
+//
+// Implementation: every bg line is stripped of its existing ANSI styling and
+// re-rendered through a Faint+Muted style before the fg is composited on top.
+// We strip rather than wrap because SGR is stateful — a naive Faint wrapper
+// would be unset by any inline `\x1b[0m` reset within the bg line, leaving
+// patches of un-dimmed text. Stripping yields a uniform receded backdrop;
+// the modal's own styling remains intact since it is composited last.
+func OverlayCenterDimBackdrop(bg, fg string, bgWidth, bgHeight int) string {
+	bgLines := strings.Split(bg, "\n")
+	fgLines := strings.Split(fg, "\n")
+
+	fgWidth := 0
+	for _, line := range fgLines {
+		if w := ansi.StringWidth(line); w > fgWidth {
+			fgWidth = w
+		}
+	}
+	fgHeight := len(fgLines)
+
+	startRow := (bgHeight - fgHeight) / 2
+	startCol := (bgWidth - fgWidth) / 2
+	if startRow < 0 {
+		startRow = 0
+	}
+	if startCol < 0 {
+		startCol = 0
+	}
+
+	// Faint+Muted style for the receded backdrop. Faint (SGR 2) lowers
+	// intensity; the muted foreground gives the cells a recognizable but
+	// unobtrusive tint. ColorMuted is reused from the panel's own muted-border
+	// path to keep theme propagation consistent.
+	dim := lipgloss.NewStyle().Faint(true).Foreground(ColorMuted)
+
+	for i := range bgLines {
+		// Strip any pre-existing ANSI styling so the dim wrap is uniform —
+		// mid-line resets cannot punch holes in the receded look.
+		plain := ansi.Strip(bgLines[i])
+		bgLines[i] = dim.Render(plain)
+	}
+
+	// Composite the modal onto the dimmed backdrop. The modal lines retain
+	// their own styling because dim.Render only wraps the bg; we slice the
+	// dimmed line, drop in the un-dimmed fg, and re-attach the dimmed right
+	// region.
+	for i, fgLine := range fgLines {
+		bgRow := startRow + i
+		if bgRow < 0 || bgRow >= len(bgLines) {
+			continue
+		}
+
+		bgLine := bgLines[bgRow]
+		left := ansi.Truncate(bgLine, startCol, "")
+		right := ansi.TruncateLeft(bgLine, startCol+fgWidth, "")
+
+		bgLines[bgRow] = left + fgLine + right
+	}
+
+	return strings.Join(bgLines, "\n")
+}

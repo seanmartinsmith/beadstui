@@ -8,22 +8,37 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// TestAlertsModalOccludesDetailPane is a regression guard for bt-l5xu: the
-// shared alerts/notifications modal must fully cover the underlying detail
-// pane so body text from the currently-selected bead doesn't bleed through
-// along the modal's right border. Bug existed because panelWidth was capped
-// at 80, leaving wide swaths of bg detail-pane content visible flanking the
-// modal at typical split-view terminal widths (notably the right side of the
-// modal, where the underlying detail viewport's content was visible between
-// the modal's right border and the detail pane's right border).
+// faintSGR is the ANSI Select-Graphic-Rendition byte sequence for the Faint
+// (dim) attribute. The dimmed-backdrop compositor (bt-v8he) wraps every bg
+// line in this attribute so the modal reads as a true pop-up. Tests assert
+// presence of this sequence in modal-adjacent rows.
+const faintSGR = "\x1b[2"
+
+// TestAlertsModalOccludesDetailPane is a regression guard for bt-l5xu and
+// bt-v8he: the shared alerts/notifications modal must occlude the underlying
+// detail pane (bt-l5xu, no bleed-through of body text) AND render at a
+// content-comfortable width rather than spanning the terminal (bt-v8he,
+// pop-up aesthetic). The two are reconciled by dimming the backdrop instead
+// of widening the modal.
 //
-// Verification: stuff the detail viewport with a sentinel string, render the
-// composed View() with the modal open, and assert that no row in the modal's
-// vertical band contains the sentinel anywhere.
+// Pre-bt-l5xu: panel capped at 80, bg leaked along the modal's flanks.
+// bt-l5xu fix: panel sized to m.width-4 — solved leak, lost pop-up shape.
+// bt-v8he fix: panel re-capped at 100, OverlayCenterDimBackdrop applies
+//	Faint to all bg cells so they recede visually instead of being absent.
+//
+// Verifications:
+//  1. No row in the modal's vertical band contains the bg-viewport sentinel
+//     in its un-dimmed form. The sentinel may still appear inside a Faint
+//     wrap on rows flanking the modal — that's the new contract; we check
+//     the rows BETWEEN the borders specifically (the modal's interior),
+//     where the modal's own content overwrites the bg entirely.
+//  2. Modal content width is bounded — at every tested terminal width the
+//     modal stays at the 100-cell cap (or m.width-4 if narrower). This
+//     guards against a regression that quietly widens the modal back to
+//     full width.
+//  3. Rows immediately around the modal contain the Faint SGR code,
+//     proving the backdrop is dimmed rather than blanked or untouched.
 func TestAlertsModalOccludesDetailPane(t *testing.T) {
-	// Short sentinel so a thin leak slice still catches it. The bug bleeds
-	// only the right-edge of the bg row past the modal's right border, which
-	// at narrow split widths can be just a handful of cells wide.
 	const sentinel = "BLD"
 
 	cases := []struct {
@@ -40,12 +55,9 @@ func TestAlertsModalOccludesDetailPane(t *testing.T) {
 			m := seedModel()
 			updated, _ := m.Update(tea.WindowSizeMsg{Width: tc.w, Height: tc.h})
 			m = updated.(Model)
-			// Populate the detail viewport with a recognizable sentinel so we
-			// can detect any leak in the composite output.
 			longLine := strings.Repeat(sentinel+" ", 60)
 			m.viewport.SetContent(strings.Repeat(longLine+"\n", 40))
 
-			// Open the notifications modal.
 			m = pressRune(m, '1')
 			if m.activeModal != ModalAlerts {
 				t.Fatalf("expected ModalAlerts after pressing '1', got %v", m.activeModal)
@@ -54,31 +66,121 @@ func TestAlertsModalOccludesDetailPane(t *testing.T) {
 			view := m.View().Content
 			rows := strings.Split(view, "\n")
 
-			// Locate the modal band by scanning for the top (╭) and bottom (╰)
-			// corners that appear at an interior column (not at column 0,
-			// which is the outer split-view list border).
+			// Locate the modal band. The dimmed-backdrop compositor (bt-v8he)
+			// leaves multiple `╭` corners on the screen — the outer list panel
+			// at column 0, the details panel mid-row, and the modal itself
+			// inside the dimmed backdrop. The modal is the one whose width
+			// matches alertsPanelWidth(), so detect by computing its expected
+			// left column (the centering math from OverlayCenterDimBackdrop)
+			// and confirming a corner sits there.
+			panelW := m.alertsPanelWidth()
+			expectedLeft := (tc.w - panelW) / 2
+			expectedRight := expectedLeft + panelW - 1
+
 			topRow, bottomRow := -1, -1
 			for i, r := range rows {
 				stripped := ansi.Strip(r)
-				if topRow == -1 {
-					if idx := strings.Index(stripped, "╭"); idx > 0 {
-						topRow = i
+				if idx := strings.Index(stripped, "╭─ Notifications"); idx >= 0 && topRow == -1 {
+					topRow = i
+					if idx != expectedLeft {
+						t.Logf("modal top corner at byte-col %d, expected ~%d (string indexing reflects byte not cell offset)",
+							idx, expectedLeft)
 					}
 				}
-				if idx := strings.Index(stripped, "╰"); idx > 0 {
-					bottomRow = i // last interior bottom corner wins
+				// Bottom border of the modal is a row of `─` flanked by
+				// `╰` and `╯` with no other box-drawing on the row's
+				// modal-column span. Match by anchoring on the modal's
+				// column being a `╰`.
+				if topRow != -1 && bottomRow == -1 && i > topRow {
+					if strings.Contains(stripped, "╰─") &&
+						strings.Contains(stripped, "─╯") &&
+						!strings.Contains(stripped, " Notifications") {
+						bottomRow = i
+					}
 				}
 			}
-			if topRow == -1 || bottomRow == -1 || bottomRow <= topRow {
+			if topRow == -1 || bottomRow == -1 {
 				t.Fatalf("could not locate modal band: top=%d bottom=%d", topRow, bottomRow)
 			}
 
-			for i := topRow; i <= bottomRow; i++ {
+			// (1) Modal interior must not leak the sentinel. Slice the
+			// modal's column range out of each interior row and assert no
+			// sentinel is present. The dimmed backdrop flanks may legitimately
+			// carry stripped-and-dimmed bg content — that's the new contract.
+			for i := topRow + 1; i < bottomRow; i++ {
 				stripped := ansi.Strip(rows[i])
-				if strings.Contains(stripped, sentinel) {
-					t.Errorf("modal band row %d leaks detail-pane content: %q", i, stripped)
+				if expectedLeft+1 >= len(stripped) {
+					continue
+				}
+				rightCut := expectedRight
+				if rightCut > len(stripped) {
+					rightCut = len(stripped)
+				}
+				interior := stripped[expectedLeft+1 : rightCut]
+				if strings.Contains(interior, sentinel) {
+					t.Errorf("modal interior row %d leaks detail-pane content: %q", i, interior)
 				}
 			}
+
+			// (2) Modal content width is bounded. The terminal-width-minus-4
+			// fallback only kicks in below the cap; at every tested width we
+			// expect exactly the cap.
+			expected := tc.w - 4
+			if expected > 100 {
+				expected = 100
+			}
+			if panelW != expected {
+				t.Errorf("alertsPanelWidth() = %d, want %d (terminal width %d)",
+					panelW, expected, tc.w)
+			}
+
+			// (3) Backdrop is dimmed. Some row at or near the modal band
+			// must carry the Faint SGR code, proving the compositor wrapped
+			// bg cells rather than leaving them untouched.
+			scanStart := topRow - 1
+			if scanStart < 0 {
+				scanStart = 0
+			}
+			scanEnd := bottomRow + 1
+			if scanEnd >= len(rows) {
+				scanEnd = len(rows) - 1
+			}
+			foundDim := false
+			for i := scanStart; i <= scanEnd; i++ {
+				if strings.Contains(rows[i], faintSGR) {
+					foundDim = true
+					break
+				}
+			}
+			if !foundDim {
+				t.Errorf("expected Faint SGR (\\x1b[2m) in rows %d-%d, found none - backdrop not dimmed",
+					scanStart, scanEnd)
+			}
 		})
+	}
+}
+
+// TestModalContentWidth_ConstantAcrossTerminalSizes guards the chrome
+// stability promise of bt-v8he: as the terminal grows wider the modal does
+// not — it stays capped at the content-comfortable width so the pop-up
+// aesthetic holds at any reasonable terminal size.
+func TestModalContentWidth_ConstantAcrossTerminalSizes(t *testing.T) {
+	widths := []int{120, 160, 200, 240, 320}
+	const expected = 100 // cap from alertsPanelWidth
+
+	var prev int
+	for i, w := range widths {
+		m := seedModel()
+		updated, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: 40})
+		m = updated.(Model)
+		got := m.alertsPanelWidth()
+		if got != expected {
+			t.Errorf("width=%d: alertsPanelWidth()=%d, want %d", w, got, expected)
+		}
+		if i > 0 && got != prev {
+			t.Errorf("width=%d: alertsPanelWidth() changed from %d to %d as terminal grew",
+				w, prev, got)
+		}
+		prev = got
 	}
 }

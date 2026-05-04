@@ -220,13 +220,30 @@ func (m Model) alertsPanelHeight() int {
 }
 
 // alertsPanelWidth returns the outer width of the shared alerts/notifications
-// modal. The modal spans the terminal (minus a small gutter) so the underlying
-// detail pane is fully occluded — a cap at 80 cells previously left bg content
-// visible flanking the modal at typical split-view widths (bt-l5xu). The
-// 4-cell gutter matches the centering math in OverlayCenter and lets the
-// background show as a thin frame around the modal.
+// modal. The modal renders at a content-comfortable width and relies on the
+// dimmed backdrop (OverlayCenterDimBackdrop) to handle bleed-through occlusion
+// rather than spanning the terminal itself (bt-v8he). The 100-cell cap fits
+// both content shapes:
+//   - Notifications row: "15:04 closed bt-46p6.1 • <title>" reads naturally
+//     in 70-100 cells; tighter feels cramped, wider feels under-filled.
+//   - Alerts row: "▲ [type] message" is shorter still; 100 keeps both tabs at
+//     the same outer width so tab cycling doesn't reflow the panel.
+//
+// On terminals narrower than 100 cells we fall back to m.width-4 so the modal
+// always fits with a small gutter, and the floor of 40 keeps very narrow
+// terminals from collapsing the panel below the chrome budget.
+//
+// Earlier history: bt-l5xu sized this to m.width-4 (full terminal width) to
+// fix a bleed-through bug where bg detail-pane content was visible flanking an
+// 80-cell modal. That solved occlusion but made the modal feel oversized for
+// the content. bt-v8he restores the pop-up aesthetic by capping width here and
+// pushing the occlusion guarantee into the compositor (dimmed backdrop).
 func (m Model) alertsPanelWidth() int {
+	const cap = 100
 	w := m.width - 4
+	if w > cap {
+		w = cap
+	}
 	if w < 40 {
 		w = 40
 	}
