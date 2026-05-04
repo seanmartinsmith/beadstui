@@ -1413,6 +1413,20 @@ func (m Model) handleMouseClick(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 		if m.focused != focusList {
 			m.focused = focusList
 		}
+		// Click on the search row reopens the filter input for editing
+		// (bt-49nn). Chrome layers above the first list item are: panel
+		// top border (Y=0), search row (Y=1), column header (Y=2). A
+		// click at Y=1 anywhere in the list pane should route to filter
+		// reopen instead of selecting a row. Mirrors the detail-pane "/"
+		// shortcut at the focusDetail handler above (bt-jwo3): preserves
+		// any existing FilterValue and just flips state to Filtering.
+		const searchRowY = 1
+		if mouse.Y == searchRowY {
+			if m.list.FilterState() != list.Filtering {
+				m.list.SetFilterState(list.Filtering)
+			}
+			return m, nil
+		}
 		rowOffset := m.splitViewListChromeHeight()
 		if mouse.Y >= rowOffset {
 			mouseRow := mouse.Y - rowOffset

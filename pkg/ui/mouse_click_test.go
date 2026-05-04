@@ -232,6 +232,62 @@ func TestHandleMouseClick_BelowLastRenderedRow_Unfiltered_NoPageJump(t *testing.
 	}
 }
 
+// TestHandleMouseClick_SearchRowReopensFilter verifies clicking on the
+// always-present search row (chrome row Y=1, post bt-fxbl) transitions the
+// list to Filtering state regardless of starting state (bt-49nn). Without
+// this, mouse-driven users have no way to re-edit a committed query short
+// of pressing `/` — the search bar is visible but inert to clicks.
+func TestHandleMouseClick_SearchRowReopensFilter(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "bd-cc0", Title: "first", Status: model.StatusOpen},
+		{ID: "bd-cgh", Title: "second", Status: model.StatusOpen},
+	}
+
+	cases := []struct {
+		name      string
+		setup     func(m *Model)
+		wantValue string
+	}{
+		{
+			name:      "FilterApplied -> Filtering",
+			setup:     func(m *Model) { m.list.SetFilterText("first"); m.list.SetFilterState(list.FilterApplied) },
+			wantValue: "first",
+		},
+		{
+			name:      "Unfiltered -> Filtering",
+			setup:     func(m *Model) { /* default */ },
+			wantValue: "",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := NewModel(issues, nil, "", nil)
+			m.width = 200
+			m.height = 40
+			m.mode = ViewList
+			m.isSplitView = true
+			m.list.SetSize(60, 30)
+			m.focused = focusList
+			tc.setup(&m)
+
+			// Search row is at Y=1 (chrome layer 2 of 3, post bt-fxbl).
+			msg := tea.MouseClickMsg{X: 10, Y: 1, Button: tea.MouseLeft}
+			got, _ := m.handleMouseClick(msg)
+
+			if state := got.list.FilterState(); state != list.Filtering {
+				t.Fatalf("expected FilterState=Filtering after search-row click, got %v", state)
+			}
+			if got.focused != focusList {
+				t.Fatalf("expected focusList after search-row click, got %v", got.focused)
+			}
+			if val := got.list.FilterValue(); val != tc.wantValue {
+				t.Fatalf("expected filter value preserved as %q, got %q", tc.wantValue, val)
+			}
+		})
+	}
+}
+
 // TestHandleMouseClick_DetailFocusCommitsFilter verifies clicking the detail
 // pane while the search input is in Filtering state commits the filter to
 // FilterApplied (bt-ocmw). Without this, all global hotkeys gated on
