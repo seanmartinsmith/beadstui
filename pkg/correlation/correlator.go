@@ -51,6 +51,7 @@ func (c *Correlator) GenerateReport(beads []BeadInfo, opts CorrelatorOptions) (*
 	if !insideRepo {
 		return c.emptyReport(beads, opts), nil
 	}
+	repoStatus := RepoStatus{RepoPath: c.repoPath, InsideWorkTree: true}
 
 	// Build extract options
 	extractOpts := ExtractOptions{
@@ -107,6 +108,7 @@ func (c *Correlator) GenerateReport(beads []BeadInfo, opts CorrelatorOptions) (*
 		Stats:           stats,
 		Histories:       histories,
 		CommitIndex:     commitIndex,
+		RepoStatus:      repoStatus,
 	}, nil
 }
 
@@ -132,6 +134,7 @@ func (c *Correlator) emptyReport(beads []BeadInfo, opts CorrelatorOptions) *Hist
 		Stats:       c.calculateStats(histories, nil),
 		Histories:   histories,
 		CommitIndex: c.buildCommitIndex(histories),
+		RepoStatus:  RepoStatus{RepoPath: c.repoPath, InsideWorkTree: false},
 	}
 }
 

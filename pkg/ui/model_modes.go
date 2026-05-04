@@ -66,6 +66,16 @@ func (m *Model) SetActiveRepos(repos map[string]bool) {
 	m.activeRepos = repos
 }
 
+// historyContext builds the HistoryContext snapshot used by the History
+// view's empty-state renderer (bt-ezk8). nil-safe via Model value receiver.
+func (m Model) historyContext() HistoryContext {
+	ctx := HistoryContext{WorkspaceMode: m.workspaceMode}
+	if m.workspaceMode && m.activeRepos != nil {
+		ctx.ActiveProjects = sortedRepoKeys(m.activeRepos)
+	}
+	return ctx
+}
+
 // enterHistoryView loads correlation data and shows the history view
 func (m *Model) enterHistoryView() {
 	cwd, err := os.Getwd()
@@ -98,6 +108,7 @@ func (m *Model) enterHistoryView() {
 
 	// Initialize or update history view
 	m.historyView = NewHistoryModel(report, m.theme)
+	m.historyView.SetContext(m.historyContext())
 	m.historyView.SetSize(m.width, m.height-1)
 	m.mode = ViewHistory
 	m.focused = focusHistory

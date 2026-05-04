@@ -105,6 +105,19 @@ type FileTreeNode struct {
 	Level       int             // Nesting depth for indentation
 }
 
+// HistoryContext describes the runtime context the History view was opened
+// in. It is what lets the empty-state message be specific instead of vague
+// when bt is launched outside a project's git tree (bt-ezk8).
+//
+// In single-project mode WorkspaceMode is false and ActiveProjects is empty.
+// In global/workspace mode WorkspaceMode is true and ActiveProjects holds
+// the current project filter (DB names, sorted; empty/nil means "all
+// projects" because no filter is applied).
+type HistoryContext struct {
+	WorkspaceMode   bool
+	ActiveProjects  []string
+}
+
 // HistoryModel represents the TUI view for bead history and code correlations
 type HistoryModel struct {
 	// Data
@@ -165,6 +178,12 @@ type HistoryModel struct {
 
 	// View mode transition state (bv-kvlx)
 	modeChangedAt time.Time // Timestamp of last mode toggle for transition animation
+
+	// Workspace/global-mode context (bt-ezk8). Used only by the empty-state
+	// renderer to explain *why* history is empty when the cwd is not a git
+	// tree (e.g. global mode launched from $HOME). Has no effect on data
+	// flow; the report is still authoritative for what's shown.
+	context HistoryContext
 }
 
 // NewHistoryModel creates a new history view from a correlation report
@@ -193,6 +212,13 @@ func NewHistoryModel(report *correlation.HistoryReport, theme Theme) HistoryMode
 func (h *HistoryModel) SetReport(report *correlation.HistoryReport) {
 	h.report = report
 	h.rebuildFilteredList()
+}
+
+// SetContext records the workspace/global-mode context the History view was
+// opened in (bt-ezk8). Used only by the empty-state renderer to produce an
+// actionable message when cwd is not a git tree.
+func (h *HistoryModel) SetContext(ctx HistoryContext) {
+	h.context = ctx
 }
 
 // SetSessionsForBead stores correlated sessions for a bead in the cache (bv-pr1l)
@@ -1266,11 +1292,11 @@ func (h *HistoryModel) View() string {
 	// In git mode, check commit list; in bead mode, check histories
 	if h.viewMode == historyModeGit {
 		if len(h.commitList) == 0 {
-			return h.renderEmpty("No commits with bead correlations found")
+			return h.renderEmpty(h.emptyStateMessage("No commits with bead correlations found"))
 		}
 	} else {
 		if len(h.histories) == 0 {
-			return h.renderEmpty("No beads with commit correlations found")
+			return h.renderEmpty(h.emptyStateMessage("No beads with commit correlations found"))
 		}
 	}
 
@@ -1788,6 +1814,56 @@ func (h *HistoryModel) renderEmpty(msg string) string {
 		Foreground(t.Secondary)
 
 	return style.Render(msg + "\n\nPress h to close")
+}
+
+// emptyStateMessage builds the message shown when the History view has no
+// commits to render. The fallback case (cwd is a git tree, but no commits
+// matched) returns the caller's default. The interesting cases are when bt
+// was launched outside any git tree (bt-ezk8): explain why and what the
+// user can do.
+//
+// The History data layer needs git context for `git log`; the shared Dolt
+// server hands bt project DB names but no filesystem-path mapping, so a
+// global-mode launch from $HOME has no path to fall back to. The clean
+// architectural fix is to migrate the correlator to dolt_log + dolt_history_issues
+// (tracked by bt-08sh); until then this empty state explains the constraint
+// instead of pretending the project simply has no commits.
+func (h *HistoryModel) emptyStateMessage(defaultMsg string) string {
+	if h.report == nil {
+		return defaultMsg
+	}
+	// Inside a git work tree -> the data path actually ran, the report is
+	// just empty for legitimate reasons. Use the caller's default.
+	if h.report.RepoStatus.InsideWorkTree {
+		return defaultMsg
+	}
+
+	// Outside a git work tree. Tailor the message by whether a project
+	// filter is active in workspace/global mode.
+	switch {
+	case h.context.WorkspaceMode && len(h.context.ActiveProjects) == 1:
+		project := h.context.ActiveProjects[0]
+		return fmt.Sprintf(
+			"History needs a git repository.\n\n"+
+				"Project filter %q is active, but bt cannot map a project\n"+
+				"DB name to a filesystem path. To see history for %q,\n"+
+				"launch bt from inside that project's git repo:\n\n"+
+				"    cd <path-to-%s> && bt",
+			project, project, project)
+	case h.context.WorkspaceMode && len(h.context.ActiveProjects) > 1:
+		return "History needs a single-project git context.\n\n" +
+			"Multiple projects are filtered. Apply a single-project\n" +
+			"filter via [w] and launch bt from inside that project's\n" +
+			"git repo to see history."
+	case h.context.WorkspaceMode:
+		return "History needs a git repository.\n\n" +
+			"In global mode bt does not know any project's filesystem\n" +
+			"path. Apply a project filter via [w] and launch bt from\n" +
+			"inside that project's git repo to see history."
+	default:
+		return "History needs a git repository.\n\n" +
+			"Run bt from inside a git repo to see commit history."
+	}
 }
 
 // renderHeader renders the filter bar, statistics, and title (bv-y5sx)

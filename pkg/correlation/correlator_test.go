@@ -1,6 +1,7 @@
 package correlation
 
 import (
+	"os"
 	"testing"
 	"time"
 )
@@ -388,5 +389,50 @@ func TestDescribeGitRange_Combined(t *testing.T) {
 
 	if result != "since 2024-01-01, until 2024-12-31, limit 100 commits" {
 		t.Errorf("unexpected result: %s", result)
+	}
+}
+
+// TestGenerateReport_RepoStatus_OutsideGit verifies that GenerateReport
+// records RepoStatus.InsideWorkTree=false when the configured path is not
+// a git work tree (bt-ezk8). Consumers (specifically the History view
+// empty-state renderer) rely on this to distinguish "no commits" from
+// "no git context."
+func TestGenerateReport_RepoStatus_OutsideGit(t *testing.T) {
+	tmp := t.TempDir()
+	if hasGitParent(tmp) {
+		t.Skipf("temp dir %s is inside a git repo; skipping", tmp)
+	}
+	c := NewCorrelator(tmp)
+	beads := []BeadInfo{{ID: "bt-1", Title: "Test", Status: "open"}}
+
+	report, err := c.GenerateReport(beads, CorrelatorOptions{})
+	if err != nil {
+		t.Fatalf("GenerateReport returned error: %v", err)
+	}
+	if report.RepoStatus.InsideWorkTree {
+		t.Errorf("expected InsideWorkTree=false outside a git repo, got true")
+	}
+	if report.RepoStatus.RepoPath != tmp {
+		t.Errorf("expected RepoPath=%q, got %q", tmp, report.RepoStatus.RepoPath)
+	}
+}
+
+// TestGenerateReport_RepoStatus_InsideGit verifies the in-repo branch
+// records InsideWorkTree=true (bt-ezk8). The correlation package itself
+// lives inside a git tree, so we use os.Getwd().
+func TestGenerateReport_RepoStatus_InsideGit(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	c := NewCorrelator(wd)
+	beads := []BeadInfo{{ID: "bt-1", Title: "Test", Status: "open"}}
+
+	report, err := c.GenerateReport(beads, CorrelatorOptions{Limit: 1})
+	if err != nil {
+		t.Fatalf("GenerateReport returned error: %v", err)
+	}
+	if !report.RepoStatus.InsideWorkTree {
+		t.Errorf("expected InsideWorkTree=true inside a git repo, got false")
 	}
 }

@@ -137,6 +137,24 @@ type HistoryStats struct {
 	MethodDistribution map[string]int `json:"method_distribution"`           // Count per correlation method
 }
 
+// RepoStatus describes the git-repo state the correlator saw when generating
+// a report. It exists so the History view can present an actionable empty
+// state when bt is launched outside any project's git tree (e.g. from $HOME
+// in --global mode), instead of silently rendering "no commits found".
+//
+// bt-ezk8: needed because in global mode the shared Dolt server hands bt
+// project DB names but no filesystem-path mapping, so the correlator falls
+// back to cwd which generally is not a git work tree. Surface that fact
+// through the report so the view can explain it.
+type RepoStatus struct {
+	// RepoPath is the absolute path the correlator probed for `git log`.
+	// Empty if the path could not be resolved.
+	RepoPath string `json:"repo_path,omitempty"`
+	// InsideWorkTree reports whether RepoPath is inside a git work tree.
+	// false means git-derived data (commits, file changes) will be empty.
+	InsideWorkTree bool `json:"inside_work_tree"`
+}
+
 // HistoryReport is the top-level output structure for --robot-history
 type HistoryReport struct {
 	GeneratedAt     time.Time              `json:"generated_at"`
@@ -146,6 +164,7 @@ type HistoryReport struct {
 	Stats           HistoryStats           `json:"stats"`                       // Aggregate statistics
 	Histories       map[string]BeadHistory `json:"histories"`                   // BeadID -> BeadHistory
 	CommitIndex     CommitIndex            `json:"commit_index"`                // SHA -> []BeadID for reverse lookup
+	RepoStatus      RepoStatus             `json:"repo_status"`                 // Git-repo state at report time (bt-ezk8)
 }
 
 // FilterOptions controls which beads to include in the history report

@@ -370,6 +370,7 @@ func (m Model) handleHistoryLoaded(msg HistoryLoadedMsg) Model {
 		m.setStatusError(fmt.Sprintf("History load failed: %v", msg.Error))
 	} else if msg.Report != nil {
 		m.historyView = NewHistoryModel(msg.Report, m.theme)
+		m.historyView.SetContext(m.historyContext())
 		m.historyView.SetSize(m.width, m.height-1)
 		if m.isSplitView || m.showDetails {
 			m.updateViewportContent()

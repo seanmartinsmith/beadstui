@@ -1292,11 +1292,14 @@ func TestHistoryModel_ViewGitModeWide(t *testing.T) {
 func TestHistoryModel_ViewNoCommitsInGitMode(t *testing.T) {
 	theme := testTheme()
 
-	// Create report with beads but no commits
+	// Create report with beads but no commits, simulating an in-repo run
+	// where the correlator ran but found no correlations (bt-ezk8: the
+	// "no commits" wording is conditional on InsideWorkTree=true now).
 	emptyReport := &correlation.HistoryReport{
 		Histories: map[string]correlation.BeadHistory{
 			"bv-1": {BeadID: "bv-1", Title: "No commits", Commits: nil},
 		},
+		RepoStatus: correlation.RepoStatus{InsideWorkTree: true},
 	}
 	h := NewHistoryModel(emptyReport, theme)
 	h.SetSize(100, 30)
@@ -2843,5 +2846,122 @@ func TestFileTree_JumpToFile(t *testing.T) {
 
 	if goFileCount < 4 {
 		t.Errorf("Expected at least 4 .go files in test data, got %d", goFileCount)
+	}
+}
+
+// bt-ezk8: empty-state messages must be actionable when bt is launched
+// outside a git repo (e.g. global mode from $HOME). The data path silently
+// falls through to an empty report; the view must explain why and how to
+// recover instead of showing the same generic "no commits" string used for
+// in-repo no-correlations runs.
+
+// emptyHistoryReportOutsideGit returns a report shaped like what the
+// correlator produces when c.repoPath is not inside a git work tree:
+// histories shells exist but no commits/events, and RepoStatus is empty.
+func emptyHistoryReportOutsideGit() *correlation.HistoryReport {
+	return &correlation.HistoryReport{
+		Histories: map[string]correlation.BeadHistory{
+			"bt-1": {BeadID: "bt-1", Title: "Sample bead", Commits: nil},
+		},
+		RepoStatus: correlation.RepoStatus{
+			RepoPath:       "/home/user",
+			InsideWorkTree: false,
+		},
+	}
+}
+
+func TestHistoryModel_EmptyState_GlobalNoFilter(t *testing.T) {
+	theme := testTheme()
+	h := NewHistoryModel(emptyHistoryReportOutsideGit(), theme)
+	h.SetContext(HistoryContext{WorkspaceMode: true})
+	h.SetSize(120, 30)
+
+	// Default view mode is bead-mode -> hits len(histories) == 0 branch
+	view := h.View()
+	if !strings.Contains(view, "git repository") {
+		t.Errorf("global, no-filter empty state should mention git repository, got:\n%s", view)
+	}
+	if !strings.Contains(view, "[w]") {
+		t.Errorf("global, no-filter empty state should reference the [w] picker affordance, got:\n%s", view)
+	}
+}
+
+func TestHistoryModel_EmptyState_GlobalSingleProjectFilter(t *testing.T) {
+	theme := testTheme()
+	h := NewHistoryModel(emptyHistoryReportOutsideGit(), theme)
+	h.SetContext(HistoryContext{
+		WorkspaceMode:  true,
+		ActiveProjects: []string{"bt"},
+	})
+	h.SetSize(120, 30)
+
+	view := h.View()
+	if !strings.Contains(view, "git repository") {
+		t.Errorf("global, filtered empty state should mention git repository, got:\n%s", view)
+	}
+	if !strings.Contains(view, "\"bt\"") {
+		t.Errorf("global, filtered empty state should name the active project, got:\n%s", view)
+	}
+	if !strings.Contains(view, "cd ") {
+		t.Errorf("global, filtered empty state should hint at `cd <path>`, got:\n%s", view)
+	}
+}
+
+func TestHistoryModel_EmptyState_GlobalMultiProjectFilter(t *testing.T) {
+	theme := testTheme()
+	h := NewHistoryModel(emptyHistoryReportOutsideGit(), theme)
+	h.SetContext(HistoryContext{
+		WorkspaceMode:  true,
+		ActiveProjects: []string{"bt", "beads"},
+	})
+	h.SetSize(120, 30)
+
+	view := h.View()
+	if !strings.Contains(view, "single-project") {
+		t.Errorf("multi-project filter empty state should ask for a single-project filter, got:\n%s", view)
+	}
+}
+
+func TestHistoryModel_EmptyState_SingleProjectOutsideGit(t *testing.T) {
+	theme := testTheme()
+	h := NewHistoryModel(emptyHistoryReportOutsideGit(), theme)
+	h.SetContext(HistoryContext{}) // single-project mode (workspaceMode=false)
+	h.SetSize(120, 30)
+
+	view := h.View()
+	if !strings.Contains(view, "git repository") {
+		t.Errorf("non-workspace, outside-git empty state should mention git repository, got:\n%s", view)
+	}
+	// Should NOT mention the [w] picker -- single-project mode does not
+	// have one.
+	if strings.Contains(view, "[w]") {
+		t.Errorf("single-project empty state should not reference [w] picker, got:\n%s", view)
+	}
+}
+
+func TestHistoryModel_EmptyState_InGitNoCorrelations(t *testing.T) {
+	// Inside a git work tree but the correlator returned zero matches:
+	// keep the original generic "no correlations" wording, do NOT route
+	// to the bt-ezk8 actionable branch.
+	theme := testTheme()
+	report := &correlation.HistoryReport{
+		Histories: map[string]correlation.BeadHistory{
+			"bt-1": {BeadID: "bt-1", Title: "No commits", Commits: nil},
+		},
+		RepoStatus: correlation.RepoStatus{
+			RepoPath:       "/repo",
+			InsideWorkTree: true,
+		},
+	}
+	h := NewHistoryModel(report, theme)
+	h.SetContext(HistoryContext{WorkspaceMode: true, ActiveProjects: []string{"bt"}})
+	h.SetSize(120, 30)
+
+	view := h.View()
+	if strings.Contains(view, "git repository") {
+		t.Errorf("in-git empty state should not show the bt-ezk8 actionable message, got:\n%s", view)
+	}
+	if !strings.Contains(view, "No beads") && !strings.Contains(view, "No commits") {
+		t.Errorf("in-git empty state should keep the original wording, got:\n%s", view)
 	}
 }
