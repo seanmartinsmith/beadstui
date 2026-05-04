@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -22,6 +23,19 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/watcher"
 	"github.com/seanmartinsmith/beadstui/pkg/workspace"
 )
+
+// handleHookError converts hook-trust refusals into an exit-78 path while
+// surfacing other hook errors as wrapped RunE errors. Cobra exits 1 on RunE
+// errors by default, so we exit directly here for the trust case to land on
+// the documented "config error" exit code.
+func handleHookError(err error, phase string) error {
+	var ute *hooks.UntrustedHooksError
+	if errors.As(err, &ute) {
+		fmt.Fprintln(os.Stderr, ute.Error())
+		os.Exit(78)
+	}
+	return fmt.Errorf("%s hook failed: %w", phase, err)
+}
 
 var exportCmd = &cobra.Command{
 	Use:   "export",
@@ -45,24 +59,21 @@ var exportMDCmd = &cobra.Command{
 		}
 		fmt.Printf("Exporting to %s...\n", outputFile)
 
-		noHooks, _ := cmd.Flags().GetBool("no-hooks")
+		allowHooks, _ := cmd.Flags().GetBool("allow-hooks")
 		cwd, _ := os.Getwd()
-		var executor *hooks.Executor
-		if !noHooks {
-			hookLoader := hooks.NewLoader(hooks.WithProjectDir(cwd))
-			if err := hookLoader.Load(); err != nil {
-				fmt.Printf("Warning: failed to load hooks: %v\n", err)
-			} else if hookLoader.HasHooks() {
-				ctx := hooks.ExportContext{
-					ExportPath:   outputFile,
-					ExportFormat: "markdown",
-					IssueCount:   len(appCtx.issues),
-					Timestamp:    time.Now(),
-				}
-				executor = hooks.NewExecutor(hookLoader.Config(), ctx)
-				if err := executor.RunPreExport(); err != nil {
-					return fmt.Errorf("pre-export hook failed: %w", err)
-				}
+		ctx := hooks.ExportContext{
+			ExportPath:   outputFile,
+			ExportFormat: "markdown",
+			IssueCount:   len(appCtx.issues),
+			Timestamp:    time.Now(),
+		}
+		executor, err := hooks.RunHooks(cwd, ctx, allowHooks)
+		if err != nil {
+			fmt.Printf("Warning: failed to load hooks: %v\n", err)
+		}
+		if executor != nil {
+			if err := executor.RunPreExport(); err != nil {
+				return handleHookError(err, "pre-export")
 			}
 		}
 
@@ -100,7 +111,7 @@ var exportPagesCmd = &cobra.Command{
 			return fmt.Errorf("output directory required")
 		}
 
-		noHooks, _ := cmd.Flags().GetBool("no-hooks")
+		allowHooks, _ := cmd.Flags().GetBool("allow-hooks")
 		title, _ := cmd.Flags().GetString("title")
 		includeClosed, _ := cmd.Flags().GetBool("include-closed")
 		includeHistory, _ := cmd.Flags().GetBool("include-history")
@@ -129,26 +140,23 @@ var exportPagesCmd = &cobra.Command{
 			}
 
 			cwd, _ := os.Getwd()
-			var pagesExecutor *hooks.Executor
-			if !noHooks {
-				hookLoader := hooks.NewLoader(hooks.WithProjectDir(cwd))
-				if err := hookLoader.Load(); err != nil {
-					fmt.Printf("  -> Warning: failed to load hooks: %v\n", err)
-				} else if hookLoader.HasHooks() {
-					fmt.Println("  -> Running pre-export hooks...")
-					ctx := hooks.ExportContext{
-						ExportPath:   outputDir,
-						ExportFormat: "html",
-						IssueCount:   len(exportIssues),
-						Timestamp:    time.Now(),
-					}
-					pagesExecutor = hooks.NewExecutor(hookLoader.Config(), ctx)
-					pagesExecutor.SetLogger(func(msg string) {
-						fmt.Printf("  -> %s\n", msg)
-					})
-					if err := pagesExecutor.RunPreExport(); err != nil {
-						return fmt.Errorf("pre-export hook failed: %w", err)
-					}
+			ctx := hooks.ExportContext{
+				ExportPath:   outputDir,
+				ExportFormat: "html",
+				IssueCount:   len(exportIssues),
+				Timestamp:    time.Now(),
+			}
+			pagesExecutor, err := hooks.RunHooks(cwd, ctx, allowHooks)
+			if err != nil {
+				fmt.Printf("  -> Warning: failed to load hooks: %v\n", err)
+			}
+			if pagesExecutor != nil {
+				fmt.Println("  -> Running pre-export hooks...")
+				pagesExecutor.SetLogger(func(msg string) {
+					fmt.Printf("  -> %s\n", msg)
+				})
+				if err := pagesExecutor.RunPreExport(); err != nil {
+					return handleHookError(err, "pre-export")
 				}
 			}
 
@@ -402,7 +410,7 @@ func runExportWatchLoop(exportDir string, doExport func([]model.Issue) error) er
 
 func init() {
 	// export md
-	exportMDCmd.Flags().Bool("no-hooks", false, "Skip running hooks during export")
+	exportMDCmd.Flags().Bool("allow-hooks", false, "Bypass trust check on .bt/hooks.yaml hooks (use only for trusted CI environments)")
 	exportCmd.AddCommand(exportMDCmd)
 
 	// export pages
@@ -410,7 +418,7 @@ func init() {
 	exportPagesCmd.Flags().Bool("include-closed", true, "Include closed issues (default: true)")
 	exportPagesCmd.Flags().Bool("include-history", true, "Include git history for time-travel (default: true)")
 	exportPagesCmd.Flags().Bool("watch", false, "Watch for beads changes and auto-regenerate export")
-	exportPagesCmd.Flags().Bool("no-hooks", false, "Skip running hooks during export")
+	exportPagesCmd.Flags().Bool("allow-hooks", false, "Bypass trust check on .bt/hooks.yaml hooks (use only for trusted CI environments)")
 	exportCmd.AddCommand(exportPagesCmd)
 
 	// export preview
