@@ -102,7 +102,7 @@ func runTail(cmd *cobra.Command, args []string) error {
 	}
 
 	// Establish the data source once. This primes appCtx.selectedSource
-	// (Dolt / SQLite / JSONL discovery, shared-server start-if-needed).
+	// (Dolt / JSONL discovery, shared-server start-if-needed).
 	if err := loadIssues(); err != nil {
 		return err
 	}

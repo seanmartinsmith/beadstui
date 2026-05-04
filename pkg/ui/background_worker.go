@@ -1419,7 +1419,7 @@ func (w *BackgroundWorker) buildSnapshot() *DataSnapshot {
 			return nil
 		}
 	} else {
-		// JSONL/SQLite path: existing behavior
+		// JSONL path: existing behavior
 		// Determine dataset tier using a fast line count (bv-9thm).
 		var countStart time.Time
 		if profileSnapshot {
@@ -1491,7 +1491,7 @@ func (w *BackgroundWorker) buildSnapshot() *DataSnapshot {
 			})
 			return nil
 		}
-	} // end JSONL/SQLite branch
+	} // end JSONL branch
 
 	loadDuration := time.Since(start)
 
