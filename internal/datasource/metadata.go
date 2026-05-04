@@ -32,6 +32,31 @@ type doltServerConfig struct {
 	} `yaml:"listener"`
 }
 
+// readJSONLExport reads metadata.json's jsonl_export path (resolving it
+// relative to beadsDir when not absolute). Returns ok=false if the file
+// is missing, unparseable, or the field is empty.
+func readJSONLExport(beadsDir string) (string, bool) {
+	metaPath := filepath.Join(beadsDir, "metadata.json")
+	data, err := os.ReadFile(metaPath)
+	if err != nil {
+		return "", false
+	}
+	var meta struct {
+		JSONLExport string `json:"jsonl_export"`
+	}
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return "", false
+	}
+	if meta.JSONLExport == "" {
+		return "", false
+	}
+	path := meta.JSONLExport
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(beadsDir, path)
+	}
+	return path, true
+}
+
 // ReadDoltConfig reads .beads/metadata.json and (optionally) .beads/dolt/config.yaml
 // to build a DoltConfig. Returns the config and true if the project uses Dolt,
 // or a zero value and false otherwise.

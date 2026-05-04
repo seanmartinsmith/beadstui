@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 )
 
 // bt-edi: schema-drift tolerance. When a column on the issues table is
@@ -223,82 +222,8 @@ func TestDoltConfig_DSN_CustomValues(t *testing.T) {
 	}
 }
 
-func TestDiscoverDoltSources_NoDoltConfig(t *testing.T) {
-	tmpDir := t.TempDir()
-	beadsDir := filepath.Join(tmpDir, ".beads")
-	if err := os.MkdirAll(beadsDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	sources, err := discoverDoltSources(beadsDir, DiscoveryOptions{})
-	if err != nil {
-		t.Fatalf("Unexpected error: %v", err)
-	}
-	if len(sources) != 0 {
-		t.Errorf("Expected 0 sources for non-dolt project, got %d", len(sources))
-	}
-}
-
-func TestSourceTypeDolt_Priority(t *testing.T) {
-	if PriorityDolt <= PriorityJSONLWorktree {
-		t.Errorf("Dolt priority (%d) should be higher than JSONLWorktree (%d)", PriorityDolt, PriorityJSONLWorktree)
-	}
-	if PriorityDolt <= PriorityJSONLLocal {
-		t.Errorf("Dolt priority (%d) should be higher than JSONLLocal (%d)", PriorityDolt, PriorityJSONLLocal)
-	}
-}
-
-func TestSelectBestSource_DoltWinsTiebreak(t *testing.T) {
-	now := time.Now()
-	sources := []DataSource{
-		{
-			Type:     SourceTypeJSONLWorktree,
-			Path:     "/test/worktree.jsonl",
-			Priority: PriorityJSONLWorktree,
-			ModTime:  now,
-			Valid:    true,
-		},
-		{
-			Type:     SourceTypeDolt,
-			Path:     "root@tcp(127.0.0.1:3307)/beads?parseTime=true&timeout=2s",
-			Priority: PriorityDolt,
-			ModTime:  now, // Same time
-			Valid:    true,
-		},
-	}
-
-	selected, err := SelectBestSource(sources)
-	if err != nil {
-		t.Fatalf("Selection failed: %v", err)
-	}
-
-	if selected.Type != SourceTypeDolt {
-		t.Errorf("Expected Dolt (highest priority) to win tiebreak, got %s", selected.Type)
-	}
-}
-
-func TestBuildSelectionReason_Dolt(t *testing.T) {
-	now := time.Now()
-	selected := DataSource{
-		Type:     SourceTypeDolt,
-		Path:     "root@tcp(127.0.0.1:3307)/beads?parseTime=true&timeout=2s",
-		Priority: PriorityDolt,
-		ModTime:  now,
-		Valid:    true,
-	}
-	candidates := []DataSource{
-		selected,
-		{
-			Type:     SourceTypeJSONLWorktree,
-			Path:     "/test/worktree.jsonl",
-			Priority: PriorityJSONLWorktree,
-			ModTime:  now.Add(-1 * time.Hour),
-			Valid:    true,
-		},
-	}
-
-	reason := buildSelectionReason(selected, candidates, DefaultSelectionOptions())
-	if reason != "freshest modification time" && reason != "highest priority (110)" && reason != "Dolt is most authoritative" {
-		t.Errorf("Unexpected reason: %s", reason)
-	}
-}
+// Note: pre-ADR-003 tests for discoverDoltSources, PriorityDolt vs JSONL,
+// SelectBestSource_DoltWinsTiebreak, and BuildSelectionReason_Dolt were
+// removed when their symbols were collapsed in Phase 2 (bt-okpn). The
+// per-project Dolt resolution path is now exercised by TestDiscoverSource_*
+// in source_test.go.

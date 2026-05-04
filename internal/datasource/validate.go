@@ -58,9 +58,9 @@ func ValidateSourceWithOptions(source *DataSource, opts ValidationOptions) error
 
 	var err error
 	switch source.Type {
-	case SourceTypeDolt:
+	case SourceTypeDolt, SourceTypeDoltGlobal:
 		err = validateDolt(source, opts)
-	case SourceTypeJSONLLocal, SourceTypeJSONLWorktree:
+	case SourceTypeJSONLFallback:
 		err = validateJSONL(source, opts)
 	default:
 		err = fmt.Errorf("unknown source type: %s", source.Type)

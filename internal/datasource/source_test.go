@@ -1,74 +1,148 @@
 package datasource
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
-// TestDiscoverSources_OnlyJSONL tests discovery with only a JSONL source
-func TestDiscoverSources_OnlyJSONL(t *testing.T) {
+// TestDiscoverSource_OnlyJSONL: a beads dir with a JSONL file and no
+// Dolt config resolves to SourceTypeJSONLFallback at that path.
+func TestDiscoverSource_OnlyJSONL(t *testing.T) {
 	tmpDir := t.TempDir()
 	beadsDir := filepath.Join(tmpDir, ".beads")
 	if err := os.MkdirAll(beadsDir, 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	// Create JSONL file
 	jsonlPath := filepath.Join(beadsDir, "issues.jsonl")
 	if err := os.WriteFile(jsonlPath, []byte(`{"id":"TEST-1","title":"Test","status":"open"}`+"\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	sources, err := DiscoverSources(DiscoveryOptions{
-		BeadsDir:               beadsDir,
-		ValidateAfterDiscovery: false,
+	src, err := DiscoverSource(DiscoveryOptions{
+		BeadsDir: beadsDir,
 	})
 	if err != nil {
-		t.Fatalf("DiscoverSources failed: %v", err)
+		t.Fatalf("DiscoverSource failed: %v", err)
 	}
 
-	if len(sources) == 0 {
-		t.Fatal("Expected at least one source")
+	if src.Type != SourceTypeJSONLFallback {
+		t.Errorf("expected SourceTypeJSONLFallback, got %s", src.Type)
 	}
-
-	found := false
-	for _, s := range sources {
-		if s.Type == SourceTypeJSONLLocal {
-			found = true
-			if s.Path != jsonlPath {
-				t.Errorf("Expected path %s, got %s", jsonlPath, s.Path)
-			}
-		}
-	}
-	if !found {
-		t.Error("JSONL source not found")
+	if src.Path != jsonlPath {
+		t.Errorf("expected path %s, got %s", jsonlPath, src.Path)
 	}
 }
 
-// TestDiscoverSources_Empty tests discovery with no sources
-func TestDiscoverSources_Empty(t *testing.T) {
+// TestDiscoverSource_Empty: an empty beads dir resolves to ErrNoSource.
+func TestDiscoverSource_Empty(t *testing.T) {
 	tmpDir := t.TempDir()
 	beadsDir := filepath.Join(tmpDir, ".beads")
 	if err := os.MkdirAll(beadsDir, 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	sources, err := DiscoverSources(DiscoveryOptions{
-		BeadsDir:               beadsDir,
-		ValidateAfterDiscovery: false,
+	_, err := DiscoverSource(DiscoveryOptions{
+		BeadsDir: beadsDir,
 	})
-	if err != nil {
-		t.Fatalf("DiscoverSources failed: %v", err)
-	}
-
-	if len(sources) != 0 {
-		t.Errorf("Expected 0 sources, got %d", len(sources))
+	if !errors.Is(err, ErrNoSource) {
+		t.Errorf("expected ErrNoSource, got %v", err)
 	}
 }
 
-// TestValidateJSONL_Valid tests validation of a valid JSONL file
+// TestDiscoverSource_DoltDeclaredButUnreachable: when metadata.json
+// declares backend=dolt but no server is reachable, return
+// ErrDoltRequired without falling back to any JSONL file present.
+func TestDiscoverSource_DoltDeclaredButUnreachable(t *testing.T) {
+	tmpDir := t.TempDir()
+	beadsDir := filepath.Join(tmpDir, ".beads")
+	if err := os.MkdirAll(beadsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Use an unlikely-to-be-bound port so Ping fails deterministically.
+	t.Setenv("BEADS_DOLT_SERVER_PORT", "1")
+	meta := []byte(`{"backend":"dolt","dolt_database":"beads"}`)
+	if err := os.WriteFile(filepath.Join(beadsDir, "metadata.json"), meta, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Even with a JSONL file present, ErrDoltRequired must be returned.
+	jsonlPath := filepath.Join(beadsDir, "issues.jsonl")
+	if err := os.WriteFile(jsonlPath, []byte(`{"id":"TEST-1","title":"Test","status":"open"}`+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := DiscoverSource(DiscoveryOptions{BeadsDir: beadsDir})
+	if !errors.Is(err, ErrDoltRequired) {
+		t.Errorf("expected ErrDoltRequired, got %v", err)
+	}
+}
+
+// TestDiscoverSource_NoDoltMetadata_FallsBackToJSONL confirms the
+// no-Dolt-config path resolves to JSONL fallback (ADR-003 collapse: no
+// RequireDolt flag needed; absence of Dolt config implies legacy mode).
+func TestDiscoverSource_NoDoltMetadata_FallsBackToJSONL(t *testing.T) {
+	tmpDir := t.TempDir()
+	beadsDir := filepath.Join(tmpDir, ".beads")
+	if err := os.MkdirAll(beadsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	jsonlPath := filepath.Join(beadsDir, "issues.jsonl")
+	if err := os.WriteFile(jsonlPath, []byte(`{"id":"TEST-1","title":"Test","status":"open"}`+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	src, err := DiscoverSource(DiscoveryOptions{BeadsDir: beadsDir})
+	if err != nil {
+		t.Fatalf("DiscoverSource failed: %v", err)
+	}
+	if src.Type != SourceTypeJSONLFallback {
+		t.Errorf("expected SourceTypeJSONLFallback, got %s", src.Type)
+	}
+}
+
+// TestDiscoverSource_HonorsMetadataJSONLExport verifies the
+// metadataPreferredSource fold from cmd/bt/pages.go: when metadata.json
+// declares jsonl_export and the file exists, that path wins over the
+// canonical filename search.
+func TestDiscoverSource_HonorsMetadataJSONLExport(t *testing.T) {
+	tmpDir := t.TempDir()
+	beadsDir := filepath.Join(tmpDir, ".beads")
+	if err := os.MkdirAll(beadsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	exportPath := filepath.Join(beadsDir, "custom-export.jsonl")
+	if err := os.WriteFile(exportPath, []byte(`{"id":"TEST-1","title":"Test","status":"open"}`+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Decoy: a canonical issues.jsonl that should NOT win over the
+	// metadata-declared export.
+	decoyPath := filepath.Join(beadsDir, "issues.jsonl")
+	if err := os.WriteFile(decoyPath, []byte(`{"id":"TEST-2","title":"Decoy","status":"open"}`+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	meta := []byte(`{"jsonl_export":"custom-export.jsonl"}`)
+	if err := os.WriteFile(filepath.Join(beadsDir, "metadata.json"), meta, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	src, err := DiscoverSource(DiscoveryOptions{BeadsDir: beadsDir})
+	if err != nil {
+		t.Fatalf("DiscoverSource failed: %v", err)
+	}
+	if src.Path != exportPath {
+		t.Errorf("expected %s (from metadata.json), got %s", exportPath, src.Path)
+	}
+}
+
+// TestValidateJSONL_Valid validates a well-formed JSONL file.
 func TestValidateJSONL_Valid(t *testing.T) {
 	tmpDir := t.TempDir()
 	jsonlPath := filepath.Join(tmpDir, "issues.jsonl")
@@ -81,12 +155,11 @@ func TestValidateJSONL_Valid(t *testing.T) {
 	}
 
 	source := DataSource{
-		Type: SourceTypeJSONLLocal,
+		Type: SourceTypeJSONLFallback,
 		Path: jsonlPath,
 	}
 
-	err := ValidateSource(&source)
-	if err != nil {
+	if err := ValidateSource(&source); err != nil {
 		t.Fatalf("Validation failed: %v", err)
 	}
 
@@ -98,7 +171,7 @@ func TestValidateJSONL_Valid(t *testing.T) {
 	}
 }
 
-// TestValidateJSONL_Empty tests validation of an empty JSONL file
+// TestValidateJSONL_Empty validates that an empty JSONL file is valid (0 issues).
 func TestValidateJSONL_Empty(t *testing.T) {
 	tmpDir := t.TempDir()
 	jsonlPath := filepath.Join(tmpDir, "issues.jsonl")
@@ -108,12 +181,11 @@ func TestValidateJSONL_Empty(t *testing.T) {
 	}
 
 	source := DataSource{
-		Type: SourceTypeJSONLLocal,
+		Type: SourceTypeJSONLFallback,
 		Path: jsonlPath,
 	}
 
-	err := ValidateSource(&source)
-	if err != nil {
+	if err := ValidateSource(&source); err != nil {
 		t.Fatalf("Validation failed: %v", err)
 	}
 
@@ -125,7 +197,7 @@ func TestValidateJSONL_Empty(t *testing.T) {
 	}
 }
 
-// TestValidateJSONL_PartialCorrupt tests validation with <10% bad lines
+// TestValidateJSONL_PartialCorrupt: <=10% bad lines is still valid.
 func TestValidateJSONL_PartialCorrupt(t *testing.T) {
 	tmpDir := t.TempDir()
 	jsonlPath := filepath.Join(tmpDir, "issues.jsonl")
@@ -147,12 +219,11 @@ not valid json
 	}
 
 	source := DataSource{
-		Type: SourceTypeJSONLLocal,
+		Type: SourceTypeJSONLFallback,
 		Path: jsonlPath,
 	}
 
-	err := ValidateSource(&source)
-	if err != nil {
+	if err := ValidateSource(&source); err != nil {
 		t.Fatalf("Validation failed: %v", err)
 	}
 
@@ -161,7 +232,7 @@ not valid json
 	}
 }
 
-// TestValidateJSONL_HeavyCorrupt tests validation with >10% bad lines
+// TestValidateJSONL_HeavyCorrupt: >10% bad lines fails validation.
 func TestValidateJSONL_HeavyCorrupt(t *testing.T) {
 	tmpDir := t.TempDir()
 	jsonlPath := filepath.Join(tmpDir, "issues.jsonl")
@@ -184,12 +255,11 @@ not valid json 3
 	}
 
 	source := DataSource{
-		Type: SourceTypeJSONLLocal,
+		Type: SourceTypeJSONLFallback,
 		Path: jsonlPath,
 	}
 
-	err := ValidateSource(&source)
-	if err == nil {
+	if err := ValidateSource(&source); err == nil {
 		t.Fatal("Expected validation to fail for heavily corrupted file")
 	}
 
@@ -198,7 +268,7 @@ not valid json 3
 	}
 }
 
-// TestValidateJSONL_MissingFields tests validation with missing required fields
+// TestValidateJSONL_MissingFields: missing required fields fails validation.
 func TestValidateJSONL_MissingFields(t *testing.T) {
 	tmpDir := t.TempDir()
 	jsonlPath := filepath.Join(tmpDir, "issues.jsonl")
@@ -212,316 +282,11 @@ func TestValidateJSONL_MissingFields(t *testing.T) {
 	}
 
 	source := DataSource{
-		Type: SourceTypeJSONLLocal,
+		Type: SourceTypeJSONLFallback,
 		Path: jsonlPath,
 	}
 
-	err := ValidateSource(&source)
-	if err == nil {
+	if err := ValidateSource(&source); err == nil {
 		t.Fatal("Expected validation to fail for missing required fields")
-	}
-}
-
-// TestSelectBestSource_SingleValid tests selection with one valid source
-func TestSelectBestSource_SingleValid(t *testing.T) {
-	sources := []DataSource{
-		{
-			Type:     SourceTypeJSONLLocal,
-			Path:     "/test/issues.jsonl",
-			Priority: PriorityJSONLLocal,
-			ModTime:  time.Now(),
-			Valid:    true,
-		},
-	}
-
-	selected, err := SelectBestSource(sources)
-	if err != nil {
-		t.Fatalf("Selection failed: %v", err)
-	}
-
-	if selected.Path != "/test/issues.jsonl" {
-		t.Errorf("Expected /test/issues.jsonl, got %s", selected.Path)
-	}
-}
-
-// TestSelectBestSource_FresherWins tests that newer timestamp wins
-func TestSelectBestSource_FresherWins(t *testing.T) {
-	now := time.Now()
-	sources := []DataSource{
-		{
-			Type:     SourceTypeJSONLLocal,
-			Path:     "/test/old.jsonl",
-			Priority: PriorityJSONLLocal,
-			ModTime:  now.Add(-1 * time.Hour),
-			Valid:    true,
-		},
-		{
-			Type:     SourceTypeJSONLLocal,
-			Path:     "/test/new.jsonl",
-			Priority: PriorityJSONLLocal,
-			ModTime:  now,
-			Valid:    true,
-		},
-	}
-
-	selected, err := SelectBestSource(sources)
-	if err != nil {
-		t.Fatalf("Selection failed: %v", err)
-	}
-
-	if selected.Path != "/test/new.jsonl" {
-		t.Errorf("Expected newer source, got %s", selected.Path)
-	}
-}
-
-// TestSelectBestSource_PriorityTiebreaker tests that priority breaks ties
-func TestSelectBestSource_PriorityTiebreaker(t *testing.T) {
-	now := time.Now()
-	sources := []DataSource{
-		{
-			Type:     SourceTypeJSONLLocal,
-			Path:     "/test/local.jsonl",
-			Priority: PriorityJSONLLocal,
-			ModTime:  now,
-			Valid:    true,
-		},
-		{
-			Type:     SourceTypeJSONLWorktree,
-			Path:     "/test/worktree.jsonl",
-			Priority: PriorityJSONLWorktree,
-			ModTime:  now, // Same time
-			Valid:    true,
-		},
-	}
-
-	selected, err := SelectBestSource(sources)
-	if err != nil {
-		t.Fatalf("Selection failed: %v", err)
-	}
-
-	if selected.Type != SourceTypeJSONLWorktree {
-		t.Errorf("Expected JSONLWorktree (higher priority), got %s", selected.Type)
-	}
-}
-
-// TestSelectBestSource_AllInvalid tests that error is returned when all invalid
-func TestSelectBestSource_AllInvalid(t *testing.T) {
-	sources := []DataSource{
-		{
-			Type:  SourceTypeJSONLWorktree,
-			Path:  "/test/worktree.jsonl",
-			Valid: false,
-		},
-		{
-			Type:  SourceTypeJSONLLocal,
-			Path:  "/test/issues.jsonl",
-			Valid: false,
-		},
-	}
-
-	_, err := SelectBestSource(sources)
-	if err != ErrNoValidSources {
-		t.Errorf("Expected ErrNoValidSources, got %v", err)
-	}
-}
-
-// TestSelectBestSource_SkipsInvalid tests that invalid sources are skipped
-func TestSelectBestSource_SkipsInvalid(t *testing.T) {
-	now := time.Now()
-	sources := []DataSource{
-		{
-			Type:     SourceTypeJSONLWorktree,
-			Path:     "/test/worktree.jsonl",
-			Priority: PriorityJSONLWorktree,
-			ModTime:  now, // Newest, but invalid
-			Valid:    false,
-		},
-		{
-			Type:     SourceTypeJSONLLocal,
-			Path:     "/test/issues.jsonl",
-			Priority: PriorityJSONLLocal,
-			ModTime:  now.Add(-1 * time.Hour), // Older, but valid
-			Valid:    true,
-		},
-	}
-
-	selected, err := SelectBestSource(sources)
-	if err != nil {
-		t.Fatalf("Selection failed: %v", err)
-	}
-
-	if selected.Path != "/test/issues.jsonl" {
-		t.Errorf("Expected valid JSONL source, got %s", selected.Path)
-	}
-}
-
-// TestFallbackChain_FirstValid tests fallback when first source works
-func TestFallbackChain_FirstValid(t *testing.T) {
-	now := time.Now()
-	sources := []DataSource{
-		{
-			Type:     SourceTypeJSONLWorktree,
-			Path:     "/test/worktree.jsonl",
-			Priority: PriorityJSONLWorktree,
-			ModTime:  now,
-			Valid:    true,
-		},
-		{
-			Type:     SourceTypeJSONLLocal,
-			Path:     "/test/issues.jsonl",
-			Priority: PriorityJSONLLocal,
-			ModTime:  now.Add(-1 * time.Hour),
-			Valid:    true,
-		},
-	}
-
-	loadCalls := 0
-	selected, err := SelectWithFallback(sources, func(s DataSource) error {
-		loadCalls++
-		return nil // Success
-	}, DefaultSelectionOptions())
-
-	if err != nil {
-		t.Fatalf("Fallback failed: %v", err)
-	}
-
-	if loadCalls != 1 {
-		t.Errorf("Expected 1 load call, got %d", loadCalls)
-	}
-	if selected.Type != SourceTypeJSONLWorktree {
-		t.Errorf("Expected first source, got %s", selected.Type)
-	}
-}
-
-// TestFallbackChain_SecondValid tests fallback when first fails
-func TestFallbackChain_SecondValid(t *testing.T) {
-	now := time.Now()
-	sources := []DataSource{
-		{
-			Type:     SourceTypeJSONLWorktree,
-			Path:     "/test/worktree.jsonl",
-			Priority: PriorityJSONLWorktree,
-			ModTime:  now,
-			Valid:    true,
-		},
-		{
-			Type:     SourceTypeJSONLLocal,
-			Path:     "/test/issues.jsonl",
-			Priority: PriorityJSONLLocal,
-			ModTime:  now.Add(-1 * time.Hour),
-			Valid:    true,
-		},
-	}
-
-	loadCalls := 0
-	selected, err := SelectWithFallback(sources, func(s DataSource) error {
-		loadCalls++
-		if s.Type == SourceTypeJSONLWorktree {
-			return os.ErrNotExist // First source fails
-		}
-		return nil // Second source works
-	}, DefaultSelectionOptions())
-
-	if err != nil {
-		t.Fatalf("Fallback failed: %v", err)
-	}
-
-	if loadCalls != 2 {
-		t.Errorf("Expected 2 load calls, got %d", loadCalls)
-	}
-	if selected.Type != SourceTypeJSONLLocal {
-		t.Errorf("Expected fallback to JSONL, got %s", selected.Type)
-	}
-}
-
-// TestFallbackChain_AllFail tests fallback when all sources fail
-func TestFallbackChain_AllFail(t *testing.T) {
-	now := time.Now()
-	sources := []DataSource{
-		{
-			Type:     SourceTypeJSONLWorktree,
-			Path:     "/test/worktree.jsonl",
-			Priority: PriorityJSONLWorktree,
-			ModTime:  now,
-			Valid:    true,
-		},
-		{
-			Type:     SourceTypeJSONLLocal,
-			Path:     "/test/issues.jsonl",
-			Priority: PriorityJSONLLocal,
-			ModTime:  now.Add(-1 * time.Hour),
-			Valid:    true,
-		},
-	}
-
-	_, err := SelectWithFallback(sources, func(s DataSource) error {
-		return os.ErrNotExist // All fail
-	}, DefaultSelectionOptions())
-
-	if err == nil {
-		t.Fatal("Expected error when all sources fail")
-	}
-}
-
-// TestDiscoverSources_RequireDolt_Unreachable tests that RequireDolt returns
-// ErrDoltRequired when no Dolt server is available (no metadata or server down).
-func TestDiscoverSources_RequireDolt_Unreachable(t *testing.T) {
-	tmpDir := t.TempDir()
-	beadsDir := filepath.Join(tmpDir, ".beads")
-	if err := os.MkdirAll(beadsDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	// Create a JSONL file that would normally be discovered
-	jsonlPath := filepath.Join(beadsDir, "issues.jsonl")
-	if err := os.WriteFile(jsonlPath, []byte(`{"id":"TEST-1","title":"Test","status":"open"}`+"\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	sources, err := DiscoverSources(DiscoveryOptions{
-		BeadsDir:    beadsDir,
-		RequireDolt: true,
-	})
-
-	if err != ErrDoltRequired {
-		t.Errorf("Expected ErrDoltRequired, got err=%v sources=%v", err, sources)
-	}
-	if sources != nil {
-		t.Errorf("Expected nil sources, got %d", len(sources))
-	}
-}
-
-// TestDiscoverSources_RequireDolt_False_LegacyPreserved tests that legacy
-// JSONL discovery still works when RequireDolt is false (no Dolt metadata).
-func TestDiscoverSources_RequireDolt_False_LegacyPreserved(t *testing.T) {
-	tmpDir := t.TempDir()
-	beadsDir := filepath.Join(tmpDir, ".beads")
-	if err := os.MkdirAll(beadsDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	// Create JSONL file
-	jsonlPath := filepath.Join(beadsDir, "issues.jsonl")
-	if err := os.WriteFile(jsonlPath, []byte(`{"id":"TEST-1","title":"Test","status":"open"}`+"\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	sources, err := DiscoverSources(DiscoveryOptions{
-		BeadsDir:               beadsDir,
-		RequireDolt:            false,
-		ValidateAfterDiscovery: false,
-	})
-	if err != nil {
-		t.Fatalf("DiscoverSources failed: %v", err)
-	}
-
-	found := false
-	for _, s := range sources {
-		if s.Type == SourceTypeJSONLLocal {
-			found = true
-		}
-	}
-	if !found {
-		t.Error("Expected JSONL source to be discovered with RequireDolt=false")
 	}
 }

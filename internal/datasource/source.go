@@ -1,6 +1,18 @@
-// Package datasource provides intelligent multi-source data detection and selection
-// for beadstui. It discovers, validates, and selects the freshest valid source
-// from a Dolt server (when configured) or worktree/local JSONL files.
+// Package datasource resolves the data source for a beadstui project.
+//
+// Architecture (ADR-003): there are exactly three source types: a
+// per-project Dolt server (the upstream system of record since beads
+// v1.0.1), a shared global Dolt server enumerated across multiple
+// project databases, and a JSONL fallback for legacy projects that
+// haven't migrated to Dolt yet. Discovery is a simple decision: try
+// Dolt-resolution first; if Dolt is configured but unreachable, return
+// ErrDoltRequired; otherwise fall back to JSONL if a file is present;
+// else error.
+//
+// The pre-ADR-003 multi-source discovery + priority + selection pipeline
+// was collapsed because it had outlived its purpose: with Dolt as the
+// only live backend and JSONL as opt-in legacy export, there is nothing
+// to compare or rank.
 package datasource
 
 import (
@@ -8,13 +20,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"sort"
-	"strings"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+
+	"github.com/seanmartinsmith/beadstui/pkg/loader"
 )
 
 // ErrDoltRequired is returned when metadata declares backend=dolt but the
@@ -22,311 +33,142 @@ import (
 // JSONL data.
 var ErrDoltRequired = errors.New("Dolt server required but not reachable")
 
-// SourceType identifies the type of data source
+// ErrNoSource is returned when neither Dolt nor a JSONL fallback file
+// can be resolved in the beads directory.
+var ErrNoSource = errors.New("no data source found")
+
+// SourceType identifies the type of data source. Per ADR-003 there are
+// exactly three values; do not add more without revisiting that decision.
 type SourceType string
 
 const (
-	// SourceTypeDolt is a running Dolt SQL server
+	// SourceTypeDolt is a per-project Dolt SQL server.
 	SourceTypeDolt SourceType = "dolt"
-	// SourceTypeDoltGlobal is a shared Dolt server with multiple databases
+	// SourceTypeDoltGlobal is a shared Dolt server hosting multiple databases.
 	SourceTypeDoltGlobal SourceType = "dolt_global"
-	// SourceTypeJSONLWorktree is a JSONL file from a git worktree
-	SourceTypeJSONLWorktree SourceType = "jsonl_worktree"
-	// SourceTypeJSONLLocal is a local JSONL file
-	SourceTypeJSONLLocal SourceType = "jsonl_local"
+	// SourceTypeJSONLFallback is a legacy JSONL file used when Dolt is not
+	// configured for the project.
+	SourceTypeJSONLFallback SourceType = "jsonl_fallback"
 )
 
-// Priority values for source types (higher = more authoritative)
-const (
-	PriorityDolt          = 110
-	PriorityJSONLWorktree = 80
-	PriorityJSONLLocal    = 50
-)
-
-// DataSource represents a potential source of beads data
+// DataSource represents the resolved source of beads data for a project.
 type DataSource struct {
-	// Type identifies the source type
+	// Type identifies the source type.
 	Type SourceType `json:"type"`
-	// Path is the absolute path to the source file (or DSN for Dolt sources)
+	// Path is the absolute path to the source file (or DSN for Dolt sources).
 	Path string `json:"path"`
-	// Priority determines preference when timestamps are equal (higher = preferred)
-	Priority int `json:"priority"`
-	// ModTime is the last modification time of the source
+	// ModTime is the last modification time of the source.
 	ModTime time.Time `json:"mod_time"`
-	// Valid indicates whether the source passed validation
+	// Valid indicates whether the source passed validation.
 	Valid bool `json:"valid"`
-	// ValidationError describes why validation failed (if Valid is false)
+	// ValidationError describes why validation failed (if Valid is false).
 	ValidationError string `json:"validation_error,omitempty"`
-	// IssueCount is the number of issues in the source (set during validation)
+	// IssueCount is the number of issues in the source (set during validation).
 	IssueCount int `json:"issue_count"`
-	// Size is the file size in bytes
+	// Size is the file size in bytes (JSONL only).
 	Size int64 `json:"size"`
-	// RepoFilter narrows database enumeration in global mode (case-insensitive match)
+	// RepoFilter narrows database enumeration in global mode (case-insensitive match).
 	RepoFilter string `json:"repo_filter,omitempty"`
 }
 
-// String returns a human-readable description of the source
+// String returns a human-readable description of the source.
 func (s DataSource) String() string {
 	status := "valid"
 	if !s.Valid {
 		status = fmt.Sprintf("invalid: %s", s.ValidationError)
 	}
-	return fmt.Sprintf("%s (%s, priority=%d, mod=%s, issues=%d, %s)",
-		s.Path, s.Type, s.Priority, s.ModTime.Format(time.RFC3339), s.IssueCount, status)
+	return fmt.Sprintf("%s (%s, mod=%s, issues=%d, %s)",
+		s.Path, s.Type, s.ModTime.Format(time.RFC3339), s.IssueCount, status)
 }
 
-// DiscoveryOptions configures source discovery behavior
+// DiscoveryOptions configures source discovery behavior.
 type DiscoveryOptions struct {
-	// BeadsDir is the .beads directory path (optional, auto-detected if empty)
+	// BeadsDir is the .beads directory path (optional, auto-detected if empty).
 	BeadsDir string
-	// RepoPath is the repository root path (optional, uses cwd if empty)
+	// RepoPath is the repository root path (optional, uses cwd if empty).
 	RepoPath string
-	// ValidateAfterDiscovery runs validation on each discovered source
+	// ValidateAfterDiscovery runs validation on the discovered source.
 	ValidateAfterDiscovery bool
-	// IncludeInvalid includes sources that failed validation in results
-	IncludeInvalid bool
-	// Verbose enables detailed logging during discovery
+	// Verbose enables detailed logging during discovery.
 	Verbose bool
-	// Logger receives log messages when Verbose is true
+	// Logger receives log messages when Verbose is true.
 	Logger func(msg string)
-	// RequireDolt skips JSONL/worktree discovery entirely.
-	// When true, only Dolt is attempted; if unreachable, ErrDoltRequired is returned.
-	RequireDolt bool
 }
 
-// DiscoverSources finds all potential data sources in the beads directory
-func DiscoverSources(opts DiscoveryOptions) ([]DataSource, error) {
+// DiscoverSource resolves the single canonical data source for the project,
+// applying the ADR-003 decision: Dolt if configured, else JSONL fallback.
+//
+// Returns ErrDoltRequired if metadata declares backend=dolt but the server
+// is unreachable. Returns ErrNoSource if no source can be resolved at all.
+func DiscoverSource(opts DiscoveryOptions) (DataSource, error) {
 	if opts.Logger == nil {
 		opts.Logger = func(string) {}
 	}
 
-	// Determine beads directory
-	beadsDir := opts.BeadsDir
-	if beadsDir == "" {
-		// Check BEADS_DIR environment variable
-		if envDir := os.Getenv("BEADS_DIR"); envDir != "" {
-			beadsDir = envDir
-		} else {
-			// Use repo path or current directory
-			repoPath := opts.RepoPath
-			if repoPath == "" {
-				var err error
-				repoPath, err = os.Getwd()
-				if err != nil {
-					return nil, fmt.Errorf("failed to get current directory: %w", err)
-				}
-			}
-			beadsDir = filepath.Join(repoPath, ".beads")
-		}
+	beadsDir, err := resolveBeadsDir(opts)
+	if err != nil {
+		return DataSource{}, err
 	}
 
 	if opts.Verbose {
-		opts.Logger(fmt.Sprintf("Discovering sources in: %s", beadsDir))
+		opts.Logger(fmt.Sprintf("Discovering source in: %s", beadsDir))
 	}
 
-	var sources []DataSource
-
-	// Discover Dolt server (highest priority - authoritative when available)
-	doltSources, err := discoverDoltSources(beadsDir, opts)
-	if err != nil && opts.Verbose {
-		opts.Logger(fmt.Sprintf("Dolt discovery warning: %v", err))
-	}
-	sources = append(sources, doltSources...)
-
-	// When metadata declares backend=dolt, don't fall through to stale backends
-	if opts.RequireDolt {
-		if len(doltSources) == 0 {
-			return nil, ErrDoltRequired
-		}
-		// Skip JSONL/worktree entirely
-	} else {
-		// Discover local JSONL files
-		localSources, err := discoverLocalJSONLSources(beadsDir, opts)
-		if err != nil && opts.Verbose {
-			opts.Logger(fmt.Sprintf("Local JSONL discovery warning: %v", err))
-		}
-		sources = append(sources, localSources...)
-
-		// Discover worktree JSONL files
-		worktreeSources, err := discoverWorktreeSources(opts.RepoPath, opts)
-		if err != nil && opts.Verbose {
-			opts.Logger(fmt.Sprintf("Worktree discovery warning: %v", err))
-		}
-		sources = append(sources, worktreeSources...)
-	}
-
-	// Validate sources if requested
-	if opts.ValidateAfterDiscovery {
-		for i := range sources {
-			if err := ValidateSource(&sources[i]); err != nil && opts.Verbose {
-				opts.Logger(fmt.Sprintf("Validation failed for %s: %v", sources[i].Path, err))
+	// Dolt configured? Try it. If declared but unreachable, fail loudly so
+	// we don't silently serve stale JSONL data.
+	if cfg, ok := ReadDoltConfig(beadsDir); ok {
+		src, ok := tryDoltSource(cfg, opts)
+		if ok {
+			if opts.ValidateAfterDiscovery {
+				_ = ValidateSource(&src)
 			}
+			return src, nil
 		}
+		return DataSource{}, ErrDoltRequired
 	}
 
-	// Filter out invalid sources if not including them
-	if opts.ValidateAfterDiscovery && !opts.IncludeInvalid {
-		var validSources []DataSource
-		for _, s := range sources {
-			if s.Valid {
-				validSources = append(validSources, s)
-			}
-		}
-		sources = validSources
-	}
-
-	// Sort by priority and mod time
-	sort.Slice(sources, func(i, j int) bool {
-		if sources[i].ModTime.Equal(sources[j].ModTime) {
-			return sources[i].Priority > sources[j].Priority
-		}
-		return sources[i].ModTime.After(sources[j].ModTime)
-	})
-
-	if opts.Verbose {
-		opts.Logger(fmt.Sprintf("Discovered %d sources", len(sources)))
-	}
-
-	return sources, nil
-}
-
-// discoverLocalJSONLSources finds JSONL files in the beads directory
-func discoverLocalJSONLSources(beadsDir string, opts DiscoveryOptions) ([]DataSource, error) {
-	var sources []DataSource
-
-	entries, err := os.ReadDir(beadsDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read beads directory: %w", err)
-	}
-
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		name := e.Name()
-
-		// Must be a .jsonl file
-		if !strings.HasSuffix(name, ".jsonl") {
-			continue
-		}
-
-		// Skip backups, merge artifacts, and deletion manifests
-		if strings.Contains(name, ".backup") ||
-			strings.Contains(name, ".orig") ||
-			strings.Contains(name, ".merge") ||
-			name == "deletions.jsonl" ||
-			strings.HasPrefix(name, "beads.left") ||
-			strings.HasPrefix(name, "beads.right") {
-			continue
-		}
-
-		path := filepath.Join(beadsDir, name)
-		info, err := e.Info()
-		if err != nil {
-			continue
-		}
-
-		sources = append(sources, DataSource{
-			Type:     SourceTypeJSONLLocal,
-			Path:     path,
-			Priority: PriorityJSONLLocal,
-			ModTime:  info.ModTime(),
-			Size:     info.Size(),
-		})
-
-		if opts.Verbose {
-			opts.Logger(fmt.Sprintf("Found local JSONL: %s (mod=%s)", path, info.ModTime().Format(time.RFC3339)))
-		}
-	}
-
-	return sources, nil
-}
-
-// discoverWorktreeSources finds JSONL files in git worktree beads directories
-func discoverWorktreeSources(repoPath string, opts DiscoveryOptions) ([]DataSource, error) {
-	if repoPath == "" {
-		var err error
-		repoPath, err = os.Getwd()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get current directory: %w", err)
-		}
-	}
-
-	// Find git directory
-	cmd := exec.Command("git", "rev-parse", "--git-dir")
-	cmd.Dir = repoPath
-	out, err := cmd.Output()
-	if err != nil {
-		// Not a git repository
-		return nil, nil
-	}
-	gitDir := strings.TrimSpace(string(out))
-	if !filepath.IsAbs(gitDir) {
-		gitDir = filepath.Join(repoPath, gitDir)
-	}
-
-	// Look for beads-worktrees directory
-	worktreesDir := filepath.Join(gitDir, "beads-worktrees")
-	if _, err := os.Stat(worktreesDir); err != nil {
-		// No worktrees directory
-		return nil, nil
-	}
-
-	var sources []DataSource
-
-	// Enumerate worktree directories
-	entries, err := os.ReadDir(worktreesDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read worktrees directory: %w", err)
-	}
-
-	for _, e := range entries {
-		if !e.IsDir() {
-			continue
-		}
-
-		wtDir := filepath.Join(worktreesDir, e.Name())
-
-		// Look for issues.jsonl in this worktree
-		jsonlPath := filepath.Join(wtDir, "issues.jsonl")
-		info, err := os.Stat(jsonlPath)
-		if err != nil {
-			continue
-		}
-
-		sources = append(sources, DataSource{
-			Type:     SourceTypeJSONLWorktree,
-			Path:     jsonlPath,
-			Priority: PriorityJSONLWorktree,
-			ModTime:  info.ModTime(),
-			Size:     info.Size(),
-		})
-
-		if opts.Verbose {
-			opts.Logger(fmt.Sprintf("Found worktree JSONL: %s (mod=%s)", jsonlPath, info.ModTime().Format(time.RFC3339)))
-		}
-	}
-
-	return sources, nil
-}
-
-// discoverDoltSources checks if the beads project uses a Dolt backend and
-// the server is reachable. Returns a DataSource with the DSN in the Path field.
-func discoverDoltSources(beadsDir string, opts DiscoveryOptions) ([]DataSource, error) {
-	cfg, ok := ReadDoltConfig(beadsDir)
+	// No Dolt configured: fall back to legacy JSONL.
+	src, ok := tryJSONLFallback(beadsDir, opts)
 	if !ok {
-		return nil, nil
+		return DataSource{}, ErrNoSource
 	}
+	if opts.ValidateAfterDiscovery {
+		_ = ValidateSource(&src)
+	}
+	return src, nil
+}
 
+// resolveBeadsDir applies the precedence: explicit option > BEADS_DIR env
+// var > <repoPath>/.beads.
+func resolveBeadsDir(opts DiscoveryOptions) (string, error) {
+	if opts.BeadsDir != "" {
+		return opts.BeadsDir, nil
+	}
+	if envDir := os.Getenv("BEADS_DIR"); envDir != "" {
+		return envDir, nil
+	}
+	repoPath := opts.RepoPath
+	if repoPath == "" {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return "", fmt.Errorf("failed to get current directory: %w", err)
+		}
+		repoPath = cwd
+	}
+	return filepath.Join(repoPath, ".beads"), nil
+}
+
+// tryDoltSource pings the configured Dolt server. Returns false if the
+// server is not reachable.
+func tryDoltSource(cfg DoltConfig, opts DiscoveryOptions) (DataSource, bool) {
 	dsn := cfg.DSN()
 
-	// Ping the server to see if it's actually running
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		if opts.Verbose {
 			opts.Logger(fmt.Sprintf("Dolt: cannot open connection: %v", err))
 		}
-		return nil, nil
+		return DataSource{}, false
 	}
 	defer db.Close()
 
@@ -334,10 +176,11 @@ func discoverDoltSources(beadsDir string, opts DiscoveryOptions) ([]DataSource, 
 		if opts.Verbose {
 			opts.Logger(fmt.Sprintf("Dolt: server not reachable at %s:%d: %v", cfg.Host, cfg.Port, err))
 		}
-		return nil, nil
+		return DataSource{}, false
 	}
 
-	// Get the most recent update time to use as ModTime
+	// Use the most recent issue update as ModTime when available; fall back
+	// to time.Now so callers always get a meaningful timestamp.
 	var modTime time.Time
 	var updatedAt sql.NullTime
 	if err := db.QueryRow("SELECT MAX(updated_at) FROM issues").Scan(&updatedAt); err == nil && updatedAt.Valid {
@@ -347,13 +190,59 @@ func discoverDoltSources(beadsDir string, opts DiscoveryOptions) ([]DataSource, 
 	}
 
 	if opts.Verbose {
-		opts.Logger(fmt.Sprintf("Found Dolt server: %s:%d db=%s (mod=%s)", cfg.Host, cfg.Port, cfg.Database, modTime.Format(time.RFC3339)))
+		opts.Logger(fmt.Sprintf("Found Dolt server: %s:%d db=%s (mod=%s)",
+			cfg.Host, cfg.Port, cfg.Database, modTime.Format(time.RFC3339)))
 	}
 
-	return []DataSource{{
-		Type:     SourceTypeDolt,
-		Path:     dsn,
-		Priority: PriorityDolt,
-		ModTime:  modTime,
-	}}, nil
+	return DataSource{
+		Type:    SourceTypeDolt,
+		Path:    dsn,
+		ModTime: modTime,
+	}, true
+}
+
+// tryJSONLFallback locates a usable legacy JSONL file. Honors metadata.json's
+// declared jsonl_export path when present, otherwise uses loader.FindJSONLPath
+// to apply the canonical filename-priority search.
+func tryJSONLFallback(beadsDir string, opts DiscoveryOptions) (DataSource, bool) {
+	// Honor metadata.json's declared jsonl_export path first.
+	if path, ok := readJSONLExport(beadsDir); ok {
+		if info, err := os.Stat(path); err == nil && !info.IsDir() {
+			if opts.Verbose {
+				opts.Logger(fmt.Sprintf("Found JSONL fallback (from metadata.json): %s", path))
+			}
+			return DataSource{
+				Type:    SourceTypeJSONLFallback,
+				Path:    path,
+				ModTime: info.ModTime(),
+				Size:    info.Size(),
+			}, true
+		}
+	}
+
+	// Otherwise fall back to canonical filename discovery.
+	jsonlPath, err := loader.FindJSONLPath(beadsDir)
+	if err != nil {
+		if opts.Verbose {
+			opts.Logger(fmt.Sprintf("JSONL discovery: %v", err))
+		}
+		return DataSource{}, false
+	}
+
+	info, err := os.Stat(jsonlPath)
+	if err != nil {
+		return DataSource{}, false
+	}
+
+	if opts.Verbose {
+		opts.Logger(fmt.Sprintf("Found JSONL fallback: %s (mod=%s)",
+			jsonlPath, info.ModTime().Format(time.RFC3339)))
+	}
+
+	return DataSource{
+		Type:    SourceTypeJSONLFallback,
+		Path:    jsonlPath,
+		ModTime: info.ModTime(),
+		Size:    info.Size(),
+	}, true
 }

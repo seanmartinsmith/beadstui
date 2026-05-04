@@ -243,8 +243,7 @@ func loadIssues() error {
 		}
 		appCtx.issues = result.Issues
 		appCtx.selectedSource = &result.Source
-		switch result.Source.Type {
-		case datasource.SourceTypeJSONLLocal, datasource.SourceTypeJSONLWorktree:
+		if result.Source.Type == datasource.SourceTypeJSONLFallback {
 			appCtx.beadsPath = result.Source.Path
 		}
 		beadsDir, _ := loader.GetBeadsDir("")
