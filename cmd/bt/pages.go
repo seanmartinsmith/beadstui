@@ -479,14 +479,10 @@ func countIssuesInBeadsDir(beadsDir string) (int, error) {
 	if path, typ := metadataPreferredSource(beadsDir); path != "" {
 		info, err := os.Stat(path)
 		if err == nil {
-			priority := datasource.PriorityJSONLLocal
-			if typ == datasource.SourceTypeSQLite {
-				priority = datasource.PrioritySQLite
-			}
 			source := datasource.DataSource{
 				Type:     typ,
 				Path:     path,
-				Priority: priority,
+				Priority: datasource.PriorityJSONLLocal,
 				ModTime:  info.ModTime(),
 				Size:     info.Size(),
 			}
@@ -541,15 +537,9 @@ func metadataPreferredSource(beadsDir string) (string, datasource.SourceType) {
 		}
 	}
 
-	if meta.Database != "" {
-		path := meta.Database
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(beadsDir, path)
-		}
-		if info, err := os.Stat(path); err == nil && !info.IsDir() {
-			return path, datasource.SourceTypeSQLite
-		}
-	}
+	// meta.Database (legacy SQLite path) is no longer honored: the SQLite
+	// reader was removed in bt-05zt Phase 1. Any stale beads.db reference in
+	// metadata.json now falls through to JSONL or canonical discovery.
 	if meta.JSONLExport != "" {
 		path := meta.JSONLExport
 		if !filepath.IsAbs(path) {
@@ -568,18 +558,6 @@ func loadIssuesFromBeadsDir(beadsDir string) ([]model.Issue, error) {
 		case datasource.SourceTypeDolt:
 			reader, err := datasource.NewDoltReader(datasource.DataSource{
 				Type: datasource.SourceTypeDolt,
-				Path: path,
-			})
-			if err != nil {
-				break
-			}
-			defer reader.Close()
-			if issues, err := reader.LoadIssues(); err == nil {
-				return issues, nil
-			}
-		case datasource.SourceTypeSQLite:
-			reader, err := datasource.NewSQLiteReader(datasource.DataSource{
-				Type: datasource.SourceTypeSQLite,
 				Path: path,
 			})
 			if err != nil {

@@ -9,10 +9,10 @@ import (
 )
 
 // LoadIssues performs smart multi-source detection and loading.
-// It discovers all available sources (SQLite, JSONL), validates them, selects
-// the freshest valid source, and loads issues from it. SQLite is preferred over
-// JSONL when both exist at comparable freshness, since SQLite reflects the most
-// recent state (including status changes from br operations).
+// It discovers all available sources (Dolt, JSONL), validates them, selects
+// the freshest valid source, and loads issues from it. Dolt is preferred over
+// JSONL when both exist, since Dolt is the system of record (beads is
+// Dolt-only since v1.0.1).
 //
 // Falls back to legacy JSONL-only loading via loader.LoadIssues if smart
 // detection finds no valid sources.
@@ -165,14 +165,6 @@ func LoadFromSource(source DataSource) ([]model.Issue, error) {
 		reader, err := NewGlobalDoltReader(source)
 		if err != nil {
 			return nil, err
-		}
-		defer reader.Close()
-		return reader.LoadIssues()
-
-	case SourceTypeSQLite:
-		reader, err := NewSQLiteReader(source)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open SQLite source %s: %w", source.Path, err)
 		}
 		defer reader.Close()
 		return reader.LoadIssues()

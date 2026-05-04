@@ -244,7 +244,7 @@ func loadIssues() error {
 		appCtx.issues = result.Issues
 		appCtx.selectedSource = &result.Source
 		switch result.Source.Type {
-		case datasource.SourceTypeJSONLLocal, datasource.SourceTypeJSONLWorktree, datasource.SourceTypeSQLite:
+		case datasource.SourceTypeJSONLLocal, datasource.SourceTypeJSONLWorktree:
 			appCtx.beadsPath = result.Source.Path
 		}
 		beadsDir, _ := loader.GetBeadsDir("")

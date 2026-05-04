@@ -1,55 +1,11 @@
 package datasource
 
 import (
-	"database/sql"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
-
-	_ "modernc.org/sqlite"
 )
-
-// TestDiscoverSources_OnlySQLite tests discovery with only a SQLite source
-func TestDiscoverSources_OnlySQLite(t *testing.T) {
-	tmpDir := t.TempDir()
-	beadsDir := filepath.Join(tmpDir, ".beads")
-	if err := os.MkdirAll(beadsDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	// Create SQLite database
-	dbPath := filepath.Join(beadsDir, "beads.db")
-	createTestSQLiteDB(t, dbPath)
-
-	sources, err := DiscoverSources(DiscoveryOptions{
-		BeadsDir:               beadsDir,
-		ValidateAfterDiscovery: false,
-	})
-	if err != nil {
-		t.Fatalf("DiscoverSources failed: %v", err)
-	}
-
-	if len(sources) == 0 {
-		t.Fatal("Expected at least one source")
-	}
-
-	found := false
-	for _, s := range sources {
-		if s.Type == SourceTypeSQLite {
-			found = true
-			if s.Path != dbPath {
-				t.Errorf("Expected path %s, got %s", dbPath, s.Path)
-			}
-			if s.Priority != PrioritySQLite {
-				t.Errorf("Expected priority %d, got %d", PrioritySQLite, s.Priority)
-			}
-		}
-	}
-	if !found {
-		t.Error("SQLite source not found")
-	}
-}
 
 // TestDiscoverSources_OnlyJSONL tests discovery with only a JSONL source
 func TestDiscoverSources_OnlyJSONL(t *testing.T) {
@@ -91,55 +47,6 @@ func TestDiscoverSources_OnlyJSONL(t *testing.T) {
 	}
 }
 
-// TestDiscoverSources_Multiple tests discovery with multiple sources
-func TestDiscoverSources_Multiple(t *testing.T) {
-	tmpDir := t.TempDir()
-	beadsDir := filepath.Join(tmpDir, ".beads")
-	if err := os.MkdirAll(beadsDir, 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	// Create SQLite database
-	dbPath := filepath.Join(beadsDir, "beads.db")
-	createTestSQLiteDB(t, dbPath)
-
-	// Create JSONL file
-	jsonlPath := filepath.Join(beadsDir, "issues.jsonl")
-	if err := os.WriteFile(jsonlPath, []byte(`{"id":"TEST-1","title":"Test","status":"open"}`+"\n"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	sources, err := DiscoverSources(DiscoveryOptions{
-		BeadsDir:               beadsDir,
-		ValidateAfterDiscovery: false,
-	})
-	if err != nil {
-		t.Fatalf("DiscoverSources failed: %v", err)
-	}
-
-	if len(sources) < 2 {
-		t.Fatalf("Expected at least 2 sources, got %d", len(sources))
-	}
-
-	foundSQLite := false
-	foundJSONL := false
-	for _, s := range sources {
-		if s.Type == SourceTypeSQLite {
-			foundSQLite = true
-		}
-		if s.Type == SourceTypeJSONLLocal {
-			foundJSONL = true
-		}
-	}
-
-	if !foundSQLite {
-		t.Error("SQLite source not found")
-	}
-	if !foundJSONL {
-		t.Error("JSONL source not found")
-	}
-}
-
 // TestDiscoverSources_Empty tests discovery with no sources
 func TestDiscoverSources_Empty(t *testing.T) {
 	tmpDir := t.TempDir()
@@ -158,111 +65,6 @@ func TestDiscoverSources_Empty(t *testing.T) {
 
 	if len(sources) != 0 {
 		t.Errorf("Expected 0 sources, got %d", len(sources))
-	}
-}
-
-// TestValidateSQLite_Valid tests validation of a valid SQLite database
-func TestValidateSQLite_Valid(t *testing.T) {
-	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "beads.db")
-	createTestSQLiteDB(t, dbPath)
-
-	source := DataSource{
-		Type: SourceTypeSQLite,
-		Path: dbPath,
-	}
-
-	err := ValidateSource(&source)
-	if err != nil {
-		t.Fatalf("Validation failed: %v", err)
-	}
-
-	if !source.Valid {
-		t.Error("Expected source to be valid")
-	}
-	if source.IssueCount != 2 {
-		t.Errorf("Expected 2 issues, got %d", source.IssueCount)
-	}
-}
-
-// TestValidateSQLite_Empty tests validation of an empty but valid SQLite database
-func TestValidateSQLite_Empty(t *testing.T) {
-	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "beads.db")
-	createEmptySQLiteDB(t, dbPath)
-
-	source := DataSource{
-		Type: SourceTypeSQLite,
-		Path: dbPath,
-	}
-
-	err := ValidateSource(&source)
-	if err != nil {
-		t.Fatalf("Validation failed: %v", err)
-	}
-
-	if !source.Valid {
-		t.Error("Expected source to be valid")
-	}
-	if source.IssueCount != 0 {
-		t.Errorf("Expected 0 issues, got %d", source.IssueCount)
-	}
-}
-
-// TestValidateSQLite_Corrupted tests validation of a corrupted SQLite database
-func TestValidateSQLite_Corrupted(t *testing.T) {
-	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "beads.db")
-
-	// Write garbage data
-	if err := os.WriteFile(dbPath, []byte("THIS IS NOT A VALID SQLITE DATABASE"), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	source := DataSource{
-		Type: SourceTypeSQLite,
-		Path: dbPath,
-	}
-
-	err := ValidateSource(&source)
-	if err == nil {
-		t.Fatal("Expected validation to fail for corrupted database")
-	}
-
-	if source.Valid {
-		t.Error("Expected source to be invalid")
-	}
-}
-
-// TestValidateSQLite_WrongSchema tests validation of SQLite with missing columns
-func TestValidateSQLite_WrongSchema(t *testing.T) {
-	tmpDir := t.TempDir()
-	dbPath := filepath.Join(tmpDir, "beads.db")
-
-	db, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Create table with wrong schema (missing required columns)
-	_, err = db.Exec("CREATE TABLE issues (foo TEXT)")
-	if err != nil {
-		db.Close()
-		t.Fatal(err)
-	}
-	db.Close()
-
-	source := DataSource{
-		Type: SourceTypeSQLite,
-		Path: dbPath,
-	}
-
-	err = ValidateSource(&source)
-	if err == nil {
-		t.Fatal("Expected validation to fail for wrong schema")
-	}
-
-	if source.Valid {
-		t.Error("Expected source to be invalid")
 	}
 }
 
@@ -424,9 +226,9 @@ func TestValidateJSONL_MissingFields(t *testing.T) {
 func TestSelectBestSource_SingleValid(t *testing.T) {
 	sources := []DataSource{
 		{
-			Type:     SourceTypeSQLite,
-			Path:     "/test/beads.db",
-			Priority: PrioritySQLite,
+			Type:     SourceTypeJSONLLocal,
+			Path:     "/test/issues.jsonl",
+			Priority: PriorityJSONLLocal,
 			ModTime:  time.Now(),
 			Valid:    true,
 		},
@@ -437,8 +239,8 @@ func TestSelectBestSource_SingleValid(t *testing.T) {
 		t.Fatalf("Selection failed: %v", err)
 	}
 
-	if selected.Path != "/test/beads.db" {
-		t.Errorf("Expected /test/beads.db, got %s", selected.Path)
+	if selected.Path != "/test/issues.jsonl" {
+		t.Errorf("Expected /test/issues.jsonl, got %s", selected.Path)
 	}
 }
 
@@ -484,9 +286,9 @@ func TestSelectBestSource_PriorityTiebreaker(t *testing.T) {
 			Valid:    true,
 		},
 		{
-			Type:     SourceTypeSQLite,
-			Path:     "/test/beads.db",
-			Priority: PrioritySQLite,
+			Type:     SourceTypeJSONLWorktree,
+			Path:     "/test/worktree.jsonl",
+			Priority: PriorityJSONLWorktree,
 			ModTime:  now, // Same time
 			Valid:    true,
 		},
@@ -497,8 +299,8 @@ func TestSelectBestSource_PriorityTiebreaker(t *testing.T) {
 		t.Fatalf("Selection failed: %v", err)
 	}
 
-	if selected.Type != SourceTypeSQLite {
-		t.Errorf("Expected SQLite (higher priority), got %s", selected.Type)
+	if selected.Type != SourceTypeJSONLWorktree {
+		t.Errorf("Expected JSONLWorktree (higher priority), got %s", selected.Type)
 	}
 }
 
@@ -506,8 +308,8 @@ func TestSelectBestSource_PriorityTiebreaker(t *testing.T) {
 func TestSelectBestSource_AllInvalid(t *testing.T) {
 	sources := []DataSource{
 		{
-			Type:  SourceTypeSQLite,
-			Path:  "/test/beads.db",
+			Type:  SourceTypeJSONLWorktree,
+			Path:  "/test/worktree.jsonl",
 			Valid: false,
 		},
 		{
@@ -528,9 +330,9 @@ func TestSelectBestSource_SkipsInvalid(t *testing.T) {
 	now := time.Now()
 	sources := []DataSource{
 		{
-			Type:     SourceTypeSQLite,
-			Path:     "/test/beads.db",
-			Priority: PrioritySQLite,
+			Type:     SourceTypeJSONLWorktree,
+			Path:     "/test/worktree.jsonl",
+			Priority: PriorityJSONLWorktree,
 			ModTime:  now, // Newest, but invalid
 			Valid:    false,
 		},
@@ -558,9 +360,9 @@ func TestFallbackChain_FirstValid(t *testing.T) {
 	now := time.Now()
 	sources := []DataSource{
 		{
-			Type:     SourceTypeSQLite,
-			Path:     "/test/beads.db",
-			Priority: PrioritySQLite,
+			Type:     SourceTypeJSONLWorktree,
+			Path:     "/test/worktree.jsonl",
+			Priority: PriorityJSONLWorktree,
 			ModTime:  now,
 			Valid:    true,
 		},
@@ -586,7 +388,7 @@ func TestFallbackChain_FirstValid(t *testing.T) {
 	if loadCalls != 1 {
 		t.Errorf("Expected 1 load call, got %d", loadCalls)
 	}
-	if selected.Type != SourceTypeSQLite {
+	if selected.Type != SourceTypeJSONLWorktree {
 		t.Errorf("Expected first source, got %s", selected.Type)
 	}
 }
@@ -596,9 +398,9 @@ func TestFallbackChain_SecondValid(t *testing.T) {
 	now := time.Now()
 	sources := []DataSource{
 		{
-			Type:     SourceTypeSQLite,
-			Path:     "/test/beads.db",
-			Priority: PrioritySQLite,
+			Type:     SourceTypeJSONLWorktree,
+			Path:     "/test/worktree.jsonl",
+			Priority: PriorityJSONLWorktree,
 			ModTime:  now,
 			Valid:    true,
 		},
@@ -614,7 +416,7 @@ func TestFallbackChain_SecondValid(t *testing.T) {
 	loadCalls := 0
 	selected, err := SelectWithFallback(sources, func(s DataSource) error {
 		loadCalls++
-		if s.Type == SourceTypeSQLite {
+		if s.Type == SourceTypeJSONLWorktree {
 			return os.ErrNotExist // First source fails
 		}
 		return nil // Second source works
@@ -637,9 +439,9 @@ func TestFallbackChain_AllFail(t *testing.T) {
 	now := time.Now()
 	sources := []DataSource{
 		{
-			Type:     SourceTypeSQLite,
-			Path:     "/test/beads.db",
-			Priority: PrioritySQLite,
+			Type:     SourceTypeJSONLWorktree,
+			Path:     "/test/worktree.jsonl",
+			Priority: PriorityJSONLWorktree,
 			ModTime:  now,
 			Valid:    true,
 		},
@@ -670,9 +472,11 @@ func TestDiscoverSources_RequireDolt_Unreachable(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create a SQLite db that would normally be discovered
-	dbPath := filepath.Join(beadsDir, "beads.db")
-	createTestSQLiteDB(t, dbPath)
+	// Create a JSONL file that would normally be discovered
+	jsonlPath := filepath.Join(beadsDir, "issues.jsonl")
+	if err := os.WriteFile(jsonlPath, []byte(`{"id":"TEST-1","title":"Test","status":"open"}`+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	sources, err := DiscoverSources(DiscoveryOptions{
 		BeadsDir:    beadsDir,
@@ -688,7 +492,7 @@ func TestDiscoverSources_RequireDolt_Unreachable(t *testing.T) {
 }
 
 // TestDiscoverSources_RequireDolt_False_LegacyPreserved tests that legacy
-// SQLite discovery still works when RequireDolt is false (no Dolt metadata).
+// JSONL discovery still works when RequireDolt is false (no Dolt metadata).
 func TestDiscoverSources_RequireDolt_False_LegacyPreserved(t *testing.T) {
 	tmpDir := t.TempDir()
 	beadsDir := filepath.Join(tmpDir, ".beads")
@@ -696,9 +500,11 @@ func TestDiscoverSources_RequireDolt_False_LegacyPreserved(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create SQLite database
-	dbPath := filepath.Join(beadsDir, "beads.db")
-	createTestSQLiteDB(t, dbPath)
+	// Create JSONL file
+	jsonlPath := filepath.Join(beadsDir, "issues.jsonl")
+	if err := os.WriteFile(jsonlPath, []byte(`{"id":"TEST-1","title":"Test","status":"open"}`+"\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
 
 	sources, err := DiscoverSources(DiscoveryOptions{
 		BeadsDir:               beadsDir,
@@ -711,68 +517,11 @@ func TestDiscoverSources_RequireDolt_False_LegacyPreserved(t *testing.T) {
 
 	found := false
 	for _, s := range sources {
-		if s.Type == SourceTypeSQLite {
+		if s.Type == SourceTypeJSONLLocal {
 			found = true
 		}
 	}
 	if !found {
-		t.Error("Expected SQLite source to be discovered with RequireDolt=false")
-	}
-}
-
-// Helper to create a test SQLite database with sample data
-func createTestSQLiteDB(t *testing.T, path string) {
-	db, err := sql.Open("sqlite", path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-
-	_, err = db.Exec(`
-		CREATE TABLE issues (
-			id TEXT PRIMARY KEY,
-			title TEXT NOT NULL,
-			description TEXT,
-			status TEXT NOT NULL,
-			priority INTEGER DEFAULT 3,
-			issue_type TEXT DEFAULT 'task',
-			tombstone INTEGER DEFAULT 0
-		)
-	`)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, err = db.Exec(`
-		INSERT INTO issues (id, title, status) VALUES
-		('TEST-1', 'Test Issue 1', 'open'),
-		('TEST-2', 'Test Issue 2', 'closed')
-	`)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-// Helper to create an empty SQLite database
-func createEmptySQLiteDB(t *testing.T, path string) {
-	db, err := sql.Open("sqlite", path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer db.Close()
-
-	_, err = db.Exec(`
-		CREATE TABLE issues (
-			id TEXT PRIMARY KEY,
-			title TEXT NOT NULL,
-			description TEXT,
-			status TEXT NOT NULL,
-			priority INTEGER DEFAULT 3,
-			issue_type TEXT DEFAULT 'task',
-			tombstone INTEGER DEFAULT 0
-		)
-	`)
-	if err != nil {
-		t.Fatal(err)
+		t.Error("Expected JSONL source to be discovered with RequireDolt=false")
 	}
 }

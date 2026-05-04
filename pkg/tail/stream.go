@@ -12,7 +12,7 @@ import (
 )
 
 // LoaderFunc fetches the current issue snapshot. `bt tail` wires this to the
-// project's active datasource (JSONL / SQLite / Dolt) via the same path the
+// project's active datasource (Dolt / JSONL) via the same path the
 // rest of bt uses — the tail package itself is datasource-agnostic.
 type LoaderFunc func(context.Context) ([]model.Issue, error)
 
