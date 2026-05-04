@@ -108,12 +108,14 @@ Config is loaded in layers (later overrides earlier):
 2. `~/.config/bt/theme.yaml` - user-level theme
 3. `.bt/theme.yaml` - project-level theme
 
-### Dolt connection
+### Environment variables
+
+The most common knobs are the Dolt-connection and freshness vars below. For the full reference — every `BT_*`, the relevant `BEADS_*`, and the bd-side `BD_ACTOR`/`BEADS_ACTOR` — see [`docs/env-vars.md`](docs/env-vars.md).
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `BEADS_DOLT_SERVER_PORT` | - | Port override (highest priority) |
-| `BT_DOLT_PORT` | - | Port override |
+| `BEADS_DOLT_SERVER_PORT` | - | Dolt port (highest priority) |
+| `BT_DOLT_PORT` | - | Dolt port (bt-specific override) |
 | `BT_DOLT_POLL_INTERVAL_S` | `5` | Poll interval in seconds |
 | `BT_FRESHNESS_STALE_S` | `120` | Seconds before data shows stale |
 | `BT_FRESHNESS_WARN_S` | `30` | Seconds before stale warning |
