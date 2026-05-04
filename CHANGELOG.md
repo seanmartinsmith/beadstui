@@ -6,6 +6,70 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-05-03 — L8 parallel-dispatch session: 8 beads shipped (1 + 6 worktree subagents)
+
+**Single session shipped 8 closed beads via L8 dispatch pattern: Phase 0 (CRLF blocker) on main, then 6 parallel worktree-isolated subagents for independent code/docs work, integrated via cherry-pick. All tests pass on main post-merge. No conflicts required manual resolution.**
+
+### Phase 0 — bt-xwt5 (P2, area:tests + platform:windows, CLOSED) — commit 04de2f15
+
+`pkg/view/testdata/golden/* text eol=lf` directive added to `.gitattributes`. Fresh worktrees were checking out `pkg/view/testdata/golden/*.json` with CRLF on Windows, causing byte-equal-looking failures (`pkg/view/projections_test.go` uses `bytes.Equal` against `json.MarshalIndent` output, which is always LF). main was already LF, so no golden bytes change — the rule prevents future renormalization. Verified in a throwaway worktree (502-byte canonical file unchanged, `go test ./pkg/view/...` green). Solo-on-main because every subsequent worktree spawn would have inherited the bug.
+
+### Phase 1 — six parallel worktree subagents
+
+Each subagent received a focused, self-contained prompt with strict scope/constraints, ran `bd show` for full bead context, implemented + verified, and wrote a structured close-reason draft to `.beads/tmp/close-<id>.txt`. Dispatcher integrated each via cherry-pick on main; auto-merge handled all conflicts (none required manual resolution).
+
+#### bt-tq60 (P2, area:cli, CLOSED) — commit 8d875f87
+
+Root-level `bt --diff-since <ref>` now suppresses log output for the auto-JSON path (was leaking `INFO global mode: discovered databases ...` to stderr post-cobra-migration). Added `log.SetOutput(io.Discard)` next to existing `BT_ROBOT=1` set in `runRootTUI`'s diff-since branch, mirroring the `bt-0cht` pattern that the explicit `bt robot` subcommands use. Un-skipped `tests/e2e/robot_diff_test.go::TestDiffSinceAutoJSON_MalformedIssues_NoStderr`. **Side fix**: un-skipping surfaced an empty `to_data_hash` defect on the same code path; fix mirrors what `robotPreRun` already does for `bt robot diff` (computes `appCtx.dataHash` before constructing `rc`). Tightly coupled — flagging as in-scope creep that was required to pass the un-skipped acceptance test.
+
+#### bt-1gp2 (P3, area:cli, CLOSED) — commit c6283838
+
+Consolidated `cmd/bt/cobra_export.go::handleHookError` and `cmd/bt/root.go::exitOnHookError` into a single helper. Picked shape #1 from the bead (handler returns wrapped non-trust error, callers exit accordingly). Helper kept in `cmd/bt/cobra_export.go` rather than moved to `pkg/hooks/cli.go` — `pkg/hooks` is a pure library that doesn't import `os.Stderr`/`os.Exit`, and pushing CLI-exit semantics into the library would have violated a clean boundary for marginal benefit.
+
+#### bt-fdwz (P2, area:tui, CLOSED) — commit 5892ff7e
+
+Insights view (`i` key) Enter handler now sets `m.mode = ViewList` so a single keystroke jumps to the bead AND switches to detail view (was: required a second `i` press because `m.focused` updated but `m.mode` didn't). Added `insightsCursor` struct on Model (`panel + index + valid` flag) capturing pane focus and row selection on insights-leave at both Enter and `i`-toggle paths. Restored in `openInsightsView` after `NewInsightsModel` rebuilds; `RestoreCursor` clamps index against fresh item counts so panel-shrink between visits is safe. Three new accessors on `InsightsModel`: `FocusedPanel()`, `SelectedIndexFor(panel)`, `RestoreCursor(panel, index)`. `esc` keybinding deliberately not touched (it unfocuses the panel without leaving insights mode — different exit semantics).
+
+#### bt-14wc (P3, area:tui, CLOSED) — commit 2e8553b6
+
+Routed direct `m.statusMsg = ...` assignments in `pkg/ui/` through the `setStatus` / `setStatusError` / `setInlineTransientStatus` helpers so `statusSetAt` is always primed and the 5s auto-dismiss tick fires reliably. 49 logical conversions across 7 files; net **-74 lines** (helpers absorb redundant `m.statusIsError = false/true` companion assignments). Largest single conversion: the slow-reload status build-up at `model_update_data.go:880-968` (10+ lines of `+=` plus a hand-rolled inline-transient with `statusSeq++` + manual `tea.Tick` for `statusClearMsg`) collapsed into one `setInlineTransientStatus(msg, 3*time.Second)` call. **4 product-code skips by design**: the auto-dismiss timer's own reset paths in `handleStatusClear`/`handleStatusTick` (constraint forbade touching timer logic), the firstSnapshot empty-clear (intentional avoid-flash-at-startup), the per-keypress global reset that needs `statusSetAt = time.Time{}` (zero value, not `time.Now()` — comment cites bt-6k0f). Test files left intact (test scaffolding, not product status emission).
+
+#### bt-n0hh (P3, area:docs, CLOSED) — commit fb177322
+
+`docs/robot/README.md` updated to reflect the four bt-s2bq behavior changes: `bt robot bql` documents `--limit`/`--offset` flags + new top-level fields (`total_count`, `count`, `offset` with omitempty); five subcommands routing through `robotPreRun` (`related`, `orphans`, `history`, `files beads`, `files hotspots`) gained `--global` hint notes; `bt robot schema --command` documents both cobra path form (`triage`, preferred) and legacy form (`robot-triage`); `bt robot causality` notes `--global` requirement when run outside a workspace. Doc-only edit. Subagent caught a paraphrasing drift in the bead's description (used "rows" vs cobra's "issues") and used the cobra source verbatim.
+
+#### bt-n7ze (P3, area:docs, CLOSED) — commit 555fe53d
+
+`docs/env-vars.md` (new) — single reference for every `BT_*`, `BEADS_*`, and `BD_*` env var bt reads at runtime, grouped by 7 categories (Dolt connection, Freshness, Output shape/format, Test/safety, Performance/robot/observability, Semantic search, Beads-side). **44 vars documented** vs the bead's stated ~10. Every default verified at the read site. `BD_ACTOR` confirmed not read by bt (deprecated bd-side fallback in favor of `BEADS_ACTOR` per `docs/audits/.../bd-surface-map.md`); both documented with that note. Skipped internal test fixtures (`BT_TEST_STATE_DIR`, `GENERATE_GOLDEN`, etc.) and vendored-library knobs (`TEA_DEBUG`, `EDITOR`, etc.) with explicit out-of-scope note. README's Configuration section replaced "Dolt connection" header with "Environment variables", kept 5-row excerpt + pointer to full doc.
+
+#### bt-01pk (P3, area:docs, CLOSED) — commit 7f87c708
+
+`docs/bql.md` (new) — user-facing BQL reference: quick reference, field reference (15 fields), strings (substring vs regex semantics), priority semantics, dates, set ops, boolean composition + precedence, ORDER BY, EXPAND, 10 recipes, where-it-works (TUI `:` prompt, robot `--bql`, `bt robot bql`, top-level `bt --bql`). **39 distinct queries verified** against the live `pkg/bql` parser via a temporary `pkg/bql/zzz_verify_test.go` (test was exploratory, not committed). README BQL paragraph rewritten — **corrected `~` from "regex" to "substring"** (lexer/executor use case-insensitive `strings.Contains`, never were regex), lowercased keywords matching the doc's convention, added link to `docs/bql.md`. Surprises captured: `<=`/`>=` operators, single-quote string syntax, top-level `--bql` flag, bounded EXPAND depth `[1, 10]` or `*` for unlimited (capped at 100 internally), EXPAND only follows blocking deps (not parent/child/related), date `=`/`!=` is date-only (truncated) but `<`/`>` is full-timestamp.
+
+### Verify
+
+- `go build ./...` clean on main post-integration.
+- `go vet ./...` clean.
+- `go test ./...` — all 32 packages PASS, including the un-skipped `TestDiffSinceAutoJSON_MalformedIssues_NoStderr` and the entire pkg/ui suite covering both insights nav and statusMsg helper-routed paths.
+- `go install ./cmd/bt/` — clean.
+- 8 beads closed with structured Summary/Change/Files/Verify/Risk/Notes format via `bd close --reason-file` (UTF-8 hygiene per AGENTS.md rule #8).
+
+### Risk
+
+- **bt-tq60 scope creep is documented.** The `to_data_hash` fix was required to pass the un-skipped acceptance test; bead title undersold the actual scope. Captured in close reason and here for traceability.
+- **bt-14wc test-file mentions left intact.** Test scaffolding directly sets `statusMsg` to assert renderer behavior — not product emission. A future cleanup could gate them behind a `seedStatus(t, m, ...)` test-only helper but it's gold-plating.
+- **bt-fdwz `esc` keybinding intentionally untouched.** It's a different exit semantic (unfocus pane, stay in insights mode); was deliberate, not an oversight.
+- **README BQL `~` correction is a documentation accuracy fix, not a behavior change.** Anyone who interpreted `~` as regex based on the old README was getting different results than expected; doc now matches code.
+
+### Process notes
+
+- L8 dispatch pattern: dispatcher (this session) stayed strategic — read scopes, designed worktree partitioning to minimize conflicts, dispatched 6 subagents in one Bash message for true parallelism, integrated via cherry-pick. Six subagents collectively used 695k tokens / 294 tool calls / ~44 minutes wall-time. Dispatcher main-thread did Phase 0 + integration + bead writes, did not duplicate subagent work.
+- Conflict prediction held: cmd-bt-fixes had no overlap with anything else; the 3 docs branches had zero code overlap; insights-nav and status-msg-audit both touched `pkg/ui/model_keys.go` + `model_update_input.go` but auto-merge resolved both files cleanly because the changes were in different code regions.
+- Worktree subagents wrote `.beads/tmp/close-<id>.txt` drafts; dispatcher copied them to main's `.beads/tmp/` and ran `bd close --reason-file` itself (keeps bead writes serialized through one process and applies the UTF-8 hygiene rule centrally).
+- bt-01pk subagent's temporary verification test (`pkg/bql/zzz_verify_test.go`) was successfully used to validate 39 queries but couldn't be auto-deleted (untracked-file safety guard). It was scoped to the worktree and disappeared with `git worktree remove`. No leakage to main.
+
+---
+
 ## 2026-05-03 — Parallel-stream landing: predict-swarm P0/P1 fixes (Streams A/B/C)
 
 **Three concurrent worktree-isolated streams from the 2026-05-03 multi-persona predict swarm landed in one session: AGENTS.md correctness sweep (Stream A), bt-05zt Phase 1 mechanical SQLite removal per ADR-003 (Stream B), and SA-1 hooks default-deny + TOFU trust DB (Stream C, CRITICAL P0 security). Closes 4 of the swarm's top findings.**
