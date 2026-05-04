@@ -303,8 +303,13 @@ func runRootTUI(cmd *cobra.Command) {
 	stdoutIsTTY := term.IsTerminal(int(os.Stdout.Fd()))
 
 	// --diff-since with non-TTY auto-enables robot mode for JSON output.
+	// Suppress Go log output the same way `bt robot` subcommands do (see
+	// cobra_robot.go PersistentPreRunE), so Dolt-discovery INFO lines
+	// don't leak to stderr and corrupt the contract that the auto-JSON
+	// path is robot-clean. (bt-tq60; original suppression mechanism bt-0cht.)
 	if flagDiffSince != "" && !stdoutIsTTY {
 		_ = os.Setenv("BT_ROBOT", "1")
+		log.SetOutput(io.Discard)
 	}
 
 	// Load issues.
@@ -363,6 +368,12 @@ func runRootTUI(cmd *cobra.Command) {
 	// Handle --diff-since.
 	if flagDiffSince != "" {
 		projectDir, _ := os.Getwd()
+		// Mirror robotPreRun's data-hash computation so the auto-JSON envelope
+		// surfaces a non-empty to_data_hash. Without this, the root path
+		// passes the zero-value appCtx.dataHash and the JSON envelope is
+		// missing the "to" hash that downstream tooling diffs against.
+		// (bt-tq60.)
+		appCtx.dataHash = analysis.ComputeDataHash(appCtx.issues)
 		rc := newRobotCtx(appCtx.issues, appCtx.issuesForSearch, appCtx.dataHash, projectDir, appCtx.beadsPath, projectDir, nil)
 		rc.runDiffSince(flagDiffSince, false, flagAsOf, appCtx.asOfResolved)
 		return

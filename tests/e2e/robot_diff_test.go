@@ -157,7 +157,6 @@ func TestRobotDiffIncludesHashesAndNewIssues(t *testing.T) {
 }
 
 func TestDiffSinceAutoJSON_MalformedIssues_NoStderr(t *testing.T) {
-	t.Skip("bt-x685: root-level --diff-since auto-JSON path leaks dolt-discovery INFO log to stderr; needs same suppression as bt-0cht shipped for robot subcommands")
 	bt := buildBtBinary(t)
 	repoDir := initGitRepoWithMalformedIssues(t)
 
