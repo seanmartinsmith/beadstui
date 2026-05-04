@@ -6,6 +6,73 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-05-04 — Tier-2 L8 dispatch wave: 6 beads shipped (continuation of 2026-05-03 L8 session)
+
+**Continuation of the same L8 dispatch session that shipped 8 beads on 2026-05-03. After the user's check-in on what's next, dispatched a second wave of 6 Tier-2 beads via the same parallel-worktree pattern. Concurrent finds: filed `bd formula` for the L8 dispatch playbook, paired marketplace bead for the `git_safety_guard.py` allowlist friction.**
+
+### Phase 2 — six parallel worktree subagents
+
+Same dispatch pattern as 2026-05-03: each subagent received a focused prompt with bead context, file scope, verification commands, and bead-write hygiene rules; dispatcher integrated via cherry-pick. Three subagents needed a SendMessage continuation to commit (they staged + wrote close-reason but skipped the commit step) — this gap is now codified as the `verify-commits` step in the new `l8-dispatch` formula.
+
+#### bt-okpn (P2 refactor, area:data, CLOSED) — commits a34c90fa + 5ad74186
+
+ADR-003 Phase 2 implementation. Collapsed `SourceType` enum to 3 values (`Dolt`, `DoltGlobal`, `JSONLFallback`); dropped `SourceTypeJSONLLocal`/`SourceTypeJSONLWorktree` and all `Priority*` constants; reduced `SelectBestSource` to trivial passthrough; rewrote `DiscoverSource` around the new shape; **dropped `RequireDolt` flag entirely** (metadata.json's `backend=dolt` declaration is now the single source of truth — discovery returns `ErrDoltRequired` on unreachable). Folded `cmd/bt/pages.go::metadataPreferredSource` into canonical discovery (the Phase 1 marker comment is now resolved). Net **-687 lines** across 9 files (close to ADR's "~700 net" estimate).
+
+Side note: `internal/datasource/select.go` now exists as an empty stub due to deletion guard blocking `git rm`; nothing references the former symbols.
+
+#### bt-9u39 (P2 bug, area:tui, CLOSED) — commit 4b688001
+
+Update notice relocated from detail-pane title block to the existing notification center. Added `EventSystem` event kind (no `BeadID`) for system-level notifications. Added `BT_NO_UPDATE_CHECK` env-var opt-out for the startup network call. New test in `pkg/updater/` exercises the env-var short-circuit. Documented in `docs/env-vars.md` (Test/safety category) and `cmd/bt/robot_graph.go` envVars map. Existing `c`/`C` notification-center keys handle dismissal — no new keybindings.
+
+#### bt-lwdy (P2 bug, area:tui, CLOSED) — commit f59ea574
+
+Project filter (`activeRepos`) was being wiped by background Dolt poll refreshes in global mode. Sister bug to bt-nzsy (closed 2026-04-18) which fixed the same pattern for the search filter. Mirrored bt-nzsy's pattern: extended the `setListItems` wrapper to also enforce `activeRepos`. Two new guard tests in `pkg/ui/filter_preservation_test.go`: one for solo activeRepos preservation, one for activeRepos + search-filter composition through a poll refresh. Footer correctness needed no separate fix because `model_footer.go:278` reads `activeRepos` directly from model state.
+
+#### bt-npnh (P2 bug, area:tui, CLOSED) — commit 4720fb0e
+
+History view detail panel now scrolls vertically instead of hard-truncating at `contentHeight+3`. Refactored `renderDetailPanel` from one append-and-truncate block into three regions (`headerLines`, `contentLines`, `footerLines`) with `contentLines[offset:offset+visible]` slicing. Added `detailScrollOffset` field on `HistoryModel`. New keys: `ctrl+d`/`pgdown` (half-page down), `ctrl+u`/`pgup` (half-page up). `J`/`K` unchanged (still cycles `selectedCommit`). Side fix: footer was previously losing position when content overflowed; now correctly pinned regardless of scroll. New test `TestHistoryModel_DetailScroll` covers initial state, no-negative-scroll, render-time clamp on out-of-bounds offset, and reset-on-bead-change.
+
+Branch name was the agent's own choice (`fix/bt-npnh-history-detail-scroll`) instead of the auto-generated `worktree-agent-<sha>` — agents have flexibility here.
+
+#### bt-8col (P2 bug, area:tui, CLOSED) — commit 5d705c7b
+
+Pressing `g` from list view or details pane now opens graph centered on the currently-selected issue instead of dropping on the default first-sorted node. Single edit in `pkg/ui/model_update_input.go` (NOT `model_modes.go` as the bead description named — bead description was wrong about the file location, fix went to the actual handler). Single capture handles both entry points (`focusList` and `focusDetail`) because the `g` toggle lives in the global non-filtering switch before focus-specific dispatch. `SelectByID` runs **after** `refreshBoardAndGraphForCurrentFilter()` because the latter rebuilds `sortedIDs` and resets `selectedIdx` — order matters. `SelectByID("")` skipped explicitly to preserve fallback semantics.
+
+#### bt-pxbc (P3 chore, area:tui, CLOSED) — commit 94632fa1
+
+Audited 211 hex literals across 17 non-test files in `pkg/ui/`. Classified into YAML-driven Go-fallback (~150 sites, intentional, KEPT), hardcoded-and-replaced (35 sites across 8 files), and hardcoded-but-skipped as curated palette / scope-limited (26 sites across 4 files: heatmap gradients, repo color palette, Glamour markdown doc text, search-match bg, nil-color fallback, TriageStar). Replaced sites now redirect through `Color*` package vars or theme fields. Documented Go-fallback rationale at the top of `theme.go` and `theme_loader.go` (warns against deduping in the wrong direction). Audit doc at `docs/audits/architecture/2026-05-03-theme-system.md`. Caught a pre-existing PriorityDownArrow drift between `DefaultTheme()` (teal/Primary) and `ApplyThemeToThemeStruct()` (green/Success); aligned to teal.
+
+### Concurrent infrastructure work (filed during integration window)
+
+- **`l8-dispatch` formula** filed at `~/.beads/formulas/l8-dispatch.formula.toml` (10 steps: triage → partition → phase-0 → dispatch-parallel → **verify-commits** → integrate → close-beads → changelog → push → cleanup). The verify-commits step exists because 3 of today's 6 subagents staged work but skipped the commit — formula codifies the catch.
+- **mkt-z26** (P3, marketplace, OPEN) — proposes adding `git branch -D worktree-agent-*` to `git_safety_guard.py`'s `SAFE_PATTERNS` allowlist. Cherry-pick integration always produces a SHA mismatch by design, making `-d` always fail and `-D` always trip the guard. Branch refs always need cleanup; current friction is unavoidable.
+- **bt-z26** (P4, area:infra, OPEN) — paired with mkt-z26. Tracks the recurring leftover-branch-refs cleanup in bt; closes when mkt-z26 ships and the dispatcher routine includes the `git branch -D` step explicitly.
+
+### Verify
+
+- `go build ./...` clean on main post-integration.
+- `go vet ./...` clean.
+- `go test ./...` — all 32 packages PASS, including the new bt-9u39 env-var test, the bt-lwdy filter-preservation guards, the bt-npnh history scroll test.
+- `go install ./cmd/bt/` clean.
+- 6 beads closed with structured Summary/Change/Files/Verify/Risk/Notes format via `bd close --reason-file`.
+
+### Risk
+
+- **bt-okpn `select.go` is now an empty stub.** Deletion guard blocks `git rm`. Functionally harmless (empty package declaration); cosmetic only. User can delete manually.
+- **bt-okpn `RequireDolt` flag dropped without deprecation period.** No external callers per AGENTS.md "no backwards-compat shims" rule (early development, no users), but flagging because the change is invasive.
+- **bt-pxbc PriorityDownArrow alignment is a real visual change** — the `ApplyThemeToThemeStruct()` path was rendering green where `DefaultTheme()` rendered teal. Aligned both paths to teal per bead description. If the green was the intended visual, this is a regression. Worth a dogfood check.
+- **stash@{0} `okpn-stray-edits-from-worktree-agent`** still present on main from bt-okpn agent's cwd-drift recovery. Content is identical to the worktree's commits; safe to drop. `git stash drop` is blocked by the safety guard — surfaced to user for manual action.
+- **`go install` was blocked for the bt-9u39 subagent by `AGENT_STRICT_PATTERNS`** in `git_safety_guard.py` (no `go install` for subagents without parent approval). Dispatcher ran it post-integration. Worth knowing that subagents cannot invoke `go install` even for read-only-feeling cases.
+
+### Process notes
+
+- The `verify-commits` step is now load-bearing. Three of six subagents (bt-9u39, bt-8col, bt-pxbc) staged + edited + wrote close-reason drafts but skipped the actual `git commit`. Without the explicit verification step, integration would have silently merged "main + nothing" instead of the actual work. The formula codifies this.
+- bt-9u39 agent wrote its close-reason draft to MAIN's `.beads/tmp/9u39-close.md` instead of the worktree's `.beads/tmp/close-9u39.txt` (cwd drift again). File was salvageable; renamed during integration. Future dispatch prompts could be more explicit about absolute-path-in-worktree.
+- bt-okpn agent had a more dramatic cwd-drift incident — initial edits landed on main's working tree before they realized; recovered cleanly via `git stash` + `cat | git apply` to the worktree, but left stash@{0} behind on main.
+- Auto-merge handled all 5 cherry-picks past bt-okpn cleanly. Zero manual conflict resolution needed across 13 commits across 7 beads (counting bt-okpn's two-commit split).
+
+---
+
 ## 2026-05-03 — L8 parallel-dispatch session: 8 beads shipped (1 + 6 worktree subagents)
 
 **Single session shipped 8 closed beads via L8 dispatch pattern: Phase 0 (CRLF blocker) on main, then 6 parallel worktree-isolated subagents for independent code/docs work, integrated via cherry-pick. All tests pass on main post-merge. No conflicts required manual resolution.**
