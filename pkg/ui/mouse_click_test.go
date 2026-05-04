@@ -329,6 +329,45 @@ func TestHandleMouseClick_DetailFocusCommitsFilter(t *testing.T) {
 	}
 }
 
+// TestCommitFilterIfTyping_EmptyResetsFilter verifies that committing an empty
+// filter buffer resets the filter (returns to Unfiltered) instead of applying
+// an empty FilterApplied state — the latter renders as "No items" in Bubbles
+// even when the underlying list is populated (bt-5q51). Sister test to
+// TestHandleMouseClick_DetailFocusCommitsFilter (which covers the non-empty
+// case).
+func TestCommitFilterIfTyping_EmptyResetsFilter(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "bd-cc0", Title: "first", Status: model.StatusOpen},
+		{ID: "bd-cgh", Title: "second", Status: model.StatusOpen},
+	}
+	m := NewModel(issues, nil, "", nil)
+	m.width = 200
+	m.height = 40
+	m.mode = ViewList
+	m.isSplitView = true
+	m.list.SetSize(60, 30)
+	m.focused = focusList
+
+	// Simulate the user clicking the search row (bt-49nn) and not typing.
+	m.list.SetFilterState(list.Filtering)
+	if got := m.list.FilterState(); got != list.Filtering {
+		t.Fatalf("precondition: filter state not Filtering, got %v", got)
+	}
+
+	// Click into the detail pane without typing.
+	listBoundary := m.list.Width() + 4
+	msg := tea.MouseClickMsg{X: listBoundary + 10, Y: 5, Button: tea.MouseLeft}
+	got, _ := m.handleMouseClick(msg)
+
+	if state := got.list.FilterState(); state != list.Unfiltered {
+		t.Fatalf("empty-buffer commit should reset to Unfiltered, got %v", state)
+	}
+	if visible := len(got.list.VisibleItems()); visible != len(issues) {
+		t.Fatalf("after empty-buffer commit all items should be visible, got %d want %d",
+			visible, len(issues))
+	}
+}
+
 // TestSplitViewChromeHeight_StableAcrossFilterStates is the core bt-fxbl
 // regression guard: the chrome height (= Y of first list item) MUST be
 // identical across Unfiltered, Filtering, and FilterApplied so the column

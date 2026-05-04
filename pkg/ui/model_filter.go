@@ -163,10 +163,20 @@ func (m *Model) focusDetailAfterJump() {
 // hotkeys gated on FilterState != Filtering stay blocked even though no one
 // is typing in the input - locking the user into mouse-only navigation.
 // No-op when the filter is already FilterApplied or Unfiltered (bt-ocmw).
+//
+// When the typed buffer is empty, ResetFilter back to Unfiltered instead of
+// committing — an applied-empty filter renders as "No items" in Bubbles even
+// when the underlying list is populated, which is misleading after the user
+// clicks the search row (bt-49nn) and clicks out without typing (bt-5q51).
 func (m *Model) commitFilterIfTyping() {
-	if m.list.FilterState() == list.Filtering {
-		m.list.SetFilterState(list.FilterApplied)
+	if m.list.FilterState() != list.Filtering {
+		return
 	}
+	if strings.TrimSpace(m.list.FilterInput.Value()) == "" {
+		m.list.ResetFilter()
+		return
+	}
+	m.list.SetFilterState(list.FilterApplied)
 }
 
 // clearAllFilters resets all filters to their default state
