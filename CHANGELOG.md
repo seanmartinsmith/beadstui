@@ -6,6 +6,33 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-05-05 — Wave 1 L8 dispatch: 5 beads shipped via parallel worktree subagents
+
+**Followup session continuing 2026-05-04 dogfood arc. User L8-PM'd the unfinished list, prioritized parallelization analysis, and dispatched a 5-agent wave through the established L8 playbook (worktree isolation, structured close-reasons, dispatcher cherry-picks). All 5 returned with strong recon, clean diffs, full test coverage. Zero conflicts on cherry-pick — the conflict-matrix analysis up front (each bead touches a non-overlapping file surface) paid off.**
+
+Also: filed 3 new beads for a discovered gap. User asked "what about long-horizon notification queries — is the events.jsonl getting deleted at 7 days?" L8 review revealed a misleadingly-named constant (`DefaultMaxPersistAge`) that suggested retention but was actually a TUI hydration filter; on-disk file is genuinely append-only. Filed bt-ddhz (rename, shipped this wave), bt-1puf (P2 — `bt robot activity` long-horizon CLI), bt-uu73 (P3 — surface events.jsonl size in `bt status`/diagnostic command). Strategic memory captured: bt is the feature layer over bd; bd hardening, bt builds, decide upstream contributions later.
+
+### Wave 1 ships (5 beads via parallel worktree subagents)
+
+- **bt-ddhz** (P3 task, area:tui) — rename `DefaultMaxPersistAge` → `DefaultModalDisplayAge` + clarify three-layer windows (disk unbounded / hydration window / in-memory ring). De-risks bt-1puf and bt-uu73 (both depend on the on-disk file being genuinely permanent). Pure rename + comment, zero behavior change. Commit `9eb4f029`.
+- **bt-o1hs** (P3 task, area:tui + ux) — unify modal backdrop dimming. Phase 1 (RepoPicker/LabelPicker swap to `OverlayCenterDimBackdrop`) + Phase 2 (CenterModal-style refactor for AgentPrompt/Cass/Update — dead `CenterModal` wrappers removed per no-shims rule) + Phase 3 (new "TUI Conventions / Modal compositing" section in AGENTS.md, doc comment on `OverlayCenter`). All 5 modal types now produce Faint SGR backdrop, validated by new `TestAllModalsUseDimBackdrop` table-test. No split — all phases under 150 LOC threshold. Commits `431c4a1b` + `8062fd88`.
+- **bt-r2ev** (P2 bug, area:tui + ux) — click-search interaction polish (sister to bt-49nn). Bug A: synthetic `tea.KeyPressMsg{Code: '/'}` forwarded to `m.list.Update` instead of direct `SetFilterState(Filtering)` — engages Bubbles' filter-begin handler (populates `filteredItems` with `itemsAsFilterItems()` for empty-buffer case, was the root cause of the list-clearing). Bug B: `commitFilterIfTyping()` calls added in split-view list-pane click branch (row click + gap click below last rendered row). Strong agent recon: identified the 5 things `SetFilterState` was missing from Bubbles' filter-begin path at `bubbles/v2@v2.1.0/list/list.go:883-894`. Commit `429566e7`.
+- **bt-y0fv.1** (P2 bug, area:tui) — Insights view 3×4 grid breakpoint mistuned. Replaced single-path layout with `chooseInsightsCols` + `computeInsightsLayoutWidths` + `buildInsightsGrid`. Threshold `insightsMinColWidth=28` content-derived from longest title (`🌐 Influencers [Skipped]` ~24 cells + 4 cells border). 3-col at ≥90, 2-col at ≥60, 1-col below. Detail panel suppressed at widths 121-136 where it previously stole 41 cols and produced 24-cell truncated panels. Commit `926aa3aa`.
+- **bt-ezk8** (P3 feature, area:tui) — History view actionable in global mode. Added `correlation.RepoStatus{RepoPath, InsideWorkTree}` to `HistoryReport`; threaded `HistoryContext` (workspace mode + filter) into `HistoryModel`; new `emptyStateMessage()` helper produces 3 context-aware messages (single-project filter → "cd <project> && bt"; multi-project → "apply single filter"; global no-filter → "apply via [w]"). Path 3 (graceful degradation) picked over Path 1 (DB-name→repo-path mapping; would require new persistence machinery) and Path 2 (Dolt-only via bt-08sh; explicitly out of scope). `RepoPath` field reserved in struct so future implementation can populate without API change. Commit `9ee622a1`.
+
+### Filed (not shipped this session)
+
+- **bt-1puf** (P2 feature, area:cli + ux) — `bt robot activity --since/--until/--this-month/--this-year/--in 2025-09` long-horizon CLI consuming `~/.bt/events.jsonl` directly via `LoadPersisted(path, 0)`. Parent: bt-p4p8.
+- **bt-uu73** (P3 task, area:cli + area:infra) — surface `~/.bt/events.jsonl` size + entry count in a diagnostic command (`bt status` or `bt robot health`).
+
+### L8 dispatch operational notes
+
+- **cwd drift recovered**: bt-r2ev agent initially wrote files to main repo path instead of worktree (Edit tool with absolute paths bypassed worktree); detected when new tests didn't appear in test binary, migrated diff via patch file, restored main clean. Future agent prompts should brief: "all paths must start with your worktree path, never the main repo path."
+- **Conflict matrix held**: zero file overlap between agents (modal_view.go, model.go, insights.go, model_update_input.go, history.go, model_modes.go, model_update_analysis.go, panel.go, persist.go, correlation/* — each touched by exactly one agent). Cherry-pick was 100% clean.
+- **No scratch test files leaked**: agents respected the "use t.Run/t.Logf for ephemeral debugging" guidance. One untracked `_bt-r2ev.patch` left in worktree from the cwd drift recovery, not on the cherry-picked commit.
+
+---
+
 ## 2026-05-04 — Dogfood iteration: 16 beads shipped (12 from rapid dogfood + 4 follow-up regressions/polish)
 
 **Continuation session after the Tier-2 L8 wave. User dogfooded the running TUI and rapid-fired observations — each filed as a small bead, then either patched inline by the dispatcher or dispatched to a worktree subagent. 16 beads closed in this session arc, 7 still open (mostly epics + one P2 click-search polish for next session).**
