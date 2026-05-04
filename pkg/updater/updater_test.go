@@ -5,6 +5,30 @@ import (
 )
 
 // ============================================================================
+// CheckForUpdates env-var opt-out (bt-9u39)
+// ============================================================================
+
+func TestCheckForUpdates_NoCheckEnvVar(t *testing.T) {
+	// BT_NO_UPDATE_CHECK should short-circuit before any network call,
+	// returning empty strings and a nil error. Treat any non-empty value
+	// (after trimming whitespace) as "on" — `1` is the documented form
+	// but real-world users type `true`, `yes`, etc.
+	cases := []string{"1", "true", "yes", "anything"}
+	for _, val := range cases {
+		t.Run(val, func(t *testing.T) {
+			t.Setenv("BT_NO_UPDATE_CHECK", val)
+			tag, url, err := CheckForUpdates()
+			if err != nil {
+				t.Fatalf("expected nil error when BT_NO_UPDATE_CHECK=%q, got %v", val, err)
+			}
+			if tag != "" || url != "" {
+				t.Fatalf("expected empty results when BT_NO_UPDATE_CHECK=%q, got tag=%q url=%q", val, tag, url)
+			}
+		})
+	}
+}
+
+// ============================================================================
 // compareVersions tests
 // ============================================================================
 

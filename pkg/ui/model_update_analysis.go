@@ -12,13 +12,38 @@ import (
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
+	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
 )
 
 // handleUpdateMsg processes a version update notification.
+//
+// In addition to flagging the footer ⭐ badge state, this routes the
+// "update available" signal into the notifications ring buffer so it
+// participates in the existing dismiss/scrollback affordances (bt-9u39).
+// The detail-pane "Update Available" inline block was removed in the
+// same change; the notification + footer badge now carry the signal.
 func (m Model) handleUpdateMsg(msg UpdateMsg) Model {
+	already := m.updateAvailable && m.updateTag == msg.TagName
 	m.updateAvailable = true
 	m.updateTag = msg.TagName
 	m.updateURL = msg.URL
+	if !already && m.events != nil && msg.TagName != "" {
+		now := time.Now()
+		title := fmt.Sprintf("%s available — run `bt update`", msg.TagName)
+		summary := msg.URL
+		if summary == "" {
+			summary = "Run `bt update` to install the latest release."
+		}
+		ev := events.Event{
+			ID:      fmt.Sprintf("update-%s", msg.TagName),
+			Kind:    events.EventSystem,
+			Title:   title,
+			Summary: summary,
+			At:      now,
+			Source:  events.SourceDolt,
+		}
+		m.events.Append(ev)
+	}
 	return m
 }
 

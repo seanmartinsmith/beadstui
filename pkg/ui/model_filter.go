@@ -828,9 +828,10 @@ func (m *Model) updateViewportContent() {
 
 	var sb strings.Builder
 
-	if m.updateAvailable {
-		sb.WriteString(fmt.Sprintf("⭐ **Update Available:** [%s](%s)\n\n", m.updateTag, m.updateURL))
-	}
+	// Update notice was previously rendered here as a markdown block above
+	// the bead title. As of bt-9u39 it lives in the notifications center
+	// (dismissable, doesn't compete with bead content) plus the footer ⭐
+	// badge for ambient awareness.
 
 	// Title Block
 	sb.WriteString(fmt.Sprintf("# %s %s\n\n", GetTypeIconMD(string(item.IssueType)), item.Title))

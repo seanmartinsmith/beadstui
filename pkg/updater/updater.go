@@ -83,7 +83,16 @@ type UpdateResult struct {
 
 // CheckForUpdates queries GitHub for the latest release.
 // Returns the new version tag if an update is available, empty string otherwise.
+//
+// Honors BT_NO_UPDATE_CHECK as an opt-out: any non-empty value short-circuits
+// the function before any network call, returning ("", "", nil). This is the
+// escape hatch for users who don't want bt to talk to GitHub at startup
+// (rate-limited shared CI hosts, air-gapped envs, personal preference).
+// See bt-9u39.
 func CheckForUpdates() (string, string, error) {
+	if v := strings.TrimSpace(os.Getenv("BT_NO_UPDATE_CHECK")); v != "" {
+		return "", "", nil
+	}
 	// Set a short timeout to avoid blocking startup for too long
 	client := &http.Client{
 		Timeout: 2 * time.Second,

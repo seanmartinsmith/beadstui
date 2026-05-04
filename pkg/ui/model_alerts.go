@@ -504,13 +504,23 @@ func formatNotificationRow(e events.Event, width int) string {
 	if e.Dismissed {
 		prefix = "✕ "
 	}
+	title := strings.ReplaceAll(e.Title, "\n", " ")
+	// System events (bt-9u39) carry no BeadID — render as "15:04 system • Title"
+	// without the empty id slot to avoid a double-space gap.
+	if e.Kind == events.EventSystem || idStr == "" {
+		consumed := len(prefix) + len(timeStr) + 1 + len(kindStr) + 3
+		titleWidth := width - consumed
+		if titleWidth < 10 {
+			titleWidth = 10
+		}
+		return prefix + timeStr + " " + kindStr + " • " + truncate(title, titleWidth)
+	}
 	// timeStr(5) + " " + kindStr + " " + idStr + " • " (3) + optional prefix
 	consumed := len(prefix) + len(timeStr) + 1 + len(kindStr) + 1 + len(idStr) + 3
 	titleWidth := width - consumed
 	if titleWidth < 10 {
 		titleWidth = 10
 	}
-	title := strings.ReplaceAll(e.Title, "\n", " ")
 	return prefix + timeStr + " " + kindStr + " " + idStr + " • " + truncate(title, titleWidth)
 }
 
@@ -556,7 +566,7 @@ func (m Model) renderNotificationsTab() string {
 
 	// Summary line: per-kind breakdown (mirrors alerts' "N total · K critical · …").
 	// Total is already rendered in the border's RightLabel, so omit it here.
-	var created, edited, closed, commented, bulk int
+	var created, edited, closed, commented, bulk, system int
 	for _, e := range active {
 		switch e.Kind {
 		case events.EventCreated:
@@ -569,6 +579,8 @@ func (m Model) renderNotificationsTab() string {
 			commented++
 		case events.EventBulk:
 			bulk++
+		case events.EventSystem:
+			system++
 		}
 	}
 	kindStyle := lipgloss.NewStyle().Foreground(t.Secondary)
@@ -591,6 +603,7 @@ func (m Model) renderNotificationsTab() string {
 	writeKind(closed, "closed")
 	writeKind(commented, "commented")
 	writeKind(bulk, "bulk")
+	writeKind(system, "system")
 	sb.WriteString("\n\n")
 
 	// Leave one row of the page for the cursor-expand line (hover-expand

@@ -55,6 +55,7 @@ Browser opening is gated by either flag — both treat any non-empty value as "o
 | `BT_TEST_MODE` | (unset) | bool (any non-empty) | Enable test-mode guards: fail-fast in global-mode Dolt discovery, suppress browser, suppress event persistence, suppress TTY queries, etc. Set automatically by all bt test main packages. | `internal/datasource/global_dolt.go`, `cmd/bt/root.go`, `pkg/ui/background_worker.go`, `pkg/ui/model.go`, `pkg/agents/tty_guard.go`, `pkg/export/*` |
 | `BT_NO_EVENT_PERSIST` | `0` | bool (`1`) | Disable persisting bd-event records emitted from the TUI. Useful for read-only inspection or test isolation. | `pkg/ui/model.go` |
 | `BT_NO_SAVED_CONFIG` | (unset) | bool (any non-empty) | Skip loading the saved export-wizard configuration. Forces fresh prompts. | `pkg/export/wizard.go` |
+| `BT_NO_UPDATE_CHECK` | (unset) | bool (any non-empty) | Skip the GitHub release check at startup. No network call, no notification. Useful on rate-limited shared CI hosts, air-gapped envs, or as a personal preference. | `pkg/updater/updater.go` (`CheckForUpdates`) |
 
 ## Performance / robot / observability
 

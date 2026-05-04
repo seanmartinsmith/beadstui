@@ -22,6 +22,11 @@ const (
 	// bulkFloodThreshold underlying events (e.g., bd rename-prefix).
 	// Represents "N beads changed (bulk operation)" as a single row.
 	EventBulk
+	// EventSystem is a non-bead, ambient signal emitted by bt itself —
+	// not a diff of bead state. Examples: "update available", future
+	// daemon/worker notices. BeadID and Repo may be empty; consumers
+	// that key off bead identity must guard for that.
+	EventSystem
 )
 
 func (k EventKind) String() string {
@@ -36,6 +41,8 @@ func (k EventKind) String() string {
 		return "commented"
 	case EventBulk:
 		return "bulk"
+	case EventSystem:
+		return "system"
 	default:
 		return fmt.Sprintf("EventKind(%d)", int(k))
 	}
