@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -29,16 +31,47 @@ type Executor struct {
 	context ExportContext
 	results []HookResult
 	logger  func(string)
+
+	// Trust-gate state. Populated by NewExecutor + SetTrustGate. The gate is
+	// enforced at the top of RunPreExport/RunPostExport: we refuse to run any
+	// command unless allowHooks==true OR the hooksFilePath is registered in
+	// the trust DB with a matching content hash.
+	hooksFilePath string
+	allowHooks    bool
+
+	// stderr is where pre-run "would run hook" warnings are emitted. Defaults
+	// to os.Stderr; tests substitute a buffer.
+	stderr io.Writer
 }
 
-// NewExecutor creates a new hook executor
+// NewExecutor creates a new hook executor with the trust gate engaged.
+// hooksFilePath should be the absolute path to the .bt/hooks.yaml whose
+// contents produced cfg. When allowHooks is true the trust gate is bypassed
+// (CI escape hatch); otherwise the executor refuses to run any hook unless
+// the file is registered in the user's trust DB with a matching hash.
+//
+// hooksFilePath="" disables the trust check entirely. This is intended only
+// for callers that synthesize Config directly in tests or in-process pipelines
+// that never read user-controlled YAML; production export paths must always
+// pass a real path.
 func NewExecutor(config *Config, ctx ExportContext) *Executor {
 	return &Executor{
 		config:  config,
 		context: ctx,
 		results: make([]HookResult, 0),
 		logger:  func(string) {}, // No-op default
+		stderr:  os.Stderr,
 	}
+}
+
+// SetTrustGate configures the trust-gate state. hooksFilePath is the absolute
+// path to the hooks.yaml that produced this executor's config. When
+// allowHooks is true, the gate is bypassed entirely. Calling SetTrustGate is
+// required for any Executor that loaded its config from a user-controlled
+// YAML file; in-process tests with synthesized configs may leave it unset.
+func (e *Executor) SetTrustGate(hooksFilePath string, allowHooks bool) {
+	e.hooksFilePath = hooksFilePath
+	e.allowHooks = allowHooks
 }
 
 // SetLogger sets the logger function for hook execution details
@@ -50,14 +83,67 @@ func (e *Executor) SetLogger(logger func(string)) {
 	e.logger = logger
 }
 
+// SetStderr overrides the writer used for pre-run "would run hook" warnings.
+// Primarily for tests.
+func (e *Executor) SetStderr(w io.Writer) {
+	if w == nil {
+		e.stderr = os.Stderr
+		return
+	}
+	e.stderr = w
+}
+
+// checkTrust enforces the gate. Returns nil if execution may proceed. Returns
+// *UntrustedHooksError when the file is not trusted. allowHooks=true and an
+// empty hooksFilePath both bypass the gate.
+func (e *Executor) checkTrust() error {
+	if e.allowHooks {
+		return nil
+	}
+	if e.hooksFilePath == "" {
+		// In-process / test path with no user-controlled YAML to gate.
+		return nil
+	}
+	hash, err := HashHooksFile(e.hooksFilePath)
+	if err != nil {
+		return fmt.Errorf("hash hooks file: %w", err)
+	}
+	trusted, err := IsTrusted(e.hooksFilePath, hash)
+	if err != nil {
+		return fmt.Errorf("check trust: %w", err)
+	}
+	if !trusted {
+		return &UntrustedHooksError{Path: e.hooksFilePath, Hash: hash}
+	}
+	return nil
+}
+
+// announceHook prints a defense-in-depth pre-run warning to stderr so users
+// see what bt is about to execute even when the file is trusted. Format:
+//
+//	bt: would run hook '<phase>': <command>
+func (e *Executor) announceHook(phase HookPhase, hook Hook) {
+	if e.stderr == nil {
+		return
+	}
+	fmt.Fprintf(e.stderr, "bt: would run hook '%s': %s\n", phase, hook.Command)
+}
+
 // RunPreExport executes all pre-export hooks
 // Returns error if any hook fails with on_error="fail"
 func (e *Executor) RunPreExport() error {
 	if e.config == nil {
 		return nil
 	}
+	if len(e.config.Hooks.PreExport) == 0 {
+		return nil
+	}
+	if err := e.checkTrust(); err != nil {
+		return err
+	}
 
 	for _, hook := range e.config.Hooks.PreExport {
+		e.announceHook(PreExport, hook)
 		e.logger(fmt.Sprintf("Running pre-export hook %q: %s", hook.Name, hook.Command))
 		result := e.runHook(hook, PreExport)
 		e.results = append(e.results, result)
@@ -76,9 +162,16 @@ func (e *Executor) RunPostExport() error {
 	if e.config == nil {
 		return nil
 	}
+	if len(e.config.Hooks.PostExport) == 0 {
+		return nil
+	}
+	if err := e.checkTrust(); err != nil {
+		return err
+	}
 
 	var firstError error
 	for _, hook := range e.config.Hooks.PostExport {
+		e.announceHook(PostExport, hook)
 		e.logger(fmt.Sprintf("Running post-export hook %q: %s", hook.Name, hook.Command))
 		result := e.runHook(hook, PostExport)
 		e.results = append(e.results, result)
@@ -222,12 +315,15 @@ func truncate(s string, max int) string {
 	return string(runes[:max-3]) + "..."
 }
 
-// RunHooks is a convenience function that runs all hooks for an export operation
-func RunHooks(projectDir string, ctx ExportContext, noHooks bool) (*Executor, error) {
-	if noHooks {
-		return nil, nil
-	}
-
+// RunHooks is a convenience that loads .bt/hooks.yaml from projectDir and
+// returns a configured Executor with the trust gate engaged. Returns
+// (nil, nil) when there is no hooks.yaml or no hooks configured.
+//
+// allowHooks=true bypasses the trust gate for the returned Executor (CI
+// escape hatch). Without it, the Executor refuses to run any hook unless the
+// resolved hooks.yaml is registered in ~/.bt/hook-trust.json with a matching
+// content hash.
+func RunHooks(projectDir string, ctx ExportContext, allowHooks bool) (*Executor, error) {
 	loader := NewLoader(WithProjectDir(projectDir))
 	if err := loader.Load(); err != nil {
 		return nil, fmt.Errorf("loading hooks: %w", err)
@@ -237,6 +333,12 @@ func RunHooks(projectDir string, ctx ExportContext, noHooks bool) (*Executor, er
 		return nil, nil
 	}
 
+	hooksPath, err := filepath.Abs(filepath.Join(projectDir, ".bt", "hooks.yaml"))
+	if err != nil {
+		return nil, fmt.Errorf("resolve hooks path: %w", err)
+	}
+
 	executor := NewExecutor(loader.Config(), ctx)
+	executor.SetTrustGate(hooksPath, allowHooks)
 	return executor, nil
 }

@@ -62,7 +62,7 @@ var (
 	flagProfileStartup    bool
 	flagProfileJSON       bool
 	flagForceFullAnalysis bool
-	flagNoHooks           bool
+	flagAllowHooks        bool
 
 	// Search flags
 	flagSearch        string
@@ -119,7 +119,7 @@ func init() {
 	f.BoolVar(&flagProfileStartup, "profile-startup", false, "Output detailed startup timing profile for diagnostics")
 	f.BoolVar(&flagProfileJSON, "profile-json", false, "Output profile in JSON format (use with --profile-startup)")
 	f.BoolVar(&flagForceFullAnalysis, "force-full-analysis", false, "Compute all metrics regardless of graph size (may be slow for large graphs)")
-	f.BoolVar(&flagNoHooks, "no-hooks", false, "Skip running hooks during export")
+	f.BoolVar(&flagAllowHooks, "allow-hooks", false, "Bypass trust check on .bt/hooks.yaml hooks (use only for trusted CI environments)")
 	f.StringVar(&flagExportMD, "export-md", "", "Export issues to a Markdown file (e.g., report.md)")
 
 	// Search flags on root.
@@ -497,23 +497,19 @@ func runExportMDCommand(issues []model.Issue) {
 	fmt.Printf("Exporting to %s...\n", flagExportMD)
 
 	cwd, _ := os.Getwd()
-	var executor *hooks.Executor
-	if !flagNoHooks {
-		hookLoader := hooks.NewLoader(hooks.WithProjectDir(cwd))
-		if err := hookLoader.Load(); err != nil {
-			fmt.Printf("Warning: failed to load hooks: %v\n", err)
-		} else if hookLoader.HasHooks() {
-			ctx := hooks.ExportContext{
-				ExportPath:   flagExportMD,
-				ExportFormat: "markdown",
-				IssueCount:   len(issues),
-				Timestamp:    time.Now(),
-			}
-			executor = hooks.NewExecutor(hookLoader.Config(), ctx)
-			if err := executor.RunPreExport(); err != nil {
-				fmt.Printf("Error: pre-export hook failed: %v\n", err)
-				os.Exit(1)
-			}
+	ctx := hooks.ExportContext{
+		ExportPath:   flagExportMD,
+		ExportFormat: "markdown",
+		IssueCount:   len(issues),
+		Timestamp:    time.Now(),
+	}
+	executor, err := hooks.RunHooks(cwd, ctx, flagAllowHooks)
+	if err != nil {
+		fmt.Printf("Warning: failed to load hooks: %v\n", err)
+	}
+	if executor != nil {
+		if err := executor.RunPreExport(); err != nil {
+			exitOnHookError(err, "pre-export")
 		}
 	}
 
@@ -533,6 +529,18 @@ func runExportMDCommand(issues []model.Issue) {
 
 	fmt.Println("Done!")
 	os.Exit(0)
+}
+
+// exitOnHookError prints a friendly remediation message for untrusted-hooks
+// errors and exits with code 78 (config error). Other hook errors exit 1.
+func exitOnHookError(err error, phase string) {
+	var ute *hooks.UntrustedHooksError
+	if errors.As(err, &ute) {
+		fmt.Fprintln(os.Stderr, ute.Error())
+		os.Exit(78)
+	}
+	fmt.Fprintf(os.Stderr, "Error: %s hook failed: %v\n", phase, err)
+	os.Exit(1)
 }
 
 // runSearchCommand handles the --search flag (human-readable or robot mode).
