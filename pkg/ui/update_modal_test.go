@@ -506,23 +506,6 @@ func TestUpdateModal_SetSize(t *testing.T) {
 }
 
 // ============================================================================
-// CenterModal tests
-// ============================================================================
-
-func TestUpdateModal_CenterModal(t *testing.T) {
-	theme := DefaultTheme()
-	m := NewUpdateModal("v1.0.0", "", theme)
-	m.SetSize(80, 24)
-
-	centered := m.CenterModal(100, 50)
-
-	// Just verify it doesn't panic and returns non-empty content
-	if centered == "" {
-		t.Error("expected non-empty centered modal")
-	}
-}
-
-// ============================================================================
 // Spinner and progress bar tests
 // ============================================================================
 

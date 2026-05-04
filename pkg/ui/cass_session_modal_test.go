@@ -256,24 +256,6 @@ func TestCassSessionModal_SetSize(t *testing.T) {
 	}
 }
 
-func TestCassSessionModal_CenterModal(t *testing.T) {
-	theme := testTheme()
-	result := cass.CorrelationResult{
-		BeadID: "bv-center",
-		TopSessions: []cass.ScoredResult{
-			{SearchResult: cass.SearchResult{Agent: "claude", Snippet: "Test"}},
-		},
-	}
-
-	modal := NewCassSessionModal("bv-center", result, theme)
-
-	// Just verify it doesn't panic and returns non-empty string
-	centered := modal.CenterModal(120, 40)
-	if centered == "" {
-		t.Error("CenterModal should return non-empty string")
-	}
-}
-
 func TestFormatRelativeTime(t *testing.T) {
 	tests := []struct {
 		name     string

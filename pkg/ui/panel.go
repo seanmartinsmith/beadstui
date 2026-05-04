@@ -230,6 +230,13 @@ func RenderTitledPanel(content string, opts PanelOpts) string {
 // are preserved in the left/right regions flanking the overlay.
 // bgWidth/bgHeight are used only for centering math - the bg line count is
 // preserved exactly so the view pipeline's height assumptions aren't broken.
+//
+// NOTE: For modal overlays, prefer OverlayCenterDimBackdrop. The dim variant
+// is the canonical modal compositor (bt-o1hs) — it dims the underlying view
+// so modals read as true pop-ups instead of content-shaped panels embedded in
+// the surrounding view. OverlayCenter (this function) is reserved for
+// non-modal overlays such as debug panels or transient hints where the user
+// is meant to keep reading the underlying view.
 func OverlayCenter(bg, fg string, bgWidth, bgHeight int) string {
 	bgLines := strings.Split(bg, "\n")
 	fgLines := strings.Split(fg, "\n")

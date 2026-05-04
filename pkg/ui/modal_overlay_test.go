@@ -6,6 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+
+	"github.com/seanmartinsmith/beadstui/pkg/cass"
 )
 
 // faintSGR is the ANSI Select-Graphic-Rendition byte sequence for the Faint
@@ -155,6 +157,82 @@ func TestAlertsModalOccludesDetailPane(t *testing.T) {
 			if !foundDim {
 				t.Errorf("expected Faint SGR (\\x1b[2m) in rows %d-%d, found none - backdrop not dimmed",
 					scanStart, scanEnd)
+			}
+		})
+	}
+}
+
+// TestAllModalsUseDimBackdrop is the bt-o1hs regression guard: every modal
+// overlay must dim the backdrop via OverlayCenterDimBackdrop, not the non-dim
+// OverlayCenter. Per the unified pop-up aesthetic introduced by bt-v8he and
+// extended to all modals by bt-o1hs, opening any modal must produce Faint SGR
+// codes in the rendered output around the modal — proving the compositor
+// wrapped the bg cells rather than leaving them untouched.
+//
+// The five modal types covered: Alerts (already correct, regression guard),
+// RepoPicker (Project Filter), LabelPicker (Label Filter), AgentPrompt,
+// CassSession, Update.
+func TestAllModalsUseDimBackdrop(t *testing.T) {
+	cases := []struct {
+		name  string
+		setup func(*Model)
+	}{
+		{
+			name:  "alerts",
+			setup: func(m *Model) { m.activeModal = ModalAlerts },
+		},
+		{
+			name: "repo picker",
+			setup: func(m *Model) {
+				m.repoPicker = NewRepoPickerModel([]string{"alpha", "beta"}, m.theme)
+				m.activeModal = ModalRepoPicker
+			},
+		},
+		{
+			name: "label picker",
+			setup: func(m *Model) {
+				m.labelPicker = NewLabelPickerModel([]string{"area:tui"}, map[string]int{"area:tui": 1}, m.theme)
+				m.activeModal = ModalLabelPicker
+			},
+		},
+		{
+			name: "agent prompt",
+			setup: func(m *Model) {
+				m.agentPromptModal = NewAgentPromptModal("/test/AGENTS.md", "AGENTS.md", m.theme)
+				m.activeModal = ModalAgentPrompt
+			},
+		},
+		{
+			name: "cass session",
+			setup: func(m *Model) {
+				m.cassModal = NewCassSessionModal("bt-fix", cass.CorrelationResult{BeadID: "bt-fix"}, m.theme)
+				m.activeModal = ModalCassSession
+			},
+		},
+		{
+			name: "update",
+			setup: func(m *Model) {
+				m.updateModal = NewUpdateModal("v1.0.0", "", m.theme)
+				m.activeModal = ModalUpdate
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := seedModel()
+			updated, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+			m = updated.(Model)
+			tc.setup(&m)
+
+			view := m.View().Content
+			if view == "" {
+				t.Fatal("View() returned empty content")
+			}
+
+			if !strings.Contains(view, faintSGR) {
+				t.Errorf("expected Faint SGR (\\x1b[2m) in rendered output for %s modal, found none — backdrop not dimmed (modal must use OverlayCenterDimBackdrop, not OverlayCenter)",
+					tc.name)
 			}
 		})
 	}

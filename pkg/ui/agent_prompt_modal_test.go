@@ -218,24 +218,3 @@ func TestGetBlurbPreview(t *testing.T) {
 	}
 }
 
-func TestCenterModal(t *testing.T) {
-	theme := Theme{
-		Primary:   lipgloss.Color("#00ff00"),
-		Secondary: lipgloss.Color("#888888"),
-		Subtext:   lipgloss.Color("#888888"),
-		Border:    lipgloss.Color("#888888"),
-	}
-	modal := NewAgentPromptModal("/test/AGENTS.md", "AGENTS.md", theme)
-
-	centered := modal.CenterModal(100, 40)
-
-	// Should not be empty
-	if centered == "" {
-		t.Error("Centered modal should not be empty")
-	}
-
-	// Should still contain the content
-	if !strings.Contains(centered, "Enhance AI Agent") {
-		t.Error("Centered modal should contain title")
-	}
-}

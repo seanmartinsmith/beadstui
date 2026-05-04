@@ -49,11 +49,11 @@ func (m Model) View() tea.View {
 	case ModalQuitConfirm:
 		body = m.renderQuitConfirm()
 	case ModalAgentPrompt:
-		body = m.agentPromptModal.CenterModal(m.width, m.height-1)
+		// Handled as overlay after background renders (below)
 	case ModalCassSession:
-		body = m.cassModal.CenterModal(m.width, m.height-1)
+		// Handled as overlay after background renders (below)
 	case ModalUpdate:
-		body = m.updateModal.CenterModal(m.width, m.height-1)
+		// Handled as overlay after background renders (below)
 	case ModalLabelHealthDetail:
 		if m.labelHealthDetail != nil {
 			body = m.renderLabelHealthDetail(*m.labelHealthDetail)
@@ -138,19 +138,31 @@ func (m Model) View() tea.View {
 		body = lipgloss.JoinHorizontal(lipgloss.Top, body, sidebar)
 	}
 
-	// Overlay modals that float on top of the background
+	// Overlay modals that float on top of the background. All modal overlays
+	// use OverlayCenterDimBackdrop so the surrounding cells visually recede,
+	// matching the alerts/notifications pop-up aesthetic introduced by bt-v8he
+	// and unified across all modals by bt-o1hs. The non-dim OverlayCenter is
+	// reserved for non-modal overlays (debug, transient hints).
 	if m.activeModal == ModalRepoPicker {
-		body = OverlayCenter(body, m.repoPicker.View(), m.width, m.height-1)
+		body = OverlayCenterDimBackdrop(body, m.repoPicker.View(), m.width, m.height-1)
 	}
 	if m.activeModal == ModalLabelPicker {
-		body = OverlayCenter(body, m.labelPicker.View(), m.width, m.height-1)
+		body = OverlayCenterDimBackdrop(body, m.labelPicker.View(), m.width, m.height-1)
+	}
+	if m.activeModal == ModalAgentPrompt {
+		body = OverlayCenterDimBackdrop(body, m.agentPromptModal.View(), m.width, m.height-1)
+	}
+	if m.activeModal == ModalCassSession {
+		body = OverlayCenterDimBackdrop(body, m.cassModal.View(), m.width, m.height-1)
+	}
+	if m.activeModal == ModalUpdate {
+		body = OverlayCenterDimBackdrop(body, m.updateModal.View(), m.width, m.height-1)
 	}
 	if m.activeModal == ModalAlerts {
-		// Dimmed backdrop variant (bt-v8he): the alerts/notifications modal
-		// renders at a content-comfortable width and relies on the dimmed
-		// surrounding cells for occlusion — preserves the pop-up aesthetic
-		// while still preventing detail-pane bleed-through from competing
-		// with the modal for attention.
+		// The alerts/notifications modal renders at a content-comfortable
+		// width and relies on the dimmed surrounding cells for occlusion —
+		// preserves the pop-up aesthetic while still preventing detail-pane
+		// bleed-through from competing with the modal for attention (bt-v8he).
 		body = OverlayCenterDimBackdrop(body, m.renderAlertsPanel(), m.width, m.height-1)
 	}
 

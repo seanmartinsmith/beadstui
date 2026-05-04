@@ -314,34 +314,6 @@ func (m CassSessionModal) HasSessions() bool {
 	return len(m.sessions) > 0
 }
 
-// CenterModal returns the modal view centered in the given dimensions.
-func (m CassSessionModal) CenterModal(termWidth, termHeight int) string {
-	modal := m.View()
-
-	// Get actual rendered dimensions
-	modalWidth := lipgloss.Width(modal)
-	modalHeight := lipgloss.Height(modal)
-
-	// Calculate padding
-	padTop := (termHeight - modalHeight) / 2
-	padLeft := (termWidth - modalWidth) / 2
-
-	if padTop < 0 {
-		padTop = 0
-	}
-	if padLeft < 0 {
-		padLeft = 0
-	}
-
-	// Create centered version
-	centered := lipgloss.NewStyle().
-		MarginTop(padTop).
-		MarginLeft(padLeft).
-		Render(modal)
-
-	return centered
-}
-
 // copyToClipboard copies text to the system clipboard.
 // It uses platform-specific commands and fails silently if unavailable.
 func copyToClipboard(text string) error {

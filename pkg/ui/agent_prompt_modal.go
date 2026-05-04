@@ -239,30 +239,3 @@ func getBlurbPreview() string {
 	return strings.Join(preview, "\n") + "\n..."
 }
 
-// CenterModal returns the modal view centered in the given dimensions.
-func (m AgentPromptModal) CenterModal(termWidth, termHeight int) string {
-	modal := m.View()
-
-	// Get actual rendered dimensions
-	modalWidth := lipgloss.Width(modal)
-	modalHeight := lipgloss.Height(modal)
-
-	// Calculate padding
-	padTop := (termHeight - modalHeight) / 2
-	padLeft := (termWidth - modalWidth) / 2
-
-	if padTop < 0 {
-		padTop = 0
-	}
-	if padLeft < 0 {
-		padLeft = 0
-	}
-
-	// Create centered version
-	centered := lipgloss.NewStyle().
-		MarginTop(padTop).
-		MarginLeft(padLeft).
-		Render(modal)
-
-	return centered
-}
