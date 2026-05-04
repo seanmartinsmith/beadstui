@@ -70,8 +70,7 @@ func (m *Model) SetActiveRepos(repos map[string]bool) {
 func (m *Model) enterHistoryView() {
 	cwd, err := os.Getwd()
 	if err != nil {
-		m.statusMsg = "Cannot get working directory for history"
-		m.statusIsError = true
+		m.setStatusError("Cannot get working directory for history")
 		return
 	}
 
@@ -93,8 +92,7 @@ func (m *Model) enterHistoryView() {
 
 	report, err := correlator.GenerateReport(beads, opts)
 	if err != nil {
-		m.statusMsg = fmt.Sprintf("History load failed: %v", err)
-		m.statusIsError = true
+		m.setStatusError(fmt.Sprintf("History load failed: %v", err))
 		return
 	}
 
@@ -104,16 +102,14 @@ func (m *Model) enterHistoryView() {
 	m.mode = ViewHistory
 	m.focused = focusHistory
 
-	m.statusMsg = fmt.Sprintf("Loaded history: %d beads with commits", report.Stats.BeadsWithCommits)
-	m.statusIsError = false
+	m.setStatus(fmt.Sprintf("Loaded history: %d beads with commits", report.Stats.BeadsWithCommits))
 }
 
 // enterTimeTravelMode loads historical data and computes diff
 func (m *Model) enterTimeTravelMode(revision string) {
 	cwd, err := os.Getwd()
 	if err != nil {
-		m.statusMsg = "❌ Time-travel failed: cannot get working directory"
-		m.statusIsError = true
+		m.setStatusError("❌ Time-travel failed: cannot get working directory")
 		return
 	}
 
@@ -121,24 +117,21 @@ func (m *Model) enterTimeTravelMode(revision string) {
 
 	// Check if we're in a git repo first
 	if _, err := gitLoader.ResolveRevision("HEAD"); err != nil {
-		m.statusMsg = "❌ Time-travel requires a git repository"
-		m.statusIsError = true
+		m.setStatusError("❌ Time-travel requires a git repository")
 		return
 	}
 
 	// Check if beads files exist at the revision
 	hasBeads, err := gitLoader.HasBeadsAtRevision(revision)
 	if err != nil || !hasBeads {
-		m.statusMsg = fmt.Sprintf("❌ No beads history at %s (try fewer commits back)", revision)
-		m.statusIsError = true
+		m.setStatusError(fmt.Sprintf("❌ No beads history at %s (try fewer commits back)", revision))
 		return
 	}
 
 	// Load historical issues
 	historicalIssues, err := gitLoader.LoadAt(revision)
 	if err != nil {
-		m.statusMsg = fmt.Sprintf("❌ Time-travel failed: %v", err)
-		m.statusIsError = true
+		m.setStatusError(fmt.Sprintf("❌ Time-travel failed: %v", err))
 		return
 	}
 
@@ -168,9 +161,8 @@ func (m *Model) enterTimeTravelMode(revision string) {
 	m.timeTravelSince = revision
 
 	// Success feedback
-	m.statusMsg = fmt.Sprintf("⏱️ Time-travel: comparing with %s (+%d ✅%d ~%d)",
-		revision, diff.Summary.IssuesAdded, diff.Summary.IssuesClosed, diff.Summary.IssuesModified)
-	m.statusIsError = false
+	m.setStatus(fmt.Sprintf("⏱️ Time-travel: comparing with %s (+%d ✅%d ~%d)",
+		revision, diff.Summary.IssuesAdded, diff.Summary.IssuesClosed, diff.Summary.IssuesModified))
 
 	// Rebuild list items with diff info
 	m.rebuildListWithDiffInfo()
@@ -186,8 +178,7 @@ func (m *Model) exitTimeTravelMode() {
 	m.modifiedIssueIDs = nil
 
 	// Feedback
-	m.statusMsg = "⏱️ Time-travel mode disabled"
-	m.statusIsError = false
+	m.setStatus("⏱️ Time-travel mode disabled")
 
 	// Rebuild list without diff info
 	m.rebuildListWithDiffInfo()

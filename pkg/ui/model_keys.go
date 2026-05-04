@@ -156,8 +156,7 @@ func (m Model) handleBoardKeys(msg tea.KeyMsg) Model {
 	case "s":
 		m.board.CycleSwimLaneMode()
 		modeName := m.board.GetSwimLaneModeName()
-		m.statusMsg = fmt.Sprintf("🔀 Swimlane: %s", modeName)
-		m.statusIsError = false
+		m.setStatus(fmt.Sprintf("🔀 Swimlane: %s", modeName))
 
 	// Empty column visibility toggle (bv-tf6j)
 	case "e":
@@ -165,21 +164,19 @@ func (m Model) handleBoardKeys(msg tea.KeyMsg) Model {
 		visMode := m.board.GetEmptyColumnVisibilityMode()
 		hidden := m.board.HiddenColumnCount()
 		if hidden > 0 {
-			m.statusMsg = fmt.Sprintf("👁 Empty columns: %s (%d hidden)", visMode, hidden)
+			m.setStatus(fmt.Sprintf("👁 Empty columns: %s (%d hidden)", visMode, hidden))
 		} else {
-			m.statusMsg = fmt.Sprintf("👁 Empty columns: %s", visMode)
+			m.setStatus(fmt.Sprintf("👁 Empty columns: %s", visMode))
 		}
-		m.statusIsError = false
 
 	// Inline card expansion (bv-i3ii)
 	case "d":
 		m.board.ToggleExpand()
 		if m.board.HasExpandedCard() {
-			m.statusMsg = "📋 Card expanded (d=collapse, j/k=auto-collapse)"
+			m.setStatus("📋 Card expanded (d=collapse, j/k=auto-collapse)")
 		} else {
-			m.statusMsg = "📋 Card collapsed"
+			m.setStatus("📋 Card collapsed")
 		}
-		m.statusIsError = false
 
 	// Detail panel (bv-r6kh)
 	case "tab":
@@ -372,8 +369,7 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 		switch msg.String() {
 		case "esc":
 			m.historyView.CancelSearch()
-			m.statusMsg = "🔍 Search cancelled"
-			m.statusIsError = false
+			m.setStatus("🔍 Search cancelled")
 			return m
 		case "enter":
 			// Confirm search (just blur input, keep filter active)
@@ -384,11 +380,10 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 			m.historyView.UpdateSearchInput(msg)
 			query := m.historyView.SearchQuery()
 			if query != "" {
-				m.statusMsg = fmt.Sprintf("🔍 Filtering: %s", query)
+				m.setStatus(fmt.Sprintf("🔍 Filtering: %s", query))
 			} else {
-				m.statusMsg = "🔍 Type to search..."
+				m.setStatus("🔍 Type to search...")
 			}
-			m.statusIsError = false
 			return m
 		}
 	}
@@ -411,8 +406,7 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 				} else {
 					m.historyView.SelectFile()
 					name := m.historyView.SelectedFileName()
-					m.statusMsg = fmt.Sprintf("📁 Filtering by: %s", name)
-					m.statusIsError = false
+					m.setStatus(fmt.Sprintf("📁 Filtering by: %s", name))
 				}
 			}
 			return m
@@ -424,12 +418,11 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 			// If filter is active, clear it; otherwise close file tree
 			if m.historyView.GetFileFilter() != "" {
 				m.historyView.ClearFileFilter()
-				m.statusMsg = "📁 File filter cleared"
+				m.setStatus("📁 File filter cleared")
 			} else {
 				m.historyView.SetFileTreeFocus(false)
-				m.statusMsg = "📁 File tree: press Tab to return focus"
+				m.setStatus("📁 File tree: press Tab to return focus")
 			}
-			m.statusIsError = false
 			return m
 		case "tab":
 			// Switch focus away from file tree
@@ -442,17 +435,15 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 	case "/":
 		// Start search (bv-nkrj)
 		m.historyView.StartSearch()
-		m.statusMsg = "🔍 Type to search commits, beads, authors..."
-		m.statusIsError = false
+		m.setStatus("🔍 Type to search commits, beads, authors...")
 	case "v":
 		// Toggle between Bead mode and Git mode (bv-tl3n)
 		m.historyView.ToggleViewMode()
 		if m.historyView.IsGitMode() {
-			m.statusMsg = "🔀 Git Mode: commits on left, related beads on right"
+			m.setStatus("🔀 Git Mode: commits on left, related beads on right")
 		} else {
-			m.statusMsg = "📦 Bead Mode: beads on left, commits on right"
+			m.setStatus("📦 Bead Mode: beads on left, commits on right")
 		}
-		m.statusIsError = false
 	case "j", "down":
 		if m.historyView.IsGitMode() {
 			m.historyView.MoveDownGit()
@@ -550,21 +541,19 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 			m.historyView.CycleConfidence()
 			conf := m.historyView.GetMinConfidence()
 			if conf == 0 {
-				m.statusMsg = "🔍 Showing all commits"
+				m.setStatus("🔍 Showing all commits")
 			} else {
-				m.statusMsg = fmt.Sprintf("🔍 Confidence filter: ≥%.0f%%", conf*100)
+				m.setStatus(fmt.Sprintf("🔍 Confidence filter: ≥%.0f%%", conf*100))
 			}
-			m.statusIsError = false
 		}
 	case "f", "F":
 		// Toggle file tree panel (bv-190l)
 		m.historyView.ToggleFileTree()
 		if m.historyView.IsFileTreeVisible() {
-			m.statusMsg = "📁 File tree: j/k navigate, Enter select, Esc close"
+			m.setStatus("📁 File tree: j/k navigate, Enter select, Esc close")
 		} else {
-			m.statusMsg = "📁 File tree hidden"
+			m.setStatus("📁 File tree hidden")
 		}
-		m.statusIsError = false
 	case "o":
 		// Open commit in browser (bv-xf4p)
 		var sha string
@@ -581,24 +570,20 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 			url := m.getCommitURL(sha)
 			if url != "" {
 				if err := openBrowserURL(url); err != nil {
-					m.statusMsg = fmt.Sprintf("❌ Could not open browser: %v", err)
-					m.statusIsError = true
+					m.setStatusError(fmt.Sprintf("❌ Could not open browser: %v", err))
 				} else {
 					// Safely truncate SHA for display (bv-xf4p fix)
 					shortSHA := sha
 					if len(sha) > 7 {
 						shortSHA = sha[:7]
 					}
-					m.statusMsg = fmt.Sprintf("🌐 Opened %s in browser", shortSHA)
-					m.statusIsError = false
+					m.setStatus(fmt.Sprintf("🌐 Opened %s in browser", shortSHA))
 				}
 			} else {
-				m.statusMsg = "❌ No git remote configured"
-				m.statusIsError = true
+				m.setStatusError("❌ No git remote configured")
 			}
 		} else {
-			m.statusMsg = "❌ No commit selected"
-			m.statusIsError = true
+			m.setStatusError("❌ No commit selected")
 		}
 	case "g":
 		// Jump to graph view for selected bead (bv-xf4p)
@@ -620,11 +605,9 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 			m.mode = ViewGraph
 			m.graphView.SelectByID(selectedID)
 			m.focused = focusGraph
-			m.statusMsg = fmt.Sprintf("📊 Graph view: %s", selectedID)
-			m.statusIsError = false
+			m.setStatus(fmt.Sprintf("📊 Graph view: %s", selectedID))
 		} else {
-			m.statusMsg = "❌ No bead selected"
-			m.statusIsError = true
+			m.setStatusError("❌ No bead selected")
 		}
 	case "h", "esc":
 		// Exit history view
@@ -728,17 +711,16 @@ func (m Model) handleRepoPickerKeys(msg tea.KeyMsg) Model {
 			cursorRepo := m.repoPicker.CursorRepo()
 			if cursorRepo != "" {
 				m.activeRepos = map[string]bool{cursorRepo: true}
-				m.statusMsg = fmt.Sprintf("Project filter: %s", cursorRepo)
+				m.setStatus(fmt.Sprintf("Project filter: %s", cursorRepo))
 			}
 		} else if len(selected) == len(m.availableRepos) {
 			// All selected: clear filter (nil = all)
 			m.activeRepos = nil
-			m.statusMsg = "Project filter: all projects"
+			m.setStatus("Project filter: all projects")
 		} else {
 			m.activeRepos = selected
-			m.statusMsg = fmt.Sprintf("Project filter: %s", formatRepoList(sortedRepoKeys(selected), 3))
+			m.setStatus(fmt.Sprintf("Project filter: %s", formatRepoList(sortedRepoKeys(selected), 3)))
 		}
-		m.statusIsError = false
 
 		// Apply filter to views
 		if m.filter.activeRecipe != nil {
@@ -784,8 +766,7 @@ func (m Model) handleBQLQueryKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		}
 		m.closeModal()
 		m.focused = focusList
-		m.statusMsg = "BQL: " + query
-		m.statusIsError = false
+		m.setStatus("BQL: " + query)
 		return m, nil
 
 	case "esc":

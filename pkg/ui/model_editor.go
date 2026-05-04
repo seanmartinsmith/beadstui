@@ -312,13 +312,11 @@ func (m *Model) openInEditor() {
 		}
 	}
 	if beadsFile == "" {
-		m.statusMsg = "❌ No .beads directory or beads.jsonl found"
-		m.statusIsError = true
+		m.setStatusError("❌ No .beads directory or beads.jsonl found")
 		return
 	}
 	if _, err := os.Stat(beadsFile); os.IsNotExist(err) {
-		m.statusMsg = fmt.Sprintf("❌ Beads file not found: %s", beadsFile)
-		m.statusIsError = true
+		m.setStatusError(fmt.Sprintf("❌ Beads file not found: %s", beadsFile))
 		return
 	}
 
@@ -333,24 +331,20 @@ func (m *Model) openInEditor() {
 	if editor != "" {
 		editorArgs, err := parseCommandLine(editor)
 		if err != nil {
-			m.statusMsg = fmt.Sprintf("❌ Invalid $EDITOR/$VISUAL: %v", err)
-			m.statusIsError = true
+			m.setStatusError(fmt.Sprintf("❌ Invalid $EDITOR/$VISUAL: %v", err))
 			return
 		}
 
 		editorBase, kind := classifyEditorCommand(editorArgs)
 		switch kind {
 		case editorCommandTerminal:
-			m.statusMsg = fmt.Sprintf("⚠️ %s is a terminal editor - set $EDITOR to a GUI editor or quit first", editorBase)
-			m.statusIsError = true
+			m.setStatusError(fmt.Sprintf("⚠️ %s is a terminal editor - set $EDITOR to a GUI editor or quit first", editorBase))
 			return
 		case editorCommandForbidden:
-			m.statusMsg = fmt.Sprintf("❌ Refusing to run %s as editor (shell/interpreter). Set $EDITOR to a GUI editor", editorBase)
-			m.statusIsError = true
+			m.setStatusError(fmt.Sprintf("❌ Refusing to run %s as editor (shell/interpreter). Set $EDITOR to a GUI editor", editorBase))
 			return
 		case editorCommandEmpty:
-			m.statusMsg = "❌ Invalid $EDITOR/$VISUAL: empty command"
-			m.statusIsError = true
+			m.setStatusError("❌ Invalid $EDITOR/$VISUAL: empty command")
 			return
 		default:
 			requestedEditorKind = allowlistedGUIEditorKindForBase(editorBase)
@@ -380,23 +374,20 @@ func (m *Model) openInEditor() {
 	}
 
 	if requestedEditorKind == allowlistedGUIEditorUnknown {
-		m.statusMsg = "❌ No GUI editor found. Set $EDITOR to a GUI editor"
-		m.statusIsError = true
+		m.setStatusError("❌ No GUI editor found. Set $EDITOR to a GUI editor")
 		return
 	}
 
 	actualKind, err := startAllowlistedGUIEditor(requestedEditorKind, beadsFile)
 	if err != nil {
-		m.statusMsg = fmt.Sprintf("❌ Failed to open editor: %v", err)
-		m.statusIsError = true
+		m.setStatusError(fmt.Sprintf("❌ Failed to open editor: %v", err))
 		return
 	}
 	requestedEditorKind = actualKind
 
 	if ignoredEditorBase != "" {
-		m.statusMsg = fmt.Sprintf("📝 Opened in %s (ignored $EDITOR=%s)", allowlistedGUIEditorDisplayName(requestedEditorKind), ignoredEditorBase)
+		m.setStatus(fmt.Sprintf("📝 Opened in %s (ignored $EDITOR=%s)", allowlistedGUIEditorDisplayName(requestedEditorKind), ignoredEditorBase))
 	} else {
-		m.statusMsg = fmt.Sprintf("📝 Opened in %s", allowlistedGUIEditorDisplayName(requestedEditorKind))
+		m.setStatus(fmt.Sprintf("📝 Opened in %s", allowlistedGUIEditorDisplayName(requestedEditorKind)))
 	}
-	m.statusIsError = false
 }

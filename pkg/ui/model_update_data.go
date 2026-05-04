@@ -419,11 +419,10 @@ func (m Model) handleSnapshotError(msg SnapshotErrorMsg) (Model, tea.Cmd) {
 	}
 	if msg.Err != nil {
 		if msg.Recoverable {
-			m.statusMsg = fmt.Sprintf("Reload error (retrying): %s", shortError(msg.Err))
+			m.setStatusError(fmt.Sprintf("Reload error (retrying): %s", shortError(msg.Err)))
 		} else {
-			m.statusMsg = fmt.Sprintf("Reload error: %s", shortError(msg.Err))
+			m.setStatusError(fmt.Sprintf("Reload error: %s", shortError(msg.Err)))
 		}
-		m.statusIsError = true
 	}
 	if m.data.backgroundWorker != nil {
 		cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.data.backgroundWorker))
@@ -437,8 +436,7 @@ func (m Model) handleDataSourceReload(msg DataSourceReloadMsg) (Model, tea.Cmd) 
 
 	// Async reload from a non-file datasource (e.g. Dolt) completed.
 	if msg.Err != nil {
-		m.statusMsg = fmt.Sprintf("Reload failed: %s", shortError(msg.Err))
-		m.statusIsError = true
+		m.setStatusError(fmt.Sprintf("Reload failed: %s", shortError(msg.Err)))
 		return m, tea.Batch(cmds...)
 	}
 
@@ -481,12 +479,10 @@ func (m Model) handleDoltConnectionStatus(msg DoltConnectionStatusMsg) (Model, t
 	// Dolt poll loop reporting connectivity change (bv-1p3a).
 	if msg.Connected {
 		m.doltConnected = true
-		m.statusMsg = "Dolt server reconnected"
-		m.statusIsError = false
+		m.setStatus("Dolt server reconnected")
 	} else {
 		m.doltConnected = false
-		m.statusMsg = fmt.Sprintf("Dolt server unreachable (retrying in %ds)", msg.BackoffSeconds)
-		m.statusIsError = true
+		m.setStatusError(fmt.Sprintf("Dolt server unreachable (retrying in %ds)", msg.BackoffSeconds))
 	}
 	if m.data.backgroundWorker != nil {
 		cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.data.backgroundWorker))
@@ -586,8 +582,7 @@ func (m Model) handleFileChanged(msg FileChangedMsg) (Model, tea.Cmd) {
 		recordTiming("load_issues", time.Since(loadStart))
 	}
 	if err != nil {
-		m.statusMsg = fmt.Sprintf("Reload error: %v", err)
-		m.statusIsError = true
+		m.setStatusError(fmt.Sprintf("Reload error: %v", err))
 		// Re-start watch for next change
 		if m.data.watcher != nil {
 			cmds = append(cmds, WatchFileCmd(m.data.watcher))
@@ -883,28 +878,29 @@ func (m Model) handleFileChanged(msg FileChangedMsg) (Model, tea.Cmd) {
 		cmds = append(cmds, BuildSemanticIndexCmd(m.issuesForAsync()))
 	}
 
+	var statusMsg string
 	if cacheHit {
-		m.statusMsg = fmt.Sprintf("Reloaded %d issues (cached)", len(newIssues))
+		statusMsg = fmt.Sprintf("Reloaded %d issues (cached)", len(newIssues))
 	} else {
-		m.statusMsg = fmt.Sprintf("Reloaded %d issues", len(newIssues))
+		statusMsg = fmt.Sprintf("Reloaded %d issues", len(newIssues))
 	}
 	if len(reloadWarnings) > 0 {
-		m.statusMsg += fmt.Sprintf(" (%d warnings)", len(reloadWarnings))
+		statusMsg += fmt.Sprintf(" (%d warnings)", len(reloadWarnings))
 	}
 	reloadDuration := time.Since(reloadStart)
 	if profileRefresh {
 		recordTiming("total", reloadDuration)
 	}
 	if reloadDuration >= 500*time.Millisecond {
-		m.statusMsg += fmt.Sprintf(" in %s", formatReloadDuration(reloadDuration))
+		statusMsg += fmt.Sprintf(" in %s", formatReloadDuration(reloadDuration))
 	}
 	if profileRefresh && len(refreshTimings) > 0 {
 		addTiming := func(label, key string) {
 			if d, ok := refreshTimings[key]; ok && d > 0 {
-				m.statusMsg += fmt.Sprintf(" %s=%s", label, formatReloadDuration(d))
+				statusMsg += fmt.Sprintf(" %s=%s", label, formatReloadDuration(d))
 			}
 		}
-		m.statusMsg += " [debug"
+		statusMsg += " [debug"
 		addTiming("load", "load_issues")
 		addTiming("sort", "sort_issues")
 		addTiming("phase1", "phase1_setup")
@@ -912,7 +908,7 @@ func (m Model) handleFileChanged(msg FileChangedMsg) (Model, tea.Cmd) {
 		addTiming("list", "list_items")
 		addTiming("graph", "board_graph")
 		addTiming("total", "total")
-		m.statusMsg += "]"
+		statusMsg += "]"
 	}
 	// Auto-enable background mode after slow sync reloads (opt-out via BT_BACKGROUND_MODE=0).
 	autoEnabled := false
@@ -947,25 +943,20 @@ func (m Model) handleFileChanged(msg FileChangedMsg) (Model, tea.Cmd) {
 				cmds = append(cmds, StartBackgroundWorkerCmd(m.data.backgroundWorker))
 				cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.data.backgroundWorker))
 			} else {
-				m.statusMsg += fmt.Sprintf("; background mode unavailable: %v", err)
+				statusMsg += fmt.Sprintf("; background mode unavailable: %v", err)
 			}
 		}
 	}
 	if slowReload {
 		if autoEnabled {
-			m.statusMsg += "; background mode auto-enabled"
+			statusMsg += "; background mode auto-enabled"
 		} else {
-			m.statusMsg += "; consider BT_BACKGROUND_MODE=1"
+			statusMsg += "; consider BT_BACKGROUND_MODE=1"
 		}
 	}
-	m.statusIsError = false
-	m.statusIsInline = true // background-initiated reload — don't clobber hints (bt-y0k7)
-	// Schedule auto-clear of the reload status message
-	m.statusSeq++
-	seq := m.statusSeq
-	cmds = append(cmds, tea.Tick(3*time.Second, func(time.Time) tea.Msg {
-		return statusClearMsg{seq: seq}
-	}))
+	// Background-initiated reload — render in the inline hint slot so it
+	// doesn't clobber key hints (bt-y0k7); auto-dismiss after 3s.
+	cmds = append(cmds, m.setInlineTransientStatus(statusMsg, 3*time.Second))
 	// Invalidate label-derived caches
 	m.labelHealthCached = false
 	m.labelDrilldownCache = make(map[string][]model.Issue)

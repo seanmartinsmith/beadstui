@@ -74,8 +74,7 @@ func (m Model) handleSemanticIndexReady(msg SemanticIndexReadyMsg) (Model, tea.C
 	if msg.Error != nil {
 		m.semanticSearchEnabled = false
 		m.list.Filter = fuzzySearchFilter()
-		m.statusMsg = fmt.Sprintf("Semantic search unavailable: %v", msg.Error)
-		m.statusIsError = true
+		m.setStatusError(fmt.Sprintf("Semantic search unavailable: %v", msg.Error))
 		return m, nil, false
 	}
 	if m.semanticSearch != nil {
@@ -89,11 +88,9 @@ func (m Model) handleSemanticIndexReady(msg SemanticIndexReadyMsg) (Model, tea.C
 	// for invisible background work; the footer mode badge already shows
 	// the active state.
 	if !msg.Loaded {
-		m.statusMsg = fmt.Sprintf("Semantic index built (%d embedded)", msg.Stats.Embedded)
-		m.statusIsError = false
+		m.setStatus(fmt.Sprintf("Semantic index built (%d embedded)", msg.Stats.Embedded))
 	} else if msg.Stats.Changed() {
-		m.statusMsg = fmt.Sprintf("Semantic index updated (+%d ~%d -%d)", msg.Stats.Added, msg.Stats.Updated, msg.Stats.Removed)
-		m.statusIsError = false
+		m.setStatus(fmt.Sprintf("Semantic index updated (+%d ~%d -%d)", msg.Stats.Added, msg.Stats.Updated, msg.Stats.Removed))
 	}
 
 	if m.semanticSearchEnabled && m.list.FilterState() != list.Unfiltered {
@@ -117,16 +114,14 @@ func (m Model) handleHybridMetricsReady(msg HybridMetricsReadyMsg) (Model, tea.C
 			m.semanticSearch.SetMetricsCache(nil)
 			m.semanticSearch.SetHybridConfig(false, m.semanticHybridPreset)
 		}
-		m.statusMsg = fmt.Sprintf("Hybrid search unavailable: %v", msg.Error)
-		m.statusIsError = true
+		m.setStatusError(fmt.Sprintf("Hybrid search unavailable: %v", msg.Error))
 		return m, nil
 	}
 	if m.semanticSearch != nil && msg.Cache != nil {
 		m.semanticSearch.SetMetricsCache(msg.Cache)
 	}
 	m.semanticHybridReady = msg.Cache != nil
-	m.statusMsg = fmt.Sprintf("Hybrid search ready (%s)", m.semanticHybridPreset)
-	m.statusIsError = false
+	m.setStatus(fmt.Sprintf("Hybrid search ready (%s)", m.semanticHybridPreset))
 
 	if m.semanticHybridEnabled && m.semanticSearchEnabled && m.list.FilterState() != list.Unfiltered {
 		currentTerm := m.list.FilterInput.Value()
@@ -270,7 +265,7 @@ func (m Model) handlePhase2Ready(msg Phase2ReadyMsg) (Model, tea.Cmd) {
 		m.labelHealthCache = analysis.ComputeAllLabelHealth(m.data.issues, cfg, time.Now().UTC(), m.data.analysis)
 		m.labelHealthCached = true
 		m.labelDashboard.SetData(m.labelHealthCache.Labels)
-		m.statusMsg = fmt.Sprintf("Labels: %d total • critical %d • warning %d", m.labelHealthCache.TotalLabels, m.labelHealthCache.CriticalCount, m.labelHealthCache.WarningCount)
+		m.setStatus(fmt.Sprintf("Labels: %d total • critical %d • warning %d", m.labelHealthCache.TotalLabels, m.labelHealthCache.CriticalCount, m.labelHealthCache.WarningCount))
 	}
 
 	// Re-sort if sorting by Phase 2 metrics
@@ -347,8 +342,7 @@ func (m Model) handleHistoryLoaded(msg HistoryLoadedMsg) Model {
 	m.historyLoading = false
 	if msg.Error != nil {
 		m.historyLoadFailed = true
-		m.statusMsg = fmt.Sprintf("History load failed: %v", msg.Error)
-		m.statusIsError = true
+		m.setStatusError(fmt.Sprintf("History load failed: %v", msg.Error))
 	} else if msg.Report != nil {
 		m.historyView = NewHistoryModel(msg.Report, m.theme)
 		m.historyView.SetSize(m.width, m.height-1)

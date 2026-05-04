@@ -60,10 +60,9 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			// User accepted - add blurb to file
 			filePath := m.agentPromptModal.FilePath()
 			if err := agents.AppendBlurbToFile(filePath); err != nil {
-				m.statusMsg = "Failed to update " + filepath.Base(filePath) + ": " + err.Error()
-				m.statusIsError = true
+				m.setStatusError("Failed to update " + filepath.Base(filePath) + ": " + err.Error())
 			} else {
-				m.statusMsg = "✓ Added beads instructions to " + filepath.Base(filePath)
+				m.setStatus("✓ Added beads instructions to " + filepath.Base(filePath))
 				// Record acceptance
 				_ = agents.RecordAccept(m.workDir)
 			}
@@ -219,8 +218,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				label := m.attentionCache.Labels[idx].Label
 				m.filter.labelFilter = label
 				m.applyFilter()
-				m.statusMsg = fmt.Sprintf("Filtered to label %s (attention #%d)", label, idx+1)
-				m.statusIsError = false
+				m.setStatus(fmt.Sprintf("Filtered to label %s (attention #%d)", label, idx+1))
 			}
 			return m, nil
 		}
@@ -583,8 +581,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		}
 		m.data.lastForceRefresh = now
 
-		m.statusMsg = "Refreshing…"
-		m.statusIsError = false
+		m.setStatus("Refreshing…")
 
 		if m.data.backgroundWorker != nil {
 			m.data.backgroundWorker.ForceRefresh()
@@ -593,8 +590,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		}
 
 		if m.data.beadsPath == "" && m.data.watcher == nil && !m.isDoltSource() {
-			m.statusMsg = "Refresh unavailable"
-			m.statusIsError = true
+			m.setStatusError("Refresh unavailable")
 			return m, nil
 		}
 
@@ -613,10 +609,9 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		m.showShortcutsSidebar = !m.showShortcutsSidebar
 		if m.showShortcutsSidebar {
 			m.shortcutsSidebar.ResetScroll()
-			m.statusMsg = "Shortcuts sidebar: ; hide | ctrl+j/k scroll"
-			m.statusIsError = false
+			m.setStatus("Shortcuts sidebar: ; hide | ctrl+j/k scroll")
 		} else {
-			m.statusMsg = ""
+			m.setStatus("")
 		}
 		return m, nil
 	}
@@ -640,9 +635,8 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	// semantic) so this binding could be reclaimed for preset cycling, which
 	// is the only operation that doesn't already have a key.
 	if m.focused == focusList && m.list.FilterState() != list.Filtering && msg.String() == "H" {
-		m.statusIsError = false
 		if !m.semanticHybridEnabled {
-			m.statusMsg = "Not in hybrid mode — press Ctrl+S to cycle there"
+			m.setStatus("Not in hybrid mode — press Ctrl+S to cycle there")
 			return m, nil
 		}
 		m.semanticHybridPreset = nextHybridPreset(m.semanticHybridPreset)
@@ -651,7 +645,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.semanticSearch.ResetCache()
 		}
 		m.clearSemanticScores()
-		m.statusMsg = fmt.Sprintf("Hybrid preset: %s", m.semanticHybridPreset)
+		m.setStatus(fmt.Sprintf("Hybrid preset: %s", m.semanticHybridPreset))
 		if m.list.FilterState() != list.Unfiltered {
 			currentTerm := m.list.FilterInput.Value()
 			if currentTerm != "" && !m.semanticHybridBuilding {
@@ -670,7 +664,6 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	// fuzzy because hybrid is the most useful daily mode; semantic-text-only
 	// is the niche case (skip the graph signal) reachable with two presses.
 	if msg.String() == "ctrl+s" && m.focused == focusList {
-		m.statusIsError = false
 		next := nextSearchMode(m.currentSearchMode())
 
 		// Non-fuzzy modes need the semantic backend wired up. Fail fast if
@@ -679,8 +672,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.semanticSearchEnabled = false
 			m.semanticHybridEnabled = false
 			m.list.Filter = fuzzySearchFilter()
-			m.statusMsg = "Semantic search unavailable"
-			m.statusIsError = true
+			m.setStatusError("Semantic search unavailable")
 			m.clearSemanticScores()
 			m.updateListDelegate()
 			return m, nil
@@ -691,7 +683,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.semanticSearchEnabled = false
 			m.semanticHybridEnabled = false
 			m.list.Filter = fuzzySearchFilter()
-			m.statusMsg = "Fuzzy search — fast substring/character match, best for IDs and known phrases"
+			m.setStatus("Fuzzy search — fast substring/character match, best for IDs and known phrases")
 			m.clearSemanticScores()
 			if m.semanticSearch != nil {
 				m.semanticSearch.SetHybridConfig(false, m.semanticHybridPreset)
@@ -704,12 +696,12 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.list.Filter = semanticSearchFilter(m.semanticSearch)
 			if !m.semanticSearch.Snapshot().Ready && !m.semanticIndexBuilding {
 				m.semanticIndexBuilding = true
-				m.statusMsg = "Semantic search: building index…"
+				m.setStatus("Semantic search: building index…")
 				cmds = append(cmds, BuildSemanticIndexCmd(m.issuesForAsync()))
 			} else if m.semanticIndexBuilding {
-				m.statusMsg = "Semantic search: indexing…"
+				m.setStatus("Semantic search: indexing…")
 			} else {
-				m.statusMsg = "Semantic search — finds items by meaning, use when fuzzy misses the right bead"
+				m.setStatus("Semantic search — finds items by meaning, use when fuzzy misses the right bead")
 			}
 		case searchModeHybrid:
 			m.semanticSearchEnabled = true
@@ -720,14 +712,14 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			switch {
 			case !m.semanticSearch.Snapshot().Ready && !m.semanticIndexBuilding:
 				m.semanticIndexBuilding = true
-				m.statusMsg = "Hybrid search: building index…"
+				m.setStatus("Hybrid search: building index…")
 				cmds = append(cmds, BuildSemanticIndexCmd(m.issuesForAsync()))
 			case !m.semanticHybridReady && !m.semanticHybridBuilding:
 				m.semanticHybridBuilding = true
-				m.statusMsg = "Hybrid search: computing metrics…"
+				m.setStatus("Hybrid search: computing metrics…")
 				cmds = append(cmds, BuildHybridMetricsCmd(m.issuesForAsync()))
 			default:
-				m.statusMsg = fmt.Sprintf("Hybrid search [preset: %s] — semantic + graph weight, best general-purpose mode", m.semanticHybridPreset)
+				m.setStatus(fmt.Sprintf("Hybrid search [preset: %s] — semantic + graph weight, best general-purpose mode", m.semanticHybridPreset))
 			}
 		}
 
@@ -1017,12 +1009,12 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			if m.ac.showPriorityHints {
 				count := len(m.ac.priorityHints)
 				if count > 0 {
-					m.statusMsg = fmt.Sprintf("Priority hints: ↑ increase ↓ decrease (%d suggestions)", count)
+					m.setStatus(fmt.Sprintf("Priority hints: ↑ increase ↓ decrease (%d suggestions)", count))
 				} else {
-					m.statusMsg = "Priority hints: No misalignments detected (analysis ongoing)"
+					m.setStatus("Priority hints: No misalignments detected (analysis ongoing)")
 				}
 			} else {
-				m.statusMsg = ""
+				m.setStatus("")
 			}
 			return m, nil
 
@@ -1058,8 +1050,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			}
 			m.labelDashboard.SetData(m.labelHealthCache.Labels)
 			m.labelDashboard.SetSize(m.width, m.height-1)
-			m.statusMsg = fmt.Sprintf("Labels: %d total • critical %d • warning %d", m.labelHealthCache.TotalLabels, m.labelHealthCache.CriticalCount, m.labelHealthCache.WarningCount)
-			m.statusIsError = false
+			m.setStatus(fmt.Sprintf("Labels: %d total • critical %d • warning %d", m.labelHealthCache.TotalLabels, m.labelHealthCache.CriticalCount, m.labelHealthCache.WarningCount))
 			return m, nil
 
 		case "]", "f4":
@@ -1102,8 +1093,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			// Open alerts modal on alerts tab (closed → open). Open-already
 			// behavior (switch/close) lives in the modal block at line ~213.
 			if len(m.visibleAlerts()) == 0 {
-				m.statusMsg = "No active alerts"
-				m.statusIsError = false
+				m.setStatus("No active alerts")
 				return m, nil
 			}
 			m.activeTab = TabAlerts
@@ -1147,25 +1137,22 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		case "W":
 			// Quick toggle between current project and all projects
 			if !m.workspaceMode || len(m.availableRepos) == 0 {
-				m.statusMsg = "Project filter available only in multi-project mode"
-				m.statusIsError = false
+				m.setStatus("Project filter available only in multi-project mode")
 				return m, nil
 			}
 			if m.currentProjectDB == "" {
-				m.statusMsg = "No home project detected (not in a beads directory)"
-				m.statusIsError = false
+				m.setStatus("No home project detected (not in a beads directory)")
 				return m, nil
 			}
 			if m.activeRepos != nil {
 				// Currently filtered - expand to all
 				m.activeRepos = nil
-				m.statusMsg = "Showing all projects"
+				m.setStatus("Showing all projects")
 			} else {
 				// Currently showing all - filter to home project
 				m.activeRepos = map[string]bool{m.currentProjectDB: true}
-				m.statusMsg = fmt.Sprintf("Showing project: %s", m.currentProjectDB)
+				m.setStatus(fmt.Sprintf("Showing project: %s", m.currentProjectDB))
 			}
-			m.statusIsError = false
 			if m.filter.activeRecipe != nil {
 				m.applyRecipe(m.filter.activeRecipe)
 			} else {

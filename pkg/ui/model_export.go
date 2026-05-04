@@ -91,13 +91,11 @@ func (m *Model) exportToMarkdown() {
 	// Export the issues
 	err := export.SaveMarkdownToFile(m.data.issues, filename)
 	if err != nil {
-		m.statusMsg = fmt.Sprintf("❌ Export failed: %v", err)
-		m.statusIsError = true
+		m.setStatusError(fmt.Sprintf("❌ Export failed: %v", err))
 		return
 	}
 
-	m.statusMsg = fmt.Sprintf("✅ Exported %d issues to %s", len(m.data.issues), filename)
-	m.statusIsError = false
+	m.setStatus(fmt.Sprintf("✅ Exported %d issues to %s", len(m.data.issues), filename))
 }
 
 // generateExportFilename creates a smart filename based on project and date
@@ -124,15 +122,13 @@ func (m *Model) generateExportFilename() string {
 func (m *Model) copyIssueToClipboard() {
 	selectedItem := m.list.SelectedItem()
 	if selectedItem == nil {
-		m.statusMsg = "❌ No issue selected"
-		m.statusIsError = true
+		m.setStatusError("❌ No issue selected")
 		return
 	}
 
 	issueItem, ok := selectedItem.(IssueItem)
 	if !ok {
-		m.statusMsg = "❌ Invalid item type"
-		m.statusIsError = true
+		m.setStatusError("❌ Invalid item type")
 		return
 	}
 	issue := issueItem.Issue
@@ -180,13 +176,11 @@ func (m *Model) copyIssueToClipboard() {
 	// Copy to clipboard
 	err := clipboard.WriteAll(sb.String())
 	if err != nil {
-		m.statusMsg = fmt.Sprintf("❌ Clipboard error: %v", err)
-		m.statusIsError = true
+		m.setStatusError(fmt.Sprintf("❌ Clipboard error: %v", err))
 		return
 	}
 
-	m.statusMsg = fmt.Sprintf("📋 Copied %s to clipboard", issue.ID)
-	m.statusIsError = false
+	m.setStatus(fmt.Sprintf("📋 Copied %s to clipboard", issue.ID))
 }
 
 // showCassSessionModal shows the cass session preview modal for the selected issue (bv-5bqh)
@@ -208,8 +202,7 @@ func (m *Model) showCassSessionModal() {
 		// Initialize correlator lazily
 		detector := cass.NewDetector()
 		if detector.Check() != cass.StatusHealthy {
-			m.statusMsg = "⚠️ cass not available (install it for session correlation)"
-			m.statusIsError = false
+			m.setStatus("⚠️ cass not available (install it for session correlation)")
 			return
 		}
 		searcher := cass.NewSearcher(detector)
@@ -225,8 +218,7 @@ func (m *Model) showCassSessionModal() {
 
 	// If no sessions found, just show a status message
 	if len(result.TopSessions) == 0 {
-		m.statusMsg = "No correlated sessions found for " + issue.ID
-		m.statusIsError = false
+		m.setStatus("No correlated sessions found for " + issue.ID)
 		return
 	}
 
@@ -241,8 +233,7 @@ func (m *Model) showCassSessionModal() {
 func (m *Model) showSelfUpdateModal() {
 	// Check if an update is available
 	if !m.updateAvailable || m.updateTag == "" {
-		m.statusMsg = "No update available - you're running the latest version"
-		m.statusIsError = false
+		m.setStatus("No update available - you're running the latest version")
 		return
 	}
 
