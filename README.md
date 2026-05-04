@@ -70,12 +70,12 @@ bt                 # launches the TUI
 **BQL (Beads Query Language)** - Composable search and filter from inside the TUI. Press `:` to open the query bar. The parser is adapted from [Perles](https://github.com/zjrosen/perles), MIT-licensed; see [`pkg/bql/LICENSE`](pkg/bql/LICENSE).
 
 ```
-status = open AND priority <= P2
-assignee = "sms" AND updated_at > -7d
-type = bug OR label ~ "backend"
+status = open and priority <= P2
+assignee = "sms" and updated_at > -7d
+type = bug or label ~ backend
 ```
 
-Supports `=`, `!=`, `<`, `>`, `~` (regex), `IN`, `NOT IN`, `AND`/`OR`/`NOT`, parentheses, relative dates (`-7d`, `-3m`, `today`), `ORDER BY`, and `EXPAND` for dependency traversal.
+Supports `=`, `!=`, `<`, `>`, `~` (substring), `in`, `not in`, `and`/`or`/`not`, parentheses, relative dates (`-7d`, `-3m`, `today`), `order by`, and `expand` for dependency traversal. Full reference: [`docs/bql.md`](docs/bql.md).
 
 **Dolt lifecycle management** - Auto-starts and stops the Dolt server. Freshness monitoring with configurable stale thresholds. Auto-reconnect on connection loss.
 
