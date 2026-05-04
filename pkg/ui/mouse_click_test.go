@@ -140,3 +140,40 @@ func TestHandleMouseClick_RowMathMatchesChrome(t *testing.T) {
 			firstItemY+2, got2.list.Index())
 	}
 }
+
+// TestHandleMouseClick_BelowLastVisibleRow_NoSelectionChange verifies clicks
+// below the last rendered row do not change list selection (bt-0lsm). Regression
+// guard for the unfiltered-Items() vs VisibleItems() bounds-check bug surfaced
+// via dogfood with a 3/455-match search filter.
+func TestHandleMouseClick_BelowLastVisibleRow_NoSelectionChange(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "bd-cc0", Title: "first", Status: model.StatusOpen},
+		{ID: "bd-cgh", Title: "second", Status: model.StatusOpen},
+		{ID: "cass-z95i", Title: "third", Status: model.StatusOpen},
+	}
+	m := NewModel(issues, nil, "", nil)
+	m.width = 200
+	m.height = 40
+	m.mode = ViewList
+	m.isSplitView = true
+	m.list.SetSize(60, 30)
+	m.focused = focusList
+
+	firstItemY := m.splitViewListChromeHeight()
+
+	// Pre-condition: select index 0 explicitly so we can detect spurious changes.
+	m.list.Select(0)
+	if m.list.Index() != 0 {
+		t.Fatalf("precondition: list.Select(0) failed, got index %d", m.list.Index())
+	}
+
+	// Click well below the last rendered row (3 items rendered → rows 0,1,2).
+	// Y=firstItemY+7 lands in empty viewport space below the items.
+	msg := tea.MouseClickMsg{X: 10, Y: firstItemY + 7, Button: tea.MouseLeft}
+	got, _ := m.handleMouseClick(msg)
+
+	if got.list.Index() != 0 {
+		t.Fatalf("click below last visible row should not change selection, expected index 0, got %d",
+			got.list.Index())
+	}
+}

@@ -1411,8 +1411,10 @@ func (m Model) handleMouseClick(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 		rowOffset := m.splitViewListChromeHeight()
 		if mouse.Y >= rowOffset {
 			row := mouse.Y - rowOffset + m.list.Paginator.Page*m.list.Paginator.PerPage
-			items := m.list.Items()
-			if row >= 0 && row < len(items) {
+			// Bound against VisibleItems (filtered slice) not Items (unfiltered)
+			// so clicks below the last rendered row are dropped (bt-0lsm).
+			visible := m.list.VisibleItems()
+			if row >= 0 && row < len(visible) {
 				m.list.Select(row)
 				if m.isSplitView {
 					m.updateViewportContent()
