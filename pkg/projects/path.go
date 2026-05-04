@@ -23,11 +23,22 @@ func DefaultRegistryPath() (string, error) {
 	return filepath.Join(home, ".bt", "projects.json"), nil
 }
 
-// resolvedPath honors the BT_PROJECTS_REGISTRY_PATH env override (used
-// by tests) and falls back to DefaultRegistryPath. Returns either
-// (path, nil) on success or ("", err) when the home directory cannot
-// be resolved.
-func resolvedPath() (string, error) {
+// ResolvedPath returns the registry path to read or write, honoring the
+// BT_PROJECTS_REGISTRY_PATH env override and falling back to
+// DefaultRegistryPath when unset.
+//
+// Single source of truth for the env-var name. Two callers share this
+// helper:
+//   - LookupAndValidate (this package) for read paths.
+//   - cmd/bt/root.go::stampLaunchProjects for the write path.
+//
+// Renaming the env var or changing the resolution rule must happen here;
+// grep for BT_PROJECTS_REGISTRY_PATH to confirm exactly one source.
+//
+// Returns ("", err) only when the user home directory cannot be resolved
+// (and no override is set). Tests pin the override via t.Setenv to keep
+// real ~/.bt/projects.json untouched.
+func ResolvedPath() (string, error) {
 	if override := os.Getenv("BT_PROJECTS_REGISTRY_PATH"); override != "" {
 		return override, nil
 	}

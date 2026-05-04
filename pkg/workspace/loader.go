@@ -21,6 +21,12 @@ type LoadResult struct {
 	// Prefix is the namespace prefix used for IDs
 	Prefix string
 
+	// AbsPath is the resolved absolute filesystem path of the repository
+	// (workspaceRoot + RepoConfig.Path, or RepoConfig.Path if already
+	// absolute). Surfaced so launch-time stamping can pair prefix to path
+	// without re-walking the workspace config.
+	AbsPath string
+
 	// Issues are the loaded issues with namespaced IDs
 	Issues []model.Issue
 
@@ -108,12 +114,21 @@ func (l *AggregateLoader) loadReposParallel(ctx context.Context, repos []RepoCon
 	for i, repo := range repos {
 		i, repo := i, repo // capture loop variables
 
+		// Resolve absPath here: it is a property of (workspaceRoot, RepoConfig)
+		// independent of whether the load succeeds, so stamping can record it
+		// even when loadSingleRepo fails.
+		absPath := repo.Path
+		if !filepath.IsAbs(absPath) {
+			absPath = filepath.Join(l.workspaceRoot, absPath)
+		}
+
 		g.Go(func() error {
 			select {
 			case <-ctx.Done():
 				results[i] = LoadResult{
 					RepoName: repo.GetName(),
 					Prefix:   repo.GetPrefix(),
+					AbsPath:  absPath,
 					Error:    ctx.Err(),
 				}
 				return nil // Don't propagate context errors as fatal
@@ -125,6 +140,7 @@ func (l *AggregateLoader) loadReposParallel(ctx context.Context, repos []RepoCon
 			results[i] = LoadResult{
 				RepoName: repo.GetName(),
 				Prefix:   repo.GetPrefix(),
+				AbsPath:  absPath,
 				Issues:   issues,
 				Error:    err,
 			}

@@ -183,7 +183,7 @@ func Lookup(r Registry, prefix string) (Entry, bool) {
 // never surfaced - the History view's empty-state message is the
 // user-visible feedback channel.
 func LookupAndValidate(prefix string) (string, bool) {
-	path, err := resolvedPath()
+	path, err := ResolvedPath()
 	if err != nil {
 		debug.Log("projects: cannot resolve registry path: %v", err)
 		return "", false

@@ -108,6 +108,29 @@ func TestAggregateLoaderLoadAll(t *testing.T) {
 	if !foundWebUI1 {
 		t.Error("Expected to find web-UI-1 (namespaced)")
 	}
+
+	// AbsPath must be populated for each result so stamping can pair
+	// prefix to path without re-walking the workspace config.
+	for _, res := range results {
+		if res.AbsPath == "" {
+			t.Errorf("result %q: AbsPath is empty, want non-empty absolute path", res.RepoName)
+		}
+		if !filepath.IsAbs(res.AbsPath) {
+			t.Errorf("result %q: AbsPath %q is not absolute", res.RepoName, res.AbsPath)
+		}
+	}
+	// Spot-check expected paths.
+	expectedPaths := map[string]string{
+		"api": filepath.Join(tmpDir, "services", "api"),
+		"web": filepath.Join(tmpDir, "apps", "web"),
+	}
+	for _, res := range results {
+		if want, ok := expectedPaths[res.RepoName]; ok {
+			if res.AbsPath != want {
+				t.Errorf("result %q: AbsPath = %q, want %q", res.RepoName, res.AbsPath, want)
+			}
+		}
+	}
 }
 
 func TestAggregateLoaderPartialFailure(t *testing.T) {

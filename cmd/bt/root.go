@@ -28,10 +28,13 @@ import (
 	"github.com/seanmartinsmith/beadstui/internal/settings"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/bql"
+	"github.com/seanmartinsmith/beadstui/pkg/correlation"
+	"github.com/seanmartinsmith/beadstui/pkg/debug"
 	"github.com/seanmartinsmith/beadstui/pkg/export"
 	"github.com/seanmartinsmith/beadstui/pkg/hooks"
 	"github.com/seanmartinsmith/beadstui/pkg/loader"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/projects"
 	"github.com/seanmartinsmith/beadstui/pkg/recipe"
 	"github.com/seanmartinsmith/beadstui/pkg/search"
 	"github.com/seanmartinsmith/beadstui/pkg/ui"
@@ -196,6 +199,7 @@ func loadIssues() error {
 		appCtx.beadsPath = ""
 		workspaceRoot := filepath.Dir(filepath.Dir(flagWorkspace))
 		_ = loader.EnsureBTInGitignore(workspaceRoot)
+		stampLaunchProjects("", results, false, false)
 	} else if flagGlobal {
 		host, port, err := datasource.DiscoverSharedServer()
 		if err != nil {
@@ -219,6 +223,21 @@ func loadIssues() error {
 		// Auto-global did not apply (e.g. inside a project, BT_TEST_MODE,
 		// or shared-server discover failed and we have a local project to
 		// fall back to). Let the local-project loader below handle it.
+		//
+		// GUARD: this empty body is load-bearing. Removing it lets the
+		// next else-if (currentProjectRoot != "") also fire on !loaded
+		// launches, double-stamping the local project (once via this
+		// chain, once via the local fall-through later in this function).
+		// Keep the empty body.
+	} else if currentProjectRoot() != "" {
+		// Auto-global succeeded AND the user is inside a beads project's
+		// git tree. Data was routed through the shared server for
+		// data-source reasons, but the user's launch context is still
+		// project-anchored - record the prefix->path mapping so per-bead
+		// History (and other path-aware consumers) can resolve it.
+		if cwd, err := os.Getwd(); err == nil {
+			stampLaunchProjects(cwd, nil, false, false)
+		}
 	}
 
 	if len(appCtx.issues) == 0 && appCtx.selectedSource == nil && flagAsOf == "" && flagWorkspace == "" && !flagGlobal {
@@ -249,6 +268,13 @@ func loadIssues() error {
 		beadsDir, _ := loader.GetBeadsDir("")
 		projectDir := filepath.Dir(beadsDir)
 		_ = loader.EnsureBTInGitignore(projectDir)
+
+		// Stamp the cwd project into the projects registry so consumers
+		// (e.g. History view) can resolve prefix -> path without needing
+		// the user to be in the project's cwd at query time.
+		if cwd, err := os.Getwd(); err == nil {
+			stampLaunchProjects(cwd, nil, false, false)
+		}
 	}
 
 	appCtx.loadDuration = time.Since(loadStart).Seconds()
@@ -1057,9 +1083,31 @@ func waitForSharedServer() (string, int, error) {
 	}
 }
 
-// detectCurrentProjectDB reads the dolt_database name from the cwd's .beads/metadata.json.
+// detectCurrentProjectDB reads the dolt_database name from the cwd's
+// .beads/metadata.json. Thin delegate over detectProjectDBAt so cwd
+// resolution and the loader.GetBeadsDir-based discovery (BEADS_DIR env,
+// git worktree walk-up to main repo) are owned in exactly one place.
 func detectCurrentProjectDB() string {
-	beadsDir, err := loader.GetBeadsDir("")
+	cwd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	return detectProjectDBAt(cwd)
+}
+
+// detectProjectDBAt reads the dolt_database name from the .beads/metadata.json
+// reachable from dir. Uses loader.GetBeadsDir(dir) so it inherits the same
+// discovery rules as the rest of bt:
+//   - BEADS_DIR env override (config seam users rely on).
+//   - Git worktree walk-up: a worktree directory whose .beads/ lives under
+//     the main repo resolves correctly (load-bearing for `.claude/worktrees/`
+//     style parallel-session workflows).
+//
+// Returns "" when no metadata.json is reachable, the file is unreadable, or
+// the JSON is malformed - same fail-silent shape detectCurrentProjectDB has
+// always had.
+func detectProjectDBAt(dir string) string {
+	beadsDir, err := loader.GetBeadsDir(dir)
 	if err != nil {
 		return ""
 	}
@@ -1074,4 +1122,95 @@ func detectCurrentProjectDB() string {
 		return ""
 	}
 	return meta.DoltDatabase
+}
+
+// stampLaunchProjects records the (prefix, absPath) pairs for the current
+// launch into ~/.bt/projects.json (or the BT_PROJECTS_REGISTRY_PATH override).
+//
+// Two stamping branches:
+//   - cwd (workspaceResults == nil, !isGlobal, !isAsOf): one stamp for the
+//     project under cwd. Skipped when prefix or git toplevel is empty.
+//   - workspace (workspaceResults != nil): N stamps, one per LoadResult that
+//     has a non-empty Prefix and a resolvable git toplevel from its AbsPath.
+//
+// No-op branches:
+//   - explicit --global (isGlobal=true): the user said "treat me as global,
+//     ignore my filesystem position." No stamp.
+//   - --as-of (isAsOf=true): time-travel viewing mode, not a launch context.
+//
+// Three call sites in loadIssues converge on the cwd branch with identical
+// args (cwd, nil, false, false):
+//  1. local-project fall-through (`bt` from inside a project, no shared server).
+//  2. auto-global-from-inside-project (data routed through shared server, but
+//     user's launch context is still project-anchored).
+//  3. (workspace mode uses its own (workspaceResults, ...) shape.)
+//
+// All I/O errors are logged via pkg/debug and dropped; the registry is a cache,
+// not a system of record, and must never block a launch.
+func stampLaunchProjects(cwd string, workspaceResults []workspace.LoadResult, isGlobal bool, isAsOf bool) {
+	if isGlobal || isAsOf {
+		// Global and asOf modes are not "inside" a specific project; nothing to stamp.
+		return
+	}
+
+	// Resolve the registry path. projects.ResolvedPath is the single source
+	// of truth for the BT_PROJECTS_REGISTRY_PATH override; reusing it here
+	// keeps reader (LookupAndValidate) and writer (this site) on the same
+	// resolution rule.
+	registryPath, err := projects.ResolvedPath()
+	if err != nil {
+		debug.Log("projects: cannot resolve registry path: %v", err)
+		return
+	}
+
+	r, err := projects.Load(registryPath)
+	if err != nil {
+		debug.Log("projects: load failed before stamping: %v", err)
+		return
+	}
+
+	now := time.Now()
+
+	if workspaceResults != nil {
+		// Workspace mode: stamp each result that has a prefix and a valid git toplevel.
+		for _, res := range workspaceResults {
+			if res.Prefix == "" || res.AbsPath == "" {
+				continue
+			}
+			top, err := correlation.Toplevel(res.AbsPath)
+			if err != nil {
+				debug.Log("projects: git toplevel error for %s: %v", res.AbsPath, err)
+				continue
+			}
+			if top == "" {
+				debug.Log("projects: %s is not inside a git repo, skipping stamp", res.AbsPath)
+				continue
+			}
+			r = projects.Stamp(r, res.Prefix, top, "", now)
+		}
+	} else {
+		// CWD mode: stamp the single project whose .beads/metadata.json lives under cwd.
+		if cwd == "" {
+			return
+		}
+		prefix := detectProjectDBAt(cwd)
+		if prefix == "" {
+			debug.Log("projects: no .beads/metadata.json in %s, skipping stamp", cwd)
+			return
+		}
+		top, err := correlation.Toplevel(cwd)
+		if err != nil {
+			debug.Log("projects: git toplevel error for cwd %s: %v", cwd, err)
+			return
+		}
+		if top == "" {
+			debug.Log("projects: cwd %s is not inside a git repo, skipping stamp", cwd)
+			return
+		}
+		r = projects.Stamp(r, prefix, top, "", now)
+	}
+
+	if err := projects.Save(registryPath, r); err != nil {
+		debug.Log("projects: save failed after stamping: %v", err)
+	}
 }
