@@ -237,6 +237,138 @@ func TestPhase2ReadyPreservesFilter(t *testing.T) {
 	}
 }
 
+// TestSetListItemsPreservesActiveRepos asserts the wrapper enforces the
+// workspace project filter (activeRepos) against a too-broad item set, so a
+// background Dolt poll refresh that hands us all-projects data does not wipe
+// the user's project picker selection (bt-lwdy). Sister to bt-nzsy.
+//
+// Repro path before the fix: replaceIssues -> handleDataSourceReload rebuilt
+// items straight from m.data.issues (full multi-project set) and called
+// setListItems(items). With activeRepos pinned to a single project, the list
+// would render every project's issues, footer would show 0 visible issues
+// (since the items pane bypassed activeRepos), and the user had to re-open
+// the project picker to recover.
+func TestSetListItemsPreservesActiveRepos(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "api-AUTH-1", Title: "API auth", Status: model.StatusOpen, CreatedAt: time.Now()},
+		{ID: "api-AUTH-2", Title: "API token", Status: model.StatusOpen, CreatedAt: time.Now()},
+		{ID: "web-UI-1", Title: "Web UI", Status: model.StatusOpen, CreatedAt: time.Now()},
+	}
+	cached := analysis.NewCachedAnalyzer(issues, nil)
+	items := make([]list.Item, len(issues))
+	for i := range issues {
+		items[i] = IssueItem{Issue: issues[i]}
+	}
+	lst := list.New(items, list.NewDefaultDelegate(), 80, 20)
+	lst.SetFilteringEnabled(true)
+	m := Model{
+		filter: &FilterState{currentFilter: "all"},
+		data: &DataState{
+			issues:   issues,
+			analyzer: cached.Analyzer,
+			analysis: cached.AnalyzeAsync(context.Background()),
+		},
+		ac:       &AnalysisCache{},
+		list:     lst,
+		theme:    DefaultTheme(),
+		renderer: NewMarkdownRendererWithTheme(80, DefaultTheme()),
+	}
+	m.workspaceMode = true
+	m.activeRepos = map[string]bool{"api": true}
+
+	// Simulate a Dolt poll refresh by handing setListItems the full
+	// (unfiltered) item set, mirroring what replaceIssues / handleFileChanged
+	// pass when they rebuild from m.data.issues. Pre-fix this would clobber
+	// the project filter and render all three issues; post-fix the wrapper
+	// enforces activeRepos.
+	rawItems := []list.Item{
+		IssueItem{Issue: issues[0]},
+		IssueItem{Issue: issues[1]},
+		IssueItem{Issue: issues[2]},
+	}
+	m.setListItems(rawItems)
+
+	// Visible items should only be from the api project.
+	if got := len(m.list.Items()); got != 2 {
+		t.Fatalf("expected 2 api items after poll refresh, got %d", got)
+	}
+	for _, it := range m.list.Items() {
+		issueItem, ok := it.(IssueItem)
+		if !ok {
+			t.Fatalf("expected IssueItem, got %T", it)
+		}
+		if got := IssueRepoKey(issueItem.Issue); got != "api" {
+			t.Fatalf("non-api issue leaked through activeRepos filter: id=%s repo=%s",
+				issueItem.Issue.ID, got)
+		}
+	}
+
+	// Clearing activeRepos restores the full set on the next refresh.
+	m.activeRepos = nil
+	m.setListItems(rawItems)
+	if got := len(m.list.Items()); got != 3 {
+		t.Fatalf("expected 3 items after clearing activeRepos, got %d", got)
+	}
+}
+
+// TestSetListItemsActiveReposComposesWithSearchFilter asserts that activeRepos
+// preservation (bt-lwdy) and the bt-nzsy search-filter preservation cooperate
+// rather than fighting: a poll refresh with both an active project filter and
+// an active `/`-search must keep both narrowing dimensions intact.
+func TestSetListItemsActiveReposComposesWithSearchFilter(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "api-AUTH-1", Title: "API auth flow", Status: model.StatusOpen, CreatedAt: time.Now()},
+		{ID: "api-LIST-1", Title: "API list endpoint", Status: model.StatusOpen, CreatedAt: time.Now()},
+		{ID: "web-AUTH-1", Title: "Web auth landing", Status: model.StatusOpen, CreatedAt: time.Now()},
+	}
+	cached := analysis.NewCachedAnalyzer(issues, nil)
+	items := make([]list.Item, len(issues))
+	for i := range issues {
+		items[i] = IssueItem{Issue: issues[i]}
+	}
+	lst := list.New(items, list.NewDefaultDelegate(), 80, 20)
+	lst.SetFilteringEnabled(true)
+	m := Model{
+		filter: &FilterState{currentFilter: "all"},
+		data: &DataState{
+			issues:   issues,
+			analyzer: cached.Analyzer,
+			analysis: cached.AnalyzeAsync(context.Background()),
+		},
+		ac:       &AnalysisCache{},
+		list:     lst,
+		theme:    DefaultTheme(),
+		renderer: NewMarkdownRendererWithTheme(80, DefaultTheme()),
+	}
+	m.workspaceMode = true
+	m.activeRepos = map[string]bool{"api": true}
+
+	// Engage the `/`-search for "auth".
+	m.list.SetFilterText("auth")
+	m.list.SetFilterState(list.FilterApplied)
+
+	rawItems := []list.Item{
+		IssueItem{Issue: issues[0]},
+		IssueItem{Issue: issues[1]},
+		IssueItem{Issue: issues[2]},
+	}
+	m.setListItems(rawItems)
+
+	if got := m.list.FilterValue(); got != "auth" {
+		t.Fatalf("search filter value lost: got %q", got)
+	}
+
+	// Bubbles VisibleItems is the search-filtered slice; with activeRepos
+	// pre-filter only api items survive, then "auth" matches api-AUTH-1.
+	visible := m.list.VisibleItems()
+	if len(visible) != 1 {
+		t.Fatalf("expected 1 item matching both filters, got %d", len(visible))
+	}
+	if item, ok := visible[0].(IssueItem); !ok || item.Issue.ID != "api-AUTH-1" {
+		t.Fatalf("wrong combined-filter item: %+v", visible[0])
+	}
+}
+
 // filterTestModel returns a minimal Model wired with two test issues and the
 // filter subsystem ready to use. Shared across filter preservation tests.
 func filterTestModel(t *testing.T) Model {

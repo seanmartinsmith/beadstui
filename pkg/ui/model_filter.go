@@ -16,15 +16,46 @@ import (
 )
 
 // setListItems sets list items while preserving any active Bubbles filter
-// (bt-nzsy). list.Model.SetItems clears the internal filteredItems slice when
-// a filter is active but does not re-run the match, so downstream renders show
-// "No items." until the user mutates the filter text to trigger a re-match.
-// SetFilterText synchronously re-runs the filter against the new items.
+// (bt-nzsy) AND any active workspace project filter (bt-lwdy). It is the single
+// source of truth for what lands in the list view across all refresh paths.
+//
+//   - Bubbles filter (the `/` search): list.Model.SetItems clears the internal
+//     filteredItems slice when a filter is active but does not re-run the match,
+//     so downstream renders show "No items." until the user mutates the filter
+//     text to trigger a re-match. SetFilterText synchronously re-runs the
+//     filter against the new items, restoring search persistence across
+//     background refreshes.
+//   - activeRepos (the project picker in workspace/global mode): some refresh
+//     paths (replaceIssues -> handleDataSourceReload, sync handleFileChanged)
+//     hand us the full unfiltered item set rebuilt straight from m.data.issues.
+//     Without this safety net the project picker selection is wiped on every
+//     Dolt poll. Filtering here keeps activeRepos sticky regardless of which
+//     path called us — already-filtered callers (applyFilter, applyRecipe,
+//     applyBQL, the recipe/non-recipe branches of handleSnapshotReady) pass
+//     items that already satisfy activeRepos, so the additional filter is a
+//     no-op for them.
 //
 // All refresh paths that replace list items MUST go through this wrapper.
 // A guard test (TestNoRawListSetItems) fails if m.list.SetItems is called
 // directly outside this function.
 func (m *Model) setListItems(items []list.Item) {
+	if m.workspaceMode && m.activeRepos != nil {
+		filtered := make([]list.Item, 0, len(items))
+		for _, it := range items {
+			issueItem, ok := it.(IssueItem)
+			if !ok {
+				// Non-IssueItem entries (none today, but be safe) pass through.
+				filtered = append(filtered, it)
+				continue
+			}
+			repoKey := IssueRepoKey(issueItem.Issue)
+			if repoKey == "" || m.activeRepos[repoKey] {
+				filtered = append(filtered, it)
+			}
+		}
+		items = filtered
+	}
+
 	prevState := m.list.FilterState()
 	prevValue := m.list.FilterValue()
 	m.list.SetItems(items)
