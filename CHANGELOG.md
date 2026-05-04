@@ -6,6 +6,25 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-05-05 (continued) — Wave 2 small: 2 beads shipped (`bt robot activity` CLI + `bt status` / `bt robot health` diagnostics)
+
+**Same-day continuation of Wave 1. Two parallel subagents dispatched into worktrees with the established L8 playbook. Both hit the org monthly token limit mid-execution and were terminated; resumed cleanly via `SendMessage(<agentId>)` after the limit reset (this is the canonical recovery path — terminated agents revive from transcript).**
+
+Strategic side-note from this wave: filed `dotfiles-jxf` (in `~/.files`) recording the subagent model-selection decision. Default to Sonnet 4.6 for execution-shaped dispatches (detailed fix-shape, concrete acceptance criteria, architecture pre-decided); reserve Opus 4.7 for design/recon-shaped work. Encoded as a `### Model selection` subsection in global CLAUDE.md `## Subagent Coordination`. Wave 1 + Wave 2 (small) defaulted everything to Opus — most should have been Sonnet (only bt-ezk8 with three viable architectural paths genuinely earned Opus). Tokens left on the table; rule applies going forward.
+
+### Wave 2 small ships (2 beads)
+
+- **bt-1puf** (P2 feature, area:cli + ux) — `bt robot activity`, the long-horizon CLI consumer for `~/.bt/events.jsonl`. New cobra subcommand reading the unbounded on-disk events file via `events.LoadPersisted(path, 0)` (bypassing the TUI hydration window per the bt-ddhz contract). Pure filter pipeline: date range → kind → bead/repo/actor → stable sort by At → reverse/limit. Accepts relative (`7d`, `2w`, `1mo`, `1y`) and ISO inputs; calendar presets `--today/--this-week/--this-month/--this-year/--last-month/--last-year/--in YYYY-MM` compute boundaries in local timezone. Compact projection schema `activity.v1` default; `--shape full` emits the `events.Event` struct. `--global` silently no-ops (events.jsonl is per-user). Empty result + missing file both return `[]` exit 0. Smart calls: `1mo` syntax wraps existing `recipe.ParseRelativeTime` (didn't fork the parser); Monday-anchored ISO weeks; projection inlined in `cmd/bt` (events.Event small enough that pkg/view duplication adds no value); empty `data_hash` with rationale (append-only stream, not a snapshot). Commit `583c7440`.
+- **bt-uu73** (P3 task, area:cli + area:infra) — `bt status` (human, lipgloss) + `bt robot health` (agent, JSON) diagnostic surfaces sharing one probe layer. New `internal/diagnostics/` package exposes `ProbeBinary` / `ProbeEventLog` / `ProbeCache` + `HumanizeBytes` + `FormatEventLogSummary`. Every probe treats missing files/dirs as zero values (first-run clean). Entry counting uses streaming line scan with 1 MiB buffer (not `LoadPersisted`) to keep memory bounded. Two renderers consume the probes: `bt status` uses pkg/ui color tokens via lipgloss; `bt robot health` emits standard RobotEnvelope with `usage_hints` for jq one-liners. `data_hash` empty by design (disk-only probe, no bead state). Smoke-tested against real `~/.bt/events.jsonl` (328 KB, 1006 entries since 2026-04-25). Commit `8bf2d77e`.
+
+### Operational notes
+
+- **SendMessage by agentId revives terminated agents** — both Wave 2 small agents hit the org monthly limit mid-execution. After limit reset, `SendMessage(to: <agentId>, message: "resume...")` brought both back from transcript with full context. Worktrees + drafts persisted on disk through the termination; only the agent process was killed. This is the proper recovery path; do not respawn via Agent in this scenario.
+- **Cherry-pick conflict surface stayed minimal** — both agents touched `cmd/bt/cobra_robot.go` (registering their respective subcommands) and `docs/robot/README.md` (adding entries between different anchor points). Auto-merge handled both cleanly.
+- **cwd drift bit the dispatcher** when running `bd close` after the cherry-pick verification — shell drifted into the worktree path. Recovery: use `bd --directory "C:/Users/sms/System/tools/bt"` and absolute `--reason-file` paths. Same failure class as the bt-r2ev agent's cwd drift in Wave 1; the durable mitigation is "always pass absolute paths to bd and git when the shell pwd is unverified."
+
+---
+
 ## 2026-05-05 — Wave 1 L8 dispatch: 5 beads shipped via parallel worktree subagents
 
 **Followup session continuing 2026-05-04 dogfood arc. User L8-PM'd the unfinished list, prioritized parallelization analysis, and dispatched a 5-agent wave through the established L8 playbook (worktree isolation, structured close-reasons, dispatcher cherry-picks). All 5 returned with strong recon, clean diffs, full test coverage. Zero conflicts on cherry-pick — the conflict-matrix analysis up front (each bead touches a non-overlapping file surface) paid off.**
