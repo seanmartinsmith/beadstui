@@ -502,6 +502,38 @@ func (m Model) renderAlertsTab() string {
 	return sb.String()
 }
 
+// kindRowStyle returns the lipgloss style applied to a notification row
+// based on its event kind (bt-0mxw). Pulls foreground colors from the
+// theme so the mapping respects the active theme (Tomorrow Night,
+// Catppuccin, etc.). Color choices:
+//   - created   -> Success (green; new things)
+//   - edited    -> Primary (teal; active work in progress)
+//   - closed    -> Muted   (gray; done/desaturated)
+//   - commented -> Info    (blue; communication accent)
+//   - bulk      -> Warning (orange; "lots happened")
+//   - system    -> Muted   (gray; ambient signal)
+//
+// No new hex literals — every color resolves through the Theme struct
+// per bt-pxbc theme audit conventions.
+func kindRowStyle(t Theme, k events.EventKind) lipgloss.Style {
+	switch k {
+	case events.EventCreated:
+		return lipgloss.NewStyle().Foreground(t.Success)
+	case events.EventEdited:
+		return lipgloss.NewStyle().Foreground(t.Primary)
+	case events.EventClosed:
+		return lipgloss.NewStyle().Foreground(t.Muted)
+	case events.EventCommented:
+		return lipgloss.NewStyle().Foreground(t.Info)
+	case events.EventBulk:
+		return lipgloss.NewStyle().Foreground(t.Warning)
+	case events.EventSystem:
+		return lipgloss.NewStyle().Foreground(t.Muted)
+	default:
+		return lipgloss.NewStyle().Foreground(t.Base.GetForeground())
+	}
+}
+
 // formatDaySeparator renders the day-boundary marker shown above the first
 // event of each day in the notifications tab (bt-l5zk). Format:
 // "─── 2026-05-04 ───" centered in width, padded with horizontal box-drawing
@@ -641,27 +673,28 @@ func (m Model) renderNotificationsTab() string {
 			system++
 		}
 	}
-	kindStyle := lipgloss.NewStyle().Foreground(t.Secondary)
 	sepStyle := lipgloss.NewStyle().Foreground(t.Muted)
 	sep := sepStyle.Render(" • ")
 	sb.WriteString(" ")
 	first := true
-	writeKind := func(n int, label string) {
+	// bt-0mxw: color the per-kind counts using the same token map as the
+	// row renderer so the eye links the header to the rows.
+	writeKind := func(n int, label string, kind events.EventKind) {
 		if n == 0 {
 			return
 		}
 		if !first {
 			sb.WriteString(sep)
 		}
-		sb.WriteString(kindStyle.Render(fmt.Sprintf("%d %s", n, label)))
+		sb.WriteString(kindRowStyle(t, kind).Render(fmt.Sprintf("%d %s", n, label)))
 		first = false
 	}
-	writeKind(created, "created")
-	writeKind(edited, "edited")
-	writeKind(closed, "closed")
-	writeKind(commented, "commented")
-	writeKind(bulk, "bulk")
-	writeKind(system, "system")
+	writeKind(created, "created", events.EventCreated)
+	writeKind(edited, "edited", events.EventEdited)
+	writeKind(closed, "closed", events.EventClosed)
+	writeKind(commented, "commented", events.EventCommented)
+	writeKind(bulk, "bulk", events.EventBulk)
+	writeKind(system, "system", events.EventSystem)
 	sb.WriteString("\n\n")
 
 	// Leave one row of the page for the cursor-expand line (hover-expand
@@ -686,9 +719,11 @@ func (m Model) renderNotificationsTab() string {
 	sb.WriteString("\n")
 
 	cursorStyle := lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
-	rowStyle := lipgloss.NewStyle().Foreground(t.Base.GetForeground())
 	summaryStyle := mutedStyle.Italic(true)
 	separatorStyle := mutedStyle
+	// bt-0mxw: per-row foreground is derived from event kind via
+	// kindRowStyle. Cursor row keeps cursorStyle so it always pops above
+	// the kind-tinted neighbors.
 
 	// Usable width for the row content after our "▸ " / "   " prefix (3)
 	// and a right-side margin (2) to keep text from kissing the border.
@@ -729,7 +764,7 @@ func (m Model) renderNotificationsTab() string {
 				rowsWritten++
 			}
 		} else {
-			sb.WriteString("   " + rowStyle.Render(row))
+			sb.WriteString("   " + kindRowStyle(t, active[i].Kind).Render(row))
 			sb.WriteString("\n")
 			rowsWritten++
 		}

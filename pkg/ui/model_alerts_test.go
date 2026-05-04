@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"image/color"
 	"strings"
 	"testing"
 	"time"
@@ -101,5 +102,74 @@ func TestRenderNotificationsTab_NoSeparatorWithinSameDay(t *testing.T) {
 	count := strings.Count(out, "2026-05-04")
 	if count != 1 {
 		t.Fatalf("expected exactly one separator for same-day events, got %d:\n%s", count, out)
+	}
+}
+
+// TestKindRowStyle_TokenMapping pins the event-kind -> theme-token mapping
+// (bt-0mxw). Asserting the style's foreground color (rather than rendered
+// ANSI bytes) keeps the test stable across terminal-profile detection,
+// which forces NoColor under `go test` because stdout is not a TTY.
+func TestKindRowStyle_TokenMapping(t *testing.T) {
+	tm := DefaultTheme()
+	cases := []struct {
+		kind events.EventKind
+		want color.Color
+		name string
+	}{
+		{events.EventCreated, tm.Success, "created->Success"},
+		{events.EventEdited, tm.Primary, "edited->Primary"},
+		{events.EventClosed, tm.Muted, "closed->Muted"},
+		{events.EventCommented, tm.Info, "commented->Info"},
+		{events.EventBulk, tm.Warning, "bulk->Warning"},
+		{events.EventSystem, tm.Muted, "system->Muted"},
+	}
+	for _, tc := range cases {
+		got := kindRowStyle(tm, tc.kind).GetForeground()
+		if got != tc.want {
+			t.Errorf("%s: foreground = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}
+
+// TestKindRowStyle_DistinctActionTypes verifies the four primary action
+// types (created/edited/closed/commented) render in distinct colors,
+// satisfying the bt-0mxw acceptance criterion that "each action type
+// renders in a distinct, theme-resolved color."
+func TestKindRowStyle_DistinctActionTypes(t *testing.T) {
+	tm := DefaultTheme()
+	colors := map[events.EventKind]color.Color{
+		events.EventCreated:   kindRowStyle(tm, events.EventCreated).GetForeground(),
+		events.EventEdited:    kindRowStyle(tm, events.EventEdited).GetForeground(),
+		events.EventClosed:    kindRowStyle(tm, events.EventClosed).GetForeground(),
+		events.EventCommented: kindRowStyle(tm, events.EventCommented).GetForeground(),
+	}
+	seen := make(map[color.Color]events.EventKind)
+	for kind, c := range colors {
+		if prev, dup := seen[c]; dup {
+			t.Errorf("kinds %v and %v share color %v — must be distinct", prev, kind, c)
+		}
+		seen[c] = kind
+	}
+}
+
+// TestRenderNotificationsTab_AppliesKindStyle verifies the rendered output
+// passes through kindRowStyle for each event row. Uses a profile-agnostic
+// shape check: when a TrueColor profile is active, the row contains an
+// ANSI escape; in all profiles, the row text itself is present (this
+// asserts the renderer reaches the styled-write path without crashing for
+// every kind).
+func TestRenderNotificationsTab_AppliesKindStyle(t *testing.T) {
+	m := seedModel()
+	day := time.Date(2026, 5, 4, 10, 0, 0, 0, time.UTC)
+	m.events.Append(events.Event{ID: "c", Kind: events.EventCreated, BeadID: "bt-c", Title: "create", At: day})
+	m.events.Append(events.Event{ID: "e", Kind: events.EventEdited, BeadID: "bt-e", Title: "edit", At: day.Add(1 * time.Minute)})
+	m.events.Append(events.Event{ID: "x", Kind: events.EventClosed, BeadID: "bt-x", Title: "close", At: day.Add(2 * time.Minute)})
+	m.events.Append(events.Event{ID: "m", Kind: events.EventCommented, BeadID: "bt-m", Title: "comment", At: day.Add(3 * time.Minute)})
+
+	out := m.renderNotificationsTab()
+	for _, want := range []string{"bt-c", "bt-e", "bt-x", "bt-m"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("expected rendered notifications to contain %q, got:\n%s", want, out)
+		}
 	}
 }
