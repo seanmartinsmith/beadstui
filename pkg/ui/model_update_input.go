@@ -993,6 +993,14 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		case "i":
 			m.clearAttentionOverlay()
 			if m.mode == ViewInsights {
+				// Capture cursor on toggle-out so the next `i` restores
+				// the same pane and row (bt-fdwz).
+				panel := m.insightsPanel.FocusedPanel()
+				m.insightsCursor = insightsCursor{
+					panel: panel,
+					index: m.insightsPanel.SelectedIndexFor(panel),
+					valid: true,
+				}
 				m.mode = ViewList
 				m.focused = focusList
 			} else {
@@ -1882,6 +1890,12 @@ func (m *Model) openInsightsView() {
 			panelHeight = 3
 		}
 		m.insightsPanel.SetSize(m.width, panelHeight)
+		// Restore prior cursor position if the user has been here before
+		// (bt-fdwz). Bounds clamping happens inside RestoreCursor against
+		// the freshly built panel item counts.
+		if m.insightsCursor.valid {
+			m.insightsPanel.RestoreCursor(m.insightsCursor.panel, m.insightsCursor.index)
+		}
 	}
 }
 

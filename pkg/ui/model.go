@@ -94,6 +94,17 @@ const (
 	ViewAttention                      // Attention scores view
 )
 
+// insightsCursor remembers where the user was inside the insights view so
+// re-entering via `i` restores the focused pane and selected row instead of
+// resetting to the default. Captured on insights-leave (Enter that jumps to a
+// bead, or `i` that toggles back to the list); restored after the insights
+// panel is rebuilt in openInsightsView (bt-fdwz).
+type insightsCursor struct {
+	panel MetricPanel
+	index int
+	valid bool
+}
+
 // ModalType identifies which modal overlay (if any) is currently active.
 // Only one modal can be active at a time - opening one closes any previous one.
 type ModalType int
@@ -476,6 +487,7 @@ type Model struct {
 	graphView          GraphModel
 	tree               TreeModel // Hierarchical tree view (bv-gllx)
 	insightsPanel      InsightsModel
+	insightsCursor     insightsCursor  // Persisted cursor position across insights re-entries (bt-fdwz)
 	flowMatrix         FlowMatrixModel // Cross-label flow matrix
 	theme              Theme
 

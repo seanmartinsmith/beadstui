@@ -892,6 +892,18 @@ func (m Model) handleInsightsKeys(msg tea.KeyMsg) Model {
 					break
 				}
 			}
+			// Capture insights cursor before leaving so the next `i` toggle
+			// returns to the same pane and row (bt-fdwz).
+			panel := m.insightsPanel.FocusedPanel()
+			m.insightsCursor = insightsCursor{
+				panel: panel,
+				index: m.insightsPanel.SelectedIndexFor(panel),
+				valid: true,
+			}
+			// Leave insights mode (bt-fdwz fix 1): without this, the user
+			// stays on the insights view despite the list cursor jumping,
+			// requiring a second `i` keypress to actually see the bead.
+			m.mode = ViewList
 			m.focused = focusList
 			if m.isSplitView {
 				m.focused = focusDetail

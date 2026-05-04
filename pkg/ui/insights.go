@@ -381,6 +381,43 @@ func (m *InsightsModel) PrevPanel() {
 	m.updateDetailContent()
 }
 
+// FocusedPanel reports the currently focused metric panel. Used by the parent
+// Model to capture cursor state on insights-leave so it can be restored on the
+// next insights-enter (bt-fdwz).
+func (m *InsightsModel) FocusedPanel() MetricPanel {
+	return m.focusedPanel
+}
+
+// SelectedIndexFor reports the per-panel selection index. Returns 0 if the
+// panel is out of range. Used by the parent Model for cursor save (bt-fdwz).
+func (m *InsightsModel) SelectedIndexFor(panel MetricPanel) int {
+	if panel < 0 || panel >= PanelCount {
+		return 0
+	}
+	return m.selectedIndex[panel]
+}
+
+// RestoreCursor sets the focused panel and its selection index, clamping the
+// index to the panel's current item count. Used after NewInsightsModel to
+// re-apply a remembered position when the user re-enters insights (bt-fdwz).
+func (m *InsightsModel) RestoreCursor(panel MetricPanel, index int) {
+	if panel < 0 || panel >= PanelCount {
+		return
+	}
+	m.focusedPanel = panel
+	count := m.currentPanelItemCount()
+	if count <= 0 {
+		m.selectedIndex[panel] = 0
+	} else if index < 0 {
+		m.selectedIndex[panel] = 0
+	} else if index >= count {
+		m.selectedIndex[panel] = count - 1
+	} else {
+		m.selectedIndex[panel] = index
+	}
+	m.updateDetailContent()
+}
+
 func (m *InsightsModel) ToggleExplanations() {
 	m.showExplanations = !m.showExplanations
 }
