@@ -260,11 +260,23 @@ func (m Model) renderSearchRow(width int) string {
 	leftWidth := lipgloss.Width(left)
 	rightWidth := lipgloss.Width(right)
 	gap := width - leftWidth - rightWidth
+
+	// Overflow path: prefer keeping the typed query visible. Drop the right
+	// (count) first, then if still too wide clip the left to width. Without
+	// this, lipgloss wraps the row to 2 lines and breaks the 1-row chrome
+	// invariant in splitViewListChromeHeight (bt-m6cd).
 	if gap < 1 {
-		gap = 1
+		right = ""
+		rightWidth = 0
+		gap = width - leftWidth
+		if gap < 0 {
+			return lipgloss.NewStyle().MaxWidth(width).Render(left)
+		}
 	}
 
-	return left + strings.Repeat(" ", gap) + right
+	out := left + strings.Repeat(" ", gap) + right
+	// Defensive final clip in case styled-content widths drift from our math.
+	return lipgloss.NewStyle().MaxWidth(width).Render(out)
 }
 
 // splitViewHeader renders the split-view list column header ("TYPE PRI STATUS

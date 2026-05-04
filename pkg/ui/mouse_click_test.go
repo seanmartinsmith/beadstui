@@ -332,3 +332,40 @@ func TestRenderSearchRow_AlwaysOneRow(t *testing.T) {
 		})
 	}
 }
+
+// TestRenderSearchRow_ClipsToWidth verifies the search row never overflows the
+// requested width even with long typed queries (bt-m6cd). Without clipping, a
+// query like `"tftj","fxbl","l5xu","l5zk","0mxw"` plus the match-count exceeds
+// narrow pane widths, causing lipgloss to wrap to a second line and breaking
+// the 1-row chrome invariant in splitViewListChromeHeight - which then causes
+// list rows to render with truncated content.
+func TestRenderSearchRow_ClipsToWidth(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "bd-cc0", Title: "first", Status: model.StatusOpen},
+		{ID: "bd-cgh", Title: "second", Status: model.StatusOpen},
+	}
+	m := NewModel(issues, nil, "", nil)
+	m.width = 200
+	m.height = 40
+	m.mode = ViewList
+	m.isSplitView = true
+	m.list.SetSize(80, 30)
+
+	longQuery := `"tftj","fxbl","l5xu","l5zk","0mxw"`
+	m.list.SetFilterText(longQuery)
+
+	for _, state := range []list.FilterState{list.Filtering, list.FilterApplied} {
+		t.Run(state.String(), func(t *testing.T) {
+			m.list.SetFilterState(state)
+			for _, width := range []int{30, 40, 50, 60, 80} {
+				row := m.renderSearchRow(width)
+				if got := lipgloss.Width(row); got > width {
+					t.Errorf("state=%v width=%d: row width %d exceeds limit", state, width, got)
+				}
+				if h := lipgloss.Height(row); h != 1 {
+					t.Errorf("state=%v width=%d: row wrapped to %d lines, want 1", state, width, h)
+				}
+			}
+		})
+	}
+}
