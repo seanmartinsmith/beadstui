@@ -699,56 +699,41 @@ func (m *InsightsModel) View() string {
 			v.Closed7, v.Closed30, v.AvgDays, weekly, estimate))
 	}
 
-	// Calculate layout dimensions
-	mainWidth := m.width
-	detailWidth := 0
-	if m.showDetailPanel && m.width > 120 {
-		detailWidth = min(50, m.width/3)
-		mainWidth = m.width - detailWidth - 1
-	}
+	// Choose layout cols based on available width (bt-y0fv.1).
+	//
+	// Each metric panel must hold its longest title without mid-word truncation.
+	// The longest possible title is "🌐 Influencers [Skipped]" (~24 cells with
+	// emoji, ~11-char name, " [Skipped]" suffix). RenderTitledPanel computes
+	// maxTitle = innerWidth - 4 = colWidth - 4, so colWidth must be >= ~28 to
+	// hold that title without truncation. Subtitles like "Eigenvector
+	// Centrality" (22 chars) get body-truncated to innerWidth = colWidth, so
+	// the same threshold also clears those.
+	//
+	// Detail panel only activates when the resulting mainWidth still fits a
+	// 3-col grid; otherwise the grid columns get crushed below readable widths
+	// (was a bug at m.width 121-140: detail panel stole 41 cols, leaving
+	// mainWidth=80 -> colWidth=24, which truncated titles like
+	// "🌐 Influencers [Skipped]" mid-word).
+	mainWidth, detailWidth := m.computeInsightsLayoutWidths()
+	cols := chooseInsightsCols(mainWidth)
 
-	// 3-column layout; 4 rows (3 metric rows + 1 priority row)
-	colWidth := (mainWidth - 6) / 3
-	if colWidth < 25 {
-		colWidth = 25
-	}
-
-	// With 4 rows, reduce individual row height
-	rowHeight := (m.height - 8) / 4
+	// Row height varies with column count: more cols -> more rows of metric
+	// panels stacked under priority/details, so each row gets less height.
+	rowsBelowGrid := 1 // priority row is always present
+	metricRows := (insightsMetricPanelCount + cols - 1) / cols
+	totalRows := metricRows + rowsBelowGrid
+	rowHeight := (m.height - 8) / totalRows
 	if rowHeight < 6 {
 		rowHeight = 6
 	}
 
-	panels := []string{
-		m.renderMetricPanel(PanelBottlenecks, colWidth, rowHeight, t),
-		m.renderMetricPanel(PanelKeystones, colWidth, rowHeight, t),
-		m.renderMetricPanel(PanelInfluencers, colWidth, rowHeight, t),
-		m.renderMetricPanel(PanelHubs, colWidth, rowHeight, t),
-		m.renderMetricPanel(PanelAuthorities, colWidth, rowHeight, t),
-		m.renderMetricPanel(PanelCores, colWidth, rowHeight, t),
-		m.renderMetricPanel(PanelArticulation, colWidth, rowHeight, t),
-		m.renderMetricPanel(PanelSlack, colWidth, rowHeight, t),
-		m.renderCyclesPanel(colWidth, rowHeight, t),
-	}
+	// Build the metric grid (Bottlenecks..Cycles).
+	colWidth := insightsColWidth(mainWidth, cols)
+	mainContent := m.buildInsightsGrid(cols, colWidth, rowHeight, mainWidth, t)
 
-	row1 := lipgloss.JoinHorizontal(lipgloss.Top, panels[0], panels[1], panels[2])
-	row2 := lipgloss.JoinHorizontal(lipgloss.Top, panels[3], panels[4], panels[5])
-	row3 := lipgloss.JoinHorizontal(lipgloss.Top, panels[6], panels[7], panels[8])
-	// Priority panel spans full width for prominence (bv-91)
-	// Toggle between priority list and heatmap view (bv-95)
-	var row4 string
-	if m.showHeatmap {
-		row4 = m.renderHeatmapPanel(mainWidth-2, rowHeight, t)
-	} else {
-		row4 = m.renderPriorityPanel(mainWidth-2, rowHeight, t)
-	}
-
-	mainContent := lipgloss.JoinVertical(lipgloss.Left, row1, row2, row3, row4)
-
-	// Add detail panel if enabled
-	// Match detail height to the actual grid: 4 rows, each (rowHeight + 2) outer
+	// Add detail panel if enabled (only when 3-col grid is in use).
 	if detailWidth > 0 {
-		gridHeight := 4 * (rowHeight + 2)
+		gridHeight := totalRows * (rowHeight + 2)
 		detailPanel := m.renderDetailPanel(detailWidth, gridHeight-2, t)
 		view := lipgloss.JoinHorizontal(lipgloss.Top, mainContent, detailPanel)
 		if velocityLine != "" {
@@ -761,6 +746,120 @@ func (m *InsightsModel) View() string {
 		return lipgloss.JoinVertical(lipgloss.Left, velocityLine, mainContent)
 	}
 	return mainContent
+}
+
+// insightsMinColWidth is the minimum readable width for a metric panel column.
+// Sized to hold the longest metric panel title without mid-word truncation
+// (longest is "🌐 Influencers [Skipped]" at ~24 cells; RenderTitledPanel
+// reserves 4 cells of border/padding overhead -> need colWidth >= 28).
+const insightsMinColWidth = 28
+
+// insightsMetricPanelCount is the number of metric panels rendered in the grid
+// (Bottlenecks, Keystones, Influencers, Hubs, Authorities, Cores, Cut Points,
+// Slack, Cycles). Priority/heatmap render below the grid.
+const insightsMetricPanelCount = 9
+
+// chooseInsightsCols picks 1, 2, or 3 columns based on available main width.
+// Below insightsMinColWidth*2+2, a single-column stack is the only readable
+// shape. Below insightsMinColWidth*3+6, 2-col is best. Above that, the
+// canonical 3-col grid renders.
+func chooseInsightsCols(mainWidth int) int {
+	switch {
+	case mainWidth >= insightsMinColWidth*3+6:
+		return 3
+	case mainWidth >= insightsMinColWidth*2+4:
+		return 2
+	default:
+		return 1
+	}
+}
+
+// insightsColWidth returns the per-column width for a given main width and
+// column count. The result is at least insightsMinColWidth (it can overflow
+// mainWidth slightly when the terminal is narrower than the floor; in that
+// case JoinHorizontal will spill but titles stay readable, which is the
+// dominant complaint).
+func insightsColWidth(mainWidth, cols int) int {
+	if cols < 1 {
+		cols = 1
+	}
+	// Account for a 2-cell separator overhead per gap between columns.
+	// Original 3-col code subtracted 6; same per-cell rate.
+	w := (mainWidth - 2*cols) / cols
+	if w < insightsMinColWidth {
+		w = insightsMinColWidth
+	}
+	return w
+}
+
+// computeInsightsLayoutWidths returns (mainWidth, detailWidth). The detail
+// panel only activates when m.width is wide enough to leave a 3-col-fitting
+// mainWidth after subtracting it; otherwise detailWidth is 0 and mainWidth ==
+// m.width.
+func (m *InsightsModel) computeInsightsLayoutWidths() (int, int) {
+	mainWidth := m.width
+	detailWidth := 0
+	if !m.showDetailPanel {
+		return mainWidth, detailWidth
+	}
+	// Detail panel needs >= 32 cols to render its content readably; the
+	// original cap is min(50, m.width/3). Combined with the 3-col grid floor
+	// (mainWidth >= insightsMinColWidth*3+6 = 90), the activation threshold
+	// is m.width >= 90 + 1 + 50 = 141. Below that, suppress the detail panel
+	// rather than crush the grid.
+	const detailMin = 32
+	candidate := min(50, m.width/3)
+	if candidate < detailMin {
+		return mainWidth, 0
+	}
+	if m.width-candidate-1 < insightsMinColWidth*3+6 {
+		return mainWidth, 0
+	}
+	detailWidth = candidate
+	mainWidth = m.width - detailWidth - 1
+	return mainWidth, detailWidth
+}
+
+// buildInsightsGrid renders the metric panels in `cols` columns, stacks the
+// priority/heatmap panel below at full mainWidth, and joins everything
+// vertically.
+func (m *InsightsModel) buildInsightsGrid(cols, colWidth, rowHeight, mainWidth int, t Theme) string {
+	// Render all 9 metric panels (last one is cycles, which has its own
+	// renderer). Order matches the canonical 3x3 layout.
+	panels := []string{
+		m.renderMetricPanel(PanelBottlenecks, colWidth, rowHeight, t),
+		m.renderMetricPanel(PanelKeystones, colWidth, rowHeight, t),
+		m.renderMetricPanel(PanelInfluencers, colWidth, rowHeight, t),
+		m.renderMetricPanel(PanelHubs, colWidth, rowHeight, t),
+		m.renderMetricPanel(PanelAuthorities, colWidth, rowHeight, t),
+		m.renderMetricPanel(PanelCores, colWidth, rowHeight, t),
+		m.renderMetricPanel(PanelArticulation, colWidth, rowHeight, t),
+		m.renderMetricPanel(PanelSlack, colWidth, rowHeight, t),
+		m.renderCyclesPanel(colWidth, rowHeight, t),
+	}
+
+	// Stack panels into rows of `cols`, padding the trailing row with empty
+	// strings so JoinHorizontal doesn't widen panels in the last row.
+	var rows []string
+	for i := 0; i < len(panels); i += cols {
+		end := i + cols
+		if end > len(panels) {
+			end = len(panels)
+		}
+		rows = append(rows, lipgloss.JoinHorizontal(lipgloss.Top, panels[i:end]...))
+	}
+
+	// Priority panel spans full width for prominence (bv-91).
+	// Toggle between priority list and heatmap view (bv-95).
+	var priorityRow string
+	if m.showHeatmap {
+		priorityRow = m.renderHeatmapPanel(mainWidth-2, rowHeight, t)
+	} else {
+		priorityRow = m.renderPriorityPanel(mainWidth-2, rowHeight, t)
+	}
+	rows = append(rows, priorityRow)
+
+	return lipgloss.JoinVertical(lipgloss.Left, rows...)
 }
 
 func (m *InsightsModel) renderMetricPanel(panel MetricPanel, width, height int, t Theme) string {

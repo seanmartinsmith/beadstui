@@ -1,7 +1,10 @@
 package ui_test
 
 import (
+	"strings"
 	"testing"
+
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
@@ -579,5 +582,220 @@ func TestInsightsModelScrolling(t *testing.T) {
 	for i := 0; i < 55; i++ {
 		m.MoveUp()
 		_ = m.View()
+	}
+}
+
+// TestInsightsResponsiveLayoutNoTruncation regression-tests bt-y0fv.1: at narrow
+// widths the insights view must not render the canonical 3x4 grid in a way that
+// truncates pane titles mid-word. The fix tightens the detail-panel activation
+// threshold and adds 2-col / 1-col fallbacks below the 3-col floor.
+//
+// The canonical truncation symptoms reported in the bead were title prefixes
+// like "Articul" / "Centralit" / "Influence" / "Eigenve" — i.e. mid-word cuts
+// of metric panel titles ("Cut Points" subtitle "Articulation Vertices",
+// "Influencers" / "Bottlenecks Centrality", etc.). The render path uses
+// runewidth.Truncate with a "…" suffix when title overflows; the regression
+// test asserts both that the full canonical titles appear and that the
+// ellipsis-truncated forms do not.
+func TestInsightsResponsiveLayoutNoTruncation(t *testing.T) {
+	theme := createTheme()
+	ins := createTestInsights()
+	issueMap := createTestIssueMap()
+
+	// Width 121 was the canonical breakage point reported in the bead: the
+	// detail panel kicks in at width > 120 and steals ~41 cols, leaving
+	// mainWidth=80 -> colWidth=24. After the fix, detail is suppressed below
+	// width 141 so the 3-col grid keeps the full mainWidth.
+	//
+	// Width 100 stays in 3-col without detail. Width 80 falls through to the
+	// 2-col fallback. Width 50 falls through to the 1-col stack.
+	cases := []struct {
+		name       string
+		width      int
+		height     int
+		wantTitles []string // substrings that MUST appear in the rendered view
+	}{
+		{
+			name:   "canonical_breakage_121",
+			width:  121,
+			height: 50,
+			wantTitles: []string{
+				"Bottlenecks",
+				"Keystones",
+				"Influencers",
+				"Hubs",
+				"Authorities",
+				"Cores",
+				"Cut Points",
+				"Slack",
+				"Cycles",
+			},
+		},
+		{
+			name:   "narrow_3col_100",
+			width:  100,
+			height: 50,
+			wantTitles: []string{
+				"Bottlenecks",
+				"Influencers",
+				"Authorities",
+				"Cut Points",
+				"Cycles",
+			},
+		},
+		{
+			name:   "fallback_2col_80",
+			width:  80,
+			height: 50,
+			wantTitles: []string{
+				"Bottlenecks",
+				"Influencers",
+				"Authorities",
+				"Cut Points",
+				"Cycles",
+			},
+		},
+		{
+			name:   "fallback_1col_50",
+			width:  50,
+			height: 80,
+			wantTitles: []string{
+				"Bottlenecks",
+				"Influencers",
+				"Authorities",
+				"Cut Points",
+				"Cycles",
+			},
+		},
+		{
+			name:   "wide_with_detail_160",
+			width:  160,
+			height: 50,
+			wantTitles: []string{
+				"Bottlenecks",
+				"Influencers",
+				"Cut Points",
+				"Cycles",
+			},
+		},
+	}
+
+	// Mid-word truncation patterns that the bug produced. RenderTitledPanel
+	// truncates with a "…" suffix when title overflows, so the substring
+	// "Articul…" or "Centralit…" etc. appearing in the stripped output would
+	// indicate the bug has regressed. Subtitles inside panels are body-
+	// truncated without ellipsis, so we test those by asserting the FULL
+	// subtitle is present (subtitle truncation would clip the trailing word).
+	truncationPatterns := []string{
+		"Articul…",
+		"Centralit…",
+		"Influence…",
+		"Eigenve…",
+		"Bottlene…",
+		"Keystone…",
+		"Authorit…",
+		"Influenc…",
+		"Cut Poin…",
+	}
+
+	// Subtitles that must render in full (subtitle clipping was the visible
+	// "Eigenve" / "Articul" symptom in the bead).
+	wantSubtitles := []string{
+		"Betweenness Centrality",
+		"Eigenvector Centrality",
+		"Articulation Vertices",
+		"HITS Hub Score",
+		"HITS Authority Score",
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			m := ui.NewInsightsModel(ins, issueMap, theme)
+			m.SetSize(tt.width, tt.height)
+			rendered := m.View()
+			plain := ansi.Strip(rendered)
+
+			for _, title := range tt.wantTitles {
+				if !strings.Contains(plain, title) {
+					t.Errorf("expected title %q to appear in rendered view at width=%d, but missing", title, tt.width)
+				}
+			}
+
+			for _, sub := range wantSubtitles {
+				if !strings.Contains(plain, sub) {
+					t.Errorf("expected subtitle %q to appear in full at width=%d, but missing (subtitle truncation regression)", sub, tt.width)
+				}
+			}
+
+			for _, pat := range truncationPatterns {
+				if strings.Contains(plain, pat) {
+					t.Errorf("rendered view at width=%d contains mid-word truncation pattern %q (regression of bt-y0fv.1)", tt.width, pat)
+				}
+			}
+		})
+	}
+}
+
+// TestInsightsResponsiveColumnCount verifies the layout picks the right
+// number of columns for representative widths. This is a behavioral check
+// against the responsive thresholds (bt-y0fv.1) and is implemented by
+// counting how many top-line border corners ("╭") appear on the first
+// rendered row of the metric grid.
+func TestInsightsResponsiveColumnCount(t *testing.T) {
+	theme := createTheme()
+	ins := createTestInsights()
+	issueMap := createTestIssueMap()
+
+	cases := []struct {
+		name     string
+		width    int
+		wantCols int
+	}{
+		// Below 60: single-column stack.
+		{"col_1_w50", 50, 1},
+		// Between 60 and 89: two-column stack.
+		{"col_2_w70", 70, 2},
+		{"col_2_w80", 80, 2},
+		// 90+: three-column grid. Detail panel activates only when there is
+		// still room for a 3-col main grid (mainWidth >= 90) after subtracting
+		// it; at narrower widths the detail panel is suppressed.
+		{"col_3_w100", 100, 3},
+		{"col_3_w121", 121, 3}, // canonical breakage point: detail suppressed
+		{"col_3_w160_detail", 160, 3}, // detail active, still 3 metric cols
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			m := ui.NewInsightsModel(ins, issueMap, theme)
+			m.SetSize(tt.width, 50)
+			rendered := m.View()
+			plain := ansi.Strip(rendered)
+
+			// First non-empty line = top border row of the first metric row.
+			// Count "╭" occurrences. The detail panel adds one more "╭" on
+			// the same row when active, so subtract 1 when width >= 141.
+			lines := strings.Split(plain, "\n")
+			var firstRow string
+			for _, line := range lines {
+				if strings.Contains(line, "╭") {
+					firstRow = line
+					break
+				}
+			}
+			if firstRow == "" {
+				t.Fatalf("no top-border row found in rendered view at width=%d", tt.width)
+			}
+
+			gotCols := strings.Count(firstRow, "╭")
+			// Detail panel renders in the same top-border row as the metric
+			// panels when active; detect it by the "Details" border title.
+			if strings.Contains(firstRow, "Details") {
+				gotCols -= 1
+			}
+			if gotCols != tt.wantCols {
+				t.Errorf("at width=%d: want %d metric columns, got %d (first border row: %q)",
+					tt.width, tt.wantCols, gotCols, firstRow)
+			}
+		})
 	}
 }
