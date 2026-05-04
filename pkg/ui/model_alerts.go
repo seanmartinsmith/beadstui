@@ -219,6 +219,20 @@ func (m Model) alertsPanelHeight() int {
 	return h
 }
 
+// alertsPanelWidth returns the outer width of the shared alerts/notifications
+// modal. The modal spans the terminal (minus a small gutter) so the underlying
+// detail pane is fully occluded — a cap at 80 cells previously left bg content
+// visible flanking the modal at typical split-view widths (bt-l5xu). The
+// 4-cell gutter matches the centering math in OverlayCenter and lets the
+// background show as a thin frame around the modal.
+func (m Model) alertsPanelWidth() int {
+	w := m.width - 4
+	if w < 40 {
+		w = 40
+	}
+	return w
+}
+
 // alertsVisibleLines returns the number of alert items that fit in one page,
 // accounting for all panel chrome so the content never overflows.
 // Chrome: summary(1) + blank(1) + above+filter(1) + detail-reserve(1)
@@ -244,7 +258,7 @@ func (m Model) alertsVisibleLines() int {
 func (m Model) renderAlertsTab() string {
 	t := m.theme
 
-	panelWidth := min(80, m.width-4)
+	panelWidth := m.alertsPanelWidth()
 
 	visibleAlerts := m.visibleAlerts()
 
@@ -530,7 +544,7 @@ func formatNotificationRow(e events.Event, width int) string {
 // shared modal frame is applied in renderAlertsPanel.
 func (m Model) renderNotificationsTab() string {
 	t := m.theme
-	panelWidth := min(80, m.width-4)
+	panelWidth := m.alertsPanelWidth()
 	innerWidth := panelWidth - 4
 
 	active := m.visibleNotifications()
@@ -710,7 +724,7 @@ func (m Model) renderNotificationsTab() string {
 // (no in-body tab strip); dispatches body to the active tab.
 func (m Model) renderAlertsPanel() string {
 	t := m.theme
-	panelWidth := min(80, m.width-4)
+	panelWidth := m.alertsPanelWidth()
 
 	var title, rightLabel string
 	titleColor := t.Blocked

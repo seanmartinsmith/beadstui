@@ -1683,9 +1683,9 @@ func (m Model) handleAlertsModalClick(mouse tea.Mouse) (Model, tea.Cmd) {
 	// OverlayCenter (pkg/ui/panel.go) composites the modal centered on the
 	// background. Background width is m.width and background height is
 	// m.height-1 (footer is rendered below it). The panel's outer size is
-	// fixed by renderAlertsPanel: width = min(80, m.width-4), height set by
+	// fixed by renderAlertsPanel: width = alertsPanelWidth(), height set by
 	// alertsPanelHeight.
-	panelWidth := min(80, m.width-4)
+	panelWidth := m.alertsPanelWidth()
 	panelHeight := m.alertsPanelHeight()
 	startRow := (m.height - 1 - panelHeight) / 2
 	startCol := (m.width - panelWidth) / 2
