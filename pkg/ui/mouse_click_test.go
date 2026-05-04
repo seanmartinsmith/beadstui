@@ -514,3 +514,148 @@ func TestRenderSearchRow_ClipsToWidth(t *testing.T) {
 		})
 	}
 }
+
+// TestHandleMouseClick_SearchRowEntry_PreservesVisibleItems is the bt-r2ev
+// Bug A regression guard: clicking the search row to enter Filtering must
+// keep all underlying items visible (matching the keyboard `/` path).
+//
+// Pre-fix: the click path called m.list.SetFilterState(list.Filtering)
+// directly, bypassing Bubbles' filter-begin setup that populates
+// filteredItems = itemsAsFilterItems() when the filter buffer is empty.
+// The list then rendered as "no matches" because filteredItems was empty
+// while filterState was Filtering. The fix forwards a synthetic "/"
+// KeyPressMsg through m.list.Update so Bubbles runs the same setup it
+// runs for the keyboard path.
+func TestHandleMouseClick_SearchRowEntry_PreservesVisibleItems(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "bd-cc0", Title: "first", Status: model.StatusOpen},
+		{ID: "bd-cgh", Title: "second", Status: model.StatusOpen},
+		{ID: "cass-z95i", Title: "third", Status: model.StatusOpen},
+	}
+	m := NewModel(issues, nil, "", nil)
+	m.width = 200
+	m.height = 40
+	m.mode = ViewList
+	m.isSplitView = true
+	m.list.SetSize(60, 30)
+	m.focused = focusList
+
+	// Sanity: all items visible before any click.
+	if got := len(m.list.VisibleItems()); got != len(issues) {
+		t.Fatalf("precondition: expected %d visible items before click, got %d", len(issues), got)
+	}
+
+	// Click the search row at Y=1 with empty filter buffer.
+	msg := tea.MouseClickMsg{X: 10, Y: 1, Button: tea.MouseLeft}
+	got, _ := m.handleMouseClick(msg)
+
+	// State transitioned to Filtering (covered by bt-49nn test, but assert here too).
+	if state := got.list.FilterState(); state != list.Filtering {
+		t.Fatalf("expected FilterState=Filtering after search-row click, got %v", state)
+	}
+	// Critical Bug A invariant: items must still be visible during empty Filtering.
+	if visible := len(got.list.VisibleItems()); visible != len(issues) {
+		t.Fatalf("Bug A regression: expected %d visible items during empty Filtering, got %d "+
+			"(SetFilterState alone bypasses Bubbles' filter-begin setup)",
+			len(issues), visible)
+	}
+}
+
+// TestHandleMouseClick_ListPaneClick_CommitsActiveFilter is the bt-r2ev
+// Bug B regression guard: clicking inside the issues pane while the filter
+// is in Filtering state must commit the filter.
+//
+// Pre-fix: only clicking into the detail pane fired commitFilterIfTyping
+// (bt-ocmw). A click on a row OR in the gap below the last row kept focus
+// on focusList and left the filter stuck in Filtering — the user had to
+// click to detail, press `/`, or hit Esc to escape.
+//
+// Covers both branches:
+//   - empty buffer → ResetFilter (Unfiltered, bt-5q51 path)
+//   - non-empty buffer → FilterApplied (bt-ocmw path)
+//
+// And both click locations:
+//   - on a rendered row → commit then Select(row)
+//   - in the gap below last row → commit only (no selection change)
+func TestHandleMouseClick_ListPaneClick_CommitsActiveFilter(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "bd-cc0", Title: "first", Status: model.StatusOpen},
+		{ID: "bd-cgh", Title: "second", Status: model.StatusOpen},
+		{ID: "cass-z95i", Title: "third", Status: model.StatusOpen},
+	}
+
+	// Chrome is 3 rows (panel border + search row + column header), so
+	// row 0 renders at Y=3, row 1 at Y=4, row 2 at Y=5. A click far
+	// below (e.g. Y=20) lands in the gap between last row and footer.
+	const firstRowY = 3
+	const gapY = 20
+
+	cases := []struct {
+		name      string
+		filterBuf string
+		clickY    int
+		wantState list.FilterState
+		wantValue string
+	}{
+		{
+			name:      "row click with non-empty buffer commits to FilterApplied",
+			filterBuf: "first",
+			clickY:    firstRowY,
+			wantState: list.FilterApplied,
+			wantValue: "first",
+		},
+		{
+			name:      "row click with empty buffer resets to Unfiltered",
+			filterBuf: "",
+			clickY:    firstRowY,
+			wantState: list.Unfiltered,
+			wantValue: "",
+		},
+		{
+			name:      "gap click with non-empty buffer commits to FilterApplied",
+			filterBuf: "first",
+			clickY:    gapY,
+			wantState: list.FilterApplied,
+			wantValue: "first",
+		},
+		{
+			name:      "gap click with empty buffer resets to Unfiltered",
+			filterBuf: "",
+			clickY:    gapY,
+			wantState: list.Unfiltered,
+			wantValue: "",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := NewModel(issues, nil, "", nil)
+			m.width = 200
+			m.height = 40
+			m.mode = ViewList
+			m.isSplitView = true
+			m.list.SetSize(60, 30)
+			m.focused = focusList
+
+			// Simulate active Filtering state with the test's buffer.
+			if tc.filterBuf != "" {
+				m.list.SetFilterText(tc.filterBuf)
+			}
+			m.list.SetFilterState(list.Filtering)
+			if state := m.list.FilterState(); state != list.Filtering {
+				t.Fatalf("precondition: filter not Filtering, got %v", state)
+			}
+
+			msg := tea.MouseClickMsg{X: 10, Y: tc.clickY, Button: tea.MouseLeft}
+			got, _ := m.handleMouseClick(msg)
+
+			if state := got.list.FilterState(); state != tc.wantState {
+				t.Fatalf("Bug B regression: filter state after click = %v, want %v",
+					state, tc.wantState)
+			}
+			if val := got.list.FilterValue(); val != tc.wantValue {
+				t.Fatalf("filter value after click = %q, want %q", val, tc.wantValue)
+			}
+		})
+	}
+}

@@ -1420,10 +1420,20 @@ func (m Model) handleMouseClick(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 		// reopen instead of selecting a row. Mirrors the detail-pane "/"
 		// shortcut at the focusDetail handler above (bt-jwo3): preserves
 		// any existing FilterValue and just flips state to Filtering.
+		//
+		// We forward a synthetic "/" keypress to the Bubbles list rather
+		// than calling SetFilterState directly. SetFilterState alone
+		// flips the state flag but skips Bubbles' filter-begin setup
+		// (populating filteredItems with all items when buffer is empty,
+		// GoToStart, FilterInput.Focus/CursorEnd, updateKeybindings) —
+		// without that, an empty buffer in Filtering state renders as
+		// "no matches" instead of "all visible". The keyboard `/` path
+		// goes through Update naturally; the click path now matches it
+		// (bt-r2ev Bug A).
 		const searchRowY = 1
 		if mouse.Y == searchRowY {
 			if m.list.FilterState() != list.Filtering {
-				m.list.SetFilterState(list.Filtering)
+				m.list, _ = m.list.Update(tea.KeyPressMsg{Code: '/'})
 			}
 			return m, nil
 		}
@@ -1443,11 +1453,23 @@ func (m Model) handleMouseClick(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 				remainingOnPage = perPage
 			}
 			if mouseRow >= 0 && mouseRow < remainingOnPage {
+				// Commit any in-progress filter before selecting the row, so
+				// the click commits + selects in one gesture. Without this,
+				// a click on a row while in Filtering state keeps focus on
+				// focusList and bypasses commitFilterIfTyping (bt-ocmw),
+				// leaving the user stuck in Filtering (bt-r2ev Bug B).
+				m.commitFilterIfTyping()
 				row := mouseRow + pageStart
 				m.list.Select(row)
 				if m.isSplitView {
 					m.updateViewportContent()
 				}
+			} else {
+				// Click landed in the gap between the last rendered row and
+				// the footer. Same fix-shape as a row click: commit any
+				// in-progress filter so the gesture isn't a dead-zone for
+				// users in Filtering state (bt-r2ev Bug B).
+				m.commitFilterIfTyping()
 			}
 		}
 	default:
