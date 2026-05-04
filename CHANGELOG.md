@@ -6,6 +6,67 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-05-04 — Dogfood iteration: 16 beads shipped (12 from rapid dogfood + 4 follow-up regressions/polish)
+
+**Continuation session after the Tier-2 L8 wave. User dogfooded the running TUI and rapid-fired observations — each filed as a small bead, then either patched inline by the dispatcher or dispatched to a worktree subagent. 16 beads closed in this session arc, 7 still open (mostly epics + one P2 click-search polish for next session).**
+
+### Inline / dispatcher-driven (10 beads)
+
+- **bt-m6y5** (P3 bug, area:tui) — close-reason newlines collapsed to wall-of-text in detail pane Resolution block. Fix: `strings.ReplaceAll(closeReason, "\n", "  \n")` for markdown hard breaks. Commit `3750c2dc`.
+- **bt-0lsm** (P3 bug, area:tui) — click below last visible bead in a filtered list selected the bottom bead (Bubbles cursor clamp). Fix: bound row index against `m.list.VisibleItems()` instead of `m.list.Items()`. Commit `e4b1357f`.
+- **bt-ir8h** (P3 bug, area:tui) — footer alerts badge wasted space spelling out "alerts". Fix: format string `"%s %d (!)"` instead of `"%s %d alerts (!)"`. Commit `04b2309d`.
+- **bt-ocmw** (P2 bug, area:tui) — search-open + detail focus locked all keyboard nav (gates on `FilterState != Filtering` blocked global hotkeys, focus-specific dispatch was inside the same gate, list.Update only fired for focusList). Fix: `commitFilterIfTyping` helper called at top of `handleKeyPress` (safety net) and inline at `handleMouseClick` detail branch (visual immediacy). Commit `0358af91`. L8 design call: option #1 (commit on focus change) over #3 (gate-relaxing) — makes FilterState semantically truthful.
+- **bt-m6cd** (P2 bug, area:tui) — `renderSearchRow` didn't clip to width; long multi-query searches at narrow panes wrapped to 2 lines and broke the 1-row chrome invariant in `splitViewListChromeHeight`. Same-session regression from bt-fxbl. Fix: drop the right (count) section first when overflowing, then `lipgloss.MaxWidth` clip on left. Commit `ea74a332`.
+- **bt-sef0** (P3 task, area:tui) — search row Unfiltered placeholder polish. Changed `/  search` → `Search: /` (matches active label format, `/` rendered as hint key) and dropped the redundant `beads` suffix from the count (panel border title above already says `Issues`). Commit `4db4f813`.
+- **bt-5q51** (P3 bug, area:tui) — `commitFilterIfTyping` transitioned to FilterApplied unconditionally, so an empty buffer committed via click-out rendered as "No items" in Bubbles even when 484 issues were underneath. Fix: branch on `strings.TrimSpace(FilterInput.Value()) == ""` → `ResetFilter()` (return to Unfiltered); non-empty preserves the bt-ocmw FilterApplied path. Commit `c6bc13ec`.
+
+### Parallel L8 dispatch wave (6 beads via 4 worktree subagents)
+
+Same pattern as the 2026-05-03 L8 dispatch + Tier-2 wave. Four subagents, four focused prompts, integrated via cherry-pick.
+
+- **bt-tftj** (P2 bug, area:tui) — notifications modal mouse wheel scroll. Fix: dispatch on `m.activeTab` inside the existing `ModalAlerts` mouse-wheel branch; notifications-cursor and alerts-cursor were already split. Commit `7c174144`.
+- **bt-fxbl** (P3 feature, area:tui) — search input position consistency. Always-present search row above the column header bridging all 3 FilterStates (Unfiltered placeholder / live FilterInput.View() / committed pill). Suppress Bubbles' phantom title row via `SetShowFilter(false) + SetShowTitle(false)`. Bonus: caught a panel.go bug silently dropping `RightLabel` when `Title == ""`; extended cleanly. `Issues` panel title moved to top-right. Net: column header position never shifts. Commit `38da9314`.
+- **bt-l5xu** (P2 bug, area:tui) — notifications/alerts modal bleed-through. Root cause: `min(80, m.width-4)` capped the modal at 80 cells; `OverlayCenter` intentionally preserves background bytes outside the modal rect. Fix: shared `alertsPanelWidth()` helper. (Later refined by bt-v8he — see below.) Commit `9b81c25d`.
+- **bt-l5zk** (P3 feature, area:tui) — day separators in notifications modal. `─── 2026-05-04 ───` rows inserted on day boundaries. Threaded the `modalChromeAboveItems == firstItemRow` invariant through the new layout via an `intraPageShift` offset. Commit `051ffe27`.
+- **bt-0mxw** (P3 feature, area:tui) — color-code notification rows by action type. Theme tokens: created=Success, edited=Primary, closed=Muted, commented=Info, bulk=Warning, system=Muted. No new hex literals (per bt-pxbc theme audit). Cursor row preserves cursorStyle override. Commit `281e0f43`.
+- **bt-v8he** (P3 task, area:tui) — modal dim backdrop instead of widening to occlude. Added `OverlayCenterDimBackdrop` sibling in `pkg/ui/panel.go` (~50 LOC). `alertsPanelWidth` capped at 100 again; modal renders narrow with surrounding cells dimmed via `lipgloss.Faint`. Strip-then-rewrap (not naive wrap) for SGR safety — agent caught the gotcha. New `TestModalContentWidth_ConstantAcrossTerminalSizes` guards future widening regressions. Commit `7343e858`.
+- **bt-9kj7** (P2 bug, area:tui) — sister to bt-0lsm. Click below last rendered list row at full unfiltered (1000+ items) advanced page (row=28 still passed `< len(visible)`). Fix: bound `mouseRow` against `min(perPage, len(visible) - page*perPage)` — clicks in the gap between last rendered row and footer no-op. Commit `b0fa0d6b`.
+- **bt-49nn** (P3 feature, area:tui) — click on search row at Y=1 reopens filter input. Click handler short-circuit before the row-select math. Commit `2bb19d4a`.
+
+### Side work
+
+- **Worktree cleanup (post-Tier-2)**: deleted 18 stale `worktree-agent-*` and `fix/*` branches; archived 2 historical phase branches as `archive/*` tags (pushed to origin: `archive/phase-0-charm-v2-mechanical`, `archive/phase-0.5-test-foundation`); dropped 4 stashes; removed empty worktree dir `verify-xwt5`.
+- **bt-z26 + mkt-z26**: comment added to both with the hook-gap data point — PreToolUse hooks fire on agent Bash tool calls but NOT on user-typed `!` commands. So the guard friction is real for agents but bypassable for user-driven cleanup. Recurring class of issue worth tracking.
+- **bt-jsqj filed-then-closed-as-duplicate of bt-ezk8**. The History view global-mode gap was already filed 2026-04-08; the dogfood adds reproduction steps + suspected root cause linking to bt-08sh correlator Dolt migration. Augmented bt-ezk8 with that detail rather than carrying two beads. Lesson: search bd before filing dogfood beads on well-trodden surfaces.
+- **bt-19vp epic comment**: appended dogfood UX papercuts for History view layout (busy 3-pane chrome, awkward `commits ¢ N` wrap on left column) — fits the epic's "capture papercuts during dogfood" intent.
+- **charm-tui-design skill (marketplace)**: added "Re-styling Pre-Rendered Output" subsection to `references/LIPGLOSS.md` documenting the strip-then-rewrap pattern that bt-v8he discovered. SGR is stateful; naive `Style.Render(pre)` punches holes when `pre` contains inline `\x1b[0m` resets. Verbatim API from the v8he commit (`github.com/charmbracelet/x/ansi.Strip`). Marketplace commit `1d820fc`.
+
+### Filed for future sessions (still open)
+
+- **bt-r2ev** (P2 bug) — click-search interaction polish: don't clear list on entry (sister to bt-49nn) + click-issues-pane should commit active filter. Surfaced immediately after bt-49nn + bt-5q51 shipped. Bug A root cause: `SetFilterState(Filtering)` directly bypasses Bubbles' filter-begin setup. Bug B: `commitFilterIfTyping` only fires on focus-leave, not on intra-pane click. Investigation pointers in bead.
+- **bt-o1hs** (P3 task) — unify modal dimming across all modals (RepoPicker, LabelPicker, AgentPrompt, Cass, Update) + add convention rule for future modals. Phase 1 (RepoPicker / LabelPicker swap) is mechanically tiny; Phase 2 (CenterModal-style refactor) is more invasive; Phase 3 (AGENTS.md rule) is doc-only.
+- **bt-hn99** (P3 feature) — hover-aware mouse-wheel scroll routing (deferred from earlier in session).
+- **bt-p4p8** (P2 epic) — Notification Center as a first-class top-level view + uncapped data layer + CLI surface. Brainstormed direction captured: separate quick-nav modal (current) from rich filterable Notification Center (new top-level view). Cross-process / cross-time gaps in current diff-based detection make this worth doing.
+- **bt-udml** (P3 epic) — TUI responsive design: top-level views break at small terminal widths (Insights confirmed; others to audit).
+- **bt-ezk8** (P3, augmented) — History view broken in global mode; root cause likely linked to bt-08sh.
+- **bt-49nn** (P3) shipped this session, but its sister polish bt-r2ev is the natural next iteration.
+
+### Verify
+
+- `go build ./...` clean on main post all 16 cherry-picks + inline fixes.
+- `go vet ./...` clean.
+- `go test ./...` — all 32 packages pass including new regression guards: `TestHandleMouseClick_BelowLastRenderedRow_Unfiltered_NoPageJump`, `TestHandleMouseClick_SearchRowReopensFilter`, `TestCommitFilterIfTyping_EmptyResetsFilter`, `TestRenderSearchRow_ClipsToWidth`, `TestModalContentWidth_ConstantAcrossTerminalSizes`, day-separator and color-code tests, etc.
+- `go install ./cmd/bt/` clean. Binary current with HEAD.
+
+### Process notes / lessons
+
+- **Scratch test files left by agents trip the safety guard**. Two of three dispatched agents this session (v8he, click-handlers) created temp probe tests during investigation, couldn't delete them via the guard, and paused asking the dispatcher. Both times the dispatcher provided a one-line `rm` for the user to run. Worth a marketplace bead to allowlist `rm <untracked-test-file>` for agents.
+- **cwd drift after worktree dispatch returns**. Same trap as 2026-05-03: dispatcher's bash shell ended up in the worktree path; corrected with explicit `cd /c/Users/sms/System/tools/bt`. Pattern: use `git -C /absolute/path` for git operations across the dispatcher's lifetime.
+- **bt-jsqj duplicate filing**. Search bd before filing dogfood beads on surfaces that already have history (History view, Insights, etc.). User caught this and prompted the reconciliation.
+- **L8 design discussion: dimming vs blanking**. User chose dimming over blanking (option #1 in the bt-v8he discussion) to preserve pop-up aesthetics. The architectural primitive (`OverlayCenterDimBackdrop`) cleanly decouples occlusion from content width — future modals inherit correctness via bt-o1hs.
+
+---
+
 ## 2026-05-04 — Tier-2 L8 dispatch wave: 6 beads shipped (continuation of 2026-05-03 L8 session)
 
 **Continuation of the same L8 dispatch session that shipped 8 beads on 2026-05-03. After the user's check-in on what's next, dispatched a second wave of 6 Tier-2 beads via the same parallel-worktree pattern. Concurrent finds: filed `bd formula` for the L8 dispatch playbook, paired marketplace bead for the `git_safety_guard.py` allowlist friction.**
