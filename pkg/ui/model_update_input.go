@@ -1415,11 +1415,21 @@ func (m Model) handleMouseClick(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 		}
 		rowOffset := m.splitViewListChromeHeight()
 		if mouse.Y >= rowOffset {
-			row := mouse.Y - rowOffset + m.list.Paginator.Page*m.list.Paginator.PerPage
-			// Bound against VisibleItems (filtered slice) not Items (unfiltered)
-			// so clicks below the last rendered row are dropped (bt-0lsm).
+			mouseRow := mouse.Y - rowOffset
+			// Bound mouseRow against the rows actually rendered on the current
+			// page, not against len(visible). At large unfiltered lists, a
+			// click in the gap between the last rendered row and the footer
+			// otherwise computes a `row` index that's still < len(visible) and
+			// triggers Select() into a later page (bt-9kj7, sister of bt-0lsm).
 			visible := m.list.VisibleItems()
-			if row >= 0 && row < len(visible) {
+			perPage := m.list.Paginator.PerPage
+			pageStart := m.list.Paginator.Page * perPage
+			remainingOnPage := len(visible) - pageStart
+			if remainingOnPage > perPage {
+				remainingOnPage = perPage
+			}
+			if mouseRow >= 0 && mouseRow < remainingOnPage {
+				row := mouseRow + pageStart
 				m.list.Select(row)
 				if m.isSplitView {
 					m.updateViewportContent()

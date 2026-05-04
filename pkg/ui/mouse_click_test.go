@@ -182,6 +182,56 @@ func TestHandleMouseClick_BelowLastVisibleRow_NoSelectionChange(t *testing.T) {
 	}
 }
 
+// TestHandleMouseClick_BelowLastRenderedRow_Unfiltered_NoPageJump verifies that
+// at large unfiltered lists, clicking in the empty viewport region between the
+// last rendered row and the footer does NOT trigger a page advance (bt-9kj7,
+// sister of bt-0lsm). With 1000+ items the bt-0lsm bound (`row < len(visible)`)
+// passes for any plausible Y; the fix bounds against rows actually rendered on
+// the current page.
+func TestHandleMouseClick_BelowLastRenderedRow_Unfiltered_NoPageJump(t *testing.T) {
+	issues := make([]model.Issue, 0, 1000)
+	for i := 0; i < 1000; i++ {
+		issues = append(issues, model.Issue{
+			ID:     "bd-aa" + string(rune('a'+i%26)) + string(rune('a'+(i/26)%26)),
+			Title:  "row",
+			Status: model.StatusOpen,
+		})
+	}
+	m := NewModel(issues, nil, "", nil)
+	m.width = 200
+	m.height = 40
+	m.mode = ViewList
+	m.isSplitView = true
+	m.list.SetSize(60, 30)
+	m.focused = focusList
+
+	// Pre-condition: index 0 selected, page 0.
+	m.list.Select(0)
+	if m.list.Index() != 0 {
+		t.Fatalf("precondition: list.Select(0) failed, got %d", m.list.Index())
+	}
+	startPage := m.list.Paginator.Page
+	if startPage != 0 {
+		t.Fatalf("precondition: expected page 0, got %d", startPage)
+	}
+
+	// Click in the empty viewport region between the last rendered row and
+	// the footer. List height=30, chrome=3, PerPage=30 -> page 0 rendered
+	// rows occupy Y=3..32. Footer is at Y=39 (m.height-1). Y=35 lands in
+	// the empty gap that the bt-0lsm bound failed to protect.
+	msg := tea.MouseClickMsg{X: 10, Y: 35, Button: tea.MouseLeft}
+	got, _ := m.handleMouseClick(msg)
+
+	if got.list.Index() != 0 {
+		t.Fatalf("click below last rendered row should not change selection, expected index 0, got %d",
+			got.list.Index())
+	}
+	if got.list.Paginator.Page != startPage {
+		t.Fatalf("click below last rendered row should not advance page, expected page %d, got %d",
+			startPage, got.list.Paginator.Page)
+	}
+}
+
 // TestHandleMouseClick_DetailFocusCommitsFilter verifies clicking the detail
 // pane while the search input is in Filtering state commits the filter to
 // FilterApplied (bt-ocmw). Without this, all global hotkeys gated on
