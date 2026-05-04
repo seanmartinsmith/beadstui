@@ -199,32 +199,63 @@ func (m Model) renderQuitConfirm() string {
 	)
 }
 
-// renderSearchPill returns a one-line "Search: <query>" indicator to prepend
-// above the list's column header when a filter is applied but not being edited
-// (bt-031h). Returns "" when no indicator is needed — during Filtering the
-// Bubbles list renders its own FilterInput in titleView, and during Unfiltered
-// nothing belongs there. Width is the row width to fill.
-func (m Model) renderSearchPill(width int) string {
-	if m.list.FilterState() != list.FilterApplied {
-		return ""
-	}
-	query := strings.TrimSpace(m.list.FilterInput.Value())
-	if query == "" {
-		return ""
-	}
-
+// renderSearchRow returns the always-present, one-line search row that lives
+// directly above the list's column header (bt-fxbl). It bridges all three
+// filter states with a fixed-height row so the column header position never
+// shifts as the user types, commits, or clears the filter:
+//
+//   - Unfiltered:    discreet placeholder hint ("/  search   <count> beads")
+//   - Filtering:     live FilterInput rendered via m.list.FilterInput.View()
+//                    (with our own prompt + cursor shown); count of running
+//                    matches on the right.
+//   - FilterApplied: committed query + match count on the right (the original
+//                    "search pill" behavior, bt-031h).
+//
+// Why we own this rather than letting Bubbles render its titleView: Bubbles'
+// built-in title row sits BELOW our column header strip, and during Filtering
+// it shows the FilterInput there — visibly shifting the column header by one
+// row relative to FilterApplied (where the pill renders ABOVE). Suppressing
+// Bubbles' titleView via SetShowFilter(false) + SetShowTitle(false) and
+// rendering this row ourselves above the column header makes chrome height
+// constant across states. Width is the row width to fill.
+func (m Model) renderSearchRow(width int) string {
 	t := m.theme
-
+	state := m.list.FilterState()
 	totalItems := len(m.list.Items())
 	visibleItems := len(m.list.VisibleItems())
-	count := fmt.Sprintf("  %d/%d matches  ", visibleItems, totalItems)
 
+	hintStyle := lipgloss.NewStyle().Foreground(t.Subtext).Italic(true)
 	labelStyle := lipgloss.NewStyle().Foreground(t.Muted)
 	queryStyle := lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
 	countStyle := lipgloss.NewStyle().Foreground(t.Muted)
 
-	left := labelStyle.Render("  Search: ") + queryStyle.Render(query)
-	right := countStyle.Render(count)
+	var left, right string
+
+	switch state {
+	case list.Filtering:
+		// Live editing: render the FilterInput directly so the cursor + typed
+		// chars are visible. The prompt "Search: " is set on l.FilterInput in
+		// model.go (bt-imcn). FilterInput.View() handles cursor blink for us.
+		left = "  " + m.list.FilterInput.View()
+		// Show running match count if we have a query.
+		query := strings.TrimSpace(m.list.FilterInput.Value())
+		if query != "" {
+			right = countStyle.Render(fmt.Sprintf("  %d/%d matches  ", visibleItems, totalItems))
+		}
+	case list.FilterApplied:
+		query := strings.TrimSpace(m.list.FilterInput.Value())
+		if query == "" {
+			// Edge: applied with empty query — fall through to placeholder.
+			left = hintStyle.Render("  /  search")
+			right = countStyle.Render(fmt.Sprintf("  %d beads  ", totalItems))
+		} else {
+			left = labelStyle.Render("  Search: ") + queryStyle.Render(query)
+			right = countStyle.Render(fmt.Sprintf("  %d/%d matches  ", visibleItems, totalItems))
+		}
+	default: // list.Unfiltered
+		left = hintStyle.Render("  /  search")
+		right = countStyle.Render(fmt.Sprintf("  %d beads  ", totalItems))
+	}
 
 	leftWidth := lipgloss.Width(left)
 	rightWidth := lipgloss.Width(right)
@@ -334,15 +365,15 @@ func (m Model) renderListWithHeader() string {
 		bodyHeight = 3
 	}
 
-	// Build content with explicit height constraint
-	// Header (1) + List + PageLine (1) must fit in bodyHeight.
-	// When a search filter is applied (bt-031h) we prepend a pill showing the
-	// active query so it remains visible when focus moves to the list body.
-	parts := []string{headerLine}
-	if pill := m.renderSearchPill(m.width - 2); pill != "" {
-		parts = append([]string{pill}, parts...)
-	}
-	parts = append(parts, listView, pageLine)
+	// Build content with explicit height constraint.
+	// Layout (top to bottom): SearchRow (1) + ColumnHeader (1) + List + PageLine (1).
+	// The search row is ALWAYS rendered above the column header (bt-fxbl) so
+	// the header position is stable across all FilterStates: empty placeholder
+	// when Unfiltered, live FilterInput when Filtering, applied pill when
+	// FilterApplied. This fixed chrome height also keeps the click row math
+	// (splitViewListChromeHeight) deterministic.
+	searchRow := m.renderSearchRow(m.width - 2)
+	parts := []string{searchRow, headerLine, listView, pageLine}
 	content := lipgloss.JoinVertical(lipgloss.Left, parts...)
 
 	// Force exact height to prevent overflow
@@ -395,24 +426,27 @@ func (m Model) renderSplitView() string {
 
 	pageLine := pageStyle.Render(pageInfo)
 
-	// Combine header + list + page indicator. Search pill (bt-031h) persists
-	// the active filter indicator when the list loses input focus.
-	splitParts := []string{header}
-	if pill := m.renderSearchPill(listInnerWidth); pill != "" {
-		splitParts = append([]string{pill}, splitParts...)
-	}
-	splitParts = append(splitParts, m.list.View(), pageLine)
+	// Combine search row + column header + list + page indicator. The search
+	// row (bt-fxbl) is always rendered above the column header so chrome
+	// height is fixed across all FilterStates. This also keeps the
+	// click-row math (splitViewListChromeHeight) deterministic.
+	searchRow := m.renderSearchRow(listInnerWidth)
+	splitParts := []string{searchRow, header, m.list.View(), pageLine}
 	listContent := lipgloss.JoinVertical(lipgloss.Left, splitParts...)
 
 	// Titled panel dimensions: outer width includes the 2 border chars
 	listOuterWidth := listInnerWidth + 4 // content + padding + borders
 	detailOuterWidth := m.viewport.Width() + 4
 
+	// "Issues" rendered as the right-side label (bt-fxbl) — moves the title
+	// from top-left to top-right so the panel chrome doesn't compete visually
+	// with the column header right below it. PanelOpts.RightLabel + empty
+	// Title achieves this without growing the PanelOpts API.
 	listView := RenderTitledPanel(listContent, PanelOpts{
-		Title:   "Issues",
-		Width:   listOuterWidth,
-		Height:  panelHeight,
-		Focused: m.focused == focusList,
+		RightLabel: "Issues",
+		Width:      listOuterWidth,
+		Height:     panelHeight,
+		Focused:    m.focused == focusList,
 	})
 
 	detailView := RenderTitledPanel(m.viewport.View(), PanelOpts{

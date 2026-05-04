@@ -160,6 +160,23 @@ func RenderTitledPanel(content string, opts PanelOpts) string {
 				top.WriteString(borderStyle.Render(strings.Repeat(h, fillTotal)))
 			}
 		}
+	} else if opts.RightLabel != "" {
+		// No left title, only a right-aligned label (bt-fxbl). Renders as
+		// ╭───────────── Label ─╮  — the panel-as-titled-strip variant.
+		rightDisplay := opts.RightLabel
+		rightDisplayWidth := runewidth.StringWidth(rightDisplay)
+		// " label ─" overhead (space + label + space + trailing dash)
+		rightChunk := 1 + rightDisplayWidth + 2
+		fillTotal := innerWidth - rightChunk
+		if fillTotal < 0 {
+			fillTotal = 0
+		}
+		if fillTotal > 0 {
+			top.WriteString(borderStyle.Render(strings.Repeat(h, fillTotal)))
+		}
+		top.WriteString(borderStyle.Render(" "))
+		top.WriteString(titleStyle.Render(rightDisplay))
+		top.WriteString(borderStyle.Render(" " + h))
 	} else {
 		top.WriteString(borderStyle.Render(strings.Repeat(h, innerWidth)))
 	}

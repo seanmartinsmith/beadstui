@@ -5,6 +5,7 @@ import (
 
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
@@ -94,13 +95,15 @@ func TestHandleMouseClick_NonListModeIgnored(t *testing.T) {
 
 // TestHandleMouseClick_RowMathMatchesChrome verifies the Y-to-row offset
 // computation accounts for all vertical chrome above the first list item
-// in split view (bt-58yw regression fix). The chrome rows are:
+// in split view (bt-58yw regression fix; bt-fxbl chrome unification).
+//
+// Post bt-fxbl chrome rows are:
 //   1. RenderTitledPanel top border
-//   2. Optional search pill (not present in this test; FilterState = Unfiltered)
+//   2. renderSearchRow (always 1 row, bridges all FilterStates)
 //   3. renderSplitView column header row
-//   4. Bubbles list phantom title row emitted because SetShowTitle(false)
-//      is not enough to suppress the titleView branch in bubbles/v2/list/list.go
-//      when SetFilteringEnabled(true) is also in effect.
+//
+// The Bubbles phantom title row is gone — l.SetShowFilter(false) +
+// l.SetShowTitle(false) skips the titleView branch entirely in list.View().
 func TestHandleMouseClick_RowMathMatchesChrome(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "bd-cc0", Title: "docs: first PR", Status: model.StatusOpen},
@@ -217,5 +220,115 @@ func TestHandleMouseClick_DetailFocusCommitsFilter(t *testing.T) {
 	}
 	if val := got.list.FilterValue(); val != "first" {
 		t.Fatalf("filter value should be preserved on commit, got %q want %q", val, "first")
+	}
+}
+
+// TestSplitViewChromeHeight_StableAcrossFilterStates is the core bt-fxbl
+// regression guard: the chrome height (= Y of first list item) MUST be
+// identical across Unfiltered, Filtering, and FilterApplied so the column
+// header doesn't visibly shift as the user types/commits/clears the filter.
+//
+// Before bt-fxbl: chrome differed by 1 row between Filtering (Bubbles
+// rendered FilterInput in titleView, below our column header) and
+// FilterApplied (our renderSearchPill rendered above the column header),
+// jarring the user's eye every time the state transitioned.
+func TestSplitViewChromeHeight_StableAcrossFilterStates(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "bd-cc0", Title: "first", Status: model.StatusOpen},
+		{ID: "bd-cgh", Title: "second", Status: model.StatusOpen},
+		{ID: "cass-z95i", Title: "third", Status: model.StatusOpen},
+	}
+	m := NewModel(issues, nil, "", nil)
+	m.width = 200
+	m.height = 40
+	m.mode = ViewList
+	m.isSplitView = true
+	m.list.SetSize(60, 30)
+
+	// Unfiltered baseline.
+	hUnfiltered := m.splitViewListChromeHeight()
+
+	// Filtering: simulate the user opening / and typing.
+	m.list.SetFilterText("first")
+	m.list.SetFilterState(list.Filtering)
+	hFiltering := m.splitViewListChromeHeight()
+
+	// FilterApplied: committed.
+	m.list.SetFilterState(list.FilterApplied)
+	hApplied := m.splitViewListChromeHeight()
+
+	if hUnfiltered != hFiltering {
+		t.Errorf("chrome height changed between Unfiltered (%d) and Filtering (%d) — column header would shift",
+			hUnfiltered, hFiltering)
+	}
+	if hUnfiltered != hApplied {
+		t.Errorf("chrome height changed between Unfiltered (%d) and FilterApplied (%d) — column header would shift",
+			hUnfiltered, hApplied)
+	}
+	if hFiltering != hApplied {
+		t.Errorf("chrome height changed between Filtering (%d) and FilterApplied (%d) — column header would shift",
+			hFiltering, hApplied)
+	}
+
+	// Sanity: chrome height is panel border (1) + search row (1) + column header (1) = 3.
+	const expectedChrome = 3
+	if hUnfiltered != expectedChrome {
+		t.Errorf("expected chrome height %d (panel border + search row + column header), got %d",
+			expectedChrome, hUnfiltered)
+	}
+}
+
+// TestRenderSearchRow_AlwaysOneRow verifies the search row is fixed-height
+// (1 terminal row) across all FilterStates. This is the precondition for
+// the chrome stability above (bt-fxbl).
+func TestRenderSearchRow_AlwaysOneRow(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "bd-cc0", Title: "first", Status: model.StatusOpen},
+		{ID: "bd-cgh", Title: "second", Status: model.StatusOpen},
+	}
+	m := NewModel(issues, nil, "", nil)
+	m.width = 200
+	m.height = 40
+	m.mode = ViewList
+	m.isSplitView = true
+	m.list.SetSize(80, 30)
+
+	cases := []struct {
+		name  string
+		setup func()
+	}{
+		{
+			name:  "Unfiltered",
+			setup: func() { /* default */ },
+		},
+		{
+			name: "Filtering with query",
+			setup: func() {
+				m.list.SetFilterText("first")
+				m.list.SetFilterState(list.Filtering)
+			},
+		},
+		{
+			name: "FilterApplied with query",
+			setup: func() {
+				m.list.SetFilterText("first")
+				m.list.SetFilterState(list.FilterApplied)
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc.setup()
+			row := m.renderSearchRow(m.list.Width())
+			if row == "" {
+				t.Fatalf("renderSearchRow returned empty string in state %s — chrome height would shift", tc.name)
+			}
+			// Use lipgloss.Height to count rows (defense in depth: a styled
+			// row that wrapped would count as >1).
+			if h := lipgloss.Height(row); h != 1 {
+				t.Errorf("renderSearchRow returned %d-row output in state %s; want exactly 1 row", h, tc.name)
+			}
+		})
 	}
 }

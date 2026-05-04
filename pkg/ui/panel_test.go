@@ -221,3 +221,25 @@ func TestRenderTitledPanel_RightLabel(t *testing.T) {
 		t.Errorf("empty RightLabel should not introduce parens; got:\n%s", plain)
 	}
 }
+
+// TestRenderTitledPanel_RightLabelOnly covers the bt-fxbl variant where the
+// caller wants the label rendered ONLY on the right (no left title). Used
+// by the Issues panel in renderSplitView so the title doesn't compete
+// visually with the column header right below it.
+func TestRenderTitledPanel_RightLabelOnly(t *testing.T) {
+	result := RenderTitledPanel("body", PanelOpts{
+		RightLabel: "Issues",
+		Width:      40,
+	})
+	firstLine := strings.SplitN(result, "\n", 2)[0]
+	if !strings.Contains(firstLine, "Issues") {
+		t.Errorf("right-label-only panel should show label on top border; got:\n%s", firstLine)
+	}
+	// Width should still equal opts.Width (corner stability).
+	if w := lipgloss.Width(firstLine); w != 40 {
+		t.Errorf("top border width expected 40 (opts.Width), got %d; line=%q", w, firstLine)
+	}
+	// Sanity: the label appears in the top border (ANSI styling may split
+	// "Issues" from the trailing space). Above we already asserted "Issues"
+	// is present and the line width matches opts.Width.
+}

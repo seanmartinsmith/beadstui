@@ -865,6 +865,15 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 	l.SetShowStatusBar(false)
 	l.SetShowPagination(false)
 	l.SetFilteringEnabled(true)
+	// Suppress Bubbles' built-in titleView entirely (bt-fxbl). Bubbles renders
+	// its FilterInput inside titleView during the Filtering state, which lands
+	// BELOW our column header — causing the column header to visibly shift as
+	// the user types/commits/clears. We render our own search row above the
+	// column header (renderSearchRow) so the position is stable across all
+	// FilterStates. SetShowFilter(false) keeps filtering working but stops
+	// the built-in render path; Bubbles' own docs note this is the intended
+	// hook for "render filtering UI differently".
+	l.SetShowFilter(false)
 	l.DisableQuitKeybindings()
 	// The Bubbles list ships a "Filter: " prompt; bt's affordance is a search
 	// bar (/), and the footer shows fuzzy/semantic/hybrid search modes — so the
