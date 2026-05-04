@@ -181,3 +181,75 @@ func TestAlertsModalItemAtY_ChromeGuard(t *testing.T) {
 		t.Errorf("first item row should map to index 0, got (%d, %v)", idx, ok)
 	}
 }
+
+// TestAlertsModal_MouseWheelMovesCursor confirms the wheel handler advances
+// alertsCursor when the modal is open on the alerts tab. Regression baseline
+// for bt-tftj — the notifications equivalent below mirrors this contract.
+func TestAlertsModal_MouseWheelMovesCursor(t *testing.T) {
+	m := modalMouseModel(t)
+	if m.alertsCursor != 0 {
+		t.Fatalf("setup: expected alertsCursor=0, got %d", m.alertsCursor)
+	}
+	// Wheel down advances cursor by one (alerts has 4 items, so up to idx 3).
+	got, _ := m.handleMouseWheel(tea.MouseWheelMsg{Button: tea.MouseWheelDown})
+	if got.alertsCursor != 1 {
+		t.Fatalf("wheel down: expected alertsCursor=1, got %d", got.alertsCursor)
+	}
+	// Wheel up retreats by one.
+	got, _ = got.handleMouseWheel(tea.MouseWheelMsg{Button: tea.MouseWheelUp})
+	if got.alertsCursor != 0 {
+		t.Fatalf("wheel up: expected alertsCursor=0, got %d", got.alertsCursor)
+	}
+	// Wheel up at top stays at 0 (no underflow).
+	got, _ = got.handleMouseWheel(tea.MouseWheelMsg{Button: tea.MouseWheelUp})
+	if got.alertsCursor != 0 {
+		t.Fatalf("wheel up at top: expected alertsCursor=0, got %d", got.alertsCursor)
+	}
+}
+
+// TestNotificationsModal_MouseWheelMovesCursor is the bt-tftj fix coverage.
+// Mouse wheel in the notifications tab must move notificationsCursor (not
+// alertsCursor) and respect the visibleNotifications bounds.
+func TestNotificationsModal_MouseWheelMovesCursor(t *testing.T) {
+	m := seedModel()
+	m.events = events.NewRingBuffer(10)
+	m.events.AppendMany([]events.Event{
+		{ID: "e1", Kind: events.EventCreated, BeadID: "bt-1", Repo: "bt", Title: "one", At: time.Now()},
+		{ID: "e2", Kind: events.EventCreated, BeadID: "bt-2", Repo: "bt", Title: "two", At: time.Now()},
+		{ID: "e3", Kind: events.EventCreated, BeadID: "bt-3", Repo: "bt", Title: "three", At: time.Now()},
+	})
+	m = pressRune(m, '1') // open notifications tab
+	if m.activeModal != ModalAlerts || m.activeTab != TabNotifications {
+		t.Fatalf("setup: modal/tab not as expected (%v/%v)", m.activeModal, m.activeTab)
+	}
+	if m.notificationsCursor != 0 {
+		t.Fatalf("setup: expected notificationsCursor=0, got %d", m.notificationsCursor)
+	}
+	priorAlertsCursor := m.alertsCursor
+
+	// Wheel down advances notificationsCursor.
+	got, _ := m.handleMouseWheel(tea.MouseWheelMsg{Button: tea.MouseWheelDown})
+	if got.notificationsCursor != 1 {
+		t.Fatalf("wheel down: expected notificationsCursor=1, got %d", got.notificationsCursor)
+	}
+	if got.alertsCursor != priorAlertsCursor {
+		t.Fatalf("wheel down on notifications tab must not move alertsCursor (was %d, now %d)", priorAlertsCursor, got.alertsCursor)
+	}
+	// Two more wheel-downs should land on idx 2 then clamp at 2 (last index).
+	got, _ = got.handleMouseWheel(tea.MouseWheelMsg{Button: tea.MouseWheelDown})
+	got, _ = got.handleMouseWheel(tea.MouseWheelMsg{Button: tea.MouseWheelDown})
+	if got.notificationsCursor != 2 {
+		t.Fatalf("wheel down clamp: expected notificationsCursor=2, got %d", got.notificationsCursor)
+	}
+	// Wheel up retreats by one.
+	got, _ = got.handleMouseWheel(tea.MouseWheelMsg{Button: tea.MouseWheelUp})
+	if got.notificationsCursor != 1 {
+		t.Fatalf("wheel up: expected notificationsCursor=1, got %d", got.notificationsCursor)
+	}
+	// Wheel up past 0 clamps.
+	got, _ = got.handleMouseWheel(tea.MouseWheelMsg{Button: tea.MouseWheelUp})
+	got, _ = got.handleMouseWheel(tea.MouseWheelMsg{Button: tea.MouseWheelUp})
+	if got.notificationsCursor != 0 {
+		t.Fatalf("wheel up clamp: expected notificationsCursor=0, got %d", got.notificationsCursor)
+	}
+}

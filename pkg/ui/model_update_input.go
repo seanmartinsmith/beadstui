@@ -1444,17 +1444,35 @@ func (m Model) handleMouseClick(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 
 // handleMouseWheel processes mouse wheel events.
 func (m Model) handleMouseWheel(msg tea.MouseWheelMsg) (Model, tea.Cmd) {
-	// Intercept mouse wheel when alerts panel is open
+	// Intercept mouse wheel when the shared alerts/notifications modal is open.
+	// The modal hosts two tabs (alerts + notifications) with separate cursor
+	// state — route the wheel by activeTab so notifications scrolls too
+	// (bt-tftj).
 	if m.activeModal == ModalAlerts {
-		activeAlerts := m.visibleAlerts()
-		switch msg.Button {
-		case tea.MouseWheelUp:
-			if m.alertsCursor > 0 {
-				m.alertsCursor--
+		switch m.activeTab {
+		case TabNotifications:
+			activeNotifs := m.visibleNotifications()
+			switch msg.Button {
+			case tea.MouseWheelUp:
+				if m.notificationsCursor > 0 {
+					m.notificationsCursor--
+				}
+			case tea.MouseWheelDown:
+				if m.notificationsCursor < len(activeNotifs)-1 {
+					m.notificationsCursor++
+				}
 			}
-		case tea.MouseWheelDown:
-			if m.alertsCursor < len(activeAlerts)-1 {
-				m.alertsCursor++
+		default:
+			activeAlerts := m.visibleAlerts()
+			switch msg.Button {
+			case tea.MouseWheelUp:
+				if m.alertsCursor > 0 {
+					m.alertsCursor--
+				}
+			case tea.MouseWheelDown:
+				if m.alertsCursor < len(activeAlerts)-1 {
+					m.alertsCursor++
+				}
 			}
 		}
 		return m, nil
