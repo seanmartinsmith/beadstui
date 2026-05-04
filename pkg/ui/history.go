@@ -113,10 +113,11 @@ type HistoryModel struct {
 	beadIDs   []string                  // Sorted bead IDs for navigation
 
 	// Navigation state
-	selectedBead   int // Index into beadIDs
-	selectedCommit int // Index into selected bead's commits
-	scrollOffset   int // For scrolling the bead list
-	focused        historyFocus
+	selectedBead       int // Index into beadIDs
+	selectedCommit     int // Index into selected bead's commits
+	scrollOffset       int // For scrolling the bead list
+	detailScrollOffset int // For scrolling the detail panel content (bt-npnh)
+	focused            historyFocus
 
 	// Git-centric mode state (bv-tl3n)
 	viewMode            historyViewMode
@@ -584,6 +585,7 @@ func (h *HistoryModel) MoveUp() {
 			h.selectedBead--
 			h.selectedCommit = 0
 			h.middleScrollOffset = 0 // Reset middle scroll when changing bead (bv-xrfh)
+			h.detailScrollOffset = 0 // Reset detail scroll when changing bead (bt-npnh)
 			h.ensureBeadVisible()
 		}
 	} else {
@@ -605,6 +607,7 @@ func (h *HistoryModel) MoveDown() {
 			h.selectedBead++
 			h.selectedCommit = 0
 			h.middleScrollOffset = 0 // Reset middle scroll when changing bead (bv-xrfh)
+			h.detailScrollOffset = 0 // Reset detail scroll when changing bead (bt-npnh)
 			h.ensureBeadVisible()
 		}
 	} else {
@@ -2318,14 +2321,19 @@ func (h *HistoryModel) renderDetailPanel(width, height int) string {
 	}
 	beadInfoStyle := lipgloss.NewStyle().Foreground(t.Secondary)
 
-	var lines []string
-	lines = append(lines, header)
-	lines = append(lines, beadInfoStyle.Render(beadInfo))
+	// Build header (always shown, fixed at top)
 	detailSepWidth := width - 4
 	if detailSepWidth < 1 {
 		detailSepWidth = 1
 	}
-	lines = append(lines, strings.Repeat("─", detailSepWidth))
+	headerLines := []string{
+		header,
+		beadInfoStyle.Render(beadInfo),
+		strings.Repeat("─", detailSepWidth),
+	}
+
+	// Build scrollable content region (events + commits)
+	var contentLines []string
 
 	// === LIFECYCLE EVENTS SECTION (bv-7k8p) ===
 	// Show compact timeline of lifecycle events if available
@@ -2333,8 +2341,18 @@ func (h *HistoryModel) renderDetailPanel(width, height int) string {
 		// Limit events section to ~4 lines to leave room for commits
 		maxEventLines := 5
 		eventLines := h.renderEventsSection(hist.Events, width-4, maxEventLines)
-		lines = append(lines, eventLines...)
-		lines = append(lines, "") // Spacer before commits
+		contentLines = append(contentLines, eventLines...)
+		contentLines = append(contentLines, "") // Spacer before commits
+	}
+
+	// Render commits
+	for i, commit := range hist.Commits {
+		isSelected := i == h.selectedCommit && h.focused == historyFocusDetail
+		commitLines := h.renderCommitDetail(commit, width-4, isSelected)
+		contentLines = append(contentLines, commitLines...)
+		if i < len(hist.Commits)-1 {
+			contentLines = append(contentLines, "") // Spacer between commits
+		}
 	}
 
 	// Calculate aggregate stats for footer (bv-9fk1)
@@ -2355,34 +2373,7 @@ func (h *HistoryModel) renderDetailPanel(width, height int) string {
 		avgConf = totalConf / float64(len(hist.Commits))
 	}
 
-	// Reserve space for footer (3 lines: separator + stats + hint)
-	footerHeight := 3
-	contentHeight := height - 2 - footerHeight - 3 // -3 for header lines
-
-	// Render commits
-	for i, commit := range hist.Commits {
-		isSelected := i == h.selectedCommit && h.focused == historyFocusDetail
-		commitLines := h.renderCommitDetail(commit, width-4, isSelected)
-		lines = append(lines, commitLines...)
-		if i < len(hist.Commits)-1 {
-			lines = append(lines, "") // Spacer between commits
-		}
-	}
-
-	// Pad content to push footer to bottom
-	for len(lines) < contentHeight+3 { // +3 for header lines
-		lines = append(lines, "")
-	}
-
-	// Truncate content if too long (before adding footer)
-	if len(lines) > contentHeight+3 {
-		lines = lines[:contentHeight+3]
-	}
-
-	// === STATS FOOTER (bv-9fk1) ===
-	lines = append(lines, strings.Repeat("─", detailSepWidth))
-
-	// Stats line
+	// Build footer (always shown, fixed at bottom)
 	statsStyle := lipgloss.NewStyle().Foreground(t.Muted)
 	confStyle := lipgloss.NewStyle()
 	switch {
@@ -2405,14 +2396,169 @@ func (h *HistoryModel) renderDetailPanel(width, height int) string {
 	statsItems = append(statsItems, confStyle.Render(fmt.Sprintf("%.0f%% avg", avgConf*100)))
 
 	statsLine := statsStyle.Render(strings.Join(statsItems, " • "))
-	lines = append(lines, statsLine)
 
-	// Navigation hint (bv-xf4p: added o and g keys)
+	// Navigation hint (bv-xf4p: added o and g keys; bt-npnh: scroll hint)
 	hintStyle := lipgloss.NewStyle().Foreground(t.Muted).Italic(true)
-	lines = append(lines, hintStyle.Render("J/K:nav  y:copy  o:open  g:graph"))
+	hintText := "J/K:nav  y:copy  o:open  g:graph"
+	if h.focused == historyFocusDetail {
+		hintText = "J/K:nav  C-d/C-u:scroll  y:copy  o:open  g:graph"
+	}
 
-	content := strings.Join(lines, "\n")
+	footerLines := []string{
+		strings.Repeat("─", detailSepWidth),
+		statsLine,
+		hintStyle.Render(hintText),
+	}
+
+	// Determine visible window for scrollable content.
+	// Inner panel height = height - 2 (border). Subtract header + footer for content area.
+	contentHeight := height - 2 - len(headerLines) - len(footerLines)
+	if contentHeight < 1 {
+		contentHeight = 1
+	}
+
+	// Clamp scroll offset to valid range based on actual content size.
+	maxOffset := len(contentLines) - contentHeight
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if h.detailScrollOffset > maxOffset {
+		h.detailScrollOffset = maxOffset
+	}
+	if h.detailScrollOffset < 0 {
+		h.detailScrollOffset = 0
+	}
+
+	// Slice content window
+	end := h.detailScrollOffset + contentHeight
+	if end > len(contentLines) {
+		end = len(contentLines)
+	}
+	visibleContent := append([]string(nil), contentLines[h.detailScrollOffset:end]...)
+
+	// Pad content so footer always sits at the bottom even when content is short.
+	for len(visibleContent) < contentHeight {
+		visibleContent = append(visibleContent, "")
+	}
+
+	// Compose: header + visible content + footer
+	allLines := make([]string, 0, len(headerLines)+len(visibleContent)+len(footerLines))
+	allLines = append(allLines, headerLines...)
+	allLines = append(allLines, visibleContent...)
+	allLines = append(allLines, footerLines...)
+
+	content := strings.Join(allLines, "\n")
 	return panelStyle.Render(content)
+}
+
+// detailContentLines computes the total number of lines in the scrollable
+// content region of the detail panel for the currently-selected bead. Used by
+// scroll methods to clamp offsets without rendering. (bt-npnh)
+func (h *HistoryModel) detailContentLines(width int) int {
+	hist := h.SelectedHistory()
+	if hist == nil {
+		return 0
+	}
+	total := 0
+	if len(hist.Events) > 0 {
+		// renderEventsSection caps at maxEventLines (5) plus spacer
+		eventLines := h.renderEventsSection(hist.Events, width-4, 5)
+		total += len(eventLines) + 1 // +1 spacer
+	}
+	for i, commit := range hist.Commits {
+		commitLines := h.renderCommitDetail(commit, width-4, false)
+		total += len(commitLines)
+		if i < len(hist.Commits)-1 {
+			total++ // spacer
+		}
+	}
+	return total
+}
+
+// detailVisibleHeight returns the number of content lines visible in the detail
+// panel given the current panel height. (bt-npnh)
+func (h *HistoryModel) detailVisibleHeight(height int) int {
+	// header = 3 lines, footer = 3 lines, inner panel = height - 2 (border)
+	v := height - 2 - 3 - 3
+	if v < 1 {
+		return 1
+	}
+	return v
+}
+
+// ScrollDetailDown scrolls the detail panel content down by one line. (bt-npnh)
+func (h *HistoryModel) ScrollDetailDown() {
+	h.detailScrollOffset++
+	// Render-time clamp will fix overflow. We can also clamp here to keep
+	// state consistent for tests that don't render.
+	h.clampDetailScroll()
+}
+
+// ScrollDetailUp scrolls the detail panel content up by one line. (bt-npnh)
+func (h *HistoryModel) ScrollDetailUp() {
+	if h.detailScrollOffset > 0 {
+		h.detailScrollOffset--
+	}
+}
+
+// ScrollDetailHalfPageDown scrolls the detail panel content down by half a
+// visible page. (bt-npnh)
+func (h *HistoryModel) ScrollDetailHalfPageDown() {
+	visible := h.detailVisibleHeight(h.height)
+	h.detailScrollOffset += visible / 2
+	if visible/2 == 0 {
+		h.detailScrollOffset++
+	}
+	h.clampDetailScroll()
+}
+
+// ScrollDetailHalfPageUp scrolls the detail panel content up by half a
+// visible page. (bt-npnh)
+func (h *HistoryModel) ScrollDetailHalfPageUp() {
+	visible := h.detailVisibleHeight(h.height)
+	step := visible / 2
+	if step == 0 {
+		step = 1
+	}
+	h.detailScrollOffset -= step
+	if h.detailScrollOffset < 0 {
+		h.detailScrollOffset = 0
+	}
+}
+
+// clampDetailScroll bounds detailScrollOffset to [0, max] using a best-effort
+// estimate of total content height for the current panel width. (bt-npnh)
+func (h *HistoryModel) clampDetailScroll() {
+	// Use the detail panel's likely width from the current layout. The render
+	// path will re-clamp using exact width, this is just a state guard.
+	width := h.width
+	if width <= 0 {
+		// No layout yet; rely on render-time clamp.
+		return
+	}
+	// Rough detail-pane width by layout (matches renderTwoPaneView /
+	// renderThreePaneView splits). Used only for clamp; render uses exact.
+	var detailWidth int
+	switch h.determineLayout() {
+	case layoutNarrow:
+		detailWidth = width - int(float64(width)*0.45)
+	case layoutWide:
+		detailWidth = width - int(float64(width)*0.20) - int(float64(width)*0.22) - int(float64(width)*0.25)
+	default:
+		detailWidth = width - int(float64(width)*0.30) - int(float64(width)*0.35)
+	}
+	total := h.detailContentLines(detailWidth)
+	visible := h.detailVisibleHeight(h.height)
+	max := total - visible
+	if max < 0 {
+		max = 0
+	}
+	if h.detailScrollOffset > max {
+		h.detailScrollOffset = max
+	}
+	if h.detailScrollOffset < 0 {
+		h.detailScrollOffset = 0
+	}
 }
 
 // renderCommitDetail renders details for a single commit (bv-9fk1 enhanced)

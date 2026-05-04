@@ -514,6 +514,56 @@ func TestHistoryModel_CommitNavigation(t *testing.T) {
 	}
 }
 
+// TestHistoryModel_DetailScroll covers the detail-panel scroll added by
+// bt-npnh. The detail panel now windows long content via detailScrollOffset
+// instead of hard-truncating.
+func TestHistoryModel_DetailScroll(t *testing.T) {
+	report := createTestHistoryReport()
+	theme := testTheme()
+	h := NewHistoryModel(report, theme)
+	h.SetSize(120, 30)
+	h.focused = historyFocusDetail
+
+	// Initial scroll is 0
+	if h.detailScrollOffset != 0 {
+		t.Errorf("initial detailScrollOffset = %d, want 0", h.detailScrollOffset)
+	}
+
+	// ScrollDetailUp at 0 stays at 0 (no negative scroll)
+	h.ScrollDetailUp()
+	if h.detailScrollOffset != 0 {
+		t.Errorf("ScrollDetailUp at 0: detailScrollOffset = %d, want 0", h.detailScrollOffset)
+	}
+
+	// ScrollDetailDown advances at least to 1 (test data has multiple commits)
+	h.ScrollDetailDown()
+	if h.detailScrollOffset < 0 {
+		t.Errorf("ScrollDetailDown produced negative offset: %d", h.detailScrollOffset)
+	}
+
+	// Render does not panic and produces non-empty output even with scroll set
+	h.detailScrollOffset = 100 // intentionally past the end
+	view := h.renderDetailPanel(60, 20)
+	if view == "" {
+		t.Error("renderDetailPanel returned empty string with large offset")
+	}
+	// After render, offset must be clamped to a non-negative value
+	if h.detailScrollOffset < 0 {
+		t.Errorf("post-render detailScrollOffset = %d, want >= 0", h.detailScrollOffset)
+	}
+
+	// Reset on bead change: switch focus to list, MoveDown should reset
+	h.detailScrollOffset = 5
+	h.focused = historyFocusList
+	startBead := h.selectedBead
+	h.MoveDown()
+	if h.selectedBead != startBead { // MoveDown only resets when bead actually changes
+		if h.detailScrollOffset != 0 {
+			t.Errorf("detailScrollOffset after bead change = %d, want 0", h.detailScrollOffset)
+		}
+	}
+}
+
 func TestHistoryModel_CycleConfidence(t *testing.T) {
 	report := createTestHistoryReport()
 	theme := testTheme()

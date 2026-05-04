@@ -470,6 +470,12 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 		} else {
 			m.historyView.PrevCommit()
 		}
+	case "ctrl+d", "pgdown":
+		// Half-page scroll down on the detail panel (bt-npnh)
+		m.historyView.ScrollDetailHalfPageDown()
+	case "ctrl+u", "pgup":
+		// Half-page scroll up on the detail panel (bt-npnh)
+		m.historyView.ScrollDetailHalfPageUp()
 	case "tab":
 		// Cycle focus: list -> detail -> file tree (if visible) -> list (bv-190l)
 		if m.historyView.IsFileTreeVisible() {
