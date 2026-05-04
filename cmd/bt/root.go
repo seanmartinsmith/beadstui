@@ -520,7 +520,10 @@ func runExportMDCommand(issues []model.Issue) {
 	}
 	if executor != nil {
 		if err := executor.RunPreExport(); err != nil {
-			exitOnHookError(err, "pre-export")
+			if wrapped := handleHookError(err, "pre-export"); wrapped != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", wrapped)
+				os.Exit(1)
+			}
 		}
 	}
 
@@ -540,18 +543,6 @@ func runExportMDCommand(issues []model.Issue) {
 
 	fmt.Println("Done!")
 	os.Exit(0)
-}
-
-// exitOnHookError prints a friendly remediation message for untrusted-hooks
-// errors and exits with code 78 (config error). Other hook errors exit 1.
-func exitOnHookError(err error, phase string) {
-	var ute *hooks.UntrustedHooksError
-	if errors.As(err, &ute) {
-		fmt.Fprintln(os.Stderr, ute.Error())
-		os.Exit(78)
-	}
-	fmt.Fprintf(os.Stderr, "Error: %s hook failed: %v\n", phase, err)
-	os.Exit(1)
 }
 
 // runSearchCommand handles the --search flag (human-readable or robot mode).
