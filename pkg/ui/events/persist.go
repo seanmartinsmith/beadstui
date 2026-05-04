@@ -27,10 +27,23 @@ import (
 	"time"
 )
 
-// DefaultMaxPersistAge is the upper bound on how old an event can be
-// at hydration time. Anything older is dropped. Matches the rough
-// "last week of activity" expectation users carry into the tab.
-const DefaultMaxPersistAge = 7 * 24 * time.Hour
+// DefaultModalDisplayAge is the maximum event age loaded from disk into
+// the in-memory ring buffer at TUI boot. Events older than this are
+// skipped at hydration time so the modal doesn't display years of
+// history. Matches the rough "last week of activity" expectation users
+// carry into the tab.
+//
+// This is a TUI-only display window, NOT a retention policy. The
+// on-disk file (~/.bt/events.jsonl) is append-only with no expiry —
+// long-horizon consumers (e.g. bt robot activity for "what did we do
+// september 2025" queries) should call LoadPersisted(path, 0) to
+// bypass the filter and read all persisted events regardless of age.
+//
+// Three layered windows in this package:
+//   - On-disk file: unbounded, append-only.
+//   - Hydration window (this constant): TUI boot-time filter, default 7 days.
+//   - In-memory ring (DefaultCapacity in ring.go): runtime cap of 500 events.
+const DefaultModalDisplayAge = 7 * 24 * time.Hour
 
 // DefaultPersistPath returns the canonical user-global path for the
 // notifications JSONL store: ~/.bt/events.jsonl. Returns ("", err) when
@@ -49,6 +62,11 @@ func DefaultPersistPath() (string, error) {
 // LoadPersisted reads events from a JSONL file at path, dropping any
 // whose At is older than now-maxAge. Returns the surviving events
 // oldest-first (matching the on-disk order).
+//
+// Pass maxAge=0 to disable the age filter and return every persisted
+// event regardless of age — the long-horizon read path for callers
+// like bt robot activity that need the full append-only history rather
+// than the modal hydration window.
 //
 // Missing file is not an error: returns an empty slice and nil. Corrupt
 // individual lines are skipped silently — the goal is to recover what

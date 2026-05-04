@@ -1120,7 +1120,7 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 	eventsBuf := events.NewRingBuffer(events.DefaultCapacity)
 	if os.Getenv("BT_NO_EVENT_PERSIST") != "1" && os.Getenv("BT_TEST_MODE") == "" {
 		if path, err := events.DefaultPersistPath(); err == nil {
-			if loaded, lerr := events.LoadPersisted(path, events.DefaultMaxPersistAge); lerr == nil {
+			if loaded, lerr := events.LoadPersisted(path, events.DefaultModalDisplayAge); lerr == nil {
 				eventsBuf.Hydrate(loaded)
 			}
 			eventsBuf.SetPersistPath(path)
