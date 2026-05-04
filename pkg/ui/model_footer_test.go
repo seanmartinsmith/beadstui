@@ -111,8 +111,8 @@ func TestFooterData_WorkerBadgeLevels(t *testing.T) {
 func TestFooterData_AlertsBadge(t *testing.T) {
 	fd := FooterData{AlertCount: 3, CriticalCount: 1, WarningCount: 2}
 	out := fd.renderAlertsBadge()
-	if !strings.Contains(out, "3 alerts") {
-		t.Errorf("alert count should appear: %s", out)
+	if !strings.Contains(out, "3 (!)") {
+		t.Errorf("alert count and indicator should appear: %s", out)
 	}
 }
 

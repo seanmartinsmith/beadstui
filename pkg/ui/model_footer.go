@@ -971,7 +971,7 @@ func (fd FooterData) renderAlertsBadge() string {
 			Padding(0, 1)
 		alertIcon = "ℹ"
 	}
-	return alertStyle.Render(fmt.Sprintf("%s %d alerts (!)", alertIcon, fd.AlertCount))
+	return alertStyle.Render(fmt.Sprintf("%s %d (!)", alertIcon, fd.AlertCount))
 }
 
 // renderFooter is the Model method that produces the footer string.
