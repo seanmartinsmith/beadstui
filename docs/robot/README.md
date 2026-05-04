@@ -461,14 +461,26 @@ bt robot list --global --status in_progress
 
 **Unique flags**:
 - `--query <bql>`: BQL query string
+- `--limit <n>`: Max issues to return (0 = unlimited)
+- `--offset <n>`: Skip first N issues (for pagination)
 
-**Note**: BQL syntax is documented in code; a dedicated reference is tracked in bt-01pk. Also accepts `--bql` global flag as a pre-filter on top of the local `--query`.
+**Top-level fields**:
+| Field | Type | Description |
+|---|---|---|
+| `query` | string | The BQL query string that was executed |
+| `total_count` | int | Full match set size before `--limit` / `--offset` is applied |
+| `count` | int | Number of issues actually returned in the `issues` array |
+| `offset` | int | Offset that was applied (omitted when 0) |
+| `issues` | array | Returned issues (after offset + limit windowing) |
+
+**Note**: BQL syntax is documented in code; a dedicated reference is tracked in bt-01pk. Also accepts `--bql` global flag as a pre-filter on top of the local `--query`. When run outside a beads project (no local `.beads/`), the error message will suggest `--global` to query the global Dolt server.
 
 **Examples**:
 ```bash
 bt robot bql --query "status=open priority<=1"
 bt robot bql --query "type=bug label=area:tui"
 bt robot bql --query "status=open blocked=false"
+bt robot bql --query "status=open" --limit 25 --offset 50  # page 3 of 25
 ```
 
 ---
@@ -559,7 +571,7 @@ bt robot graph --graph-format dot | dot -Tpng > graph.png
 
 **Positional arg**: `<bead-id>` (required)
 
-**Note**: Requires beads data accessible to bt. When using worktrees or non-workspace directories, pass `--global`.
+**Note**: Requires beads data accessible to bt. When using worktrees or non-workspace directories, pass `--global`. When run outside a beads project (no local `.beads/`), the error message will suggest `--global` to query the global Dolt server.
 
 **Examples**:
 ```bash
@@ -613,6 +625,8 @@ bt robot blocker-chain bt-dcby --global
 **Purpose**: Causal chain analysis - traces the transitive cause-and-effect relationships from a bead outward. Requires `--global` for cross-project data.
 
 **Positional arg**: `<bead-id>` (required)
+
+**Note**: Requires `--global` when run outside a workspace (no local `.beads/` project), because causality analysis needs to resolve cross-project dependency chains from the shared Dolt server.
 
 **Examples**:
 ```bash
@@ -693,7 +707,7 @@ bt robot metrics
 
 **Purpose**: Commits that don't correlate to any known bead - candidates for retroactive tagging or cleanup. Requires git history + beads data.
 
-**Note**: Requires beads data in `.beads/` directory. Use `--global` for cross-project scope.
+**Note**: Requires beads data in `.beads/` directory. Use `--global` for cross-project scope. When run outside a beads project (no local `.beads/`), the error message will suggest `--global` to query the global Dolt server.
 
 **Examples**:
 ```bash
@@ -707,7 +721,7 @@ bt robot orphans --history-limit 100
 
 **Purpose**: Bead-to-commit correlation output - which commits are linked to which beads. Requires JSONL beads data (not Dolt-only installs) or global mode.
 
-**Note**: Requires accessible beads data. Will error if `.beads/` is not available in the local directory.
+**Note**: Requires accessible beads data. Will error if `.beads/` is not available in the local directory. When run outside a beads project (no local `.beads/`), the error message will suggest `--global` to query the global Dolt server.
 
 **Examples**:
 ```bash
@@ -796,15 +810,16 @@ bt robot recipes
 **Purpose**: JSON Schema definitions for all robot commands (or a specific one). Use for agent introspection - know what fields to expect before calling.
 
 **Unique flags**:
-- `--command <name>`: Output schema for specific command only
+- `--command <name>`: Output schema for specific command only. Accepts both the cobra path form (e.g. `triage`, **preferred**) and the legacy `robot-` prefixed form (e.g. `robot-triage`). The cobra path form mirrors the actual CLI subcommand name.
 
-**Available command names for `--command`**: `robot-triage`, `robot-next`, `robot-plan`, `robot-insights`, `robot-priority`, `robot-alerts`, `robot-suggest`, `robot-diff`, `robot-forecast`, `robot-graph`, `robot-burndown`, `robot-pairs`, `robot-refs`.
+**Available command names for `--command`**: `triage`, `next`, `plan`, `insights`, `priority`, `alerts`, `suggest`, `diff`, `forecast`, `graph`, `burndown`, `pairs`, `refs` (each also accepted with the legacy `robot-` prefix).
 
 **Examples**:
 ```bash
 bt robot schema
-bt robot schema --command robot-triage
-bt robot schema --command robot-insights
+bt robot schema --command triage           # preferred (cobra path form)
+bt robot schema --command robot-triage     # legacy form, still works
+bt robot schema --command insights
 ```
 
 ---
@@ -907,6 +922,8 @@ File-bead correlation analysis. All subcommands correlate files to beads via git
 **Unique flags**:
 - `--limit <n>`: Max closed beads to show (default 20)
 
+**Note**: When run outside a beads project (no local `.beads/`), the error message will suggest `--global` to query the global Dolt server.
+
 **Examples**:
 ```bash
 bt robot files beads pkg/view/compact.go --global
@@ -919,6 +936,8 @@ bt robot files beads cmd/bt/cobra_robot.go
 
 **Unique flags**:
 - `--limit <n>`: Max hotspots to show (default 10)
+
+**Note**: When run outside a beads project (no local `.beads/`), the error message will suggest `--global` to query the global Dolt server.
 
 **Examples**:
 ```bash
