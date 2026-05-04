@@ -940,9 +940,23 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				m.mode = ViewList
 				m.focused = focusList
 			} else {
+				// Carry the list's current selection into the graph so
+				// the ego node matches what the user was looking at, instead
+				// of defaulting to the first node in sorted order. Reads
+				// m.list.SelectedItem() so it works from focusList and
+				// focusDetail alike (selection is shared) (bt-8col).
+				var selectedID string
+				if sel := m.list.SelectedItem(); sel != nil {
+					if it, ok := sel.(IssueItem); ok {
+						selectedID = it.Issue.ID
+					}
+				}
 				m.mode = ViewGraph
 				m.focused = focusGraph
 				m.refreshBoardAndGraphForCurrentFilter()
+				if selectedID != "" {
+					m.graphView.SelectByID(selectedID)
+				}
 			}
 			return m, nil
 
