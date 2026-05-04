@@ -49,6 +49,15 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	m.statusIsError = false
 	m.statusSetAt = time.Time{}
 
+	// Safety net: if focus is anywhere but the list while the Bubbles filter
+	// is still in Filtering state, commit it to FilterApplied so global
+	// hotkeys and Tab work correctly. This catches any focus-change path
+	// (mouse click, programmatic) that didn't call commitFilterIfTyping
+	// directly. See bt-ocmw.
+	if m.focused != focusList {
+		m.commitFilterIfTyping()
+	}
+
 	// Handle AGENTS.md prompt modal (bv-i8dk)
 	if m.activeModal == ModalAgentPrompt {
 		m.agentPromptModal, cmd = m.agentPromptModal.Update(msg)
@@ -1423,6 +1432,9 @@ func (m Model) handleMouseClick(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 		}
 	default:
 		if m.focused != focusDetail {
+			// Commit any in-progress filter so the search input releases and
+			// global hotkeys/Tab work from the detail pane (bt-ocmw).
+			m.commitFilterIfTyping()
 			m.focused = focusDetail
 			m.updateViewportContent()
 		}

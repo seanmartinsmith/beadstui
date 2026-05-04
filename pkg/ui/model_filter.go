@@ -157,6 +157,18 @@ func (m *Model) focusDetailAfterJump() {
 	m.updateViewportContent()
 }
 
+// commitFilterIfTyping transitions the Bubbles list filter from Filtering
+// (input field accepting keystrokes) to FilterApplied (filter committed, no
+// active input) when focus is no longer on the list. Without this, global
+// hotkeys gated on FilterState != Filtering stay blocked even though no one
+// is typing in the input - locking the user into mouse-only navigation.
+// No-op when the filter is already FilterApplied or Unfiltered (bt-ocmw).
+func (m *Model) commitFilterIfTyping() {
+	if m.list.FilterState() == list.Filtering {
+		m.list.SetFilterState(list.FilterApplied)
+	}
+}
+
 // clearAllFilters resets all filters to their default state
 func (m *Model) clearAllFilters() {
 	m.filter.currentFilter = "all"

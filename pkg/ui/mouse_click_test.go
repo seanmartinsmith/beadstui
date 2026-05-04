@@ -3,6 +3,7 @@ package ui
 import (
 	"testing"
 
+	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
@@ -175,5 +176,46 @@ func TestHandleMouseClick_BelowLastVisibleRow_NoSelectionChange(t *testing.T) {
 	if got.list.Index() != 0 {
 		t.Fatalf("click below last visible row should not change selection, expected index 0, got %d",
 			got.list.Index())
+	}
+}
+
+// TestHandleMouseClick_DetailFocusCommitsFilter verifies clicking the detail
+// pane while the search input is in Filtering state commits the filter to
+// FilterApplied (bt-ocmw). Without this, all global hotkeys gated on
+// FilterState != Filtering stay blocked even though no one is typing in the
+// search input - the user is locked into mouse-only navigation.
+func TestHandleMouseClick_DetailFocusCommitsFilter(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "bd-cc0", Title: "first", Status: model.StatusOpen},
+		{ID: "bd-cgh", Title: "second", Status: model.StatusOpen},
+	}
+	m := NewModel(issues, nil, "", nil)
+	m.width = 200
+	m.height = 40
+	m.mode = ViewList
+	m.isSplitView = true
+	m.list.SetSize(60, 30)
+	m.focused = focusList
+
+	// Simulate the user opening search and typing.
+	m.list.SetFilterText("first")
+	m.list.SetFilterState(list.Filtering)
+	if got := m.list.FilterState(); got != list.Filtering {
+		t.Fatalf("precondition: filter state not Filtering, got %v", got)
+	}
+
+	// Click into the detail pane (right side, past list boundary).
+	listBoundary := m.list.Width() + 4
+	msg := tea.MouseClickMsg{X: listBoundary + 10, Y: 5, Button: tea.MouseLeft}
+	got, _ := m.handleMouseClick(msg)
+
+	if got.focused != focusDetail {
+		t.Fatalf("click on detail pane should focus detail, got %v", got.focused)
+	}
+	if state := got.list.FilterState(); state != list.FilterApplied {
+		t.Fatalf("filter should commit to FilterApplied on detail focus, got %v", state)
+	}
+	if val := got.list.FilterValue(); val != "first" {
+		t.Fatalf("filter value should be preserved on commit, got %q want %q", val, "first")
 	}
 }
