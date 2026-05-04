@@ -240,8 +240,11 @@ func TestDiscoverDoltSources_NoDoltConfig(t *testing.T) {
 }
 
 func TestSourceTypeDolt_Priority(t *testing.T) {
-	if PriorityDolt <= PrioritySQLite {
-		t.Errorf("Dolt priority (%d) should be higher than SQLite (%d)", PriorityDolt, PrioritySQLite)
+	if PriorityDolt <= PriorityJSONLWorktree {
+		t.Errorf("Dolt priority (%d) should be higher than JSONLWorktree (%d)", PriorityDolt, PriorityJSONLWorktree)
+	}
+	if PriorityDolt <= PriorityJSONLLocal {
+		t.Errorf("Dolt priority (%d) should be higher than JSONLLocal (%d)", PriorityDolt, PriorityJSONLLocal)
 	}
 }
 
@@ -249,9 +252,9 @@ func TestSelectBestSource_DoltWinsTiebreak(t *testing.T) {
 	now := time.Now()
 	sources := []DataSource{
 		{
-			Type:     SourceTypeSQLite,
-			Path:     "/test/beads.db",
-			Priority: PrioritySQLite,
+			Type:     SourceTypeJSONLWorktree,
+			Path:     "/test/worktree.jsonl",
+			Priority: PriorityJSONLWorktree,
 			ModTime:  now,
 			Valid:    true,
 		},
@@ -286,9 +289,9 @@ func TestBuildSelectionReason_Dolt(t *testing.T) {
 	candidates := []DataSource{
 		selected,
 		{
-			Type:     SourceTypeSQLite,
-			Path:     "/test/beads.db",
-			Priority: PrioritySQLite,
+			Type:     SourceTypeJSONLWorktree,
+			Path:     "/test/worktree.jsonl",
+			Priority: PriorityJSONLWorktree,
 			ModTime:  now.Add(-1 * time.Hour),
 			Valid:    true,
 		},

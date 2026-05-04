@@ -69,7 +69,7 @@ Distinction: `.beads/tmp/` is for content that will become part of bead state (d
 - **Module**: `github.com/seanmartinsmith/beadstui`
 - **Language**: Go 1.25+ (check `go.mod`)
 - **TUI framework**: Charm Bracelet v2 (Bubble Tea, Lipgloss, Bubbles, Glamour) — migration shipped via bt-ykqq / bt-k5zs / bt-zt9q, 2026-04-10
-- **Data backend**: Dolt (MySQL protocol). Beads is Dolt-only since v1.0.1 (March 2026); JSONL/SQLite paths in bt code are pre-migration legacy. See "Beads architecture awareness" section below before touching the data layer.
+- **Data backend**: Dolt (MySQL protocol). Beads is Dolt-only since v1.0.1 (March 2026); JSONL paths in bt code are pre-migration legacy fallback. SQLite reader was removed in bt-05zt Phase 1. See "Beads architecture awareness" section below before touching the data layer.
 
 ## Key Directories
 
@@ -84,7 +84,7 @@ pkg/export/          # Static site export
 pkg/agents/          # Agent detection (AGENTS.md filename hardcoded in 15 Go files)
 pkg/correlation/     # Bead-to-commit correlation
 pkg/watcher/         # Filesystem watching, daemon mode
-internal/datasource/ # Data loading (JSONL, SQLite, Dolt)
+internal/datasource/ # Data loading (Dolt, JSONL)
 internal/dolt/       # Dolt-specific reader
 internal/models/     # Issue data structures
 docs/adr/            # Architecture decision records (spine: 002-stabilize-and-ship.md)

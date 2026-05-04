@@ -1,6 +1,6 @@
 // Package datasource provides intelligent multi-source data detection and selection
 // for beadstui. It discovers, validates, and selects the freshest valid source
-// from SQLite databases, worktree JSONL files, and local JSONL files.
+// from a Dolt server (when configured) or worktree/local JSONL files.
 package datasource
 
 import (
@@ -19,7 +19,7 @@ import (
 
 // ErrDoltRequired is returned when metadata declares backend=dolt but the
 // Dolt server is not reachable. This prevents silent fallback to stale
-// SQLite/JSONL data.
+// JSONL data.
 var ErrDoltRequired = errors.New("Dolt server required but not reachable")
 
 // SourceType identifies the type of data source
@@ -30,8 +30,6 @@ const (
 	SourceTypeDolt SourceType = "dolt"
 	// SourceTypeDoltGlobal is a shared Dolt server with multiple databases
 	SourceTypeDoltGlobal SourceType = "dolt_global"
-	// SourceTypeSQLite is a SQLite database (beads.db)
-	SourceTypeSQLite SourceType = "sqlite"
 	// SourceTypeJSONLWorktree is a JSONL file from a git worktree
 	SourceTypeJSONLWorktree SourceType = "jsonl_worktree"
 	// SourceTypeJSONLLocal is a local JSONL file
@@ -41,7 +39,6 @@ const (
 // Priority values for source types (higher = more authoritative)
 const (
 	PriorityDolt          = 110
-	PrioritySQLite        = 100
 	PriorityJSONLWorktree = 80
 	PriorityJSONLLocal    = 50
 )
@@ -92,7 +89,7 @@ type DiscoveryOptions struct {
 	Verbose bool
 	// Logger receives log messages when Verbose is true
 	Logger func(msg string)
-	// RequireDolt skips SQLite/JSONL/worktree discovery entirely.
+	// RequireDolt skips JSONL/worktree discovery entirely.
 	// When true, only Dolt is attempted; if unreachable, ErrDoltRequired is returned.
 	RequireDolt bool
 }
@@ -141,15 +138,8 @@ func DiscoverSources(opts DiscoveryOptions) ([]DataSource, error) {
 		if len(doltSources) == 0 {
 			return nil, ErrDoltRequired
 		}
-		// Skip SQLite/JSONL/worktree entirely
+		// Skip JSONL/worktree entirely
 	} else {
-		// Discover SQLite database
-		sqliteSources, err := discoverSQLiteSources(beadsDir, opts)
-		if err != nil && opts.Verbose {
-			opts.Logger(fmt.Sprintf("SQLite discovery warning: %v", err))
-		}
-		sources = append(sources, sqliteSources...)
-
 		// Discover local JSONL files
 		localSources, err := discoverLocalJSONLSources(beadsDir, opts)
 		if err != nil && opts.Verbose {
@@ -195,29 +185,6 @@ func DiscoverSources(opts DiscoveryOptions) ([]DataSource, error) {
 
 	if opts.Verbose {
 		opts.Logger(fmt.Sprintf("Discovered %d sources", len(sources)))
-	}
-
-	return sources, nil
-}
-
-// discoverSQLiteSources finds SQLite databases in the beads directory
-func discoverSQLiteSources(beadsDir string, opts DiscoveryOptions) ([]DataSource, error) {
-	var sources []DataSource
-
-	// Look for beads.db
-	dbPath := filepath.Join(beadsDir, "beads.db")
-	info, err := os.Stat(dbPath)
-	if err == nil {
-		sources = append(sources, DataSource{
-			Type:     SourceTypeSQLite,
-			Path:     dbPath,
-			Priority: PrioritySQLite,
-			ModTime:  info.ModTime(),
-			Size:     info.Size(),
-		})
-		if opts.Verbose {
-			opts.Logger(fmt.Sprintf("Found SQLite: %s (mod=%s)", dbPath, info.ModTime().Format(time.RFC3339)))
-		}
 	}
 
 	return sources, nil

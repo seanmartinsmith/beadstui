@@ -7,11 +7,9 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
 	json "github.com/goccy/go-json"
-	_ "modernc.org/sqlite"
 )
 
 // ValidationOptions configures source validation behavior
@@ -62,8 +60,6 @@ func ValidateSourceWithOptions(source *DataSource, opts ValidationOptions) error
 	switch source.Type {
 	case SourceTypeDolt:
 		err = validateDolt(source, opts)
-	case SourceTypeSQLite:
-		err = validateSQLite(source, opts)
 	case SourceTypeJSONLLocal, SourceTypeJSONLWorktree:
 		err = validateJSONL(source, opts)
 	default:
@@ -111,91 +107,6 @@ func validateDolt(source *DataSource, opts ValidationOptions) error {
 
 	if opts.Verbose {
 		opts.Logger(fmt.Sprintf("Dolt validation passed: %s (%d issues)", source.Path, source.IssueCount))
-	}
-
-	return nil
-}
-
-// validateSQLite validates a SQLite database
-func validateSQLite(source *DataSource, opts ValidationOptions) error {
-	// Check file exists and is readable
-	info, err := os.Stat(source.Path)
-	if err != nil {
-		return fmt.Errorf("cannot access file: %w", err)
-	}
-	if info.IsDir() {
-		return fmt.Errorf("path is a directory, not a file")
-	}
-
-	// Open database
-	db, err := sql.Open("sqlite", source.Path)
-	if err != nil {
-		return fmt.Errorf("cannot open database: %w", err)
-	}
-	defer db.Close()
-
-	// Run integrity check
-	var integrity string
-	err = db.QueryRow("PRAGMA integrity_check").Scan(&integrity)
-	if err != nil {
-		return fmt.Errorf("integrity check failed: %w", err)
-	}
-	if integrity != "ok" {
-		return fmt.Errorf("database corrupt: %s", integrity)
-	}
-
-	// Check for issues table
-	var tableName string
-	err = db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='issues'").Scan(&tableName)
-	if err == sql.ErrNoRows {
-		return fmt.Errorf("missing issues table")
-	}
-	if err != nil {
-		return fmt.Errorf("cannot query schema: %w", err)
-	}
-
-	// Check required columns exist
-	rows, err := db.Query("PRAGMA table_info(issues)")
-	if err != nil {
-		return fmt.Errorf("cannot query table info: %w", err)
-	}
-	defer rows.Close()
-
-	columns := make(map[string]bool)
-	for rows.Next() {
-		var cid int
-		var name, colType string
-		var notNull, pk int
-		var dflt interface{}
-		if err := rows.Scan(&cid, &name, &colType, &notNull, &dflt, &pk); err != nil {
-			return fmt.Errorf("cannot scan column info: %w", err)
-		}
-		columns[strings.ToLower(name)] = true
-	}
-
-	requiredCols := []string{"id", "title", "status"}
-	for _, col := range requiredCols {
-		if !columns[col] {
-			return fmt.Errorf("missing required column: %s", col)
-		}
-	}
-
-	// Count issues if requested
-	if opts.CountIssues {
-		var count int
-		err = db.QueryRow("SELECT COUNT(*) FROM issues WHERE (tombstone IS NULL OR tombstone = 0)").Scan(&count)
-		if err != nil {
-			// Try without tombstone filter (column might not exist)
-			err = db.QueryRow("SELECT COUNT(*) FROM issues").Scan(&count)
-			if err != nil {
-				return fmt.Errorf("cannot count issues: %w", err)
-			}
-		}
-		source.IssueCount = count
-	}
-
-	if opts.Verbose {
-		opts.Logger(fmt.Sprintf("SQLite validation passed: %s (%d issues)", source.Path, source.IssueCount))
 	}
 
 	return nil
