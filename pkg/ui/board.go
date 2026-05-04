@@ -1684,7 +1684,10 @@ func (b *BoardModel) renderDetailPanel(width, height int) string {
 			if issue.Status.IsClosed() && issue.CloseReason != nil && *issue.CloseReason != "" {
 				content.WriteString("\n---\n\n")
 				content.WriteString("**Resolution:**\n\n")
-				content.WriteString(*issue.CloseReason)
+				// Two trailing spaces before each newline force markdown hard breaks
+				// so structured close-reasons render with line structure preserved.
+				closeReason := strings.ReplaceAll(*issue.CloseReason, "\n", "  \n")
+				content.WriteString(closeReason)
 				content.WriteString("\n")
 			}
 
