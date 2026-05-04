@@ -475,104 +475,26 @@ func discoverBeadsDirs(root string, maxDepth int) []string {
 	return dirs
 }
 
+// countIssuesInBeadsDir resolves the canonical source for the beads
+// directory and returns its validated issue count. The pre-ADR-003
+// version walked a multi-source discovery+selection pipeline; with the
+// JSONL-export-aware fold inside DiscoverSource that machinery is no
+// longer needed here.
 func countIssuesInBeadsDir(beadsDir string) (int, error) {
-	if path, typ := metadataPreferredSource(beadsDir); path != "" {
-		info, err := os.Stat(path)
-		if err == nil {
-			source := datasource.DataSource{
-				Type:     typ,
-				Path:     path,
-				Priority: datasource.PriorityJSONLLocal,
-				ModTime:  info.ModTime(),
-				Size:     info.Size(),
-			}
-			if err := datasource.ValidateSource(&source); err == nil {
-				return source.IssueCount, nil
-			}
-		}
-	}
-
-	sources, err := datasource.DiscoverSources(datasource.DiscoveryOptions{
+	src, err := datasource.DiscoverSource(datasource.DiscoveryOptions{
 		BeadsDir:               beadsDir,
 		ValidateAfterDiscovery: true,
-		IncludeInvalid:         false,
 	})
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("no sources in %s: %w", beadsDir, err)
 	}
-	if len(sources) == 0 {
-		return 0, fmt.Errorf("no sources in %s", beadsDir)
+	if !src.Valid {
+		return 0, fmt.Errorf("source invalid: %s", src.ValidationError)
 	}
-	result, err := datasource.SelectBestSourceDetailed(sources, datasource.DefaultSelectionOptions())
-	if err != nil {
-		return 0, err
-	}
-	return result.Selected.IssueCount, nil
-}
-
-type beadsMetadata struct {
-	Database     string `json:"database"`
-	JSONLExport  string `json:"jsonl_export"`
-	Backend      string `json:"backend"`
-	DoltMode     string `json:"dolt_mode"`
-	DoltDatabase string `json:"dolt_database"`
-}
-
-func metadataPreferredSource(beadsDir string) (string, datasource.SourceType) {
-	metaPath := filepath.Join(beadsDir, "metadata.json")
-	data, err := os.ReadFile(metaPath)
-	if err != nil {
-		return "", ""
-	}
-	var meta beadsMetadata
-	if err := json.Unmarshal(data, &meta); err != nil {
-		return "", ""
-	}
-
-	// Dolt backend takes priority when configured
-	if meta.Backend == "dolt" {
-		cfg, ok := datasource.ReadDoltConfig(beadsDir)
-		if ok {
-			return cfg.DSN(), datasource.SourceTypeDolt
-		}
-	}
-
-	// meta.Database (legacy SQLite path) is no longer honored: the SQLite
-	// reader was removed in bt-05zt Phase 1. Any stale beads.db reference in
-	// metadata.json now falls through to JSONL or canonical discovery.
-	if meta.JSONLExport != "" {
-		path := meta.JSONLExport
-		if !filepath.IsAbs(path) {
-			path = filepath.Join(beadsDir, path)
-		}
-		if info, err := os.Stat(path); err == nil && !info.IsDir() {
-			return path, datasource.SourceTypeJSONLLocal
-		}
-	}
-	return "", ""
+	return src.IssueCount, nil
 }
 
 func loadIssuesFromBeadsDir(beadsDir string) ([]model.Issue, error) {
-	if path, typ := metadataPreferredSource(beadsDir); path != "" {
-		switch typ {
-		case datasource.SourceTypeDolt:
-			reader, err := datasource.NewDoltReader(datasource.DataSource{
-				Type: datasource.SourceTypeDolt,
-				Path: path,
-			})
-			if err != nil {
-				break
-			}
-			defer reader.Close()
-			if issues, err := reader.LoadIssues(); err == nil {
-				return issues, nil
-			}
-		case datasource.SourceTypeJSONLLocal:
-			if issues, err := loader.LoadIssuesFromFile(path); err == nil {
-				return issues, nil
-			}
-		}
-	}
 	return datasource.LoadIssuesFromDir(beadsDir)
 }
 
