@@ -1042,20 +1042,17 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			return m, nil
 
 		case "h":
-			// Toggle history view
+			// Toggle history view. Routes through enterHistoryView so the
+			// per-bead resolveHistoryPath registry lookup (bt-u8iz Phase 3)
+			// runs - the previous direct mode-flip used the stale historyView
+			// preloaded by LoadHistoryCmd against cwd, which left InsideWorkTree
+			// false in global mode and short-circuited registry resolution.
 			m.clearAttentionOverlay()
 			if m.mode == ViewHistory {
 				m.mode = ViewList
 				m.focused = focusList
 			} else {
-				m.mode = ViewHistory
-				// Ensure history model has latest sizing
-				bodyHeight := m.height - 1
-				if bodyHeight < 5 {
-					bodyHeight = 5
-				}
-				m.historyView.SetSize(m.width, bodyHeight)
-				m.focused = focusHistory
+				m.enterHistoryView()
 			}
 			return m, nil
 
