@@ -1848,8 +1848,8 @@ func (h *HistoryModel) emptyStateMessage(defaultMsg string) string {
 			"History needs a git repository.\n\n"+
 				"No registered path for project %q. Launch bt from\n"+
 				"inside that project's git repo once to register it:\n\n"+
-				"    cd <path-to-%s> && bt",
-			h.context.CursorPrefix, h.context.CursorPrefix)
+				"    cd <path-to-project> && bt",
+			h.context.CursorPrefix)
 	}
 
 	// Outside a git work tree. Tailor the message by whether a project
@@ -1862,8 +1862,8 @@ func (h *HistoryModel) emptyStateMessage(defaultMsg string) string {
 				"Project filter %q is active, but bt cannot map a project\n"+
 				"DB name to a filesystem path. To see history for %q,\n"+
 				"launch bt from inside that project's git repo:\n\n"+
-				"    cd <path-to-%s> && bt",
-			project, project, project)
+				"    cd <path-to-project> && bt",
+			project, project)
 	case h.context.WorkspaceMode && len(h.context.ActiveProjects) > 1:
 		return "History needs a single-project git context.\n\n" +
 			"Filter to a single project via [w] or move the cursor\n" +
