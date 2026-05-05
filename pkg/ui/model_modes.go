@@ -109,7 +109,7 @@ func (m *Model) enterHistoryView() {
 		}
 	}
 
-	correlator := correlation.NewCorrelator(repoPath, m.data.beadsPath)
+	correlator := correlation.NewCachedCorrelator(repoPath, m.data.beadsPath)
 	opts := correlation.CorrelatorOptions{
 		Limit: 500,
 	}

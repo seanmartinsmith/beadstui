@@ -394,7 +394,7 @@ func LoadHistoryCmd(issues []model.Issue, beadsPath string) tea.Cmd {
 			}
 		}
 
-		correlator := correlation.NewCorrelator(repoPath, beadsPath)
+		correlator := correlation.NewCachedCorrelator(repoPath, beadsPath)
 		opts := correlation.CorrelatorOptions{
 			Limit: 500, // Reasonable limit for TUI performance
 		}
