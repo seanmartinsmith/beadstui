@@ -1,12 +1,15 @@
 package ui
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/cass"
 	"github.com/seanmartinsmith/beadstui/pkg/correlation"
+	"github.com/seanmartinsmith/beadstui/pkg/projects"
 )
 
 func createTestHistoryReport() *correlation.HistoryReport {
@@ -2963,5 +2966,161 @@ func TestHistoryModel_EmptyState_InGitNoCorrelations(t *testing.T) {
 	}
 	if !strings.Contains(view, "No beads") && !strings.Contains(view, "No commits") {
 		t.Errorf("in-git empty state should keep the original wording, got:\n%s", view)
+	}
+}
+
+// makeGitDir creates a temporary directory with a .git subdirectory to satisfy
+// projects.LookupAndValidate (which checks for the presence of .git).
+func makeTestGitDir(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	if err := os.Mkdir(filepath.Join(dir, ".git"), 0o755); err != nil {
+		t.Fatalf("makeTestGitDir: %v", err)
+	}
+	return dir
+}
+
+// seedRegistry writes a registry entry for (prefix, path) to a temp file and
+// sets BT_PROJECTS_REGISTRY_PATH so LookupAndValidate reads from it.
+func seedRegistry(t *testing.T, prefix, path string) {
+	t.Helper()
+	regDir := t.TempDir()
+	regPath := filepath.Join(regDir, "projects.json")
+	t.Setenv("BT_PROJECTS_REGISTRY_PATH", regPath)
+	r := projects.Stamp(nil, prefix, path, "", time.Now())
+	if err := projects.Save(regPath, r); err != nil {
+		t.Fatalf("seedRegistry Save: %v", err)
+	}
+}
+
+// TestHistoryView_CursorDrivenPath verifies that resolveHistoryPath returns the
+// registry path when CursorPrefix matches a valid entry.
+func TestHistoryView_CursorDrivenPath(t *testing.T) {
+	repoPath := makeTestGitDir(t)
+	seedRegistry(t, "bt", repoPath)
+
+	ctx := HistoryContext{CursorPrefix: "bt"}
+	got := resolveHistoryPath(ctx, "/some/cwd")
+	if got != repoPath {
+		t.Errorf("resolveHistoryPath: got %q, want %q", got, repoPath)
+	}
+}
+
+// TestHistoryView_CursorPrefixNotInRegistry verifies that resolveHistoryPath
+// falls back to cwd when the cursor prefix is not in the registry, and that the
+// empty-state message names the prefix and hints at registration.
+func TestHistoryView_CursorPrefixNotInRegistry(t *testing.T) {
+	// Point the registry at an empty temp file so LookupAndValidate finds nothing.
+	regDir := t.TempDir()
+	regPath := filepath.Join(regDir, "projects.json")
+	t.Setenv("BT_PROJECTS_REGISTRY_PATH", regPath)
+
+	cwd := t.TempDir()
+	ctx := HistoryContext{CursorPrefix: "unknown"}
+	got := resolveHistoryPath(ctx, cwd)
+	if got != cwd {
+		t.Errorf("resolveHistoryPath: got %q, want cwd %q", got, cwd)
+	}
+
+	// Empty-state message should mention the prefix and "register".
+	theme := testTheme()
+	h := NewHistoryModel(emptyHistoryReportOutsideGit(), theme)
+	h.SetContext(ctx)
+	h.SetSize(120, 30)
+
+	view := h.View()
+	if !strings.Contains(view, "unknown") {
+		t.Errorf("empty-state should name the cursor prefix, got:\n%s", view)
+	}
+	if !strings.Contains(view, "register") {
+		t.Errorf("empty-state should mention registering the project, got:\n%s", view)
+	}
+}
+
+// TestHistoryView_FilterFallback verifies that resolveHistoryPath uses the
+// single-project filter when CursorPrefix is empty and ActiveProjects has one entry.
+func TestHistoryView_FilterFallback(t *testing.T) {
+	repoPath := makeTestGitDir(t)
+	seedRegistry(t, "bt", repoPath)
+
+	ctx := HistoryContext{ActiveProjects: []string{"bt"}}
+	got := resolveHistoryPath(ctx, "/some/cwd")
+	if got != repoPath {
+		t.Errorf("resolveHistoryPath filter fallback: got %q, want %q", got, repoPath)
+	}
+}
+
+// TestHistoryView_CursorWinsOverFilter pins the priority invariant: when both
+// CursorPrefix and a single-project filter resolve to valid registry entries,
+// the cursor's path wins. A future refactor that "simplifies" by reordering
+// the branches in resolveHistoryPath would break this test.
+func TestHistoryView_CursorWinsOverFilter(t *testing.T) {
+	pathA := makeTestGitDir(t)
+	pathB := makeTestGitDir(t)
+
+	// Seed both prefixes into the same registry. seedRegistry overwrites
+	// BT_PROJECTS_REGISTRY_PATH each call, so build the registry once and Save
+	// it directly to keep both entries live.
+	regDir := t.TempDir()
+	regPath := filepath.Join(regDir, "projects.json")
+	t.Setenv("BT_PROJECTS_REGISTRY_PATH", regPath)
+
+	r := projects.Stamp(nil, "bt", pathA, "", time.Now())
+	r = projects.Stamp(r, "bd", pathB, "", time.Now())
+	if err := projects.Save(regPath, r); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	ctx := HistoryContext{
+		CursorPrefix:   "bt",
+		ActiveProjects: []string{"bd"},
+	}
+	got := resolveHistoryPath(ctx, "/some/cwd")
+	if got != pathA {
+		t.Errorf("resolveHistoryPath cursor-wins: got %q, want cursor's path %q (filter would have returned %q)", got, pathA, pathB)
+	}
+}
+
+// TestHistoryView_MultiProjectFilterEmptyState verifies that the empty-state
+// message for a multi-project workspace filter mentions "single project".
+func TestHistoryView_MultiProjectFilterEmptyState(t *testing.T) {
+	theme := testTheme()
+	h := NewHistoryModel(emptyHistoryReportOutsideGit(), theme)
+	h.SetContext(HistoryContext{
+		WorkspaceMode:  true,
+		ActiveProjects: []string{"bt", "bd"},
+	})
+	h.SetSize(120, 30)
+
+	view := h.View()
+	if !strings.Contains(view, "single project") && !strings.Contains(view, "single-project") {
+		t.Errorf("multi-project filter empty state should mention single project, got:\n%s", view)
+	}
+}
+
+// TestHistoryView_StaleRegistryEntry verifies that resolveHistoryPath falls back
+// to cwd when the registry entry exists but its path lacks .git (stale entry),
+// and that the empty-state message still fires the cursor-prefix branch.
+func TestHistoryView_StaleRegistryEntry(t *testing.T) {
+	// No .git inside - just a bare temp dir, so pathLooksLikeGitRepo returns false.
+	stalePath := t.TempDir()
+	seedRegistry(t, "bt", stalePath)
+
+	cwd := t.TempDir()
+	ctx := HistoryContext{CursorPrefix: "bt"}
+	got := resolveHistoryPath(ctx, cwd)
+	if got != cwd {
+		t.Errorf("resolveHistoryPath stale: got %q, want cwd %q", got, cwd)
+	}
+
+	// Empty-state message: cursor-prefix branch fires regardless of stale vs missing.
+	theme := testTheme()
+	h := NewHistoryModel(emptyHistoryReportOutsideGit(), theme)
+	h.SetContext(ctx)
+	h.SetSize(120, 30)
+
+	view := h.View()
+	if !strings.Contains(view, "register") {
+		t.Errorf("stale-entry empty state should mention registering the project, got:\n%s", view)
 	}
 }

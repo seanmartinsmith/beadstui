@@ -3,11 +3,13 @@ package ui
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/correlation"
 	"github.com/seanmartinsmith/beadstui/pkg/loader"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/projects"
 )
 
 // SetProjectName sets the display name for the current project (shown in footer).
@@ -70,6 +72,16 @@ func (m *Model) SetActiveRepos(repos map[string]bool) {
 // view's empty-state renderer (bt-ezk8). nil-safe via Model value receiver.
 func (m Model) historyContext() HistoryContext {
 	ctx := HistoryContext{WorkspaceMode: m.workspaceMode}
+	if sel := m.list.SelectedItem(); sel != nil {
+		if item, ok := sel.(IssueItem); ok {
+			// Suffix may contain dots (e.g. bt-ugbp.1); split before first hyphen only.
+			// Leave CursorPrefix at zero value when the ID lacks a hyphen - that's
+			// the natural "no usable prefix" signal.
+			if pfx, _, ok := strings.Cut(item.Issue.ID, "-"); ok {
+				ctx.CursorPrefix = pfx
+			}
+		}
+	}
 	if m.workspaceMode && m.activeRepos != nil {
 		ctx.ActiveProjects = sortedRepoKeys(m.activeRepos)
 	}
@@ -84,6 +96,9 @@ func (m *Model) enterHistoryView() {
 		return
 	}
 
+	ctx := m.historyContext()
+	repoPath := resolveHistoryPath(ctx, cwd)
+
 	// Convert model.Issue to correlation.BeadInfo
 	beads := make([]correlation.BeadInfo, len(m.data.issues))
 	for i, issue := range m.data.issues {
@@ -94,10 +109,9 @@ func (m *Model) enterHistoryView() {
 		}
 	}
 
-	// Load correlation data
-	correlator := correlation.NewCorrelator(cwd, m.data.beadsPath)
+	correlator := correlation.NewCorrelator(repoPath, m.data.beadsPath)
 	opts := correlation.CorrelatorOptions{
-		Limit: 500, // Reasonable limit for TUI performance
+		Limit: 500,
 	}
 
 	report, err := correlator.GenerateReport(beads, opts)
@@ -106,14 +120,30 @@ func (m *Model) enterHistoryView() {
 		return
 	}
 
-	// Initialize or update history view
 	m.historyView = NewHistoryModel(report, m.theme)
-	m.historyView.SetContext(m.historyContext())
+	m.historyView.SetContext(ctx)
 	m.historyView.SetSize(m.width, m.height-1)
 	m.mode = ViewHistory
 	m.focused = focusHistory
 
 	m.setStatus(fmt.Sprintf("Loaded history: %d beads with commits", report.Stats.BeadsWithCommits))
+}
+
+// resolveHistoryPath implements the cursor -> filter -> cwd priority order.
+// Returns cwd as the safe fallback that preserves bt-ezk8 behavior when
+// the registry has nothing useful to say.
+func resolveHistoryPath(ctx HistoryContext, cwd string) string {
+	if ctx.CursorPrefix != "" {
+		if path, ok := projects.LookupAndValidate(ctx.CursorPrefix); ok {
+			return path
+		}
+	}
+	if len(ctx.ActiveProjects) == 1 {
+		if path, ok := projects.LookupAndValidate(ctx.ActiveProjects[0]); ok {
+			return path
+		}
+	}
+	return cwd
 }
 
 // enterTimeTravelMode loads historical data and computes diff

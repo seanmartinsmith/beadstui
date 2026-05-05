@@ -114,8 +114,12 @@ type FileTreeNode struct {
 // the current project filter (DB names, sorted; empty/nil means "all
 // projects" because no filter is applied).
 type HistoryContext struct {
-	WorkspaceMode   bool
-	ActiveProjects  []string
+	WorkspaceMode  bool
+	ActiveProjects []string
+	// CursorPrefix is the project prefix of the bead under the cursor (e.g.
+	// "bt", "bd"). Empty when no bead is selected: header rows, separators,
+	// empty lists, or unfocused-list states.
+	CursorPrefix string
 }
 
 // HistoryModel represents the TUI view for bead history and code correlations
@@ -1838,6 +1842,16 @@ func (h *HistoryModel) emptyStateMessage(defaultMsg string) string {
 		return defaultMsg
 	}
 
+	// Cursor-driven path: most specific signal, fires first.
+	if h.context.CursorPrefix != "" {
+		return fmt.Sprintf(
+			"History needs a git repository.\n\n"+
+				"No registered path for project %q. Launch bt from\n"+
+				"inside that project's git repo once to register it:\n\n"+
+				"    cd <path-to-%s> && bt",
+			h.context.CursorPrefix, h.context.CursorPrefix)
+	}
+
 	// Outside a git work tree. Tailor the message by whether a project
 	// filter is active in workspace/global mode.
 	switch {
@@ -1852,14 +1866,13 @@ func (h *HistoryModel) emptyStateMessage(defaultMsg string) string {
 			project, project, project)
 	case h.context.WorkspaceMode && len(h.context.ActiveProjects) > 1:
 		return "History needs a single-project git context.\n\n" +
-			"Multiple projects are filtered. Apply a single-project\n" +
-			"filter via [w] and launch bt from inside that project's\n" +
-			"git repo to see history."
+			"Filter to a single project via [w] or move the cursor\n" +
+			"onto a specific bead to scope history to that project."
 	case h.context.WorkspaceMode:
 		return "History needs a git repository.\n\n" +
-			"In global mode bt does not know any project's filesystem\n" +
-			"path. Apply a project filter via [w] and launch bt from\n" +
-			"inside that project's git repo to see history."
+			"Select a bead or apply a single-project filter via [w],\n" +
+			"and launch bt from inside that project's git repo to see\n" +
+			"history."
 	default:
 		return "History needs a git repository.\n\n" +
 			"Run bt from inside a git repo to see commit history."
