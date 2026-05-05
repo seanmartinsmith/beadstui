@@ -104,7 +104,7 @@ func init() {
 func robotPreRun() (*robotCtx, error) {
 	if err := loadIssues(); err != nil {
 		if !flagGlobal {
-			return nil, fmt.Errorf("%w (try --global to query the global Dolt server)", err)
+			return nil, fmt.Errorf("%w (try --global if no local Dolt server is reachable)", err)
 		}
 		return nil, err
 	}
@@ -333,7 +333,7 @@ var robotBQLCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := loadIssues(); err != nil {
 			if !flagGlobal {
-				return fmt.Errorf("%w (try --global to query the global Dolt server)", err)
+				return fmt.Errorf("%w (try --global if no local Dolt server is reachable)", err)
 			}
 			return err
 		}
@@ -1163,7 +1163,7 @@ func init() {
 	// list
 	robotListCmd.Flags().String("status", "", "Filter by status: open,blocked,in_progress,closed (comma-separated)")
 	robotListCmd.Flags().String("priority", "", "Filter by priority: single (e.g. '0') or range (e.g. '0-1')")
-	robotListCmd.Flags().String("type", "", "Filter by issue type: bug, feature, task, epic, chore")
+	robotListCmd.Flags().String("type", "", "Filter by issue type: bug, feature, task, epic, chore, decision, merge-request, molecule, gate, convoy (aliases: mr, feat, mol, dec, adr)")
 	robotListCmd.Flags().String("has-label", "", "Filter to issues with this label (exact match)")
 	robotListCmd.Flags().Int("limit", 100, "Max issues to return (0 = unlimited)")
 	robotCmd.AddCommand(robotListCmd)

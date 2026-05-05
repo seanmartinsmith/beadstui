@@ -6,6 +6,22 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-05-05 (continued) — `bt robot list` help-text + `--global` semantics cleanup (bt-3dv1, bt-qlep)
+
+**Small docs/UX session. User noticed that decision-typed beads (e.g. `sym-vxo9`) render indistinguishably from other types in the TUI, which led to the broader question: how should decisions surface in the bt CLI? Quick recon revealed two stale corners of the help/flag surface — both shipped as one-shot fixes.**
+
+### Ships
+
+- **bt-3dv1** (P3 bug, area:cli + area:docs) — `bt robot list --type` help text advertised only `bug, feature, task, epic, chore`, but the filter is a string passthrough on `model.IssueType` so any value bd accepts works. Updated to list all 10 bd-supported types (`decision`, `merge-request`, `molecule`, `gate`, `convoy`) plus aliases (`mr`, `feat`, `mol`, `dec`, `adr`). One-line edit at `cmd/bt/cobra_robot.go:1166`. No behavior change.
+- **bt-qlep** (P2 bug → re-scoped to docs cleanup, area:cli) — Original framing claimed "default cross-project scope is inverted, fix `robot_list.go` to scope to current project." Recon during claim phase revealed `bt robot triage` and every other robot subcommand also default to cross-project (3746 issues from bt cwd), and that this is correct architecture per the global-hub design (2026-04-03 plan, project-grouped TUI bt-a3sb, cross-project pairs/refs/portfolio). The bug was in the **flag and docs**, not the behavior. Re-scoped to: rewrite `--global` description to reflect actual semantics (forces shared Dolt server discovery, skips local detection), update two stale "try --global to query the global Dolt server" error messages to "try --global if no local Dolt server is reachable" (`cobra_robot.go:107` and `:336`), and add a one-liner to `bt robot list --help` Long: "Returns issues from the entire shared corpus by default; use --source <prefix> to scope to one project." Five lines changed across three files. No behavior change.
+
+### Process notes
+
+- **L8 architect lens caught a misframed bead before code touched.** Initial bt-qlep framing would have made `list` inconsistent with every other subcommand by silently scoping its data path — a fix that fights the architecture. The ground-truth-first recon (running `bt robot triage` to verify the cross-project default was universal, not specific to `list`) flipped the recommendation from "implement scope filter" to "fix the docs that lie about the architecture." Re-scope captured as a comment on bt-qlep so the recon trail is preserved.
+- **Decision-bead surfacing** (the user's original question that triggered this session) is already tracked in **bt-h5jz** — Phase 2 covers the `[DEC]` badge in the list view. `bd list --type=decision` and `bt robot list --type=decision` both work today as data-layer surfacing; the gap is purely visual in the TUI. Comment-update on bt-h5jz pending: its description claims `IssueType.IsValid()` rejects `decision`, but the robot list passthrough proves Phase 1 may already be a no-op.
+
+---
+
 ## 2026-05-05 (continued) — Wave 2 small: 2 beads shipped (`bt robot activity` CLI + `bt status` / `bt robot health` diagnostics)
 
 **Same-day continuation of Wave 1. Two parallel subagents dispatched into worktrees with the established L8 playbook. Both hit the org monthly token limit mid-execution and were terminated; resumed cleanly via `SendMessage(<agentId>)` after the limit reset (this is the canonical recovery path — terminated agents revive from transcript).**

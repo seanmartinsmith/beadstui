@@ -23,7 +23,7 @@ import (
 var robotListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "Output filtered issue list as JSON",
-	Long:  "List issues with simple flag-based filters. For complex queries, use 'bt robot bql'.",
+	Long:  "List issues with simple flag-based filters. Returns issues from the entire shared corpus by default; use --source <prefix> to scope to one project. For complex queries, use 'bt robot bql'.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := loadIssues(); err != nil {
 			return err

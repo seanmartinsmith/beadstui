@@ -99,7 +99,7 @@ func init() {
 	pf := rootCmd.PersistentFlags()
 	pf.StringVar(&flagFormat, "format", "", "Structured output format: json or toon (env: BT_OUTPUT_FORMAT, TOON_DEFAULT_FORMAT)")
 	pf.BoolVar(&flagToonStats, "stats", false, "Show JSON vs TOON token estimates on stderr (env: TOON_STATS=1)")
-	pf.BoolVar(&flagGlobal, "global", false, "Show issues from all projects on shared Dolt server")
+	pf.BoolVar(&flagGlobal, "global", false, "Force shared Dolt server discovery (skips local-server detection; bt already operates cross-project by default)")
 	pf.StringVar(&flagRepo, "repo", "", "Filter issues by repository prefix (e.g., 'api-' or 'api')")
 	// --workspace affects issue loading (via loadIssues()), which every
 	// subcommand exercises in its PreRun. It was root-only before the cobra
