@@ -1950,7 +1950,7 @@ func (h *HistoryModel) renderHeader() string {
 		rightContent = lipgloss.NewStyle().
 			Foreground(t.Muted).
 			Padding(0, 1).
-			Render("[/] search  [H] close")
+			Render("[/] search  [h] close")
 	}
 
 	// Combine title line with spacing

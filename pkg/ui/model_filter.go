@@ -1304,7 +1304,7 @@ func (m *Model) renderBeadHistoryMD(beadID string) string {
 		}
 	}
 
-	sb.WriteString("\n*Press H for full history view*\n\n")
+	sb.WriteString("\n*Press h for full history view*\n\n")
 	return sb.String()
 }
 
