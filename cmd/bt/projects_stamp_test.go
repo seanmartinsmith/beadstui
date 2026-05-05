@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/projects"
 	"github.com/seanmartinsmith/beadstui/pkg/workspace"
 )
@@ -86,14 +87,10 @@ func hasGitAncestor(dir string) bool {
 
 // TestStampLaunchProjects_CwdMode verifies that a directory containing both
 // .git/ and .beads/metadata.json produces exactly one registry entry mapping
-// the dolt_database value (the prefix) to the git toplevel.
+// the dolt_database value (the prefix) to the git toplevel when the bead-ID
+// prefix matches the dolt_database name (no dual-stamp needed).
 //
-// This test exercises the cwd-stamp branch of stampLaunchProjects. That
-// branch has multiple call sites in loadIssues (local-project fall-through
-// AND auto-global-from-inside-project) which all pass identical args:
-// (cwd, nil, false, false). Verifying the helper once is sufficient - that
-// loadIssues actually invokes it from each site is verified by reading the
-// code, not by a unit test that can't observe call sites.
+// This test exercises the cwd-stamp branch of stampLaunchProjects.
 func TestStampLaunchProjects_CwdMode(t *testing.T) {
 	regPath := setIsolatedRegistry(t)
 
@@ -102,7 +99,10 @@ func TestStampLaunchProjects_CwdMode(t *testing.T) {
 	dir := makeGitRepoDir(t)
 	writeBeadsMetadata(t, dir, "myproject")
 
-	stampLaunchProjects(dir, nil, false, false)
+	// Issues whose ID prefix matches dolt_database - no dual-stamp expected.
+	cwdIssues := []model.Issue{{ID: "myproject-001"}}
+
+	stampLaunchProjects(dir, cwdIssues, nil, false, false)
 
 	r := inspectRegistry(t, regPath)
 	if len(r) != 1 {
@@ -123,6 +123,59 @@ func TestStampLaunchProjects_CwdMode(t *testing.T) {
 	}
 }
 
+// TestStampLaunchProjects_CwdMode_PrefixMismatch verifies the dual-key stamp
+// (bt-i1bw): when the bead-ID prefix differs from the dolt_database value,
+// both keys are stamped, both pointing at the same path. The canonical
+// real-world case is the beads project (db_name "beads", bead prefix "bd").
+func TestStampLaunchProjects_CwdMode_PrefixMismatch(t *testing.T) {
+	regPath := setIsolatedRegistry(t)
+
+	dir := makeGitRepoDir(t)
+	writeBeadsMetadata(t, dir, "beads")
+
+	// Issues whose ID prefix is "bd" - mismatched against dolt_database "beads".
+	cwdIssues := []model.Issue{{ID: "bd-3gb"}, {ID: "bd-mhcv"}}
+
+	stampLaunchProjects(dir, cwdIssues, nil, false, false)
+
+	r := inspectRegistry(t, regPath)
+	if len(r) != 2 {
+		t.Fatalf("expected 2 registry entries (db_name + bead-ID prefix), got %d: %v", len(r), r)
+	}
+	if e, ok := r["beads"]; !ok || e.Path != dir {
+		t.Errorf("beads entry: path=%q ok=%v, want path=%q", e.Path, ok, dir)
+	}
+	if e, ok := r["bd"]; !ok || e.Path != dir {
+		t.Errorf("bd entry: path=%q ok=%v, want path=%q", e.Path, ok, dir)
+	}
+}
+
+// TestStampLaunchProjects_CwdMode_NoIssues verifies that an empty issue slice
+// is well-formed and produces only the dolt_database stamp (inferBeadPrefix
+// returns "", so the dual-stamp branch is skipped).
+func TestStampLaunchProjects_CwdMode_NoIssues(t *testing.T) {
+	regPath := setIsolatedRegistry(t)
+
+	dir := makeGitRepoDir(t)
+	writeBeadsMetadata(t, dir, "myproject")
+
+	stampLaunchProjects(dir, nil, nil, false, false)
+
+	r := inspectRegistry(t, regPath)
+	if len(r) != 1 {
+		t.Fatalf("expected 1 registry entry, got %d: %v", len(r), r)
+	}
+	if _, ok := r["myproject"]; !ok {
+		t.Errorf("expected entry for prefix 'myproject', got keys: %v", func() []string {
+			var ks []string
+			for k := range r {
+				ks = append(ks, k)
+			}
+			return ks
+		}())
+	}
+}
+
 // TestStampLaunchProjects_WorkspaceMode_MultiRepo verifies that workspace mode
 // stamps one entry per LoadResult that has a non-empty Prefix and a git repo
 // at its AbsPath.
@@ -137,7 +190,7 @@ func TestStampLaunchProjects_WorkspaceMode_MultiRepo(t *testing.T) {
 		{Prefix: "bd", AbsPath: dir2},
 	}
 
-	stampLaunchProjects("", results, false, false)
+	stampLaunchProjects("", nil, results, false, false)
 
 	r := inspectRegistry(t, regPath)
 	if len(r) != 2 {
@@ -151,12 +204,43 @@ func TestStampLaunchProjects_WorkspaceMode_MultiRepo(t *testing.T) {
 	}
 }
 
+// TestStampLaunchProjects_WorkspaceMode_PrefixMismatch verifies the dual-key
+// stamp also fires per-LoadResult in workspace mode (bt-i1bw): when a result's
+// Prefix (config-driven) differs from the bead-ID prefix derived from its
+// Issues, both keys are stamped pointing at the same AbsPath.
+func TestStampLaunchProjects_WorkspaceMode_PrefixMismatch(t *testing.T) {
+	regPath := setIsolatedRegistry(t)
+
+	dir := makeGitRepoDir(t)
+
+	results := []workspace.LoadResult{
+		{
+			Prefix:  "beads",
+			AbsPath: dir,
+			Issues:  []model.Issue{{ID: "bd-3gb"}},
+		},
+	}
+
+	stampLaunchProjects("", nil, results, false, false)
+
+	r := inspectRegistry(t, regPath)
+	if len(r) != 2 {
+		t.Fatalf("expected 2 registry entries (config prefix + bead-ID prefix), got %d: %v", len(r), r)
+	}
+	if e, ok := r["beads"]; !ok || e.Path != dir {
+		t.Errorf("beads entry: path=%q ok=%v, want path=%q", e.Path, ok, dir)
+	}
+	if e, ok := r["bd"]; !ok || e.Path != dir {
+		t.Errorf("bd entry: path=%q ok=%v, want path=%q", e.Path, ok, dir)
+	}
+}
+
 // TestStampLaunchProjects_GlobalMode verifies that --global launches are a
 // no-op: the registry file is not created or modified.
 func TestStampLaunchProjects_GlobalMode(t *testing.T) {
 	regPath := setIsolatedRegistry(t)
 
-	stampLaunchProjects("", nil, true, false)
+	stampLaunchProjects("", nil, nil, true, false)
 
 	r := inspectRegistry(t, regPath)
 	if len(r) != 0 {
@@ -171,7 +255,7 @@ func TestStampLaunchProjects_NoBeadsCwd(t *testing.T) {
 
 	dir := makeGitRepoDir(t) // .git/ only; no .beads/
 
-	stampLaunchProjects(dir, nil, false, false)
+	stampLaunchProjects(dir, nil, nil, false, false)
 
 	r := inspectRegistry(t, regPath)
 	if len(r) != 0 {
@@ -193,7 +277,7 @@ func TestStampLaunchProjects_NoGitCwd(t *testing.T) {
 
 	writeBeadsMetadata(t, dir, "someproject")
 
-	stampLaunchProjects(dir, nil, false, false)
+	stampLaunchProjects(dir, nil, nil, false, false)
 
 	r := inspectRegistry(t, regPath)
 	if len(r) != 0 {
@@ -215,7 +299,7 @@ func TestStampLaunchProjects_WorkspaceFailedRepo(t *testing.T) {
 		{Prefix: "bad", AbsPath: badDir},
 	}
 
-	stampLaunchProjects("", results, false, false)
+	stampLaunchProjects("", nil, results, false, false)
 
 	r := inspectRegistry(t, regPath)
 	if len(r) != 1 {

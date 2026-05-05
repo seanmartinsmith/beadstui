@@ -199,7 +199,7 @@ func loadIssues() error {
 		appCtx.beadsPath = ""
 		workspaceRoot := filepath.Dir(filepath.Dir(flagWorkspace))
 		_ = loader.EnsureBTInGitignore(workspaceRoot)
-		stampLaunchProjects("", results, false, false)
+		stampLaunchProjects("", nil, results, false, false)
 	} else if flagGlobal {
 		host, port, err := datasource.DiscoverSharedServer()
 		if err != nil {
@@ -236,7 +236,7 @@ func loadIssues() error {
 		// project-anchored - record the prefix->path mapping so per-bead
 		// History (and other path-aware consumers) can resolve it.
 		if cwd, err := os.Getwd(); err == nil {
-			stampLaunchProjects(cwd, nil, false, false)
+			stampLaunchProjects(cwd, appCtx.issues, nil, false, false)
 		}
 	}
 
@@ -273,7 +273,7 @@ func loadIssues() error {
 		// (e.g. History view) can resolve prefix -> path without needing
 		// the user to be in the project's cwd at query time.
 		if cwd, err := os.Getwd(); err == nil {
-			stampLaunchProjects(cwd, nil, false, false)
+			stampLaunchProjects(cwd, appCtx.issues, nil, false, false)
 		}
 	}
 
@@ -1129,25 +1129,33 @@ func detectProjectDBAt(dir string) string {
 //
 // Two stamping branches:
 //   - cwd (workspaceResults == nil, !isGlobal, !isAsOf): one stamp for the
-//     project under cwd. Skipped when prefix or git toplevel is empty.
+//     project under cwd, plus a second stamp under the bead-ID prefix when
+//     it differs from dolt_database (bt-i1bw). Skipped when prefix or git
+//     toplevel is empty.
 //   - workspace (workspaceResults != nil): N stamps, one per LoadResult that
-//     has a non-empty Prefix and a resolvable git toplevel from its AbsPath.
+//     has a non-empty Prefix and a resolvable git toplevel from its AbsPath,
+//     plus a second stamp per result under the bead-ID prefix when it differs.
 //
 // No-op branches:
 //   - explicit --global (isGlobal=true): the user said "treat me as global,
 //     ignore my filesystem position." No stamp.
 //   - --as-of (isAsOf=true): time-travel viewing mode, not a launch context.
 //
-// Three call sites in loadIssues converge on the cwd branch with identical
-// args (cwd, nil, false, false):
+// Three call sites in loadIssues converge on the cwd branch:
 //  1. local-project fall-through (`bt` from inside a project, no shared server).
 //  2. auto-global-from-inside-project (data routed through shared server, but
 //     user's launch context is still project-anchored).
 //  3. (workspace mode uses its own (workspaceResults, ...) shape.)
 //
+// cwdIssues is forwarded for the dual-stamp lookup (bt-i1bw): consumers like
+// resolveHistoryPath query the registry with the bead-ID prefix extracted from
+// the cursor (strings.Cut(id, "-")), which doesn't always equal the
+// dolt_database value (e.g. beads project: db_name "beads", bead prefix "bd").
+// Stamping under both keys keeps lookup working in either direction.
+//
 // All I/O errors are logged via pkg/debug and dropped; the registry is a cache,
 // not a system of record, and must never block a launch.
-func stampLaunchProjects(cwd string, workspaceResults []workspace.LoadResult, isGlobal bool, isAsOf bool) {
+func stampLaunchProjects(cwd string, cwdIssues []model.Issue, workspaceResults []workspace.LoadResult, isGlobal bool, isAsOf bool) {
 	if isGlobal || isAsOf {
 		// Global and asOf modes are not "inside" a specific project; nothing to stamp.
 		return
@@ -1187,6 +1195,9 @@ func stampLaunchProjects(cwd string, workspaceResults []workspace.LoadResult, is
 				continue
 			}
 			r = projects.Stamp(r, res.Prefix, top, "", now)
+			if beadPrefix := inferBeadPrefix(res.Issues); beadPrefix != "" && beadPrefix != res.Prefix {
+				r = projects.Stamp(r, beadPrefix, top, "", now)
+			}
 		}
 	} else {
 		// CWD mode: stamp the single project whose .beads/metadata.json lives under cwd.
@@ -1208,9 +1219,26 @@ func stampLaunchProjects(cwd string, workspaceResults []workspace.LoadResult, is
 			return
 		}
 		r = projects.Stamp(r, prefix, top, "", now)
+		if beadPrefix := inferBeadPrefix(cwdIssues); beadPrefix != "" && beadPrefix != prefix {
+			r = projects.Stamp(r, beadPrefix, top, "", now)
+		}
 	}
 
 	if err := projects.Save(registryPath, r); err != nil {
 		debug.Log("projects: save failed after stamping: %v", err)
 	}
+}
+
+// inferBeadPrefix returns the bead-ID prefix from the first hyphenated issue
+// ID in the slice, or "" if no usable ID is found. Mirrors the cursor-prefix
+// extraction in pkg/ui/model_modes.go::historyContext (strings.Cut on first
+// hyphen) so the prefix the registry is keyed under matches what consumers
+// will look up.
+func inferBeadPrefix(issues []model.Issue) string {
+	for _, iss := range issues {
+		if pfx, _, ok := strings.Cut(iss.ID, "-"); ok && pfx != "" {
+			return pfx
+		}
+	}
+	return ""
 }
