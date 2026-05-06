@@ -149,3 +149,55 @@ func TestRepoPickerDimensions(t *testing.T) {
 		t.Errorf("empty picker height: got %d, want %d", eh, 1+repoPickerVerticalChrome)
 	}
 }
+
+// TestRepoPickerModalAlwaysFitsInBg covers bt-vr2h: with a long repo list,
+// the modal must not grow past the bg passed to SetSize. Before the
+// visibleCount cap, Dimensions() returned len(repos)+chrome unconditionally
+// and overflowed scrunched terminals.
+func TestRepoPickerModalAlwaysFitsInBg(t *testing.T) {
+	// Eighteen repos -- mirrors the dogfood-2026-05-06 image showing the
+	// project filter overflowing on a small window.
+	repos := []string{
+		"beads", "bt", "cctui", "cnvs", "dev_browser", "dotfiles",
+		"lil_sto", "marketplace", "portal", "portfolio", "remotion",
+		"sms", "sym", "tpane", "updoots", "alpha", "beta", "gamma",
+	}
+	for bg := 9; bg <= 60; bg++ {
+		m := NewRepoPickerModel(repos, DefaultTheme())
+		m.SetSize(120, bg)
+		_, h := m.Dimensions()
+		if h > bg {
+			t.Errorf("bg=%d (%d repos): modal h=%d exceeds bg; will clip on overlay center", bg, len(repos), h)
+		}
+	}
+}
+
+// TestRepoPickerVisibleCountScalesWithHeight asserts the bt-vr2h percentage
+// cap on the project filter modal -- mirrors TestLabelPickerVisibleCountScalesWithHeight.
+func TestRepoPickerVisibleCountScalesWithHeight(t *testing.T) {
+	repos := make([]string, 50) // far more than any cap so the visibleCount math drives
+	for i := range repos {
+		repos[i] = "repo"
+	}
+
+	tests := []struct {
+		height   int
+		expected int
+		note     string
+	}{
+		{8, 1, "extremely tiny: fallback to bg-chrome"},
+		{12, 4, "tiny: 75%*12=9, minus 5 chrome = 4"},
+		{20, 10, "small: 75%*20=15, minus 5 chrome = 10"},
+		{30, 17, "medium: 75%*30=22, minus 5 chrome = 17"},
+		{50, 30, "tall: 75%*50=37, clamp at repoPickerMaxVisible (30)"},
+		{80, 30, "huge: still clamped to 30"},
+	}
+	for _, tc := range tests {
+		m := NewRepoPickerModel(repos, DefaultTheme())
+		m.SetSize(120, tc.height)
+		got := m.visibleCount()
+		if got != tc.expected {
+			t.Errorf("height=%d (%s): visibleCount=%d, want %d", tc.height, tc.note, got, tc.expected)
+		}
+	}
+}

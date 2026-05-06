@@ -1692,6 +1692,13 @@ func (m Model) handleWindowSize(msg tea.WindowSizeMsg) Model {
 	m.labelDashboard.SetSize(m.width, bodyHeight)
 
 	m.insightsPanel.SetSize(m.width, bodyHeight)
+
+	// Resize modal pickers so an open modal reflows to the new terminal
+	// size instead of staying at its open-time dimensions and overflowing
+	// the viewport (bt-vr2h).
+	m.labelPicker.SetSize(m.width, bodyHeight)
+	m.repoPicker.SetSize(m.width, bodyHeight)
+
 	m.updateViewportContent()
 	return m
 }

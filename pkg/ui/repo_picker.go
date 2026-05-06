@@ -189,10 +189,47 @@ func (m *RepoPickerModel) SetCursor(idx int) {
 // border) = 5. Must stay aligned with View().
 const repoPickerVerticalChrome = 5
 
+// repoPickerMaxVisible caps the number of repo rows shown at once. With many
+// projects in workspace mode the modal would otherwise grow without bound and
+// overflow the terminal on smaller windows.
+const repoPickerMaxVisible = 30
+
 // repoRowOffsetInBox is the row offset (relative to the panel top border) at
 // which the first repo row appears. Layout: row 0 top border, row 1 top
 // breathing blank, row 2+ repos.
 const repoRowOffsetInBox = 2
+
+// visibleCount returns how many repo rows fit in the modal at the current
+// terminal size. Mirrors the label picker pattern (bt-vr2h): aim for ~75%
+// of bg, fall back to whatever fits, cap at repoPickerMaxVisible (30) on
+// tall terminals. Without this cap the modal grew with len(m.repos) and
+// overflowed scrunched terminals (no chrome around it).
+func (m *RepoPickerModel) visibleCount() int {
+	bg := m.height
+	if bg < 1 {
+		bg = 20 // fallback before SetSize is called
+	}
+
+	softTotal := int(float64(bg) * 0.75)
+	if softTotal > bg {
+		softTotal = bg
+	}
+	visible := softTotal - repoPickerVerticalChrome
+	if visible < 1 {
+		visible = bg - repoPickerVerticalChrome
+	}
+
+	if visible > repoPickerMaxVisible {
+		visible = repoPickerMaxVisible
+	}
+	if len(m.repos) > 0 && visible > len(m.repos) {
+		visible = len(m.repos)
+	}
+	if visible < 1 {
+		visible = 1
+	}
+	return visible
+}
 
 // computeBoxWidth derives the modal's outer box width (including borders).
 // Pure layout math so Dimensions() and View() share the same width budget.
@@ -214,6 +251,12 @@ func (m *RepoPickerModel) computeBoxWidth() int {
 	}
 
 	boxWidth := innerWidth + 2 // border chars
+
+	// Cap at 80% of terminal width so wide repo names don't stretch the
+	// modal across the whole row on narrow terminals (bt-vr2h).
+	if widthCap := int(float64(m.width) * 0.80); boxWidth > widthCap {
+		boxWidth = widthCap
+	}
 	if boxWidth > m.width-4 {
 		boxWidth = m.width - 4
 	}
@@ -227,7 +270,7 @@ func (m *RepoPickerModel) computeBoxWidth() int {
 // the mouse click handler to compute the centered panel start row/col.
 func (m *RepoPickerModel) Dimensions() (int, int) {
 	w := m.computeBoxWidth()
-	h := len(m.repos) + repoPickerVerticalChrome
+	h := m.visibleCount() + repoPickerVerticalChrome
 	if len(m.repos) == 0 {
 		// Empty-state shows a single "No projects available." line in place
 		// of the repo block, so total content rows = 1 (still the same
@@ -239,16 +282,23 @@ func (m *RepoPickerModel) Dimensions() (int, int) {
 
 // ItemAtPanelY maps a Y coordinate relative to the picker's top border to
 // a repo index. Returns (-1, false) for non-row regions (chrome, blanks,
-// footer).
+// footer). Accounts for page-aligned scrolling when len(m.repos) exceeds
+// visibleCount() (bt-vr2h).
 func (m *RepoPickerModel) ItemAtPanelY(my int) (int, bool) {
 	if len(m.repos) == 0 {
 		return -1, false
 	}
+	maxVisible := m.visibleCount()
 	relRow := my - repoRowOffsetInBox
-	if relRow < 0 || relRow >= len(m.repos) {
+	if relRow < 0 || relRow >= maxVisible {
 		return -1, false
 	}
-	return relRow, true
+	start := (m.selectedIndex / maxVisible) * maxVisible
+	idx := start + relRow
+	if idx >= len(m.repos) {
+		return -1, false
+	}
+	return idx, true
 }
 
 const pickerHPad = 3 // horizontal padding inside box
@@ -300,7 +350,17 @@ func (m *RepoPickerModel) View() string {
 		checkStyle := lipgloss.NewStyle().Foreground(t.Primary)
 		uncheckStyle := lipgloss.NewStyle().Foreground(t.Secondary)
 
-		for i, repo := range m.repos {
+		// Page-aligned visible window so paging feels natural and the modal
+		// has a fixed total height regardless of len(m.repos) (bt-vr2h).
+		maxVisible := m.visibleCount()
+		start := (m.selectedIndex / maxVisible) * maxVisible
+		end := start + maxVisible
+		if end > len(m.repos) {
+			end = len(m.repos)
+		}
+
+		for i := start; i < end; i++ {
+			repo := m.repos[i]
 			isCursor := i == m.selectedIndex
 			isSelected := m.selected[repo]
 
@@ -321,6 +381,11 @@ func (m *RepoPickerModel) View() string {
 
 			line := centering + cursor + indicator + nameStyle.Render(repo)
 			lines = append(lines, line)
+		}
+
+		// Pad to fixed visibleCount so modal height stays constant across pages.
+		for i := end - start; i < maxVisible; i++ {
+			lines = append(lines, "")
 		}
 	}
 

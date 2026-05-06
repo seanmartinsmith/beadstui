@@ -202,25 +202,23 @@ func TestLabelPickerResetReturnsToNavigationMode(t *testing.T) {
 	}
 }
 
-// TestLabelPickerVisibleCountScalesWithHeight asserts the bt-wnda size fix
-// AND the bt-vr2h ~75%-of-terminal vertical cap. Total modal height is
-// visibleCount + labelPickerVerticalChrome (8). Cases:
-//   - Small/medium terminals: percentage cap kicks in so the modal leaves
-//     breathing room around itself (4-5 rows above and below at h=30).
-//   - Tall terminals: still clamps to labelPickerMaxVisible (30) — no
-//     regression for typical desktop usage.
-//   - Tiny terminals: still clamped to floor of 3.
+// TestLabelPickerVisibleCountScalesWithHeight asserts the bt-wnda + bt-vr2h
+// sizing: total modal height is visibleCount + labelPickerVerticalChrome (8)
+// and that total fits inside the bg passed to SetSize. The soft target is
+// 75% of bg; on terminals where that cannot accommodate any label rows we
+// fall back to whatever fits (no hard floor of 3 -- that floor pushed the
+// modal past the terminal bottom on very small windows).
 func TestLabelPickerVisibleCountScalesWithHeight(t *testing.T) {
 	tests := []struct {
 		height   int
 		expected int
 		note     string
 	}{
-		{8, 3, "extremely tiny: floor of 3"},
-		{12, 3, "tiny: 75% cap drops below floor → 3"},
-		{20, 7, "small: 75% of 20 = 15, minus 8 chrome = 7"},
-		{30, 14, "medium: 75% of 30 = 22 total, 14 visible (4-5 rows breathing room)"},
-		{40, 22, "tall: 75% cap still tighter than 30 (22 visible, total 30)"},
+		{8, 1, "extremely tiny: 75% can't fit any rows, fallback to bg-chrome"},
+		{12, 1, "tiny: 75%*12=9, minus 8 chrome = 1"},
+		{20, 7, "small: 75%*20=15, minus 8 chrome = 7"},
+		{30, 14, "medium: 75%*30=22 total, 14 visible (breathing room above and below)"},
+		{40, 22, "tall: 75%*40=30 total, 22 visible"},
 		{51, 30, "very tall: 75% allows 30+, clamp at labelPickerMaxVisible"},
 		{60, 30, "huge: still clamped to 30"},
 		{120, 30, "enormous: still clamped to 30"},
@@ -231,6 +229,22 @@ func TestLabelPickerVisibleCountScalesWithHeight(t *testing.T) {
 		got := p.visibleCount()
 		if got != tc.expected {
 			t.Errorf("height=%d (%s): visibleCount=%d, want %d", tc.height, tc.note, got, tc.expected)
+		}
+	}
+}
+
+// TestLabelPickerModalAlwaysFitsInBg locks in the bt-vr2h invariant: the
+// rendered modal total height (Dimensions().h) MUST fit inside the bg
+// passed to SetSize. Without this guarantee OverlayCenterDimBackdrop's
+// centering math clamps startRow=0 and the modal's bottom border + footer
+// are clipped off-screen.
+func TestLabelPickerModalAlwaysFitsInBg(t *testing.T) {
+	for bg := 9; bg <= 80; bg++ {
+		p := NewLabelPickerModel([]string{"api", "core"}, map[string]int{"api": 1, "core": 1}, Theme{})
+		p.SetSize(120, bg)
+		_, h := p.Dimensions()
+		if h > bg {
+			t.Errorf("bg=%d: modal h=%d exceeds bg; OverlayCenterDimBackdrop will clip the bottom", bg, h)
 		}
 	}
 }
@@ -270,7 +284,7 @@ func TestLabelPickerItemAtPanelY(t *testing.T) {
 	labels := []string{"api", "backend", "core", "data", "edge"}
 	counts := map[string]int{"api": 5, "backend": 4, "core": 3, "data": 2, "edge": 1}
 	p := NewLabelPickerModel(labels, counts, Theme{})
-	p.SetSize(60, 30) // visibleCount = 22, plenty of room
+	p.SetSize(60, 30) // visibleCount = 14 with the bt-vr2h cap, room for all 5 labels
 
 	// First label appears at row 3 (top border, input, blank, then labels).
 	idx, ok := p.ItemAtPanelY(3)

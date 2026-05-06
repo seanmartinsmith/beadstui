@@ -209,28 +209,45 @@ const labelPickerVerticalChrome = 8
 // entire screen on tall terminals.
 const labelPickerMaxVisible = 30
 
-// visibleCount returns how many labels are visible in the picker. Scales with
-// terminal height up to labelPickerMaxVisible (bt-wnda) and is additionally
-// capped at ~75% of terminal height so the modal leaves breathing room around
-// itself on smaller terminals (bt-vr2h). Without the percentage cap a 30-row
-// terminal renders a near-fullscreen modal that occludes the underlying view.
+// visibleCount returns how many labels are visible in the picker. The modal
+// total height is `visibleCount + labelPickerVerticalChrome (8)`, and that
+// total must fit inside the available bg height (m.height as set by
+// SetSize) so the OverlayCenterDimBackdrop centering doesn't clip the
+// bottom border on small terminals (bt-vr2h).
+//
+// Sizing strategy mirrors model_alerts.go alertsPanelHeight: aim for ~75%
+// of the bg as the soft target, fall back to whatever fits on small
+// terminals, and cap at labelPickerMaxVisible (30) on tall ones. Below
+// ~9 rows of bg the chrome itself can't fit -- accept overflow rather
+// than restructuring chrome.
 func (m *LabelPickerModel) visibleCount() int {
-	maxVisible := m.height - labelPickerVerticalChrome
+	bg := m.height
 
-	// Cap total modal height at ~75% of terminal height. labelPickerMaxVisible
-	// (30) still wins on tall terminals; this kicks in on small windows.
-	heightCap := int(float64(m.height)*0.75) - labelPickerVerticalChrome
-	if heightCap < maxVisible {
-		maxVisible = heightCap
+	// Soft target: ~75% of bg for breathing room above and below.
+	softTotal := int(float64(bg) * 0.75)
+	if softTotal > bg {
+		softTotal = bg
 	}
 
-	if maxVisible > labelPickerMaxVisible {
-		maxVisible = labelPickerMaxVisible
+	visible := softTotal - labelPickerVerticalChrome
+
+	// On small terminals where 75% can't accommodate any label rows, fall
+	// back to whatever fits.
+	if visible < 1 {
+		visible = bg - labelPickerVerticalChrome
 	}
-	if maxVisible < 3 {
-		maxVisible = 3
+
+	// Tall-terminal cap.
+	if visible > labelPickerMaxVisible {
+		visible = labelPickerMaxVisible
 	}
-	return maxVisible
+
+	// Absolute floor: at least 1 row even if the modal overflows on a
+	// terminal smaller than chrome (~9 rows).
+	if visible < 1 {
+		visible = 1
+	}
+	return visible
 }
 
 // SelectedLabel returns the currently selected label
