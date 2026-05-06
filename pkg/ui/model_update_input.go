@@ -1430,7 +1430,24 @@ func (m Model) handleMouseClick(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 		const searchRowY = 1
 		if mouse.Y == searchRowY {
 			if m.list.FilterState() != list.Filtering {
+				// Capture cursor before filter-begin runs (bt-qka1); mirrors the
+				// keyboard "/" restore path in model.go Update. Bubbles' filter-
+				// begin calls GoToStart, which resets the visible cursor to 0.
+				// After the synthetic keypress with an empty buffer, VisibleItems
+				// contains all items, so the captured index is still valid.
+				savedIdx := m.list.Index()
 				m.list, _ = m.list.Update(tea.KeyPressMsg{Code: '/'})
+				// Restore cursor; clamp in case list somehow shrank.
+				if m.list.FilterState() == list.Filtering {
+					visible := m.list.VisibleItems()
+					restoreIdx := savedIdx
+					if restoreIdx >= len(visible) {
+						restoreIdx = len(visible) - 1
+					}
+					if restoreIdx >= 0 {
+						m.list.Select(restoreIdx)
+					}
+				}
 			}
 			return m, nil
 		}

@@ -504,6 +504,7 @@ type Model struct {
 	focused                  focus
 	focusBeforeHelp          focus // Stores focus before opening help overlay
 	focusBeforeSearch        focus // Stores focus before / entered search from a non-list pane (bt-cd3x)
+	filterEntryCursor        int   // Cursor index captured just before filter-begin runs (bt-qka1)
 	isSplitView              bool
 	splitPaneRatio           float64 // Ratio of list pane width (0.2-0.8), default 0.4
 	showDetails              bool
@@ -1507,8 +1508,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// list would interpret Esc as "cancel filter" and clear the search query.
 	if m.focused == focusList && m.activeModal == ModalNone && prevModal == ModalNone {
 		if _, isWindowSize := msg.(tea.WindowSizeMsg); !isWindowSize {
+			// Capture cursor before filter-begin so we can restore it after
+			// Bubbles' GoToStart resets position (bt-qka1). Only arm when the
+			// keypress is "/" and the list is not already in Filtering state;
+			// any other message leaves filterEntryCursor at -1 (no restore).
+			m.filterEntryCursor = -1
+			if kp, isKey := msg.(tea.KeyPressMsg); isKey &&
+				kp.Code == '/' &&
+				m.list.FilterState() != list.Filtering {
+				m.filterEntryCursor = m.list.Index()
+			}
 			m.list, cmd = m.list.Update(msg)
 			cmds = append(cmds, cmd)
+			// Restore cursor if filter-begin just ran. After filter-begin with
+			// an empty buffer, VisibleItems contains all items, so any valid
+			// prior index is still in range. Clamp defensively.
+			if m.filterEntryCursor >= 0 && m.list.FilterState() == list.Filtering {
+				visible := m.list.VisibleItems()
+				restoreIdx := m.filterEntryCursor
+				if restoreIdx >= len(visible) {
+					restoreIdx = len(visible) - 1
+				}
+				if restoreIdx >= 0 {
+					m.list.Select(restoreIdx)
+				}
+				m.filterEntryCursor = -1
+			}
 		}
 		currentTerm := m.list.FilterInput.Value()
 		if currentTerm != m.lastSearchTerm {
