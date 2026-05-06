@@ -202,6 +202,38 @@ func TestLabelPickerResetReturnsToNavigationMode(t *testing.T) {
 	}
 }
 
+// TestLabelPickerOpenedWithFilter covers the bt-NEW Enter-clear bug: when the
+// modal opens with active labels and the user deselects all of them, the
+// picker must remember it opened with a filter so the Enter handler can
+// clear instead of falling through to the cursor-label shortcut.
+func TestLabelPickerOpenedWithFilter(t *testing.T) {
+	labels := []string{"area:tui", "area:product", "ux"}
+	counts := map[string]int{"area:tui": 10, "area:product": 5, "ux": 3}
+
+	// Cold open: no active labels.
+	cold := NewLabelPickerModel(labels, counts, Theme{})
+	cold.SetActiveLabels(nil)
+	if cold.OpenedWithFilter() {
+		t.Errorf("cold open should report OpenedWithFilter()=false")
+	}
+
+	// Hot open: one active label.
+	hot := NewLabelPickerModel(labels, counts, Theme{})
+	hot.SetActiveLabels([]string{"area:product"})
+	if !hot.OpenedWithFilter() {
+		t.Fatalf("hot open with one active label should report OpenedWithFilter()=true")
+	}
+
+	// Toggling the active label off does NOT change OpenedWithFilter --
+	// the flag captures open-time state so the Enter handler can branch.
+	hot.SelectedLabels()
+	hot.ToggleSelected() // assume selectedIndex 0 hits area:product after sort; test SelectedLabels below
+	// Either way, OpenedWithFilter() must still be true.
+	if !hot.OpenedWithFilter() {
+		t.Errorf("OpenedWithFilter() should remain true after toggling a label off")
+	}
+}
+
 // TestLabelPickerVisibleCountScalesWithHeight asserts the bt-wnda + bt-vr2h
 // sizing: total modal height is visibleCount + labelPickerVerticalChrome (8)
 // and that total fits inside the bg passed to SetSize. The soft target is

@@ -104,6 +104,88 @@ func TestHistoryViewToggle(t *testing.T) {
 	}
 }
 
+// TestLabelPickerEnterClearsWhenOpenedWithFilter exercises the labels modal
+// Enter handler end-to-end: open with an active label filter, deselect it,
+// press Enter, confirm the model's labelFilter is cleared (not refilled
+// with the cursor's label by the no-selection cursor-shortcut path).
+func TestLabelPickerEnterClearsWhenOpenedWithFilter(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "bv-1", Title: "One", Status: model.StatusOpen, Labels: []string{"area:tui"}},
+		{ID: "bv-2", Title: "Two", Status: model.StatusOpen, Labels: []string{"area:product"}},
+	}
+	m := NewModel(issues, nil, "", nil)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
+	m = updated.(Model)
+
+	// Simulate a pre-existing filter and seed the picker with it.
+	m.filter.labelFilter = "area:tui"
+	m.labelPicker = NewLabelPickerModel(
+		[]string{"area:tui", "area:product"},
+		map[string]int{"area:tui": 1, "area:product": 1},
+		m.theme,
+	)
+	m.labelPicker.SetActiveLabels([]string{"area:tui"})
+	m.openModal(ModalLabelPicker)
+	m.focused = focusLabelPicker
+
+	if !m.labelPicker.OpenedWithFilter() {
+		t.Fatalf("precondition: picker should report OpenedWithFilter()=true")
+	}
+	if got := len(m.labelPicker.SelectedLabels()); got != 1 {
+		t.Fatalf("precondition: expected 1 selected label, got %d", got)
+	}
+
+	// Cursor is on the first label after Reset; it should be area:tui (the
+	// active one). Toggle it off so SelectedLabels() returns nil.
+	m.labelPicker.Reset()
+	m.labelPicker.ToggleSelected()
+	if got := len(m.labelPicker.SelectedLabels()); got != 0 {
+		t.Fatalf("setup: deselect failed, %d still selected", got)
+	}
+
+	// Press Enter -- with OpenedWithFilter()==true, this must clear the
+	// filter rather than apply the cursor's label.
+	m = m.handleLabelPickerKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if m.filter.labelFilter != "" {
+		t.Errorf("Enter on deselected modal should clear filter; got labelFilter=%q", m.filter.labelFilter)
+	}
+}
+
+// TestLabelPickerEnterAppliesCursorWhenColdOpen confirms the long-standing
+// shortcut survives the bt-NEW fix: opening cold (no active filter) and
+// pressing Enter on a label still applies that label as a single-select
+// filter. Without this guard the fix could have broken the convenience path.
+func TestLabelPickerEnterAppliesCursorWhenColdOpen(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "bv-1", Title: "One", Status: model.StatusOpen, Labels: []string{"area:tui"}},
+	}
+	m := NewModel(issues, nil, "", nil)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
+	m = updated.(Model)
+
+	m.filter.labelFilter = "" // cold: no active filter
+	m.labelPicker = NewLabelPickerModel(
+		[]string{"area:tui"},
+		map[string]int{"area:tui": 1},
+		m.theme,
+	)
+	m.labelPicker.SetActiveLabels(nil) // explicitly cold
+	m.openModal(ModalLabelPicker)
+	m.focused = focusLabelPicker
+
+	if m.labelPicker.OpenedWithFilter() {
+		t.Fatalf("precondition: picker should report OpenedWithFilter()=false")
+	}
+
+	m.labelPicker.Reset()
+	m = m.handleLabelPickerKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
+
+	if m.filter.labelFilter != "area:tui" {
+		t.Errorf("cold-open Enter should apply cursor label; got labelFilter=%q want %q", m.filter.labelFilter, "area:tui")
+	}
+}
+
 // TestHistoryViewTransitionNoLeakage covers bt-7hhc at the Model level.
 // After pressing `h` to enter history view, the full rendered View output
 // must NOT contain any issues-list row signatures (repo badges, P0/P1

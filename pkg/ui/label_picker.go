@@ -27,6 +27,13 @@ type LabelPickerModel struct {
 	// false (bt-wnda); pressing "/" focuses the search bar, Esc inside search
 	// blurs it without closing the modal.
 	searchFocused bool
+	// openedWithFilter records whether SetActiveLabels was called with a
+	// non-empty slice when the modal opened. Used by the Enter handler to
+	// distinguish "user came in with filters and explicitly deselected
+	// everything to clear them" from "user opened cold and pressed Enter
+	// on a label to filter by it" -- both produce SelectedLabels()==nil
+	// but mean opposite things.
+	openedWithFilter bool
 }
 
 // NewLabelPickerModel creates a new label picker with fuzzy search
@@ -110,6 +117,15 @@ func (m *LabelPickerModel) SetActiveLabels(labels []string) {
 	for _, l := range labels {
 		m.selected[l] = true
 	}
+	m.openedWithFilter = len(labels) > 0
+}
+
+// OpenedWithFilter reports whether the picker was opened with active labels
+// already applied. Lets the Enter handler distinguish "deselected everything
+// to clear the filter" from "no selection, apply cursor's label as a
+// shortcut".
+func (m *LabelPickerModel) OpenedWithFilter() bool {
+	return m.openedWithFilter
 }
 
 // ToggleSelected toggles the label under the cursor.

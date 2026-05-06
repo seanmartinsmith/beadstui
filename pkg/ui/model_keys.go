@@ -868,8 +868,20 @@ func (m Model) handleLabelPickerKeys(msg tea.KeyMsg) Model {
 	case "enter":
 		selected := m.labelPicker.SelectedLabels()
 		if len(selected) == 0 {
-			// No checkmarks: enter applies the cursor label (single-select)
-			if cursor := m.labelPicker.SelectedLabel(); cursor != "" {
+			// Two distinct paths produce 0 selected labels:
+			//   (a) the user opened the modal with an active filter and
+			//       deselected all the checkmarks -- they want to clear back
+			//       to "all".
+			//   (b) the user opened the modal cold (no filter active) and
+			//       just pressed Enter on a label without space-toggling --
+			//       the long-standing shortcut applies the cursor label as
+			//       a single-select filter.
+			// Distinguished via OpenedWithFilter().
+			if m.labelPicker.OpenedWithFilter() {
+				m.filter.labelFilter = ""
+				m.applyFilter()
+				m.setStatus("Cleared label filter")
+			} else if cursor := m.labelPicker.SelectedLabel(); cursor != "" {
 				m.filter.labelFilter = cursor
 				m.applyFilter()
 				m.setStatus(fmt.Sprintf("Filtered by label: %s", cursor))
