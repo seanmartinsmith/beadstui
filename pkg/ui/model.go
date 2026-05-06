@@ -1508,18 +1508,33 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// list would interpret Esc as "cancel filter" and clear the search query.
 	if m.focused == focusList && m.activeModal == ModalNone && prevModal == ModalNone {
 		if _, isWindowSize := msg.(tea.WindowSizeMsg); !isWindowSize {
+			// Enter on an empty filter input dismisses search rather than
+			// committing an empty match-everything query (which leaves the
+			// list in FilterApplied with no actual filter). User-requested
+			// polish during 2026-05-06 dogfooding: pressing Enter with no
+			// query feels like "I'm done here", not "match everything".
+			emptyFilterEnter := false
+			if kp, isKey := msg.(tea.KeyPressMsg); isKey &&
+				kp.String() == "enter" &&
+				m.list.FilterState() == list.Filtering &&
+				strings.TrimSpace(m.list.FilterInput.Value()) == "" {
+				m.list.ResetFilter()
+				emptyFilterEnter = true
+			}
 			// Capture cursor before filter-begin so we can restore it after
 			// Bubbles' GoToStart resets position (bt-qka1). Only arm when the
 			// keypress is "/" and the list is not already in Filtering state;
 			// any other message leaves filterEntryCursor at -1 (no restore).
 			m.filterEntryCursor = -1
-			if kp, isKey := msg.(tea.KeyPressMsg); isKey &&
-				kp.Code == '/' &&
-				m.list.FilterState() != list.Filtering {
-				m.filterEntryCursor = m.list.Index()
+			if !emptyFilterEnter {
+				if kp, isKey := msg.(tea.KeyPressMsg); isKey &&
+					kp.Code == '/' &&
+					m.list.FilterState() != list.Filtering {
+					m.filterEntryCursor = m.list.Index()
+				}
+				m.list, cmd = m.list.Update(msg)
+				cmds = append(cmds, cmd)
 			}
-			m.list, cmd = m.list.Update(msg)
-			cmds = append(cmds, cmd)
 			// Restore cursor if filter-begin just ran. After filter-begin with
 			// an empty buffer, VisibleItems contains all items, so any valid
 			// prior index is still in range. Clamp defensively.
