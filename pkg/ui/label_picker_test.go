@@ -202,27 +202,63 @@ func TestLabelPickerResetReturnsToNavigationMode(t *testing.T) {
 	}
 }
 
-// TestLabelPickerVisibleCountScalesWithHeight asserts the bt-wnda size fix:
-// the modal shows substantially more labels at typical terminal heights than
-// the prior 10-row cap, while staying clamped on small/large terminals.
+// TestLabelPickerVisibleCountScalesWithHeight asserts the bt-wnda size fix
+// AND the bt-vr2h ~75%-of-terminal vertical cap. Total modal height is
+// visibleCount + labelPickerVerticalChrome (8). Cases:
+//   - Small/medium terminals: percentage cap kicks in so the modal leaves
+//     breathing room around itself (4-5 rows above and below at h=30).
+//   - Tall terminals: still clamps to labelPickerMaxVisible (30) — no
+//     regression for typical desktop usage.
+//   - Tiny terminals: still clamped to floor of 3.
 func TestLabelPickerVisibleCountScalesWithHeight(t *testing.T) {
 	tests := []struct {
 		height   int
 		expected int
+		note     string
 	}{
-		{12, 4},  // tiny terminal: visibleCount = 12 - 8
-		{20, 12}, // medium: 20 - 8 = 12 visible (was 10 before bt-wnda)
-		{30, 22}, // tall: 30 - 8 = 22
-		{40, 30}, // very tall: clamped to labelPickerMaxVisible
-		{60, 30}, // huge: still clamped to 30
-		{8, 3},   // extremely tiny: clamped to floor of 3
+		{8, 3, "extremely tiny: floor of 3"},
+		{12, 3, "tiny: 75% cap drops below floor → 3"},
+		{20, 7, "small: 75% of 20 = 15, minus 8 chrome = 7"},
+		{30, 14, "medium: 75% of 30 = 22 total, 14 visible (4-5 rows breathing room)"},
+		{40, 22, "tall: 75% cap still tighter than 30 (22 visible, total 30)"},
+		{51, 30, "very tall: 75% allows 30+, clamp at labelPickerMaxVisible"},
+		{60, 30, "huge: still clamped to 30"},
+		{120, 30, "enormous: still clamped to 30"},
 	}
 	for _, tc := range tests {
 		p := NewLabelPickerModel([]string{"api"}, map[string]int{"api": 1}, Theme{})
 		p.SetSize(60, tc.height)
 		got := p.visibleCount()
 		if got != tc.expected {
-			t.Errorf("height=%d: visibleCount=%d, want %d", tc.height, got, tc.expected)
+			t.Errorf("height=%d (%s): visibleCount=%d, want %d", tc.height, tc.note, got, tc.expected)
+		}
+	}
+}
+
+// TestLabelPickerBoxWidthCappedAtTerminalPercentage covers bt-vr2h: the
+// modal width must stay <= 80% of terminal width even when label names are
+// long. The previous m.width-4 cap let a few wide labels stretch the modal
+// across nearly the entire terminal on narrow windows.
+func TestLabelPickerBoxWidthCappedAtTerminalPercentage(t *testing.T) {
+	// A long label name to force the natural width past the cap.
+	long := "very-long-label-name-that-would-otherwise-stretch-the-modal-wide"
+	p := NewLabelPickerModel([]string{long}, map[string]int{long: 999}, Theme{})
+
+	cases := []struct {
+		w int
+	}{
+		{80}, {100}, {120}, {180},
+	}
+	for _, tc := range cases {
+		p.SetSize(tc.w, 40)
+		got := p.computeBoxWidth()
+		max := int(float64(tc.w) * 0.80)
+		if got > max {
+			t.Errorf("width=%d: box=%d exceeds 80%% cap (%d)", tc.w, got, max)
+		}
+		// Floor still applies — must be at least 35.
+		if got < 35 {
+			t.Errorf("width=%d: box=%d below 35-col floor", tc.w, got)
 		}
 	}
 }

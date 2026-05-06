@@ -210,9 +210,20 @@ const labelPickerVerticalChrome = 8
 const labelPickerMaxVisible = 30
 
 // visibleCount returns how many labels are visible in the picker. Scales with
-// terminal height up to labelPickerMaxVisible (bt-wnda).
+// terminal height up to labelPickerMaxVisible (bt-wnda) and is additionally
+// capped at ~75% of terminal height so the modal leaves breathing room around
+// itself on smaller terminals (bt-vr2h). Without the percentage cap a 30-row
+// terminal renders a near-fullscreen modal that occludes the underlying view.
 func (m *LabelPickerModel) visibleCount() int {
 	maxVisible := m.height - labelPickerVerticalChrome
+
+	// Cap total modal height at ~75% of terminal height. labelPickerMaxVisible
+	// (30) still wins on tall terminals; this kicks in on small windows.
+	heightCap := int(float64(m.height)*0.75) - labelPickerVerticalChrome
+	if heightCap < maxVisible {
+		maxVisible = heightCap
+	}
+
 	if maxVisible > labelPickerMaxVisible {
 		maxVisible = labelPickerMaxVisible
 	}
@@ -489,6 +500,13 @@ func (m *LabelPickerModel) computeBoxWidth() int {
 	}
 
 	boxWidth := innerWidth + 2 // add border chars
+
+	// Cap at 80% of terminal width so a few long label names don't make the
+	// modal swallow the entire row on narrow terminals (bt-vr2h). Hard cap at
+	// m.width-4 stays as a safety floor.
+	if widthCap := int(float64(m.width) * 0.80); boxWidth > widthCap {
+		boxWidth = widthCap
+	}
 	if boxWidth > m.width-4 {
 		boxWidth = m.width - 4
 	}
