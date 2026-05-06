@@ -1388,8 +1388,11 @@ func (m Model) handleMouseClick(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 	if m.activeModal == ModalAlerts {
 		return m.handleAlertsModalClick(mouse)
 	}
-	// Other modals (RepoPicker, LabelPicker) stay keyboard-only for now —
-	// bt-km6d / bt-arf9 track that work separately.
+	if m.activeModal == ModalLabelPicker {
+		return m.handleLabelPickerModalClick(mouse)
+	}
+	// Other modals (RepoPicker) stay keyboard-only for now —
+	// bt-km6d tracks that work separately.
 	if m.activeModal != ModalNone {
 		return m, nil
 	}
@@ -1530,6 +1533,18 @@ func (m Model) handleMouseWheel(msg tea.MouseWheelMsg) (Model, tea.Cmd) {
 					m.alertsCursor++
 				}
 			}
+		}
+		return m, nil
+	}
+
+	// Label picker modal owns wheel scrolling so the user can scroll through
+	// the (potentially hundreds of) labels with the trackpad (bt-wnda).
+	if m.activeModal == ModalLabelPicker {
+		switch msg.Button {
+		case tea.MouseWheelUp:
+			m.labelPicker.MoveUp()
+		case tea.MouseWheelDown:
+			m.labelPicker.MoveDown()
 		}
 		return m, nil
 	}
@@ -1794,6 +1809,49 @@ func (m Model) handleAlertsModalClick(mouse tea.Mouse) (Model, tea.Cmd) {
 	// timer so a triple-click doesn't re-trigger activation on a closed modal.
 	m.lastModalClickAt = time.Time{}
 	return m.activateCurrentModalItem()
+}
+
+// handleLabelPickerModalClick routes a MouseClickMsg when the label picker
+// modal is open (bt-wnda). Click on a label row moves the cursor and toggles
+// selection (mirrors space). Click on the search row focuses the input.
+// Clicks on chrome/backdrop are no-ops, matching the alerts-modal precedent.
+func (m Model) handleLabelPickerModalClick(mouse tea.Mouse) (Model, tea.Cmd) {
+	panelWidth, panelHeight := m.labelPicker.Dimensions()
+	startRow := (m.height - 1 - panelHeight) / 2
+	startCol := (m.width - panelWidth) / 2
+	if startRow < 0 {
+		startRow = 0
+	}
+	if startCol < 0 {
+		startCol = 0
+	}
+
+	mx := mouse.X - startCol
+	my := mouse.Y - startRow
+	if mx < 0 || mx >= panelWidth || my < 0 || my >= panelHeight {
+		// Backdrop click: no-op (consistent with alerts modal — esc is the
+		// only close path).
+		return m, nil
+	}
+
+	// Search input row: focus the search input on click. This is the mouse
+	// equivalent of pressing "/".
+	if m.labelPicker.IsSearchRow(my) {
+		if !m.labelPicker.IsSearchFocused() {
+			m.labelPicker.FocusSearch()
+		}
+		return m, nil
+	}
+
+	// Label row: move cursor and toggle selection (clicking acts like
+	// space — surfaces the multi-select pattern through the trackpad).
+	idx, ok := m.labelPicker.ItemAtPanelY(my)
+	if !ok {
+		return m, nil
+	}
+	m.labelPicker.SetCursor(idx)
+	m.labelPicker.ToggleSelected()
+	return m, nil
 }
 
 // alertsModalItemAtY maps a Y coordinate inside the shared modal (relative

@@ -799,20 +799,63 @@ func (m Model) handleBQLQueryKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 // Letter keys are NOT used for navigation - they go to the text input for search.
 // Only arrow keys and ctrl combos navigate. Space toggles multi-select.
 func (m Model) handleLabelPickerKeys(msg tea.KeyMsg) Model {
-	switch msg.String() {
+	// Two-mode keymap (bt-wnda): when the search input is focused, typed
+	// characters route to the input and only Esc/Enter/up-down/etc affect
+	// the modal. When unfocused (the default on open), typing letters is a
+	// no-op and "/" focuses the search bar. Esc has different semantics
+	// in each mode: blur-search vs close-modal. This mirrors the issues-
+	// list pattern.
+	key := msg.String()
+	switch key {
 	case "esc":
+		if m.labelPicker.IsSearchFocused() {
+			m.labelPicker.BlurSearch()
+			return m
+		}
 		m.closeModal()
 		m.focused = focusList
+	case "/":
+		// "/" enters search mode when not already there. Once search is
+		// focused, "/" falls through to the input so it can be typed
+		// literally as part of a query.
+		if !m.labelPicker.IsSearchFocused() {
+			m.labelPicker.FocusSearch()
+			return m
+		}
+		m.labelPicker.UpdateInput(msg)
 	case "down", "ctrl+n":
 		m.labelPicker.MoveDown()
 	case "up", "ctrl+p":
 		m.labelPicker.MoveUp()
+	case "j":
+		// j is text input when typing a query, navigation otherwise.
+		if m.labelPicker.IsSearchFocused() {
+			m.labelPicker.UpdateInput(msg)
+		} else {
+			m.labelPicker.MoveDown()
+		}
+	case "k":
+		if m.labelPicker.IsSearchFocused() {
+			m.labelPicker.UpdateInput(msg)
+		} else {
+			m.labelPicker.MoveUp()
+		}
 	case "left":
 		m.labelPicker.PageUp()
 	case "right":
 		m.labelPicker.PageDown()
+	case "pgup":
+		m.labelPicker.PageUp()
+	case "pgdown":
+		m.labelPicker.PageDown()
 	case "space":
-		m.labelPicker.ToggleSelected()
+		// Space toggles label selection in nav mode; in search mode it
+		// inserts a literal space into the query.
+		if m.labelPicker.IsSearchFocused() {
+			m.labelPicker.UpdateInput(msg)
+		} else {
+			m.labelPicker.ToggleSelected()
+		}
 	case "enter":
 		selected := m.labelPicker.SelectedLabels()
 		if len(selected) == 0 {
@@ -835,8 +878,12 @@ func (m Model) handleLabelPickerKeys(msg tea.KeyMsg) Model {
 		m.closeModal()
 		m.focused = focusList
 	default:
-		// Pass all other keys (including letters) to text input for search
-		m.labelPicker.UpdateInput(msg)
+		// Only forward unknown keys (letters, backspace, etc.) to the text
+		// input when search is focused. In nav mode they're dropped silently
+		// so a stray "g" doesn't silently start filtering.
+		if m.labelPicker.IsSearchFocused() {
+			m.labelPicker.UpdateInput(msg)
+		}
 	}
 	return m
 }

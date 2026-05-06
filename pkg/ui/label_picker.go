@@ -22,6 +22,11 @@ type LabelPickerModel struct {
 	width         int
 	height        int
 	theme         Theme
+	// searchFocused gates whether typed characters route to the text input or
+	// are interpreted as navigation/no-op. The picker opens with searchFocused
+	// false (bt-wnda); pressing "/" focuses the search bar, Esc inside search
+	// blurs it without closing the modal.
+	searchFocused bool
 }
 
 // NewLabelPickerModel creates a new label picker with fuzzy search
@@ -34,7 +39,8 @@ func NewLabelPickerModel(labels []string, counts map[string]int, theme Theme) La
 	ti.Placeholder = "type to filter..."
 	ti.CharLimit = 50
 	ti.SetWidth(30)
-	ti.Focus()
+	// Search starts blurred (bt-wnda): the user lands on the labels list.
+	ti.Blur()
 
 	return LabelPickerModel{
 		allLabels:     sorted,
@@ -43,7 +49,26 @@ func NewLabelPickerModel(labels []string, counts map[string]int, theme Theme) La
 		input:         ti,
 		selectedIndex: 0,
 		theme:         theme,
+		searchFocused: false,
 	}
+}
+
+// FocusSearch routes typed characters to the search input.
+func (m *LabelPickerModel) FocusSearch() {
+	m.searchFocused = true
+	m.input.Focus()
+}
+
+// BlurSearch returns focus to the labels list. The search query buffer is
+// preserved so the user can resume editing without retyping.
+func (m *LabelPickerModel) BlurSearch() {
+	m.searchFocused = false
+	m.input.Blur()
+}
+
+// IsSearchFocused reports whether the text input owns keyboard focus.
+func (m *LabelPickerModel) IsSearchFocused() bool {
+	return m.searchFocused
 }
 
 // sortLabelsByCountDesc sorts labels by count descending, then alphabetically for ties
@@ -172,11 +197,24 @@ func (m *LabelPickerModel) PageUp() {
 	m.selectedIndex = target
 }
 
-// visibleCount returns how many labels are visible in the picker.
+// labelPickerVerticalChrome is the number of rows the picker reserves for
+// non-list content: 1 (input) + 1 (blank) + 1 (blank) + 1 (page indicator)
+// + 1 (blank) + 1 (footer) = 6, plus 2 panel border rows from
+// RenderTitledPanel. Must stay in sync with View().
+const labelPickerVerticalChrome = 8
+
+// labelPickerMaxVisible caps the number of label rows shown at once. With 440
+// real-world labels (bt-wnda dogfood data) we want substantially more than the
+// previous 10-row cap, but a hard ceiling keeps the modal from filling the
+// entire screen on tall terminals.
+const labelPickerMaxVisible = 30
+
+// visibleCount returns how many labels are visible in the picker. Scales with
+// terminal height up to labelPickerMaxVisible (bt-wnda).
 func (m *LabelPickerModel) visibleCount() int {
-	maxVisible := 10
-	if m.height < 15 {
-		maxVisible = m.height - 7
+	maxVisible := m.height - labelPickerVerticalChrome
+	if maxVisible > labelPickerMaxVisible {
+		maxVisible = labelPickerMaxVisible
 	}
 	if maxVisible < 3 {
 		maxVisible = 3
@@ -192,6 +230,67 @@ func (m *LabelPickerModel) SelectedLabel() string {
 	return m.filtered[m.selectedIndex]
 }
 
+// SetCursor moves the cursor to the given index within the filtered list.
+// Out-of-bounds indices are clamped. Used by the mouse click handler to
+// select the row under the pointer (bt-wnda).
+func (m *LabelPickerModel) SetCursor(idx int) {
+	if len(m.filtered) == 0 {
+		m.selectedIndex = 0
+		return
+	}
+	if idx < 0 {
+		idx = 0
+	}
+	if idx >= len(m.filtered) {
+		idx = len(m.filtered) - 1
+	}
+	m.selectedIndex = idx
+}
+
+// labelRowOffsetInBox is the row offset, relative to the panel top border,
+// at which the first label appears. Layout above each label list:
+//   - row 0: top border
+//   - row 1: search input
+//   - row 2: blank
+//   - row 3+: labels begin here
+//
+// Must stay aligned with View().
+const labelRowOffsetInBox = 3
+
+// searchRowOffsetInBox is the row offset (relative to panel top border)
+// of the search input row. A click here focuses the search input.
+const searchRowOffsetInBox = 1
+
+// ItemAtPanelY maps a Y coordinate relative to the picker's top border to
+// the filtered-list index currently rendered there. Returns (-1, false) for
+// non-row regions (chrome, input, blanks, footer, etc.). The window math
+// mirrors View()'s page-aligned slice (start, end).
+func (m *LabelPickerModel) ItemAtPanelY(my int) (int, bool) {
+	maxVisible := m.visibleCount()
+	if maxVisible <= 0 {
+		return -1, false
+	}
+	relRow := my - labelRowOffsetInBox
+	if relRow < 0 || relRow >= maxVisible {
+		return -1, false
+	}
+	if len(m.filtered) == 0 {
+		return -1, false
+	}
+	start := (m.selectedIndex / maxVisible) * maxVisible
+	idx := start + relRow
+	if idx >= len(m.filtered) {
+		return -1, false
+	}
+	return idx, true
+}
+
+// IsSearchRow reports whether the given panel-relative Y is the search
+// input row. Used by mouse routing to focus the search input on click.
+func (m *LabelPickerModel) IsSearchRow(my int) bool {
+	return my == searchRowOffsetInBox
+}
+
 // UpdateInput processes a key message for the text input
 func (m *LabelPickerModel) UpdateInput(msg interface{}) {
 	m.input, _ = m.input.Update(msg)
@@ -202,6 +301,11 @@ func (m *LabelPickerModel) UpdateInput(msg interface{}) {
 // If active label filters are set, the cursor moves to the first one.
 func (m *LabelPickerModel) Reset() {
 	m.input.SetValue("")
+	// Re-open in navigation mode (bt-wnda): every Reset must restore the
+	// blurred search, otherwise reopening the modal after a previous search
+	// session leaves focus stuck on the input.
+	m.searchFocused = false
+	m.input.Blur()
 	m.filterLabels()
 	// Position cursor on the first active label if any are set
 	if len(m.activeLabels) > 0 {
@@ -354,20 +458,14 @@ func fuzzyScore(label, query string) int {
 
 const labelPickerHPad = 3 // horizontal padding inside box
 
-// View renders the label picker overlay
-func (m *LabelPickerModel) View() string {
-	if m.width == 0 {
-		m.width = 60
-	}
-	if m.height == 0 {
-		m.height = 20
-	}
+// labelPickerFooterText is the footer hint string. Defined at package scope
+// so Dimensions() and View() share the same width budget without drift.
+const labelPickerFooterText = "toggle: space page: \u2190/\u2192 \u2022 apply: enter"
 
-	t := m.theme
-
-	maxVisible := m.visibleCount()
-
-	// Size box from ALL labels (not filtered) so it stays stable while typing
+// computeBoxWidth derives the modal's outer box width (including borders).
+// Pure layout math \u2014 no rendering side effects \u2014 so the click handler can
+// reuse it via Dimensions() without re-running the entire View pipeline.
+func (m *LabelPickerModel) computeBoxWidth() int {
 	maxLabelWidth := 0
 	for _, label := range m.allLabels {
 		count := m.labelCounts[label]
@@ -377,14 +475,9 @@ func (m *LabelPickerModel) View() string {
 		}
 	}
 
-	// Compute box width: hpad + cursor(2) + indicator(2) + space(1) + label+count + hpad
+	// hpad + cursor(2) + indicator(2) + space(1) + label+count + hpad
 	lineWidth := labelPickerHPad + 2 + 2 + 1 + maxLabelWidth + labelPickerHPad
-
-	// Footer - always use the longer version for stable width
-	footerText := "toggle: space page: \u2190/\u2192 \u2022 apply: enter"
-	footerLineWidth := labelPickerHPad + len(footerText) + labelPickerHPad
-
-	// Input line width
+	footerLineWidth := labelPickerHPad + len(labelPickerFooterText) + labelPickerHPad
 	inputLineWidth := labelPickerHPad + 4 + 30 + labelPickerHPad // "> " + input
 
 	innerWidth := lineWidth
@@ -398,12 +491,36 @@ func (m *LabelPickerModel) View() string {
 	boxWidth := innerWidth + 2 // add border chars
 	if boxWidth > m.width-4 {
 		boxWidth = m.width - 4
-		innerWidth = boxWidth - 2
 	}
 	if boxWidth < 35 {
 		boxWidth = 35
-		innerWidth = boxWidth - 2
 	}
+	return boxWidth
+}
+
+// Dimensions returns the modal's outer box (width, height) in cells. The
+// click handler uses this to compute the panel's centered start row/col.
+// Box height layout: 1 (top border) + 1 (input) + 1 (blank) + maxVisible
+// + 1 (blank) + 1 (page) + 1 (blank) + 1 (footer) + 1 (bottom border).
+func (m *LabelPickerModel) Dimensions() (int, int) {
+	w := m.computeBoxWidth()
+	h := m.visibleCount() + labelPickerVerticalChrome
+	return w, h
+}
+
+// View renders the label picker overlay
+func (m *LabelPickerModel) View() string {
+	if m.width == 0 {
+		m.width = 60
+	}
+	if m.height == 0 {
+		m.height = 20
+	}
+
+	t := m.theme
+
+	maxVisible := m.visibleCount()
+	boxWidth := m.computeBoxWidth()
 
 	pad := strings.Repeat(" ", labelPickerHPad)
 
@@ -501,7 +618,7 @@ func (m *LabelPickerModel) View() string {
 	footerStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary).
 		Italic(true)
-	lines = append(lines, footerStyle.Render(pad+footerText))
+	lines = append(lines, footerStyle.Render(pad+labelPickerFooterText))
 
 	content := strings.Join(lines, "\n")
 
