@@ -1370,9 +1370,11 @@ func (m Model) splitViewListChromeHeight() int {
 // handleMouseClick processes mouse button press events. Scoped to:
 //   - split-view pane focus switching and list-row selection (bt-d8d1)
 //   - alerts + notifications tabs inside the shared modal (bt-46p6.14)
+//   - labels and project picker modals (bt-wnda, bt-hpsq)
 //
-// Other modals (RepoPicker, LabelPicker) remain keyboard-only; single-pane
-// views pass through to preserve existing behavior.
+// Other modals (BQL query, agent prompt, etc.) consume the click as a no-op
+// so it doesn't bleed through to the background. Single-pane views pass
+// through to preserve existing behavior.
 func (m Model) handleMouseClick(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 	mouse := msg.Mouse()
 	if mouse.Button != tea.MouseLeft {
