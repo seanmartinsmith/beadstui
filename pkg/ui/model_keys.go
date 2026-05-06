@@ -814,6 +814,15 @@ func (m Model) handleLabelPickerKeys(msg tea.KeyMsg) Model {
 		}
 		m.closeModal()
 		m.focused = focusList
+	case "l":
+		// Press the same key to close (toggle behavior). Only when search
+		// is not focused — when search owns input, "l" is a literal letter.
+		if m.labelPicker.IsSearchFocused() {
+			m.labelPicker.UpdateInput(msg)
+			return m
+		}
+		m.closeModal()
+		m.focused = focusList
 	case "/":
 		// "/" enters search mode when not already there. Once search is
 		// focused, "/" falls through to the input so it can be typed
