@@ -17,4 +17,4 @@ Read-only repository of historical artifacts from this project's lifecycle. Not 
 - **Internal references inside archived files** (e.g., `docs/plans/...` paths) get updated when files move, but content is otherwise frozen.
 - **New archives that don't fit existing buckets** go to `inbox/` rather than creating a one-off folder. Cluster into a real folder only when the bucket has 3+ files.
 - **Stale URLs and outdated naming are expected.** This is the only place where `bv-N` issue refs, `steveyegge/beads` URLs, and pre-Charm-v2 architecture descriptions are correct — they reflect the moment the artifact was written.
-- **AGENTS.md applies as a fallback.** When in doubt, see the *Docs Structure Conventions* table in `AGENTS.md` at repo root.
+- **`docs/README.md` is the canonical doc map.** When in doubt about where a doc belongs, see the *Layout* table and decision tree there.

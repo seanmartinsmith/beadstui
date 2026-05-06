@@ -22,4 +22,4 @@ State assessments at a point in time. Each file here is a snapshot — what was 
 - **Don't edit old audits.** Period accuracy is the value. If reality has shifted, run a new audit at today's date and reference the prior one.
 - **Investigation folders.** Each subfolder under `investigations/` is one effort, dated by start. Pattern: `<YYYY-MM-DD>-<bead-or-slug>-<descriptor>/`. Each gets a `README.md` inside explaining the file cluster, what drove it, and any related plans/beads. See `investigations/2026-04-27-bt-cluster-reorg/README.md` as the template.
 - **Inbox discipline.** New audits land in `inbox/` if their bucket isn't obvious; sort with the user when 3+ items accumulate.
-- **AGENTS.md applies as a fallback.** When in doubt, see the *Docs Structure Conventions* table in `AGENTS.md` at repo root.
+- **`docs/README.md` is the canonical doc map.** When in doubt about where a doc belongs, see the *Layout* table and decision tree there.

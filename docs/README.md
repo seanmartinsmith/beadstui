@@ -61,7 +61,7 @@ Did the work finish and the doc is now historical reference?
 - **Don't proliferate naming variants.** If a doc could go in two places, pick one and add a one-line pointer in the other if discoverability matters. We avoid copies.
 - **References across docs use full paths** (`docs/audits/architecture/2026-04-25-data-source-architecture-survey.md`) — ergonomic for grep, robust to dir reshuffles. Relative paths only when the file is referencing a sibling and the relative form is shorter and clearer.
 - **When you move a doc, sweep references.** A simple PowerShell or grep pass against tracked `.md` files catches them. Validator script idea: anything matching `docs/(plans|audits|design|archive|brainstorms|specs|adr|screenshots)/[A-Za-z0-9_./\-]+\.md` should resolve to a real file.
-- **`AGENTS.md` at repo root** has the *Docs Structure Conventions* table as a quick reference. This README is the deeper version; AGENTS.md is the one-screen scan.
+- **`AGENTS.md` at repo root** loads on every session and links here for the doc map. Keep `AGENTS.md` tight; this file is the deeper reference.
 
 ## Inbox / sort discipline
 

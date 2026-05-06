@@ -1,55 +1,8 @@
 # AGENTS.md - beadstui
 
-> Canonical guidelines for AI agents working in this Go codebase. Single source of truth for project conventions, session workflow, and ADR spine. Root `CLAUDE.md` is a thin shim that imports this file via `@AGENTS.md`.
-
-## Session Start - READ THIS FIRST
-
-Before doing ANY work in this project, read the active ADR:
-
-```
-docs/adr/002-stabilize-and-ship.md
-```
-
-This is the spine document. It tracks:
-- What decisions have been made vs what's still open
-- Which work streams exist and their status
-- Audit reports that inform each stream
-- Open design decisions that block implementation
-
-**Do not start implementation without checking the ADR.** If the user asks you to do something, orient against the ADR first to understand where it fits.
-
-After completing significant work, update `CHANGELOG.md` and any relevant ADR-002 stream statuses.
-
-> **Note on artifact locations**: bead descriptions filed in the 2026-04-27 cluster reorg reference scratch paths under `.beads/tmp/` (gitignored, beads-context scratch convention). Durable canonical copies of those artifacts live at `docs/plans/2026-04-27-bt-cluster-reorg-proposal.md` and `docs/audits/2026-04-27-{bt-cluster-map,bd-surface-map,tui-productization-gap,writable-tui-design-surface}.md`. If a bead reference under `.beads/tmp/` is missing on a fresh checkout, read the corresponding `docs/` file with the same trailing name.
-
-## Docs Structure Conventions
-
-Project-canonical paths for documentation. Override agent/skill defaults when they conflict.
-
-> **Canonical doc map**: `docs/README.md`. The table below is a one-screen scan; that file has the deeper layout, naming conventions, and decision tree for "where does my doc go?"
-
-| What | Where | Filename pattern | Notes |
-|---|---|---|---|
-| ADRs | `docs/adr/` | `<NNN>-<slug>.md` | Permanent. See `docs/adr/README.md` for index. |
-| Audits | `docs/audits/` | Theme buckets + dated files | See `docs/audits/README.md`. Investigations under `audits/investigations/<YYYY-MM-DD>-<slug>/`. |
-| Plans | `docs/plans/` | `<YYYY-MM-DD>-<slug>.md` | No `-plan` suffix — dir name carries the type. |
-| Specs | `docs/specs/` | `<YYYY-MM-DD>-<slug>.md` | Living docs; evolve in place. |
-| Designs | `docs/design/` | Dated `<YYYY-MM-DD>-<bead-id>-<slug>.md` for bead-specific; `<lowercase-slug>.md` (no date) for evergreen guides | Two shapes coexist by intent. |
-| Brainstorms (published) | `docs/brainstorms/` | `<YYYY-MM-DD>-<slug>.md` | No `-brainstorm` suffix. |
-| Brainstorms (scratch) | `.superpowers/brainstorm/` (gitignored) | n/a | Working state; publish to `docs/brainstorms/` when ready. |
-| Archive | `docs/archive/` | 4-bucket layout | See `docs/archive/README.md`. Read-only; period-accurate. |
-| Screenshots | `docs/screenshots/` | n/a | Image assets for README. |
-
-## Scratch Conventions
-
-| What | Where | Tracked? |
-|---|---|---|
-| Beads-context scratch (descriptions, close reasons, comments, audit findings) | `.beads/tmp/` | gitignored |
-| General temp / non-beads scratch | `_tmp/` | gitignored |
-| bt runtime caches (semantic index, baselines) | `.bt/` | partially gitignored |
-| Per-agent worktrees | `.claude/worktrees/` | gitignored |
-
-Distinction: `.beads/tmp/` is for content that will become part of bead state (drafts that get loaded with `--body-file`, comment text via `bd comments add -f`, audit findings worth preserving). `_tmp/` is everything else - image conversions, debug dumps, third-party clones for reference (e.g., `_tmp/perles/` is a peer beads-TUI project from Zach Rosen kept for reference; bt's BQL parser in `pkg/bql/` is adapted from it under MIT, see `pkg/bql/LICENSE`).
+Project-canonical guidelines for AI agents working in this Go codebase.
+Root `CLAUDE.md` imports this file via `@AGENTS.md`; it loads on every
+session, so keep it tight.
 
 ## Core Rules
 
@@ -68,8 +21,8 @@ Distinction: `.beads/tmp/` is for content that will become part of bead state (d
 - **Binary**: `bt`
 - **Module**: `github.com/seanmartinsmith/beadstui`
 - **Language**: Go 1.25+ (check `go.mod`)
-- **TUI framework**: Charm Bracelet v2 (Bubble Tea, Lipgloss, Bubbles, Glamour) — migration shipped via bt-ykqq / bt-k5zs / bt-zt9q, 2026-04-10
-- **Data backend**: Dolt (MySQL protocol). Beads is Dolt-only since v1.0.1 (March 2026); JSONL paths in bt code are pre-migration legacy fallback. SQLite reader was removed in bt-05zt Phase 1. See "Beads architecture awareness" section below before touching the data layer.
+- **TUI framework**: Charm Bracelet v2 (Bubble Tea, Lipgloss, Bubbles, Glamour)
+- **Data backend**: Dolt (MySQL protocol). See [docs/design/beads-data-layer.md](docs/design/beads-data-layer.md) before touching the data layer, correlations, sprints, session columns, or git-history-derived features.
 
 ## Key Directories
 
@@ -87,7 +40,7 @@ pkg/correlation/     # Bead-to-commit correlation
 pkg/watcher/         # Filesystem watching, daemon mode
 internal/datasource/ # Data loading (Dolt, JSONL fallback)
 internal/doltctl/    # Dolt server lifecycle
-docs/adr/            # Architecture decision records (spine: 002-stabilize-and-ship.md)
+docs/                # See docs/README.md for layout map and decision tree
 tests/               # Cross-package integration / E2E tests
 ```
 
@@ -98,102 +51,60 @@ go build ./...          # Build all
 go test ./...           # All tests
 go test ./... -race     # Race detector
 go vet ./...            # Static analysis
-go install ./cmd/bt/    # Install binary
+go install ./cmd/bt/    # Install binary (run after every build; bt is invoked from PATH)
 ```
 
-## Beads architecture awareness (verified 2026-04-25)
+## Scratch Conventions
 
-Beads-the-tool (`bd`) migrated to Dolt-only storage in v1.0.1 (March 2026). Some bt code and bt beads predate this migration and assume the older JSONL-backed layout. **Before scoping or implementing any bead that touches data layer, correlations, sprints, session columns, or git-history-derived features, verify against current beads architecture rather than assumed prior state.** A systematic audit of all open bt beads against this reality is tracked in **bt-mhcv (P0)**.
+| What | Where | Tracked? |
+|---|---|---|
+| Beads-context scratch (descriptions, close reasons, comments, audit findings) | `.beads/tmp/` | gitignored |
+| General temp / non-beads scratch | `_tmp/` | gitignored |
+| bt runtime caches (semantic index, baselines) | `.bt/` | partially gitignored |
+| Per-agent worktrees | `.claude/worktrees/` | gitignored |
 
-> **Upstream URL migration (April 2026)**: the canonical beads repo moved from `github.com/steveyegge/beads` to `github.com/gastownhall/beads` (community stewardship). The old URL still redirects, but new release work, issue trackers, and PRs live at the gastownhall path. When citing upstream, link to `gastownhall/beads`. Historical references in `docs/archive/` retain the original URL by design (period-accurate). Recorded as a project decision; see `bd decision list`.
-
-### Current beads architecture
-
-- **Storage**: Dolt is the only backend. JSONL export is opt-in for portability, not the system of record. The Dolt server data lives in `.beads/dolt/`.
-- **Session columns**: `created_by_session`, `claimed_by_session`, `closed_by_session` are first-class columns on the `issues` table (upstream `0033_add_session_columns.up.sql`; Phase 1a merged 2026-04-24 via bd-34v). **NOT** sourced from the `metadata` JSON blob — that pattern is now stale code (bt-5hl9 tracks the bt-side migration).
-- **Events**: Beads has a native `events` table (`Storage.GetEvents` at `internal/storage/storage.go:76`) with columns `id, issue_id, event_type, actor, old_value, new_value, comment, created_at`. This is the upstream primitive for bead-event audit trails.
-- **History**: `bd history <id>` queries `dolt_history_issues` for per-commit issue snapshots (with full session columns per snapshot). Note: bd-3gb tracks an empty-result `--json` bug being PR'd upstream.
-- **Sprints**: NOT a beads concept upstream — no `sprints` table or subcommand. Any sprint-related code in bt is a bt-only feature (tracked in bt-z5jj — rebuild against Dolt or retire).
-- **Correlations**: NOT a beads concept upstream. Purely bt's domain (tracked in bt-08sh — migrate from JSONL+git-diff witness to `dolt_log` + `dolt_history_issues`).
-- **Data dirs**: `.beads/` is shared with bd's Dolt server + bd metadata. `.bt/` is bt-only cache (baseline, semantic search index). The split is partly accidental and being canonicalized in bt-uahv.
-
-### Stale-assumption checklist
-
-When scoping or auditing any bt bead, ask:
-
-- [ ] Does it assume `.beads/<project>.jsonl` exists? (Dolt-only installs don't produce one.)
-- [ ] Does it assume `.beads/sprints.jsonl` exists? (Beads doesn't produce one — sprints aren't upstream.)
-- [ ] Does it read session columns from the `metadata` blob? (Should read direct columns; bt-5hl9 tracks the migration.)
-- [ ] Does it expect `--global` to fail for any single-ID lookup? (bt-vhn2 was misframed this way — actual root cause was the correlator, not routing.)
-- [ ] Does its acceptance criteria reference pre-Dolt invariants? (Likely needs rescoping.)
-
-If suspect, leave a comment with the recon finding rather than diving in. Cross-reference bt-mhcv for the systematic audit.
-
-### Related beads
-
-- **bt-mhcv** (P0) — systematic audit of all open bt beads
-- **bt-08sh** (P2) — correlator Dolt migration
-- **bt-z5jj** (P3) — sprint feature decision
-- **bt-uahv** (P3) — `.beads/` vs `.bt/` canonical split
-- **bt-5hl9** (P2) — CompactIssue session column migration
-- **bd-3gb** (in beads repo) — bd history `--json` empty-result bug
+`.beads/tmp/` is for content that becomes part of bead state (drafts loaded with `--body-file`, comment text via `bd comments add -f`). `_tmp/` is everything else.
 
 ## Key Design Constraints
 
 - **Two-phase analysis**: Phase 1 (degree, topo sort, density) is instant. Phase 2 (PageRank, betweenness, HITS, eigenvector, cycles) runs async with 500ms timeout - check `status` flags in output.
 - **Robot-first API**: All `bt robot <subcmd>` invocations emit deterministic JSON to stdout. Human TUI is secondary.
 - **Elm architecture TUI** via bubbletea - all state transitions are message-based.
-- **Pure-Go SQLite** (`modernc.org/sqlite`, no CGO) is used only by the SQLite **export** artifact (`pkg/export/sqlite_export.go`) — that output DB has FTS5 + materialized views. There is no SQLite at runtime. bt's own search index is a custom binary format (`.bvvi`) under `.bt/semantic/`, written by `pkg/search/vector_index.go`.
 - **No raw prints in production** - TUI through lipgloss; robot mode outputs JSON to stdout; errors to stderr.
 - **Error wrapping**: `fmt.Errorf("context: %w", err)` always.
 - **Division safety**: Guard against divide-by-zero before computing averages/ratios.
 - **Nil checks**: Check before dereferencing pointers, especially in graph traversal.
 - **Browser safety**: All browser-opening functions gated by `BT_NO_BROWSER` / `BT_TEST_MODE` env vars.
 - **Concurrency**: `sync.RWMutex` for shared state; capture channels before unlock to avoid races.
+- **Pure-Go SQLite** (`modernc.org/sqlite`, no CGO) is used only by the SQLite **export** artifact (`pkg/export/sqlite_export.go`). There is no SQLite at runtime. bt's own search index is a custom binary format (`.bvvi`) under `.bt/semantic/`.
 
-## TUI Conventions
+## TUI modal compositing
 
-### Modal compositing
-
-All modal overlays must dim the backdrop via `OverlayCenterDimBackdrop` (in `pkg/ui/panel.go`). This makes the modal read as a true pop-up rather than a content-shaped panel embedded in the underlying view, and is the unified aesthetic across alerts, pickers, and prompts (bt-v8he, bt-o1hs).
-
-The non-dim `OverlayCenter` is reserved for non-modal overlays only — debug panels, transient hints, or anything where the user is meant to keep reading the underlying view through the overlay.
-
-When adding a new modal:
-
-1. Expose the modal's content as a `View()` method on its struct (no centering, no overlay logic — just the bordered/styled panel).
-2. In `pkg/ui/model_view.go`, leave the `activeModal` switch case as a fall-through comment ("Handled as overlay after background renders (below)") so the underlying view renders into `body` first.
-3. Add an overlay block at the bottom of `View()` that calls `OverlayCenterDimBackdrop(body, m.foo.View(), m.width, m.height-1)`.
-
-This matches the alerts/notifications modal shape and keeps a single canonical compositor for modal pop-ups.
+Modal overlays use `OverlayCenterDimBackdrop` (in `pkg/ui/panel.go`) for
+the dimmed-backdrop pop-up effect. Non-modal overlays use the non-dim
+`OverlayCenter`. Step-by-step for adding a new modal:
+[docs/design/tui-modal-compositing.md](docs/design/tui-modal-compositing.md).
 
 ## Naming
 
 - Binary: `bt`, Env vars: `BT_*`, CLI references: `bd` (beads CLI)
 - Module: `github.com/seanmartinsmith/beadstui`, Data dir: `.bt/`
-- AGENTS.md filename is pinned via the `agents.AgentsFileName` constant in `pkg/agents/file.go`. Content can change; filename must stay. (Comment-only references to "AGENTS.md" exist in additional files but are not load-bearing.)
+- AGENTS.md filename is pinned via the `agents.AgentsFileName` constant in `pkg/agents/file.go`. Content can change; filename must stay.
 
 ## bt Robot Mode (for agents)
 
 **CRITICAL: Use ONLY `bt robot <subcmd>` invocations. Bare `bt` launches an interactive TUI that blocks your session.**
 
-```bash
-bt robot triage                    # THE entry point: ranked recs, quick wins, blockers, health
-bt robot next                      # Single top pick + claim command
-bt robot plan                      # Parallel execution tracks
-bt robot priority                  # Priority misalignment detection
-bt robot insights                  # Full graph metrics
-bt robot alerts                    # Stale issues, blocking cascades
-bt robot diff --diff-since <ref>   # Changes since git ref
-bt robot forecast <id|all>         # ETA predictions
-bt robot suggest                   # Hygiene: duplicates, missing deps
-```
+Primary entry point: `bt robot triage` (ranked recs, quick wins,
+blockers, health). Full reference with per-subcommand output shapes
+and flags: [docs/robot/README.md](docs/robot/README.md). List
+subcommands: `bt robot --help`. Common scoping flags: `--label <name>`,
+`--as-of <ref>`, `--recipe actionable|high-impact`.
 
-See `bt robot --help` for the full subcmd list (~30+ subcommands incl. nested groups: `bt robot files`, `bt robot correlation`, `bt robot labels`, `bt robot baseline`).
+## Docs structure
 
-**Full reference**: [`docs/robot/README.md`](docs/robot/README.md) - one section per subcommand with output shapes, flags, and examples.
-
-Scoping: `--label <name>`, `--as-of <ref>`, `--recipe actionable|high-impact`
+Canonical doc map and "where does this go?" decision tree:
+[docs/README.md](docs/README.md).
 
 <!-- BEGIN BEADS INTEGRATION v:4 profile:full -->
 ## Issue Tracking
@@ -252,10 +163,6 @@ Risk: ...
 Notes: ..."
 ```
 
-### Beads + Tasks
-
-Beads for cross-session persistence. Tasks for within-session execution.
-
 ### Session Rules
 
 - Read close_reason before working a bead to avoid re-solving
@@ -264,6 +171,7 @@ Beads for cross-session persistence. Tasks for within-session execution.
 - Close beads before committing
 - Don't invent labels - use `.beads/conventions/labels.md`
 - Do NOT use `bd edit` - it opens $EDITOR. Use `bd update <id> --field "value"`
+- Beads for cross-session persistence; tasks for within-session execution
 
 ## Session Completion
 
@@ -291,54 +199,3 @@ Beads for cross-session persistence. Tasks for within-session execution.
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
 <!-- END BEADS INTEGRATION -->
-
-## Planning Flow
-
-1. Check ADR-002 for current state and open questions
-2. Read relevant plan docs and audit reports before implementing
-3. Flag anything that contradicts the ADR or plan — don't silently adapt
-
-## End-of-Session Protocol (documentation side)
-
-The BEADS INTEGRATION block above mandates the push mechanics. This section layers documentation updates on top.
-
-Before ending a session where significant work was done:
-
-1. **Update `CHANGELOG.md`** — add a session entry summarizing what was done
-2. **Update ADR-002 stream statuses** — if a stream's status changed, reflect it
-3. **Record new open questions** — anything discovered that needs a decision
-4. **Update auto-memory** — if project state changed materially, update `~/.claude/projects/<this-project>/memory/MEMORY.md`
-
-If the session is ending abruptly (context limits, user stopping), at minimum do step 1 — a changelog entry is the bare minimum handoff.
-
-## Workflow Formulas
-
-This project has reusable workflow formulas at `~/.beads/formulas/`. Use them instead of ad-hoc execution.
-
-```bash
-bd formula list                    # See available formulas
-bd mol pour <name> --var k=v       # Create persistent molecule (tracked work)
-bd mol wisp <name> --var k=v       # Create ephemeral wisp (scratch/operational)
-bd mol pour <name> --dry-run       # Preview what would be created
-```
-
-### Working through a molecule
-
-Molecules create a parent issue with child steps linked by dependencies. `bd ready` surfaces the next unblocked step.
-
-```bash
-bd mol show <mol-id>               # See structure and steps
-bd ready                           # Find next unblocked step
-bd update <step-id> --claim        # Claim it
-# ... do the work ...
-bd close <step-id> --reason="..."  # Complete it, unblocks next step
-bd mol burn <wisp-id>              # Clean up wisp when done (ephemeral only)
-```
-
-## Issue Tracking Conventions
-
-- **Commit format**: `type(scope): description (bt-xxx)` - bead ref in parens when applicable
-- **Creating issues**: Always include `--type`, `--priority`, `--labels`, `--description`. Valid labels: `.beads/conventions/labels.md`
-- **Close format**: Summary, Change, Files, Verify, Risk, Notes
-- Read `close_reason` before working a bead to avoid re-solving
-- Only add blocking deps when work truly cannot start
