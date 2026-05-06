@@ -1416,6 +1416,35 @@ func (m Model) handleMouseClick(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 	if m.activeModal != ModalNone {
 		return m, nil
 	}
+	// History view click handling (bt-y3ip): route to HistoryModel.ClickAt,
+	// which encapsulates the per-pane layout math. Click on a bead row in
+	// BEADS WITH HISTORY moves the cursor; click in a content row of the
+	// COMMITS pane selects the commit; click on COMMIT DETAILS focuses the
+	// pane (Tab equivalent). Borders, headers, and the timeline pane are
+	// focus-only.
+	if m.mode == ViewHistory {
+		hit := m.historyView.ClickAt(mouse.X, mouse.Y)
+		if hit.Pane == noPane {
+			return m, nil
+		}
+		m.historyView.SetFocus(hit.Pane)
+		// focusHistory wraps every history-view focus state at the Model
+		// level; the inner pane is tracked on HistoryModel.focused.
+		m.focused = focusHistory
+		if hit.HasItem {
+			switch hit.Pane {
+			case historyFocusList:
+				m.historyView.SelectBead(hit.Item)
+			case historyFocusMiddle:
+				if m.historyView.IsGitMode() {
+					m.historyView.SelectRelatedBead(hit.Item)
+				} else {
+					m.historyView.SelectCommit(hit.Item)
+				}
+			}
+		}
+		return m, nil
+	}
 	// Only the default list mode uses click-to-focus on list/detail. Other
 	// view modes (insights, board, graph, etc.) keep keyboard-only navigation.
 	if m.mode != ViewList {
@@ -1606,7 +1635,15 @@ func (m Model) handleMouseWheel(msg tea.MouseWheelMsg) (Model, tea.Cmd) {
 		case focusActionable:
 			m.actionableView.MoveUp()
 		case focusHistory:
-			m.historyView.MoveUp()
+			// Route the wheel to whichever pane the cursor is over
+			// (bt-y3ip): wheel-on-list moves the bead cursor, wheel-on-
+			// middle moves the commit cursor, wheel-on-detail scrolls the
+			// detail content. Falls back to the previous global behaviour
+			// (bead-list scroll) when ScrollAtX returns false -- e.g.,
+			// click coords outside any pane in the wide-bead timeline gap.
+			if !m.historyView.ScrollAtX(msg.X, -1) {
+				m.historyView.MoveUp()
+			}
 		case focusFlowMatrix:
 			m.flowMatrix.MoveUp()
 		}
@@ -1635,7 +1672,10 @@ func (m Model) handleMouseWheel(msg tea.MouseWheelMsg) (Model, tea.Cmd) {
 		case focusActionable:
 			m.actionableView.MoveDown()
 		case focusHistory:
-			m.historyView.MoveDown()
+			// Mirror MouseWheelUp: route to the pane under the cursor (bt-y3ip).
+			if !m.historyView.ScrollAtX(msg.X, +1) {
+				m.historyView.MoveDown()
+			}
 		case focusFlowMatrix:
 			m.flowMatrix.MoveDown()
 		}

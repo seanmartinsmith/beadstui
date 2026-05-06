@@ -1351,6 +1351,272 @@ func (h *HistoryModel) historyPanelHeight(header string) int {
 	return panelH
 }
 
+// HistoryClick describes the result of mouse hit-testing in the history view.
+// Used by Model.handleMouseClick (and the wheel handler) to dispatch focus
+// changes and row selection without leaking layout knowledge outside the
+// history package.
+//
+// Pane carries the historyFocus value the click would target; -1 (= -1) is
+// returned when the coordinate falls outside the panel block (header rows,
+// beyond width, beyond height). HasItem indicates a click on a content row
+// of the BEADS or COMMITS pane (the panes that map clicks to selection).
+// Item is the index into h.histories or hist.Commits depending on Pane.
+type HistoryClick struct {
+	Pane    historyFocus
+	HasItem bool
+	Item    int
+}
+
+// noPane is the sentinel returned when a click misses every pane.
+const noPane historyFocus = -1
+
+// ClickAt maps an (x, y) coordinate (relative to the history view's
+// top-left, i.e. with y=0 = first header row) to a HistoryClick. The header
+// rows above the panel block return Pane = noPane; clicks on panel borders
+// return the owning Pane with HasItem=false (focus-only). Clicks on a
+// content row return HasItem=true with Item set to the underlying index.
+//
+// For the BEADS pane Item is bounded by len(h.histories); for COMMITS it is
+// bounded by len(SelectedHistory().Commits). When the underlying slice is
+// empty the click is treated as focus-only (HasItem=false).
+//
+// COMMIT DETAILS rows are not mapped to commit indices: per the bt-y3ip
+// acceptance, clicking inside the detail pane is Tab-equivalent (focus only).
+//
+// In four-pane wide bead mode the timeline pane returns Pane = noPane --
+// the timeline is supplementary and not focusable on its own; clicking on
+// it should behave like clicking outside the pane block. This keeps the
+// focus state machine aligned with paneCount() (max 3).
+func (h *HistoryModel) ClickAt(x, y int) HistoryClick {
+	if x < 0 || x >= h.width || y < 0 || y >= h.height {
+		return HistoryClick{Pane: noPane}
+	}
+
+	header := h.renderHeader()
+	headerRows := lipgloss.Height(header)
+	if headerRows < 1 {
+		headerRows = 1
+	}
+	if y < headerRows {
+		return HistoryClick{Pane: noPane}
+	}
+
+	pane, paneInnerXStart, ok := h.paneAtX(x)
+	if !ok {
+		return HistoryClick{Pane: noPane}
+	}
+	_ = paneInnerXStart // reserved for future column-aware detail handling
+
+	// Translate y into pane-relative coordinates. Pane spans
+	// [headerRows, h.height); within a pane, row 0 is the top border,
+	// row panelH-1 is the bottom border, rows in between are content.
+	panelH := h.height - headerRows
+	relY := y - headerRows
+	if relY <= 0 || relY >= panelH-1 {
+		// Top/bottom border row -- focus-only.
+		return HistoryClick{Pane: pane}
+	}
+	contentRow := relY - 1
+
+	// Map content row to an underlying selection. Detail pane is focus-only
+	// per the bead acceptance.
+	switch pane {
+	case historyFocusList:
+		idx := h.scrollOffset + contentRow
+		if idx < 0 || idx >= len(h.histories) {
+			return HistoryClick{Pane: pane}
+		}
+		return HistoryClick{Pane: pane, HasItem: true, Item: idx}
+	case historyFocusMiddle:
+		if h.viewMode == historyModeGit {
+			// Git mode middle pane: related beads list. Index is into
+			// the SelectedGitCommit().BeadIDs slice.
+			commit := h.SelectedGitCommit()
+			if commit == nil {
+				return HistoryClick{Pane: pane}
+			}
+			idx := h.middleScrollOffset + contentRow
+			if idx < 0 || idx >= len(commit.BeadIDs) {
+				return HistoryClick{Pane: pane}
+			}
+			return HistoryClick{Pane: pane, HasItem: true, Item: idx}
+		}
+		// Bead mode middle pane: commits for selected bead.
+		hist := h.SelectedHistory()
+		if hist == nil {
+			return HistoryClick{Pane: pane}
+		}
+		idx := h.middleScrollOffset + contentRow
+		if idx < 0 || idx >= len(hist.Commits) {
+			return HistoryClick{Pane: pane}
+		}
+		return HistoryClick{Pane: pane, HasItem: true, Item: idx}
+	default:
+		// Detail pane: focus-only.
+		return HistoryClick{Pane: pane}
+	}
+}
+
+// paneAtX returns the historyFocus and inner-x start column of the pane
+// covering x in the current layout. Returns (_, _, false) when x falls in
+// the timeline pane (wide bead mode) or outside any pane.
+//
+// The inner-x start column is the leftmost x (inclusive) of the pane's
+// content cells -- callers wiring column-sensitive interactions inside a
+// pane can use it to translate to pane-local x. ClickAt itself only needs
+// the focus value but the secondary return is cheap to compute and avoids
+// a second pass over the layout math.
+func (h *HistoryModel) paneAtX(x int) (historyFocus, int, bool) {
+	layout := h.determineLayout()
+	switch layout {
+	case layoutNarrow:
+		listW := int(float64(h.width) * 0.45)
+		switch {
+		case x < listW:
+			return historyFocusList, 0, true
+		case x < h.width:
+			return historyFocusDetail, listW, true
+		}
+	case layoutStandard:
+		listW := int(float64(h.width) * 0.30)
+		midW := int(float64(h.width) * 0.35)
+		switch {
+		case x < listW:
+			return historyFocusList, 0, true
+		case x < listW+midW:
+			return historyFocusMiddle, listW, true
+		case x < h.width:
+			return historyFocusDetail, listW + midW, true
+		}
+	case layoutWide:
+		if h.viewMode == historyModeGit {
+			// Wide git mode: 25% commits | 30% related beads | 45% details
+			listW := int(float64(h.width) * 0.25)
+			midW := int(float64(h.width) * 0.30)
+			switch {
+			case x < listW:
+				return historyFocusList, 0, true
+			case x < listW+midW:
+				return historyFocusMiddle, listW, true
+			case x < h.width:
+				return historyFocusDetail, listW + midW, true
+			}
+		}
+		// Wide bead mode: 20% beads | 22% timeline | 25% commits | 33% details
+		// Timeline is supplementary and not independently focusable.
+		listW := int(float64(h.width) * 0.20)
+		timelineW := int(float64(h.width) * 0.22)
+		midW := int(float64(h.width) * 0.25)
+		switch {
+		case x < listW:
+			return historyFocusList, 0, true
+		case x < listW+timelineW:
+			return noPane, 0, false // timeline -- focus-unaware
+		case x < listW+timelineW+midW:
+			return historyFocusMiddle, listW + timelineW, true
+		case x < h.width:
+			return historyFocusDetail, listW + timelineW + midW, true
+		}
+	}
+	return noPane, 0, false
+}
+
+// SelectBead sets the cursor to the given bead index. Resets dependent
+// scroll offsets so the just-selected bead's commits start fresh -- mirrors
+// the keyboard NextBead/PrevBead behavior so mouse selection feels native.
+//
+// Out-of-range indices are clamped to a no-op.
+func (h *HistoryModel) SelectBead(idx int) {
+	if idx < 0 || idx >= len(h.histories) {
+		return
+	}
+	if h.selectedBead == idx {
+		return
+	}
+	h.selectedBead = idx
+	h.selectedCommit = 0
+	h.middleScrollOffset = 0
+	h.detailScrollOffset = 0
+	h.ensureBeadVisible()
+}
+
+// SelectCommit sets the commit cursor for the currently-selected bead.
+// Used by the mouse handler when the user clicks a row in the COMMITS pane.
+func (h *HistoryModel) SelectCommit(idx int) {
+	hist := h.SelectedHistory()
+	if hist == nil {
+		return
+	}
+	if idx < 0 || idx >= len(hist.Commits) {
+		return
+	}
+	h.selectedCommit = idx
+	h.detailScrollOffset = 0
+	h.ensureMiddleScrollVisible(idx, len(hist.Commits))
+}
+
+// SelectRelatedBead sets the related-bead cursor for the currently-selected
+// commit in git mode. Mirrors NextRelatedBead/PrevRelatedBead's bounds.
+func (h *HistoryModel) SelectRelatedBead(idx int) {
+	commit := h.SelectedGitCommit()
+	if commit == nil {
+		return
+	}
+	if idx < 0 || idx >= len(commit.BeadIDs) {
+		return
+	}
+	h.selectedRelatedBead = idx
+}
+
+// SetFocus is the mouse-driven equivalent of ToggleFocus -- sets the focus
+// to a specific pane rather than cycling to the next one.
+func (h *HistoryModel) SetFocus(f historyFocus) {
+	h.focused = f
+}
+
+// ScrollAtX advances the scroll cursor of whichever pane the X coordinate
+// covers. dir is +1 (down) or -1 (up). Returns true if scroll state moved.
+// Detail pane scrolls its content offset rather than moving a cursor; List
+// and Middle move their selection cursor.
+func (h *HistoryModel) ScrollAtX(x int, dir int) bool {
+	pane, _, ok := h.paneAtX(x)
+	if !ok {
+		return false
+	}
+	switch pane {
+	case historyFocusList:
+		if dir < 0 {
+			h.MoveUp()
+		} else {
+			h.MoveDown()
+		}
+		return true
+	case historyFocusMiddle:
+		if h.viewMode == historyModeGit {
+			if dir < 0 {
+				h.PrevRelatedBead()
+			} else {
+				h.NextRelatedBead()
+			}
+			return true
+		}
+		if dir < 0 {
+			h.PrevCommit()
+		} else {
+			h.NextCommit()
+		}
+		return true
+	case historyFocusDetail:
+		if dir < 0 {
+			h.ScrollDetailUp()
+		} else {
+			h.ScrollDetailDown()
+		}
+		return true
+	}
+	return false
+}
+
 // renderTwoPaneView renders the narrow two-pane layout (bv-xrfh)
 func (h *HistoryModel) renderTwoPaneView() string {
 	// Calculate panel widths (45% list, 55% detail for narrow)
