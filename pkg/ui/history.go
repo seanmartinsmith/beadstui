@@ -1510,49 +1510,37 @@ func (h *HistoryModel) formatTimelineTimestamp(t time.Time) string {
 func (h *HistoryModel) renderTimelinePanel(width, height int) string {
 	t := h.theme
 
-	// Panel border style
-	borderColor := t.Border
-	panelStyle := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(borderColor).
-		Width(width - 2).
-		Height(height - 2)
-
-	// Title style
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(t.Primary).
-		Width(width - 4).
-		Align(lipgloss.Center)
-
 	// Get selected bead
 	if len(h.beadIDs) == 0 || h.selectedBead >= len(h.beadIDs) {
-		content := titleStyle.Render("TIMELINE") + "\n\n" +
-			lipgloss.NewStyle().Foreground(t.Secondary).Render("Select a bead to view timeline")
-		return panelStyle.Render(content)
+		content := lipgloss.NewStyle().Foreground(t.Secondary).Render("Select a bead to view timeline")
+		return RenderTitledPanel(content, PanelOpts{
+			Title:  "TIMELINE",
+			Width:  width,
+			Height: height,
+		})
 	}
 
 	beadID := h.beadIDs[h.selectedBead]
 	hist, ok := h.report.Histories[beadID]
 	if !ok {
-		content := titleStyle.Render("TIMELINE") + "\n\n" +
-			lipgloss.NewStyle().Foreground(t.Secondary).Render("No history data")
-		return panelStyle.Render(content)
+		content := lipgloss.NewStyle().Foreground(t.Secondary).Render("No history data")
+		return RenderTitledPanel(content, PanelOpts{
+			Title:  "TIMELINE",
+			Width:  width,
+			Height: height,
+		})
 	}
 
 	// Build timeline entries
 	entries := h.buildTimeline(hist)
 
 	var b strings.Builder
-	b.WriteString(titleStyle.Render("TIMELINE: " + beadID))
-	b.WriteString("\n")
 
 	if len(entries) == 0 {
-		b.WriteString("\n")
 		b.WriteString(lipgloss.NewStyle().Foreground(t.Secondary).Render("No events recorded"))
 	} else {
 		// Render timeline entries
-		maxVisible := height - 6 // Account for title, borders, summary
+		maxVisible := height - 4 // Account for borders and summary line
 		if maxVisible < 3 {
 			maxVisible = 3
 		}
@@ -1707,7 +1695,12 @@ func (h *HistoryModel) renderTimelinePanel(width, height int) string {
 		}
 	}
 
-	return panelStyle.Render(b.String())
+	return RenderTitledPanel(b.String(), PanelOpts{
+		Title:      "TIMELINE",
+		RightLabel: beadID,
+		Width:      width,
+		Height:     height,
+	})
 }
 
 // formatDuration formats a duration in a human-readable way (bv-1x6o)
@@ -2106,54 +2099,25 @@ func formatCycleTime(days float64) string {
 
 // renderListPanel renders the left panel with bead list
 func (h *HistoryModel) renderListPanel(width, height int) string {
-	t := h.theme
-
-	// Panel border style based on focus
-	borderColor := t.Muted
-	if h.focused == historyFocusList {
-		borderColor = t.Primary
-	}
-
-	panelStyle := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(borderColor).
-		Width(width - 2). // Account for border
-		Height(height - 2)
-
-	// Column header
-	headerStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(t.Primary).
-		Width(width - 4)
-	header := headerStyle.Render("BEADS WITH HISTORY")
-
-	// Build list content
-	var lines []string
-	lines = append(lines, header)
-	sepWidth := width - 4
-	if sepWidth < 1 {
-		sepWidth = 1
-	}
-	lines = append(lines, strings.Repeat("─", sepWidth))
-
-	visibleItems := height - 5 // Account for header, separator, border
+	visibleItems := height - 2 // inner height: title is in the border chrome
 	if visibleItems < 1 {
 		visibleItems = 1
 	}
 
+	var lines []string
 	for i := h.scrollOffset; i < len(h.histories) && i < h.scrollOffset+visibleItems; i++ {
 		hist := h.histories[i]
 		line := h.renderBeadLine(i, hist, width-4)
 		lines = append(lines, line)
 	}
 
-	// Pad with empty lines if needed
-	for len(lines) < height-2 {
-		lines = append(lines, "")
-	}
-
 	content := strings.Join(lines, "\n")
-	return panelStyle.Render(content)
+	return RenderTitledPanel(content, PanelOpts{
+		Title:   "BEADS WITH HISTORY",
+		Width:   width,
+		Height:  height,
+		Focused: h.focused == historyFocusList,
+	})
 }
 
 // renderBeadLine renders a single bead in the list
@@ -2371,28 +2335,15 @@ func (h *HistoryModel) renderFileTreeLine(idx int, node *FileTreeNode, width int
 func (h *HistoryModel) renderDetailPanel(width, height int) string {
 	t := h.theme
 
-	// Panel border style based on focus
-	borderColor := t.Muted
-	if h.focused == historyFocusDetail {
-		borderColor = t.Primary
-	}
-
-	panelStyle := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(borderColor).
-		Width(width - 2).
-		Height(height - 2)
-
 	hist := h.SelectedHistory()
 	if hist == nil {
-		return panelStyle.Render("No bead selected")
+		return RenderTitledPanel("No bead selected", PanelOpts{
+			Title:   "COMMIT DETAILS",
+			Width:   width,
+			Height:  height,
+			Focused: h.focused == historyFocusDetail,
+		})
 	}
-
-	// Header
-	headerStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(t.Primary)
-	header := headerStyle.Render("COMMIT DETAILS")
 
 	// Bead info with status indicator
 	statusIcon := "○"
@@ -2410,13 +2361,12 @@ func (h *HistoryModel) renderDetailPanel(width, height int) string {
 	}
 	beadInfoStyle := lipgloss.NewStyle().Foreground(t.Secondary)
 
-	// Build header (always shown, fixed at top)
+	// Build header (always shown, fixed at top); title is in the border chrome
 	detailSepWidth := width - 4
 	if detailSepWidth < 1 {
 		detailSepWidth = 1
 	}
 	headerLines := []string{
-		header,
 		beadInfoStyle.Render(beadInfo),
 		strings.Repeat("─", detailSepWidth),
 	}
@@ -2537,7 +2487,12 @@ func (h *HistoryModel) renderDetailPanel(width, height int) string {
 	allLines = append(allLines, footerLines...)
 
 	content := strings.Join(allLines, "\n")
-	return panelStyle.Render(content)
+	return RenderTitledPanel(content, PanelOpts{
+		Title:   "COMMIT DETAILS",
+		Width:   width,
+		Height:  height,
+		Focused: h.focused == historyFocusDetail,
+	})
 }
 
 // detailContentLines computes the total number of lines in the scrollable
@@ -2567,8 +2522,8 @@ func (h *HistoryModel) detailContentLines(width int) int {
 // detailVisibleHeight returns the number of content lines visible in the detail
 // panel given the current panel height. (bt-npnh)
 func (h *HistoryModel) detailVisibleHeight(height int) int {
-	// header = 3 lines, footer = 3 lines, inner panel = height - 2 (border)
-	v := height - 2 - 3 - 3
+	// header = 2 lines (beadInfo + sep), footer = 3 lines, inner panel = height - 2 (border)
+	v := height - 2 - 2 - 3
 	if v < 1 {
 		return 1
 	}
@@ -3245,41 +3200,12 @@ func renderCompactEventBadge(eventCount int, t Theme) string {
 
 // renderGitCommitListPanel renders the left panel with commit list in git mode
 func (h *HistoryModel) renderGitCommitListPanel(width, height int) string {
-	t := h.theme
-
-	// Panel border style based on focus
-	borderColor := t.Muted
-	if h.focused == historyFocusList {
-		borderColor = t.Primary
-	}
-
-	panelStyle := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(borderColor).
-		Width(width - 2).
-		Height(height - 2)
-
-	// Column header
-	headerStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(t.Primary).
-		Width(width - 4)
-	header := headerStyle.Render("COMMITS")
-
-	// Build list content
-	var lines []string
-	lines = append(lines, header)
-	sepWidth := width - 4
-	if sepWidth < 1 {
-		sepWidth = 1
-	}
-	lines = append(lines, strings.Repeat("─", sepWidth))
-
-	visibleItems := height - 5
+	visibleItems := height - 2 // inner height: title is in the border chrome
 	if visibleItems < 1 {
 		visibleItems = 1
 	}
 
+	var lines []string
 	// Use filtered list if search is active (bv-nkrj)
 	commits := h.GetFilteredCommitList()
 	for i := h.gitScrollOffset; i < len(commits) && i < h.gitScrollOffset+visibleItems; i++ {
@@ -3288,13 +3214,13 @@ func (h *HistoryModel) renderGitCommitListPanel(width, height int) string {
 		lines = append(lines, line)
 	}
 
-	// Pad with empty lines if needed
-	for len(lines) < height-2 {
-		lines = append(lines, "")
-	}
-
 	content := strings.Join(lines, "\n")
-	return panelStyle.Render(content)
+	return RenderTitledPanel(content, PanelOpts{
+		Title:   "COMMITS",
+		Width:   width,
+		Height:  height,
+		Focused: h.focused == historyFocusList,
+	})
 }
 
 // renderGitCommitLine renders a single commit in git mode list
@@ -3346,26 +3272,19 @@ func (h *HistoryModel) renderGitCommitLine(idx int, commit CommitListEntry, widt
 func (h *HistoryModel) renderGitDetailPanel(width, height int) string {
 	t := h.theme
 
-	// Panel border style based on focus
-	borderColor := t.Muted
-	if h.focused == historyFocusDetail {
-		borderColor = t.Primary
-	}
-
-	panelStyle := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(borderColor).
-		Width(width - 2).
-		Height(height - 2)
-
 	commit := h.SelectedGitCommit()
 	if commit == nil {
-		return panelStyle.Render("No commit selected")
+		return RenderTitledPanel("No commit selected", PanelOpts{
+			Title:   "COMMIT DETAILS",
+			Width:   width,
+			Height:  height,
+			Focused: h.focused == historyFocusDetail,
+		})
 	}
 
 	var lines []string
 
-	// Header: Related Beads
+	// Sub-header: Related Beads section
 	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(t.Primary)
@@ -3420,10 +3339,8 @@ func (h *HistoryModel) renderGitDetailPanel(width, height int) string {
 		lines = append(lines, beadLine)
 	}
 
-	// Add separator before commit details
+	// Separator before commit details section
 	lines = append(lines, "")
-	lines = append(lines, strings.Repeat("─", detailSepWidth))
-	lines = append(lines, headerStyle.Render("COMMIT DETAILS"))
 	lines = append(lines, strings.Repeat("─", detailSepWidth))
 
 	// Commit details
@@ -3479,40 +3396,31 @@ func (h *HistoryModel) renderGitDetailPanel(width, height int) string {
 	lines = append(lines, hintStyle.Render("J/K:bead  y:copy  o:open  g:graph"))
 
 	content := strings.Join(lines, "\n")
-	return panelStyle.Render(content)
+	return RenderTitledPanel(content, PanelOpts{
+		Title:   "COMMIT DETAILS",
+		Width:   width,
+		Height:  height,
+		Focused: h.focused == historyFocusDetail,
+	})
 }
 
 // renderCommitMiddlePanel renders commits for selected bead in middle pane (bv-xrfh)
 func (h *HistoryModel) renderCommitMiddlePanel(width, height int) string {
 	t := h.theme
 
-	borderColor := t.Muted
-	if h.focused == historyFocusMiddle {
-		borderColor = t.Primary
-	}
-
-	panelStyle := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(borderColor).
-		Width(width - 2).
-		Height(height - 2)
-
 	hist := h.SelectedHistory()
 	if hist == nil {
-		return panelStyle.Render("Select a bead to view commits")
+		return RenderTitledPanel("Select a bead to view commits", PanelOpts{
+			Title:   "COMMITS",
+			Width:   width,
+			Height:  height,
+			Focused: h.focused == historyFocusMiddle,
+		})
 	}
 
 	var lines []string
-	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Width(width - 4)
-	lines = append(lines, headerStyle.Render("COMMITS"))
 
-	sepWidth := width - 4
-	if sepWidth < 1 {
-		sepWidth = 1
-	}
-	lines = append(lines, strings.Repeat("─", sepWidth))
-
-	visibleItems := height - 5
+	visibleItems := height - 2 // inner height: title is in the border chrome
 	if visibleItems < 1 {
 		visibleItems = 1
 	}
@@ -3566,45 +3474,32 @@ func (h *HistoryModel) renderCommitMiddlePanel(width, height int) string {
 		lines = append(lines, scrollInfo.Render(fmt.Sprintf("↕ %d/%d (%d%%)", endIdx, totalCommits, scrollPct)))
 	}
 
-	for len(lines) < height-2 {
-		lines = append(lines, "")
-	}
-
 	content := strings.Join(lines, "\n")
-	return panelStyle.Render(content)
+	return RenderTitledPanel(content, PanelOpts{
+		Title:   "COMMITS",
+		Width:   width,
+		Height:  height,
+		Focused: h.focused == historyFocusMiddle,
+	})
 }
 
 // renderGitBeadListPanel renders related beads for selected commit in middle pane (bv-xrfh)
 func (h *HistoryModel) renderGitBeadListPanel(width, height int) string {
 	t := h.theme
 
-	borderColor := t.Muted
-	if h.focused == historyFocusMiddle {
-		borderColor = t.Primary
-	}
-
-	panelStyle := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(borderColor).
-		Width(width - 2).
-		Height(height - 2)
-
 	commit := h.SelectedGitCommit()
 	if commit == nil {
-		return panelStyle.Render("Select a commit to view beads")
+		return RenderTitledPanel("Select a commit to view beads", PanelOpts{
+			Title:   "RELATED BEADS",
+			Width:   width,
+			Height:  height,
+			Focused: h.focused == historyFocusMiddle,
+		})
 	}
 
 	var lines []string
-	headerStyle := lipgloss.NewStyle().Bold(true).Foreground(t.Primary).Width(width - 4)
-	lines = append(lines, headerStyle.Render("RELATED BEADS"))
 
-	sepWidth := width - 4
-	if sepWidth < 1 {
-		sepWidth = 1
-	}
-	lines = append(lines, strings.Repeat("─", sepWidth))
-
-	visibleItems := height - 5
+	visibleItems := height - 2 // inner height: title is in the border chrome
 	if visibleItems < 1 {
 		visibleItems = 1
 	}
@@ -3672,10 +3567,11 @@ func (h *HistoryModel) renderGitBeadListPanel(width, height int) string {
 		lines = append(lines, scrollInfo.Render(fmt.Sprintf("↕ %d/%d (%d%%)", endIdx, totalBeads, scrollPct)))
 	}
 
-	for len(lines) < height-2 {
-		lines = append(lines, "")
-	}
-
 	content := strings.Join(lines, "\n")
-	return panelStyle.Render(content)
+	return RenderTitledPanel(content, PanelOpts{
+		Title:   "RELATED BEADS",
+		Width:   width,
+		Height:  height,
+		Focused: h.focused == historyFocusMiddle,
+	})
 }
