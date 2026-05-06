@@ -366,6 +366,44 @@ func TestHistoryModel_ViewEmpty(t *testing.T) {
 	}
 }
 
+// TestHistoryModel_HeaderHeightStableOnSearch verifies that toggling the
+// search input does NOT change the rendered header height. The bordered
+// search box previously added 2 rows when search activated, shifting the
+// entire view (bt-wyut). Both states must now render the header at the
+// same line count.
+func TestHistoryModel_HeaderHeightStableOnSearch(t *testing.T) {
+	report := createTestHistoryReport()
+	theme := testTheme()
+	h := NewHistoryModel(report, theme)
+	h.SetSize(120, 40)
+
+	inactiveHeader := h.renderHeader()
+	inactiveLines := strings.Count(inactiveHeader, "\n")
+
+	h.StartSearch()
+	activeHeader := h.renderHeader()
+	activeLines := strings.Count(activeHeader, "\n")
+
+	if activeLines != inactiveLines {
+		t.Errorf("header line count changed on search activation: inactive=%d active=%d", inactiveLines, activeLines)
+	}
+
+	// Border characters from lipgloss.NormalBorder() that previously wrapped
+	// the search input. The new layout is borderless, so none of these
+	// glyphs should appear in the header in either state.
+	borderChars := []string{"╭", "╰", "╯", "╮", "─", "│"}
+	for _, glyph := range borderChars {
+		if glyph == "─" {
+			// The header separator is also "─". Skip — covered by the
+			// stricter glyph checks above (corners + verticals).
+			continue
+		}
+		if strings.Contains(activeHeader, glyph) {
+			t.Errorf("active search header contains border glyph %q; expected borderless inline render", glyph)
+		}
+	}
+}
+
 func TestHistoryModel_ViewSmallWidth(t *testing.T) {
 	report := createTestHistoryReport()
 	theme := testTheme()

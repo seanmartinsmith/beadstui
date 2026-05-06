@@ -1935,27 +1935,19 @@ func (h *HistoryModel) renderHeader() string {
 	title := titleStyle.Render("History") + modeStyle.Render(modeIndicator)
 
 	// Search input or close hint (bv-nkrj)
+	// Renders inline on the title row in both states. No external border —
+	// the bordered box added 2 rows of height and shifted the entire view
+	// when search activated (bt-wyut). Both states are now exactly 1 row.
 	var rightContent string
 	if h.searchActive {
-		// Show search input
-		searchStyle := lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder()).
-			BorderForeground(t.Primary).
-			Padding(0, 1)
+		modeStyle := lipgloss.NewStyle().Foreground(t.Secondary)
+		escStyle := lipgloss.NewStyle().Foreground(t.Muted).Padding(0, 1)
 
-		modeLabel := lipgloss.NewStyle().
-			Foreground(t.Secondary).
-			Render(fmt.Sprintf("[%s] ", h.GetSearchModeName()))
-
+		modeLabel := modeStyle.Render(fmt.Sprintf("[%s] ", h.GetSearchModeName()))
 		inputView := h.searchInput.View()
-		searchBox := searchStyle.Render(modeLabel + inputView)
+		escHint := escStyle.Render("[Esc] cancel")
 
-		escHint := lipgloss.NewStyle().
-			Foreground(t.Muted).
-			Padding(0, 1).
-			Render("[Esc] cancel")
-
-		rightContent = searchBox + escHint
+		rightContent = modeLabel + inputView + escHint
 	} else {
 		// Show close hint and search hint
 		rightContent = lipgloss.NewStyle().
