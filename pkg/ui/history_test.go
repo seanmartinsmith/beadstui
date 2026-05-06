@@ -366,6 +366,71 @@ func TestHistoryModel_ViewEmpty(t *testing.T) {
 	}
 }
 
+// TestHistoryModel_FilteredEmptyKeepsChrome covers bt-z63i: when the search
+// filter narrows the bead list to zero matches, the view must keep the
+// four-pane chrome and show "No matches" inline in the BEADS pane. The
+// full-screen "No beads with commit correlations found" empty state is
+// reserved for genuinely-empty data only.
+func TestHistoryModel_FilteredEmptyKeepsChrome(t *testing.T) {
+	report := createTestHistoryReport()
+	theme := testTheme()
+	h := NewHistoryModel(report, theme)
+	h.SetSize(180, 40) // wide enough for the layoutWide 4-pane render
+
+	// Apply a search query that will not match any bead in the test report.
+	h.StartSearch()
+	h.searchInput.SetValue("zzz-no-match-zzz")
+	h.applySearchFilter()
+
+	if len(h.histories) != 0 {
+		t.Fatalf("setup: expected filter to narrow to zero, got %d", len(h.histories))
+	}
+
+	view := h.View()
+
+	// Chrome markers from the four-pane layout must be present.
+	chromeMarkers := []string{"BEADS WITH HISTORY", "TIMELINE", "COMMITS", "COMMIT DETAILS"}
+	for _, marker := range chromeMarkers {
+		if !strings.Contains(view, marker) {
+			t.Errorf("filtered-empty view missing chrome marker %q; expected in-pane render not full-screen empty", marker)
+		}
+	}
+
+	// And the inline "No matches" hint must be in the bead list pane.
+	if !strings.Contains(view, "No matches") {
+		t.Errorf(`filtered-empty view missing "No matches" hint`)
+	}
+
+	// Sanity: the genuinely-empty copy must NOT appear (would mean we fell
+	// through to renderEmpty by mistake).
+	if strings.Contains(view, "No beads with commit correlations found") {
+		t.Errorf("filtered-empty view leaked the genuinely-empty copy; expected in-chrome render")
+	}
+}
+
+// TestHistoryModel_GenuinelyEmptyShowsFullScreen confirms the full-screen
+// empty path still triggers when the report has no usable commits. Pairs
+// with TestHistoryModel_FilteredEmptyKeepsChrome to lock in the split.
+func TestHistoryModel_GenuinelyEmptyShowsFullScreen(t *testing.T) {
+	emptyReport := &correlation.HistoryReport{
+		GeneratedAt: time.Now(),
+		Histories:   map[string]correlation.BeadHistory{},
+		RepoStatus:  correlation.RepoStatus{InsideWorkTree: true},
+	}
+	theme := testTheme()
+	h := NewHistoryModel(emptyReport, theme)
+	h.SetSize(180, 40)
+
+	view := h.View()
+	if !strings.Contains(view, "No beads with commit correlations found") {
+		t.Errorf("genuinely-empty report should render the full-screen empty copy")
+	}
+	// Full-screen render skips the four-pane chrome.
+	if strings.Contains(view, "BEADS WITH HISTORY") {
+		t.Errorf("genuinely-empty report should NOT render the four-pane chrome")
+	}
+}
+
 // TestHistoryModel_HeaderHeightStableOnSearch verifies that toggling the
 // search input does NOT change the rendered header height. The bordered
 // search box previously added 2 rows when search activated, shifting the

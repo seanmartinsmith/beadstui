@@ -1293,15 +1293,19 @@ func (h *HistoryModel) View() string {
 		return h.renderEmpty("No history data loaded")
 	}
 
-	// In git mode, check commit list; in bead mode, check histories
-	if h.viewMode == historyModeGit {
-		if len(h.commitList) == 0 {
+	// Genuinely-empty data path: only show the full-screen empty state when
+	// the underlying report has no usable commits. When data exists but the
+	// active filters (search, author, confidence, file) narrow the list to
+	// zero, fall through to the normal pane chrome -- the list pane shows
+	// "No matches" inline (bt-z63i). Without this split the same empty
+	// path fired for both, so typing a search query that filtered to zero
+	// collapsed the entire view to the no-data message and the user lost
+	// their navigation context.
+	if !h.hasAnyHistoryData() {
+		if h.viewMode == historyModeGit {
 			return h.renderEmpty(h.emptyStateMessage("No commits with bead correlations found"))
 		}
-	} else {
-		if len(h.histories) == 0 {
-			return h.renderEmpty(h.emptyStateMessage("No beads with commit correlations found"))
-		}
+		return h.renderEmpty(h.emptyStateMessage("No beads with commit correlations found"))
 	}
 
 	// Dispatch to layout-specific renderer (bv-xrfh)
@@ -1312,6 +1316,22 @@ func (h *HistoryModel) View() string {
 	default:
 		return h.renderTwoPaneView()
 	}
+}
+
+// hasAnyHistoryData reports whether the loaded report has at least one bead
+// with any commit. Used to distinguish "no data" (full-screen empty state)
+// from "filtered to zero" (in-chrome empty list with "No matches"). See
+// bt-z63i.
+func (h *HistoryModel) hasAnyHistoryData() bool {
+	if h.report == nil {
+		return false
+	}
+	for _, hist := range h.report.Histories {
+		if len(hist.Commits) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // historyPanelHeight returns the rows available for the panel block, given
@@ -2114,14 +2134,24 @@ func (h *HistoryModel) renderListPanel(width, height int) string {
 		visibleItems = 1
 	}
 
-	var lines []string
-	for i := h.scrollOffset; i < len(h.histories) && i < h.scrollOffset+visibleItems; i++ {
-		hist := h.histories[i]
-		line := h.renderBeadLine(i, hist, width-4)
-		lines = append(lines, line)
+	var content string
+	if len(h.histories) == 0 {
+		// Filtered-to-zero state. The genuinely-empty case is intercepted in
+		// View() and renders a full-screen empty (bt-z63i). Reaching here
+		// means data exists but filters narrowed the list to nothing — keep
+		// the chrome and tell the user inline.
+		t := h.theme
+		content = lipgloss.NewStyle().Foreground(t.Muted).Italic(true).Render("No matches")
+	} else {
+		var lines []string
+		for i := h.scrollOffset; i < len(h.histories) && i < h.scrollOffset+visibleItems; i++ {
+			hist := h.histories[i]
+			line := h.renderBeadLine(i, hist, width-4)
+			lines = append(lines, line)
+		}
+		content = strings.Join(lines, "\n")
 	}
 
-	content := strings.Join(lines, "\n")
 	return RenderTitledPanel(content, PanelOpts{
 		Title:   "BEADS WITH HISTORY",
 		Width:   width,
