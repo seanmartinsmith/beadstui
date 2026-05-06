@@ -103,6 +103,80 @@ func TestHistoryViewToggle(t *testing.T) {
 	}
 }
 
+// TestHistorySearchKeyIsolation covers bt-mc4y: while history search is
+// active, every printable key must reach the searchInput rather than firing
+// a global mode toggle. Before the fix, typing `h` in history search closed
+// the history view because the global `h = toggle history` handler ran
+// before the focus-based dispatch reached handleHistoryKeys.
+func TestHistorySearchKeyIsolation(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "bv-1", Title: "Test Issue", Status: model.StatusOpen},
+	}
+	m := NewModel(issues, nil, "", nil)
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
+	m = updated.(Model)
+
+	// Enter history view.
+	updated, _ = m.Update(tea.KeyPressMsg{Code: 'h', Text: "h"})
+	m = updated.(Model)
+	if m.mode != ViewHistory {
+		t.Fatalf("setup: expected ViewHistory after h key, got %v", m.mode)
+	}
+
+	// Activate search via /.
+	updated, _ = m.Update(tea.KeyPressMsg{Code: '/', Text: "/"})
+	m = updated.(Model)
+	if !m.historyView.IsSearchActive() {
+		t.Fatalf("setup: expected search active after /")
+	}
+
+	// Type a sequence that mixes plain letters with letters that map to
+	// global hotkeys (h = toggle history, b = board, g = graph, i =
+	// insights, p = priority hints, a = actionable). Every keypress must
+	// land in the search buffer and leave m.mode == ViewHistory.
+	seq := []rune{'h', 'b', 'g', 'i', 'p', 'a'}
+	for _, r := range seq {
+		updated, _ = m.Update(tea.KeyPressMsg{Code: r, Text: string(r)})
+		m = updated.(Model)
+		if m.mode != ViewHistory {
+			t.Fatalf("keypress %q leaked through search and changed mode to %v", r, m.mode)
+		}
+		if !m.historyView.IsSearchActive() {
+			t.Fatalf("keypress %q deactivated search", r)
+		}
+	}
+
+	if got, want := m.historyView.SearchQuery(), string(seq); got != want {
+		t.Fatalf("search buffer = %q, want %q", got, want)
+	}
+
+	// Delete key (forward delete) at end of buffer is a no-op in bubbles
+	// textinput, but it must NOT fire any global handler. The buffer stays
+	// the same and the view stays in history+search.
+	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyDelete})
+	m = updated.(Model)
+	if m.mode != ViewHistory {
+		t.Fatalf("Delete keypress changed mode to %v", m.mode)
+	}
+	if !m.historyView.IsSearchActive() {
+		t.Fatalf("Delete keypress deactivated search")
+	}
+	if got, want := m.historyView.SearchQuery(), string(seq); got != want {
+		t.Fatalf("buffer changed after no-op Delete: got %q want %q", got, want)
+	}
+
+	// Esc closes search (and only search — view stays as ViewHistory).
+	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+	m = updated.(Model)
+	if m.historyView.IsSearchActive() {
+		t.Fatalf("Esc did not deactivate search")
+	}
+	if m.mode != ViewHistory {
+		t.Fatalf("Esc on active search exited history view; expected to stay in ViewHistory, got %v", m.mode)
+	}
+}
+
 func TestHistoryViewKeys(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "bv-1", Title: "Test Issue", Status: model.StatusOpen},

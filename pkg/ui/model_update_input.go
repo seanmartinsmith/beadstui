@@ -783,6 +783,20 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// History view search is a typing context: when the user has activated
+	// `/` in history, every printable key must reach the searchInput rather
+	// than firing global mode toggles (b, g, h, i, p, a, E, ...). Without
+	// this short-circuit, typing letters silently switched views or muted
+	// search state — see bt-mc4y. Esc/Enter and forwarding are handled
+	// inside handleHistoryKeys; only ctrl+c bypasses for quit.
+	if m.mode == ViewHistory && m.historyView.IsSearchActive() && m.activeModal == ModalNone {
+		if msg.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
+		m = m.handleHistoryKeys(msg)
+		return m, nil
+	}
+
 	// Global / binding (bt-cd3x): in the split-view list layout, / from the
 	// details pane (or any non-list focus) bounces focus to the list and the
 	// router tail forwards / to the Bubbles list's Filter key. Remember prior
