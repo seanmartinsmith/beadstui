@@ -69,14 +69,19 @@ func RenderTitledPanel(content string, opts PanelOpts) string {
 
 	tl, tr, bl, br, h, vert := borderChars(opts.Variant)
 
-	// Colors: use overrides when provided, otherwise derive from focus state
+	// Colors: use overrides when provided, otherwise derive from focus state.
+	// Unfocused border uses ColorMuted (matches the unfocused title color)
+	// rather than ColorBgHighlight so the frame stays readable on dark
+	// terminals — bt-peo7 dogfooding showed that dim borders next to a
+	// brighter title made multi-pane views (history) read as broken chrome
+	// even though all four borders were rendering correctly.
 	var borderColor, titleColor color.Color
 	if opts.BorderColor != nil {
 		borderColor = opts.BorderColor
 	} else if opts.Focused {
 		borderColor = ColorPrimary
 	} else {
-		borderColor = ColorBgHighlight
+		borderColor = ColorMuted
 	}
 
 	if opts.TitleColor != nil {
