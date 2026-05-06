@@ -366,6 +366,50 @@ func TestHistoryModel_ViewEmpty(t *testing.T) {
 	}
 }
 
+// TestHistoryModel_ViewHasNoIssuesListLeakage covers bt-7hhc: the history
+// view's rendered output must never contain issues-list-style row content.
+// User reported seeing "[DOTF] P0 OPEN dotfiles-d6n" inside history panes
+// during the transition from issues list. This test asserts the history
+// view's own render is clean — no repo-prefix bracket badges, no priority
+// codes, no OPEN/CLOSED status words, no issues-list row signatures.
+//
+// If this passes but the user still sees leakage in the running TUI, the
+// contamination is at a layer below us (terminal/renderer frame buffering),
+// not in HistoryModel.View() output.
+func TestHistoryModel_ViewHasNoIssuesListLeakage(t *testing.T) {
+	report := createTestHistoryReport()
+	theme := testTheme()
+
+	// Try several sizes to cover both narrow (two-pane) and wide (four-pane)
+	// layouts. Issues-list rows render at every width.
+	sizes := []struct {
+		w, h int
+	}{
+		{80, 24},
+		{120, 40},
+		{180, 50},
+	}
+
+	// Patterns that would only appear in issues-list rows (delegate.go +
+	// RenderRepoBadge in visuals.go) and never in history view rendering.
+	leaks := []string{
+		"P0 OPEN", "P1 OPEN", "P2 OPEN", "P3 OPEN",
+		"P0 CLOSED", "P1 CLOSED", "P2 CLOSED",
+		"[BUG]", "[FEATURE]", "[CHORE]", "[EPIC]", "[DECISION]",
+	}
+
+	for _, sz := range sizes {
+		h := NewHistoryModel(report, theme)
+		h.SetSize(sz.w, sz.h)
+		view := h.View()
+		for _, leak := range leaks {
+			if strings.Contains(view, leak) {
+				t.Errorf("size %dx%d: rendered history view contains issues-list leak %q", sz.w, sz.h, leak)
+			}
+		}
+	}
+}
+
 // TestHistoryModel_FilteredEmptyKeepsChrome covers bt-z63i: when the search
 // filter narrows the bead list to zero matches, the view must keep the
 // four-pane chrome and show "No matches" inline in the BEADS pane. The

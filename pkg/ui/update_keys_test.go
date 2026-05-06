@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -100,6 +101,56 @@ func TestHistoryViewToggle(t *testing.T) {
 	}
 	if m.focused != focusList {
 		t.Fatalf("expected focus to be back on list, got %v", m.focused)
+	}
+}
+
+// TestHistoryViewTransitionNoLeakage covers bt-7hhc at the Model level.
+// After pressing `h` to enter history view, the full rendered View output
+// must NOT contain any issues-list row signatures (repo badges, P0/P1
+// status codes, [BUG]-style type tags). If it does, the transition is
+// leaking content through HistoryModel rendering. If this passes but the
+// user still sees leakage in the running TUI, the issue is in the
+// Bubble Tea v2 / terminal renderer layer below us.
+func TestHistoryViewTransitionNoLeakage(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "dotfiles-d6n", Title: "Some dotfiles work", Status: model.StatusOpen, Priority: 0},
+		{ID: "bv-2", Title: "Other work", Status: model.StatusOpen, Priority: 1},
+	}
+	m := NewModel(issues, nil, "", nil)
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 180, Height: 50})
+	m = updated.(Model)
+
+	// Press h to enter history view (this synchronously runs enterHistoryView
+	// which may fail without a real git repo — that's fine; we only need to
+	// verify the rendered output of whatever state we land in is clean).
+	updated, _ = m.Update(tea.KeyPressMsg{Code: 'h', Text: "h"})
+	m = updated.(Model)
+
+	view := m.View()
+	rendered := view.Content
+
+	leaks := []string{
+		"P0 OPEN", "P1 OPEN", "P2 OPEN", "P3 OPEN",
+		"[DOTF]",
+		"[BUG]", "[FEATURE]", "[EPIC]", "[DECISION]",
+	}
+	for _, leak := range leaks {
+		if strings.Contains(rendered, leak) {
+			t.Errorf("post-transition render leaks issues-list pattern %q", leak)
+		}
+	}
+
+	// The rendered output must cover the full terminal so that the diff
+	// renderer in bubbletea/ultraviolet does not leave residual cells from
+	// the previous frame. Each row should be at least m.width wide and
+	// there should be at least m.height rows. Without this, partially
+	// covered rows could explain the "issues-list rows showing inside
+	// history panes" symptom — the rows are NOT history content; they are
+	// stale terminal cells.
+	rows := strings.Split(rendered, "\n")
+	if len(rows) < m.height {
+		t.Errorf("render produced %d rows, expected at least %d (height); short-renders leave stale cells", len(rows), m.height)
 	}
 }
 
