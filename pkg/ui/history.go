@@ -1314,6 +1314,23 @@ func (h *HistoryModel) View() string {
 	}
 }
 
+// historyPanelHeight returns the rows available for the panel block, given
+// the actual rendered header height. Using a fixed h.height-2 (pre-bt-peo7
+// follow-up) overflowed the available area whenever the header rendered as
+// 3-4 rows (titleLine + statsLine + filterLine + separator), clipping the
+// bottom of every panel.
+func (h *HistoryModel) historyPanelHeight(header string) int {
+	headerRows := lipgloss.Height(header)
+	if headerRows < 1 {
+		headerRows = 1
+	}
+	panelH := h.height - headerRows
+	if panelH < 3 {
+		panelH = 3
+	}
+	return panelH
+}
+
 // renderTwoPaneView renders the narrow two-pane layout (bv-xrfh)
 func (h *HistoryModel) renderTwoPaneView() string {
 	// Calculate panel widths (45% list, 55% detail for narrow)
@@ -1322,15 +1339,16 @@ func (h *HistoryModel) renderTwoPaneView() string {
 
 	// Render header
 	header := h.renderHeader()
+	panelHeight := h.historyPanelHeight(header)
 
 	// Render panels based on view mode (bv-tl3n)
 	var listPanel, detailPanel string
 	if h.viewMode == historyModeGit {
-		listPanel = h.renderGitCommitListPanel(listWidth, h.height-2)
-		detailPanel = h.renderGitDetailPanel(detailWidth, h.height-2)
+		listPanel = h.renderGitCommitListPanel(listWidth, panelHeight)
+		detailPanel = h.renderGitDetailPanel(detailWidth, panelHeight)
 	} else {
-		listPanel = h.renderListPanel(listWidth, h.height-2)
-		detailPanel = h.renderDetailPanel(detailWidth, h.height-2)
+		listPanel = h.renderListPanel(listWidth, panelHeight)
+		detailPanel = h.renderDetailPanel(detailWidth, panelHeight)
 	}
 
 	// Combine panels
@@ -1346,7 +1364,7 @@ func (h *HistoryModel) renderThreePaneView() string {
 
 	// Render header
 	header := h.renderHeader()
-	panelHeight := h.height - 2
+	panelHeight := h.historyPanelHeight(header)
 
 	// Wide layout: 4 panes with timeline (bv-1x6o)
 	if layout == layoutWide && h.viewMode != historyModeGit {
@@ -2156,41 +2174,61 @@ func (h *HistoryModel) renderBeadLine(idx int, hist correlation.BeadHistory, wid
 		eventBadgeWidth += 1 // Space before badge
 	}
 
-	// Truncate title
-	maxTitleLen := width - len(indicator) - len(statusIcon) - len(commitCount) - eventBadgeWidth - 6
-	if maxTitleLen < 10 {
-		maxTitleLen = 10
+	// Field-priority layout: indicator + status icon + bead ID are the
+	// always-shown core. commitCount and title are dropped progressively
+	// as the pane narrows (bt-peo7). Without progressive drop, narrow
+	// panes (e.g., 20% allocation in 4-pane wide layout) used to render a
+	// fixed-width line wider than the box, which RenderTitledPanel then
+	// truncated mid-ID and produced the "dotfil" stub.
+	const idDisplayWidth = 12
+	coreWidth := len(indicator) + len(statusIcon) + 1 + idDisplayWidth // +1 for space after icon
+	remaining := width - coreWidth - 1                                  // -1 for trailing space safety
+
+	showCount := remaining >= len(commitCount)+eventBadgeWidth+1
+	titleBudget := 0
+	if showCount {
+		titleBudget = remaining - len(commitCount) - eventBadgeWidth - 2 // 2 spaces between fields
+	} else {
+		titleBudget = remaining
 	}
+	if titleBudget < 0 {
+		titleBudget = 0
+	}
+
 	title := hist.Title
-	if len(title) > maxTitleLen {
-		title = title[:maxTitleLen-1] + "…"
+	if titleBudget == 0 {
+		title = ""
+	} else if len(title) > titleBudget {
+		title = title[:titleBudget-1] + "…"
 	}
 
 	// Build line
-	idStyle := lipgloss.NewStyle().Foreground(t.Secondary).Width(12)
-	titleStyle := lipgloss.NewStyle().Width(maxTitleLen)
+	idStyle := lipgloss.NewStyle().Foreground(t.Secondary).Width(idDisplayWidth)
 	countStyle := lipgloss.NewStyle().Foreground(t.Muted).Align(lipgloss.Right)
 
 	if selected && h.focused == historyFocusList {
 		idStyle = idStyle.Bold(true).Foreground(t.Primary)
-		titleStyle = titleStyle.Bold(true)
 	}
 
-	// Include event badge if present
-	countPart := countStyle.Render(commitCount)
-	if eventBadge != "" {
-		countPart = countPart + " " + eventBadge
+	parts := []string{indicator + statusIcon + " " + idStyle.Render(hist.BeadID)}
+
+	if title != "" {
+		titleStyle := lipgloss.NewStyle()
+		if selected && h.focused == historyFocusList {
+			titleStyle = titleStyle.Bold(true)
+		}
+		parts = append(parts, titleStyle.Render(title))
 	}
 
-	line := fmt.Sprintf("%s%s %s %s %s",
-		indicator,
-		statusIcon,
-		idStyle.Render(hist.BeadID),
-		titleStyle.Render(title),
-		countPart,
-	)
+	if showCount {
+		countPart := countStyle.Render(commitCount)
+		if eventBadge != "" {
+			countPart = countPart + " " + eventBadge
+		}
+		parts = append(parts, countPart)
+	}
 
-	return line
+	return strings.Join(parts, " ")
 }
 
 // renderFileTreePanel renders the file tree panel (bv-190l)
