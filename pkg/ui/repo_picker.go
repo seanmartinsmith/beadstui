@@ -168,6 +168,89 @@ func (m RepoPickerModel) SelectedRepos() map[string]bool {
 	return out
 }
 
+// SetCursor moves the cursor to the given index. Out-of-bounds indices are
+// clamped. Used by the mouse click handler (bt-hpsq).
+func (m *RepoPickerModel) SetCursor(idx int) {
+	if len(m.repos) == 0 {
+		m.selectedIndex = 0
+		return
+	}
+	if idx < 0 {
+		idx = 0
+	}
+	if idx >= len(m.repos) {
+		idx = len(m.repos) - 1
+	}
+	m.selectedIndex = idx
+}
+
+// repoPickerVerticalChrome is the row count outside the repo list itself:
+// 1 (top border) + 1 (top breathing) + 1 (blank) + 1 (footer) + 1 (bottom
+// border) = 5. Must stay aligned with View().
+const repoPickerVerticalChrome = 5
+
+// repoRowOffsetInBox is the row offset (relative to the panel top border) at
+// which the first repo row appears. Layout: row 0 top border, row 1 top
+// breathing blank, row 2+ repos.
+const repoRowOffsetInBox = 2
+
+// computeBoxWidth derives the modal's outer box width (including borders).
+// Pure layout math so Dimensions() and View() share the same width budget.
+func (m *RepoPickerModel) computeBoxWidth() int {
+	maxNameLen := 0
+	for _, repo := range m.repos {
+		if len(repo) > maxNameLen {
+			maxNameLen = len(repo)
+		}
+	}
+
+	// Repo line: hpad + cursor(2) + indicator(2) + space(1) + name + hpad
+	repoLineWidth := pickerHPad + 2 + 2 + 1 + maxNameLen + pickerHPad
+	footerLineWidth := pickerHPad + len(pickerFooter) + pickerHPad
+
+	innerWidth := repoLineWidth
+	if footerLineWidth > innerWidth {
+		innerWidth = footerLineWidth
+	}
+
+	boxWidth := innerWidth + 2 // border chars
+	if boxWidth > m.width-4 {
+		boxWidth = m.width - 4
+	}
+	if boxWidth < 30 {
+		boxWidth = 30
+	}
+	return boxWidth
+}
+
+// Dimensions returns the modal's outer box (width, height) in cells, used by
+// the mouse click handler to compute the centered panel start row/col.
+func (m *RepoPickerModel) Dimensions() (int, int) {
+	w := m.computeBoxWidth()
+	h := len(m.repos) + repoPickerVerticalChrome
+	if len(m.repos) == 0 {
+		// Empty-state shows a single "No projects available." line in place
+		// of the repo block, so total content rows = 1 (still the same
+		// chrome envelope).
+		h = 1 + repoPickerVerticalChrome
+	}
+	return w, h
+}
+
+// ItemAtPanelY maps a Y coordinate relative to the picker's top border to
+// a repo index. Returns (-1, false) for non-row regions (chrome, blanks,
+// footer).
+func (m *RepoPickerModel) ItemAtPanelY(my int) (int, bool) {
+	if len(m.repos) == 0 {
+		return -1, false
+	}
+	relRow := my - repoRowOffsetInBox
+	if relRow < 0 || relRow >= len(m.repos) {
+		return -1, false
+	}
+	return relRow, true
+}
+
 const pickerHPad = 3 // horizontal padding inside box
 
 // footer hint text (no padding - added during render)
@@ -184,7 +267,7 @@ func (m *RepoPickerModel) View() string {
 
 	t := m.theme
 
-	// Find the longest repo name to size the box
+	// Find the longest repo name (still needed locally for centering math).
 	maxNameLen := 0
 	for _, repo := range m.repos {
 		if len(repo) > maxNameLen {
@@ -192,26 +275,8 @@ func (m *RepoPickerModel) View() string {
 		}
 	}
 
-	// Compute the widest content line to size the box.
-	// Repo line: hpad + cursor(2) + indicator(2) + space(1) + name + hpad
-	repoLineWidth := pickerHPad + 2 + 2 + 1 + maxNameLen + pickerHPad
-	// Footer line: hpad + text + hpad
-	footerLineWidth := pickerHPad + len(pickerFooter) + pickerHPad
-
-	innerWidth := repoLineWidth
-	if footerLineWidth > innerWidth {
-		innerWidth = footerLineWidth
-	}
-
-	boxWidth := innerWidth + 2 // add border chars
-	if boxWidth > m.width-4 {
-		boxWidth = m.width - 4
-		innerWidth = boxWidth - 2
-	}
-	if boxWidth < 30 {
-		boxWidth = 30
-		innerWidth = boxWidth - 2
-	}
+	boxWidth := m.computeBoxWidth()
+	innerWidth := boxWidth - 2
 
 	pad := strings.Repeat(" ", pickerHPad)
 

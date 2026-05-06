@@ -1391,8 +1391,9 @@ func (m Model) handleMouseClick(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 	if m.activeModal == ModalLabelPicker {
 		return m.handleLabelPickerModalClick(mouse)
 	}
-	// Other modals (RepoPicker) stay keyboard-only for now —
-	// bt-km6d tracks that work separately.
+	if m.activeModal == ModalRepoPicker {
+		return m.handleRepoPickerModalClick(mouse)
+	}
 	if m.activeModal != ModalNone {
 		return m, nil
 	}
@@ -1545,6 +1546,17 @@ func (m Model) handleMouseWheel(msg tea.MouseWheelMsg) (Model, tea.Cmd) {
 			m.labelPicker.MoveUp()
 		case tea.MouseWheelDown:
 			m.labelPicker.MoveDown()
+		}
+		return m, nil
+	}
+
+	// Repo (project) picker mirrors the labels-modal wheel pattern (bt-hpsq).
+	if m.activeModal == ModalRepoPicker {
+		switch msg.Button {
+		case tea.MouseWheelUp:
+			m.repoPicker.MoveUp()
+		case tea.MouseWheelDown:
+			m.repoPicker.MoveDown()
 		}
 		return m, nil
 	}
@@ -1851,6 +1863,36 @@ func (m Model) handleLabelPickerModalClick(mouse tea.Mouse) (Model, tea.Cmd) {
 	}
 	m.labelPicker.SetCursor(idx)
 	m.labelPicker.ToggleSelected()
+	return m, nil
+}
+
+// handleRepoPickerModalClick routes a MouseClickMsg when the project
+// (repo) picker is open (bt-hpsq). Mirrors handleLabelPickerModalClick:
+// click on a project row selects it (cursor + space toggle); chrome and
+// backdrop clicks are no-ops.
+func (m Model) handleRepoPickerModalClick(mouse tea.Mouse) (Model, tea.Cmd) {
+	panelWidth, panelHeight := m.repoPicker.Dimensions()
+	startRow := (m.height - 1 - panelHeight) / 2
+	startCol := (m.width - panelWidth) / 2
+	if startRow < 0 {
+		startRow = 0
+	}
+	if startCol < 0 {
+		startCol = 0
+	}
+
+	mx := mouse.X - startCol
+	my := mouse.Y - startRow
+	if mx < 0 || mx >= panelWidth || my < 0 || my >= panelHeight {
+		return m, nil
+	}
+
+	idx, ok := m.repoPicker.ItemAtPanelY(my)
+	if !ok {
+		return m, nil
+	}
+	m.repoPicker.SetCursor(idx)
+	m.repoPicker.ToggleSelected()
 	return m, nil
 }
 
