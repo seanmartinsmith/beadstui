@@ -1372,6 +1372,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
 
+	// Snapshot modal state before any handler runs. Used below to prevent
+	// a modal-dismiss key (e.g. Esc) from being forwarded to the Bubbles
+	// list after the handler closes the modal and restores focus to the
+	// list -- which would cause the list to reset its filter (bt-65pt).
+	prevModal := m.activeModal
+
 	if m.data.backgroundWorker != nil {
 		switch msg.(type) {
 		case tea.KeyMsg, tea.MouseMsg:
@@ -1494,8 +1500,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Update list for navigation, but NOT for WindowSizeMsg
 	// (we handle sizing ourselves to account for header/footer)
 	// Only forward keyboard messages to list when list has focus (bv-hmkz fix)
-	// This prevents j/k keys in detail view from changing list selection
-	if m.focused == focusList && m.activeModal == ModalNone {
+	// This prevents j/k keys in detail view from changing list selection.
+	// Also skip when a modal was active at the start of this cycle (bt-65pt):
+	// a modal-dismiss key (e.g. Esc) must not reach the Bubbles list after
+	// the handler closes the modal and returns focus to the list, because the
+	// list would interpret Esc as "cancel filter" and clear the search query.
+	if m.focused == focusList && m.activeModal == ModalNone && prevModal == ModalNone {
 		if _, isWindowSize := msg.(tea.WindowSizeMsg); !isWindowSize {
 			m.list, cmd = m.list.Update(msg)
 			cmds = append(cmds, cmd)

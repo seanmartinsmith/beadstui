@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
@@ -366,6 +367,83 @@ func TestSetListItemsActiveReposComposesWithSearchFilter(t *testing.T) {
 	}
 	if item, ok := visible[0].(IssueItem); !ok || item.Issue.ID != "api-AUTH-1" {
 		t.Fatalf("wrong combined-filter item: %+v", visible[0])
+	}
+}
+
+// TestModalEscPreservesListFilter is the regression test for bt-65pt.
+// When a modal is open over a filtered list and the user presses Esc to
+// dismiss, the outer list filter must survive. The bug was that the
+// modal-dismiss handler closed the modal and restored focus to the list,
+// and then the post-handler code in Update() forwarded the same Esc key to
+// the Bubbles list -- which interprets Esc as "cancel filter" and calls
+// ResetFilter(). Fix: snapshot activeModal before handlers run; skip the
+// list.Update forwarding when a modal was active at the start of the cycle.
+func TestModalEscPreservesListFilter(t *testing.T) {
+	modals := []struct {
+		name  string
+		setup func(m *Model)
+	}{
+		{
+			name: "label picker",
+			setup: func(m *Model) {
+				m.labelPicker = NewLabelPickerModel([]string{"area:tui"}, map[string]int{"area:tui": 1}, m.theme)
+				m.openModal(ModalLabelPicker)
+				m.focused = focusLabelPicker
+			},
+		},
+		{
+			name: "alerts",
+			setup: func(m *Model) {
+				m.openModal(ModalAlerts)
+				m.focused = focusList
+			},
+		},
+		{
+			name: "recipe picker",
+			setup: func(m *Model) {
+				m.recipePicker = NewRecipePickerModel(nil, m.theme)
+				m.openModal(ModalRecipePicker)
+				m.focused = focusRecipePicker
+			},
+		},
+	}
+
+	for _, tc := range modals {
+		t.Run(tc.name, func(t *testing.T) {
+			m := filterTestModel(t)
+			// Apply a search filter to the list.
+			m.list.SetFilterText("2h8")
+			m.list.SetFilterState(list.FilterApplied)
+			if got := m.list.FilterState(); got != list.FilterApplied {
+				t.Fatalf("precondition: FilterApplied not set, got %v", got)
+			}
+
+			// Open the modal.
+			tc.setup(&m)
+			if m.activeModal == ModalNone {
+				t.Fatalf("precondition: modal should be open after setup")
+			}
+
+			// Drive Esc through the full Update loop.
+			updated, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+			m2, ok := updated.(Model)
+			if !ok {
+				t.Fatalf("Update returned wrong model type: %T", updated)
+			}
+
+			// Modal must be closed.
+			if m2.activeModal != ModalNone {
+				t.Errorf("modal still open after Esc: %v", m2.activeModal)
+			}
+
+			// Filter state must be preserved (bt-65pt).
+			if got := m2.list.FilterState(); got == list.Unfiltered {
+				t.Errorf("Esc dismissed modal but also cleared list filter (bt-65pt): got %v", got)
+			}
+			if got := m2.list.FilterValue(); got != "2h8" {
+				t.Errorf("filter value cleared by modal Esc (bt-65pt): got %q, want %q", got, "2h8")
+			}
+		})
 	}
 }
 
