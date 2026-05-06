@@ -1061,14 +1061,17 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			// runs - the previous direct mode-flip used the stale historyView
 			// preloaded by LoadHistoryCmd against cwd, which left InsideWorkTree
 			// false in global mode and short-circuited registry resolution.
+			//
+			// Async dispatch (bt-uizm): enterHistoryView now returns a tea.Cmd
+			// that loads the report off the event loop, so the keypress no
+			// longer blocks the UI for seconds while git history is parsed.
 			m.clearAttentionOverlay()
 			if m.mode == ViewHistory {
 				m.mode = ViewList
 				m.focused = focusList
-			} else {
-				m.enterHistoryView()
+				return m, nil
 			}
-			return m, nil
+			return m, m.enterHistoryView()
 
 		case "[", "f3":
 			// Open label dashboard (phase 1: table view)

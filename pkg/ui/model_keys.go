@@ -1068,11 +1068,10 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 	case "O":
 		// Open beads.jsonl in editor
 		m.openInEditor()
-	case "h":
-		// Toggle history view
-		if m.mode != ViewHistory {
-			m.enterHistoryView()
-		}
+	// History view (h) is handled exclusively by the global key router in
+	// model_update_input.go so it can return the async LoadHistoryCmd into
+	// the tea.Batch (bt-uizm). handleListKeys cannot return a tea.Cmd, so
+	// no-op duplicate here.
 	case "R":
 		// Apply triage recipe - sort by triage score (bt-ktcr: moved from S to free S for reverse sort)
 		if r := m.filter.recipeLoader.Get("triage"); r != nil {

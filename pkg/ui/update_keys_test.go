@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -203,9 +205,10 @@ func TestHistoryViewTransitionNoLeakage(t *testing.T) {
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 180, Height: 50})
 	m = updated.(Model)
 
-	// Press h to enter history view (this synchronously runs enterHistoryView
-	// which may fail without a real git repo — that's fine; we only need to
-	// verify the rendered output of whatever state we land in is clean).
+	// Press h to enter history view. After bt-uizm, this dispatches an async
+	// load and the model lands in ViewHistory + historyLoading=true; the
+	// rendered frame is the loading screen until HistoryLoadedMsg arrives.
+	// The leak-pattern assertions below still apply to the loading frame.
 	updated, _ = m.Update(tea.KeyPressMsg{Code: 'h', Text: "h"})
 	m = updated.(Model)
 
@@ -233,6 +236,80 @@ func TestHistoryViewTransitionNoLeakage(t *testing.T) {
 	rows := strings.Split(rendered, "\n")
 	if len(rows) < m.height {
 		t.Errorf("render produced %d rows, expected at least %d (height); short-renders leave stale cells", len(rows), m.height)
+	}
+}
+
+// TestHistoryAsyncDispatch covers bt-uizm: pressing `h` must transition to
+// ViewHistory immediately and dispatch the report load as a tea.Cmd, rather
+// than blocking the Update tick on synchronous git history extraction.
+// Verifies four invariants:
+//
+//  1. m.mode flips to ViewHistory on the same tick the key arrives.
+//  2. m.historyLoading is true so the view renders the loading screen.
+//  3. Update returns a non-nil tea.Cmd (the LoadHistoryCmd dispatch).
+//  4. Pressing `h` again from the loading state exits cleanly back to ViewList.
+func TestHistoryAsyncDispatch(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "bv-1", Title: "Test", Status: model.StatusOpen},
+	}
+	m := NewModel(issues, nil, "", nil)
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
+	m = updated.(Model)
+
+	// Press h to enter history.
+	updated, cmd := m.Update(tea.KeyPressMsg{Code: 'h', Text: "h"})
+	m = updated.(Model)
+
+	if m.mode != ViewHistory {
+		t.Fatalf("after h: expected ViewHistory, got %v", m.mode)
+	}
+	if !m.historyLoading {
+		t.Errorf("after h: expected historyLoading=true, got false")
+	}
+	if cmd == nil {
+		t.Errorf("after h: expected non-nil tea.Cmd from async dispatch, got nil")
+	}
+
+	// Loading frame must render without panicking and must not leak the
+	// list-row signatures the leak test above looks for.
+	frame := m.View().Content
+	if frame == "" {
+		t.Errorf("loading frame is empty")
+	}
+
+	// Press h again from the loading state to exit cleanly.
+	updated, _ = m.Update(tea.KeyPressMsg{Code: 'h', Text: "h"})
+	m = updated.(Model)
+
+	if m.mode != ViewList {
+		t.Errorf("h-from-loading: expected ViewList, got %v", m.mode)
+	}
+	if m.focused != focusList {
+		t.Errorf("h-from-loading: expected focusList, got %v", m.focused)
+	}
+}
+
+// TestResolveHistoryRepoPath_BeadsLayout: explicit beads.jsonl under
+// <root>/.beads/ resolves to <root>. Underpins the dispatch-time path
+// resolution refactor in bt-uizm; the function must run without touching
+// the projects registry or os.Getwd inside the LoadHistoryCmd goroutine.
+func TestResolveHistoryRepoPath_BeadsLayout(t *testing.T) {
+	tmp := t.TempDir()
+	beadsDir := filepath.Join(tmp, ".beads")
+	if err := os.MkdirAll(beadsDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	beadsFile := filepath.Join(beadsDir, "beads.jsonl")
+
+	got := resolveHistoryRepoPath(beadsFile)
+
+	// EvalSymlinks normalizes Windows short-name vs long-name forms and
+	// any /private prefix on macOS, so the comparison stays exact.
+	wantAbs, _ := filepath.EvalSymlinks(tmp)
+	gotAbs, _ := filepath.EvalSymlinks(got)
+	if gotAbs != wantAbs {
+		t.Errorf("resolveHistoryRepoPath(%q) = %q, want %q", beadsFile, gotAbs, wantAbs)
 	}
 }
 

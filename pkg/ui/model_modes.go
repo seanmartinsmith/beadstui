@@ -5,8 +5,9 @@ import (
 	"os"
 	"strings"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
-	"github.com/seanmartinsmith/beadstui/pkg/correlation"
 	"github.com/seanmartinsmith/beadstui/pkg/loader"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/projects"
@@ -88,45 +89,47 @@ func (m Model) historyContext() HistoryContext {
 	return ctx
 }
 
-// enterHistoryView loads correlation data and shows the history view
-func (m *Model) enterHistoryView() {
+// enterHistoryView transitions to the History view in a loading state and
+// dispatches the report generation as a tea.Cmd. The view shows a spinner
+// immediately; HistoryLoadedMsg replaces it with the rendered chrome via
+// handleHistoryLoaded when the report arrives.
+//
+// Path resolution (cursor prefix -> active project filter -> cwd, per
+// bt-u8iz Phase 3) happens HERE on the main goroutine. The async closure
+// (LoadHistoryCmd) cannot safely call os.Getwd or hit the projects registry
+// because both depend on main-goroutine state.
+//
+// Returns nil only when path resolution itself fails synchronously; callers
+// should fold the cmd into the surrounding tea.Batch.
+func (m *Model) enterHistoryView() tea.Cmd {
 	cwd, err := os.Getwd()
 	if err != nil {
 		m.setStatusError("Cannot get working directory for history")
-		return
+		return nil
 	}
 
 	ctx := m.historyContext()
 	repoPath := resolveHistoryPath(ctx, cwd)
 
-	// Convert model.Issue to correlation.BeadInfo
-	beads := make([]correlation.BeadInfo, len(m.data.issues))
-	for i, issue := range m.data.issues {
-		beads[i] = correlation.BeadInfo{
-			ID:     issue.ID,
-			Title:  issue.Title,
-			Status: string(issue.Status),
-		}
-	}
-
-	correlator := correlation.NewCachedCorrelator(repoPath, m.data.beadsPath)
-	opts := correlation.CorrelatorOptions{
-		Limit: 500,
-	}
-
-	report, err := correlator.GenerateReport(beads, opts)
-	if err != nil {
-		m.setStatusError(fmt.Sprintf("History load failed: %v", err))
-		return
-	}
-
-	m.historyView = NewHistoryModel(report, m.theme)
+	// Initialize a placeholder HistoryModel with the textinput properly
+	// constructed. Without this the cursor (inside textinput) is nil and any
+	// key handler that calls historyView.StartSearch crashes - the loading
+	// screen path never used the historyView at all in the sync version, so
+	// this gap only surfaced once we transitioned to ViewHistory before the
+	// report was ready. handleHistoryLoaded replaces this stub with the real
+	// HistoryModel when HistoryLoadedMsg arrives.
+	m.historyView = NewHistoryModel(nil, m.theme)
 	m.historyView.SetContext(ctx)
 	m.historyView.SetSize(m.width, m.height-1)
+
+	m.historyLoading = true
+	m.historyLoadFailed = false
 	m.mode = ViewHistory
 	m.focused = focusHistory
 
-	m.setStatus(fmt.Sprintf("Loaded history: %d beads with commits", report.Stats.BeadsWithCommits))
+	m.setStatus("Loading history...")
+
+	return LoadHistoryCmd(repoPath, m.data.beadsPath, m.issuesForAsync())
 }
 
 // resolveHistoryPath implements the cursor -> filter -> cwd priority order.

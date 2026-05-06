@@ -37,6 +37,31 @@ func (m Model) renderLoadingScreen() string {
 	return lipgloss.Place(m.width, m.height-1, lipgloss.Center, lipgloss.Center, content)
 }
 
+// renderHistoryLoadingScreen mirrors renderLoadingScreen but for the History
+// view's async dispatch path (bt-uizm). The user pressed `h`, the view
+// transitioned immediately, and the report is being assembled off the event
+// loop; this is what fills the screen until HistoryLoadedMsg arrives. Renders
+// at full m.height-1 dims so any subsequent partial frame fully covers it -
+// the same anti-leak constraint TestHistoryViewTransitionNoLeakage encodes.
+func (m Model) renderHistoryLoadingScreen() string {
+	frame := workerSpinnerFrames[m.data.workerSpinnerIdx%len(workerSpinnerFrames)]
+
+	spinnerStyle := lipgloss.NewStyle().Foreground(ColorInfo).Bold(true)
+	titleStyle := lipgloss.NewStyle().Foreground(ColorText).Bold(true)
+	subStyle := lipgloss.NewStyle().Foreground(ColorMuted)
+
+	lines := []string{
+		spinnerStyle.Render(frame),
+		"",
+		titleStyle.Render("Loading history..."),
+		"",
+		subStyle.Render("Press h or Esc to cancel"),
+	}
+
+	content := lipgloss.JoinVertical(lipgloss.Center, lines...)
+	return lipgloss.Place(m.width, m.height-1, lipgloss.Center, lipgloss.Center, content)
+}
+
 func (m Model) View() tea.View {
 	if !m.ready {
 		return tea.NewView("Initializing...")
@@ -110,8 +135,12 @@ func (m Model) View() tea.View {
 				m.actionableView.SetSize(m.width, m.height-2)
 				body = m.actionableView.Render()
 			case ViewHistory:
-				m.historyView.SetSize(m.width, m.height-1)
-				body = m.historyView.View()
+				if m.historyLoading {
+					body = m.renderHistoryLoadingScreen()
+				} else {
+					m.historyView.SetSize(m.width, m.height-1)
+					body = m.historyView.View()
+				}
 			case ViewSprint:
 				body = m.sprintViewText
 			case ViewLabelDashboard:

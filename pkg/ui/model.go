@@ -355,33 +355,42 @@ func CheckAgentFileCmd(workDir string) tea.Cmd {
 	}
 }
 
-// LoadHistoryCmd returns a command that loads history data in the background
-func LoadHistoryCmd(issues []model.Issue, beadsPath string) tea.Cmd {
-	return func() tea.Msg {
-		var repoPath string
-		var err error
-
-		if beadsPath != "" {
-			// If beadsPath is provided (single-repo mode), derive repo root from it.
-			// Try to resolve absolute path first.
-			if absPath, e := filepath.Abs(beadsPath); e == nil {
-				dir := filepath.Dir(absPath)
-				// Standard layout: <repo_root>/.beads/<file.jsonl>
-				if filepath.Base(dir) == ".beads" {
-					repoPath = filepath.Dir(dir)
-				} else {
-					// Legacy/Flat layout: <repo_root>/<file.jsonl>
-					repoPath = dir
-				}
+// resolveHistoryRepoPath derives a repo path from beadsPath using the standard
+// `<root>/.beads/<file>` and legacy `<root>/<file>` layouts, falling back to
+// the process cwd when beadsPath is empty (workspace mode) or unresolvable.
+//
+// Pulled out of LoadHistoryCmd so the path can be resolved on the calling
+// goroutine. The async path itself (the LoadHistoryCmd closure) must not call
+// os.Getwd or hit the projects registry -- those depend on main-goroutine state
+// that drifts under bt-u8iz Phase 3 cursor-driven path resolution.
+func resolveHistoryRepoPath(beadsPath string) string {
+	if beadsPath != "" {
+		if absPath, err := filepath.Abs(beadsPath); err == nil {
+			dir := filepath.Dir(absPath)
+			if filepath.Base(dir) == ".beads" {
+				return filepath.Dir(dir)
 			}
+			return dir
 		}
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+	return cwd
+}
 
-		// Fallback to CWD if beadsPath is empty (workspace mode) or Abs failed
+// LoadHistoryCmd returns a command that loads history data in the background.
+//
+// repoPath must be pre-resolved on the calling goroutine -- the closure runs
+// off the tea event loop and cannot safely call os.Getwd or hit the projects
+// registry. Pass resolveHistoryRepoPath(beadsPath) for the default path-derivation
+// behavior, or a registry-aware path (resolveHistoryPath in model_modes.go)
+// when dispatching from a key handler that knows the cursor context.
+func LoadHistoryCmd(repoPath, beadsPath string, issues []model.Issue) tea.Cmd {
+	return func() tea.Msg {
 		if repoPath == "" {
-			repoPath, err = os.Getwd()
-			if err != nil {
-				return HistoryLoadedMsg{Error: err}
-			}
+			return HistoryLoadedMsg{Error: fmt.Errorf("history load: empty repo path")}
 		}
 
 		// Convert model.Issue to correlation.BeadInfo
@@ -1351,9 +1360,10 @@ func (m Model) Init() tea.Cmd {
 		cmds = append(cmds, WatchFileCmd(m.data.watcher))
 	}
 	cmds = append(cmds, statusTickCmd())
-	// Start loading history in background
+	// Start loading history in background. Path resolution happens here on
+	// the main goroutine (bt-uizm) -- the async closure must not hit os.Getwd.
 	if len(m.data.issues) > 0 {
-		cmds = append(cmds, LoadHistoryCmd(m.issuesForAsync(), m.data.beadsPath))
+		cmds = append(cmds, LoadHistoryCmd(resolveHistoryRepoPath(m.data.beadsPath), m.data.beadsPath, m.issuesForAsync()))
 	}
 	// Boot the semantic index loader if hybrid/semantic was selected as the
 	// initial cycle position (bt-ja2y). Loads from disk asynchronously so
