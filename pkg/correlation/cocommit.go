@@ -86,7 +86,13 @@ func (c *CoCommitExtractor) ExtractCoCommittedFiles(event BeadEvent) ([]FileChan
 		stats = make(map[string]lineStats)
 	}
 
-	// Filter to code files only
+	return mergeAndFilterCodeFiles(files, stats), nil
+}
+
+// mergeAndFilterCodeFiles attaches line stats to file changes and filters to code files.
+// Used by both the per-event path (ExtractCoCommittedFiles) and the batched path
+// (prefetchCoCommittedFiles); both must produce byte-identical output for a given SHA.
+func mergeAndFilterCodeFiles(files []FileChange, stats map[string]lineStats) []FileChange {
 	var codeFiles []FileChange
 	for _, f := range files {
 		if !isCodeFile(f.Path) {
@@ -96,7 +102,6 @@ func (c *CoCommitExtractor) ExtractCoCommittedFiles(event BeadEvent) ([]FileChan
 			continue
 		}
 
-		// Add line stats if available
 		if s, ok := stats[f.Path]; ok {
 			f.Insertions = s.insertions
 			f.Deletions = s.deletions
@@ -104,8 +109,7 @@ func (c *CoCommitExtractor) ExtractCoCommittedFiles(event BeadEvent) ([]FileChan
 
 		codeFiles = append(codeFiles, f)
 	}
-
-	return codeFiles, nil
+	return codeFiles
 }
 
 // CreateCorrelatedCommit creates a CorrelatedCommit with confidence scoring
@@ -382,10 +386,39 @@ func shortSHA(sha string) string {
 	return sha
 }
 
-// ExtractAllCoCommits extracts co-committed files for all events with status changes
+// ExtractAllCoCommits extracts co-committed files for all events with status changes.
+//
+// Performance: rather than spawning two `git show` subprocesses per status-change
+// event (the historical per-event path), all unique SHAs are pre-fetched in two
+// batched `git log --no-walk` invocations -- one for --name-status, one for
+// --numstat. This collapses O(N) subprocess spawns to O(1) regardless of event
+// count, which matters on Windows where each spawn is ~50-200ms.
+//
+// The batched path is byte-identical to the per-event path: same FileChange
+// list, same actions, same insertion/deletion counts, same rename normalization.
+// On batch failure the function falls back to the per-event path so a single
+// invalid SHA in the input cannot tank the whole report.
 func (c *CoCommitExtractor) ExtractAllCoCommits(events []BeadEvent) ([]CorrelatedCommit, error) {
 	var commits []CorrelatedCommit
-	fileCache := make(map[string][]FileChange) // Cache file lookups by SHA
+
+	// Collect status-change SHAs up front so we can pre-fetch them all together.
+	var statusSHAs []string
+	for _, event := range events {
+		if event.EventType != EventClaimed && event.EventType != EventClosed {
+			continue
+		}
+		if event.CommitSHA == "" {
+			continue
+		}
+		statusSHAs = append(statusSHAs, event.CommitSHA)
+	}
+
+	// Pre-fetch in O(1) git invocations. On batch error, leave fileCache empty
+	// and fall through to the per-event path below.
+	fileCache, _ := c.prefetchCoCommittedFiles(statusSHAs)
+	if fileCache == nil {
+		fileCache = make(map[string][]FileChange)
+	}
 
 	for _, event := range events {
 		// Only process status change events
@@ -393,7 +426,7 @@ func (c *CoCommitExtractor) ExtractAllCoCommits(events []BeadEvent) ([]Correlate
 			continue
 		}
 
-		// Use cached files if available, otherwise fetch from git
+		// Use prefetched files if available, otherwise fetch from git per-SHA.
 		files, cached := fileCache[event.CommitSHA]
 		if !cached {
 			var err error
@@ -415,4 +448,209 @@ func (c *CoCommitExtractor) ExtractAllCoCommits(events []BeadEvent) ([]Correlate
 	}
 
 	return commits, nil
+}
+
+// batchSHAChunkSize bounds the number of SHAs passed in a single git log
+// invocation. Each SHA + separator is ~41 bytes; Windows CreateProcess command
+// line is ~32KB; 200 SHAs gives ~8KB worth of args with comfortable headroom
+// for the rest of the command line.
+const batchSHAChunkSize = 200
+
+// prefetchCoCommittedFiles fetches name-status and numstat for all given SHAs
+// in O(1) git subprocess calls (modulo chunking) and returns a SHA-keyed map
+// of post-filter FileChange lists. The output for any given SHA is byte-identical
+// to what ExtractCoCommittedFiles would return for that SHA.
+//
+// Returns nil with the underlying error if either batched git call fails;
+// callers should fall back to the per-event path on nil.
+func (c *CoCommitExtractor) prefetchCoCommittedFiles(shas []string) (map[string][]FileChange, error) {
+	if len(shas) == 0 {
+		return map[string][]FileChange{}, nil
+	}
+
+	// Dedupe to avoid passing the same SHA more than once.
+	seen := make(map[string]bool, len(shas))
+	unique := make([]string, 0, len(shas))
+	for _, s := range shas {
+		if s == "" || seen[s] {
+			continue
+		}
+		seen[s] = true
+		unique = append(unique, s)
+	}
+	if len(unique) == 0 {
+		return map[string][]FileChange{}, nil
+	}
+
+	allFiles := make(map[string][]FileChange, len(unique))
+	allStats := make(map[string]map[string]lineStats, len(unique))
+
+	for start := 0; start < len(unique); start += batchSHAChunkSize {
+		end := start + batchSHAChunkSize
+		if end > len(unique) {
+			end = len(unique)
+		}
+		chunk := unique[start:end]
+
+		nameStatusOut, err := c.runBatchGitLog(chunk, "--name-status")
+		if err != nil {
+			return nil, fmt.Errorf("batch git log --name-status: %w", err)
+		}
+		numStatOut, err := c.runBatchGitLog(chunk, "--numstat")
+		if err != nil {
+			return nil, fmt.Errorf("batch git log --numstat: %w", err)
+		}
+
+		parseBatchNameStatus(nameStatusOut, allFiles)
+		parseBatchNumStat(numStatOut, allStats)
+	}
+
+	out := make(map[string][]FileChange, len(unique))
+	for _, sha := range unique {
+		stats := allStats[sha]
+		if stats == nil {
+			stats = map[string]lineStats{}
+		}
+		out[sha] = mergeAndFilterCodeFiles(allFiles[sha], stats)
+	}
+	return out, nil
+}
+
+// runBatchGitLog runs `git log --no-walk <mode> --format=%H <shas>...` and
+// returns the raw stdout. mode is one of "--name-status" or "--numstat".
+func (c *CoCommitExtractor) runBatchGitLog(shas []string, mode string) ([]byte, error) {
+	args := make([]string, 0, len(shas)+4)
+	args = append(args, "log", "--no-walk", mode, "--format=%H")
+	args = append(args, shas...)
+
+	cmd := exec.Command("git", args...)
+	cmd.Dir = c.repoPath
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// parseBatchNameStatus parses streamed `git log --no-walk --name-status --format=%H`
+// output into a SHA-keyed map of FileChange lists (without line stats). Output
+// shape mirrors what getFilesChanged produces for a single SHA.
+//
+// Stream format:
+//
+//	<sha line: 40 hex chars on its own line>
+//	<blank>
+//	<name-status line: ACTION\tpath  or  R<score>\told\tnew>
+//	...
+//	<sha line>
+//	...
+func parseBatchNameStatus(data []byte, out map[string][]FileChange) {
+	var currentSHA string
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	// Allow up to 10MB lines for very wide diffs.
+	const maxLine = 10 * 1024 * 1024
+	scanner.Buffer(make([]byte, 64*1024), maxLine)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+		if isCommitSHALine(line) {
+			currentSHA = line
+			if _, ok := out[currentSHA]; !ok {
+				out[currentSHA] = nil
+			}
+			continue
+		}
+		if currentSHA == "" {
+			continue
+		}
+
+		parts := strings.Split(line, "\t")
+		if len(parts) < 2 {
+			continue
+		}
+
+		action := parts[0]
+		path := parts[1]
+
+		if len(parts) == 3 && strings.HasPrefix(action, "R") {
+			path = parts[2]
+			action = "R"
+		}
+
+		if len(action) > 1 {
+			action = string(action[0])
+		}
+
+		out[currentSHA] = append(out[currentSHA], FileChange{
+			Path:   path,
+			Action: action,
+		})
+	}
+}
+
+// parseBatchNumStat parses streamed `git log --no-walk --numstat --format=%H`
+// output into a SHA-keyed map of path-keyed lineStats. Mirrors getLineStats.
+func parseBatchNumStat(data []byte, out map[string]map[string]lineStats) {
+	var currentSHA string
+	scanner := bufio.NewScanner(bytes.NewReader(data))
+	const maxLine = 10 * 1024 * 1024
+	scanner.Buffer(make([]byte, 64*1024), maxLine)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+		if isCommitSHALine(line) {
+			currentSHA = line
+			if _, ok := out[currentSHA]; !ok {
+				out[currentSHA] = make(map[string]lineStats)
+			}
+			continue
+		}
+		if currentSHA == "" {
+			continue
+		}
+
+		parts := strings.Split(line, "\t")
+		if len(parts) < 3 {
+			continue
+		}
+
+		insertions := 0
+		deletions := 0
+		if parts[0] != "-" {
+			insertions, _ = strconv.Atoi(parts[0])
+		}
+		if parts[1] != "-" {
+			deletions, _ = strconv.Atoi(parts[1])
+		}
+
+		path := parts[2]
+		if strings.Contains(path, " => ") {
+			path = extractNewPath(path)
+		}
+
+		out[currentSHA][path] = lineStats{
+			insertions: insertions,
+			deletions:  deletions,
+		}
+	}
+}
+
+// isCommitSHALine reports whether line is a 40-char hex SHA on its own.
+// Used to distinguish commit-header lines from name-status / numstat content
+// in batched git log output.
+func isCommitSHALine(line string) bool {
+	if len(line) != 40 {
+		return false
+	}
+	for i := 0; i < 40; i++ {
+		c := line[i]
+		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+			return false
+		}
+	}
+	return true
 }

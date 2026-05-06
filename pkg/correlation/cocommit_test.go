@@ -1,6 +1,10 @@
 package correlation
 
 import (
+	"os"
+	"os/exec"
+	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -455,6 +459,132 @@ func TestExtractNewPath_DoubleSlashBug(t *testing.T) {
 	if got != expected {
 		t.Errorf("extractNewPath(%q) = %q; want %q", input, got, expected)
 	}
+}
+
+// TestPrefetchCoCommittedFiles_ByteIdenticalToPerEvent verifies that the
+// batched prefetch path (one git log per mode, regardless of SHA count)
+// produces byte-identical FileChange output to the per-event path
+// (two git show per SHA). This is the load-bearing acceptance criterion
+// for bt-h01q -- without it, the perf win is meaningless because callers
+// would observe behaviour drift.
+//
+// Strategy: pull a handful of real SHAs from the ambient repo, run both
+// paths on each, assert reflect.DeepEqual on the FileChange slices.
+func TestPrefetchCoCommittedFiles_ByteIdenticalToPerEvent(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+
+	// Walk up to repo root so git log sees the full history regardless of
+	// where the test binary is invoked from.
+	root := wd
+	for {
+		if _, err := os.Stat(root + "/.git"); err == nil {
+			break
+		}
+		parent := pathDir(root)
+		if parent == root {
+			t.Skip("not inside a git repo")
+		}
+		root = parent
+	}
+
+	// Pull 8 recent SHAs. Enough to cover varied diffs (renames, big commits,
+	// small commits) without making the test slow.
+	out, err := exec.Command("git", "-C", root, "log", "-n", "8", "--format=%H").Output()
+	if err != nil {
+		t.Skipf("git log failed: %v", err)
+	}
+	shas := strings.Fields(strings.TrimSpace(string(out)))
+	if len(shas) == 0 {
+		t.Skip("no commits in repo")
+	}
+
+	c := NewCoCommitExtractor(root)
+
+	// Per-event reference path: call ExtractCoCommittedFiles on each SHA.
+	want := make(map[string][]FileChange, len(shas))
+	for _, sha := range shas {
+		got, err := c.ExtractCoCommittedFiles(BeadEvent{CommitSHA: sha})
+		if err != nil {
+			t.Fatalf("ExtractCoCommittedFiles(%s): %v", sha, err)
+		}
+		want[sha] = got
+	}
+
+	// Batched path.
+	got, err := c.prefetchCoCommittedFiles(shas)
+	if err != nil {
+		t.Fatalf("prefetchCoCommittedFiles: %v", err)
+	}
+
+	for _, sha := range shas {
+		w := want[sha]
+		g := got[sha]
+
+		// Order within a single SHA should already match (both pull from
+		// `git show` / `git log` for that commit, which produces files in
+		// stable order). But to be robust against any output-ordering
+		// surprise on Windows, sort by Path before comparing.
+		sortByPath(w)
+		sortByPath(g)
+
+		if !reflect.DeepEqual(w, g) {
+			t.Errorf("sha %s: mismatch\n  per-event: %#v\n  batched:   %#v", sha, w, g)
+		}
+	}
+}
+
+// TestPrefetchCoCommittedFiles_Empty exercises the empty-input fast path.
+func TestPrefetchCoCommittedFiles_Empty(t *testing.T) {
+	c := NewCoCommitExtractor("/tmp/test")
+	got, err := c.prefetchCoCommittedFiles(nil)
+	if err != nil {
+		t.Fatalf("prefetchCoCommittedFiles(nil): %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("expected empty map, got %d entries", len(got))
+	}
+}
+
+// TestIsCommitSHALine guards the parser's commit-boundary heuristic.
+func TestIsCommitSHALine(t *testing.T) {
+	tests := []struct {
+		line string
+		want bool
+	}{
+		{"abc123def456789012345678901234567890abcd", true},
+		{"ABC123DEF456789012345678901234567890ABCD", false}, // uppercase rejected (git emits lowercase)
+		{"abc123def456789012345678901234567890abc", false},  // 39 chars
+		{"abc123def456789012345678901234567890abcde", false}, // 41 chars
+		{"M\tpath/to/file.go", false},
+		{"10\t5\tpath/to/file.go", false},
+		{"", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.line, func(t *testing.T) {
+			if got := isCommitSHALine(tt.line); got != tt.want {
+				t.Errorf("isCommitSHALine(%q) = %v, want %v", tt.line, got, tt.want)
+			}
+		})
+	}
+}
+
+// sortByPath sorts a FileChange slice by Path so reflect.DeepEqual is
+// stable across paths whose ordering may vary between git invocations.
+func sortByPath(files []FileChange) {
+	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
+}
+
+// pathDir is a tiny helper to avoid importing path/filepath just for one call.
+func pathDir(p string) string {
+	for i := len(p) - 1; i >= 0; i-- {
+		if p[i] == '/' || p[i] == '\\' {
+			return p[:i]
+		}
+	}
+	return p
 }
 
 func TestExtractNewPath_ComplexCases(t *testing.T) {
