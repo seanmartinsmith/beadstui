@@ -184,4 +184,48 @@ Pick from these free-and-unambiguous keys:
 
 ---
 
-*Last updated: 2026-04-23 (initial survey).*
+## 2026-05-07 refresh
+
+Re-verified the surfaces after two weeks of activity. Spot-check, not a full re-grep — focused on the audit's flagged drift items and on commits that touched `pkg/ui/model_view.go:526+` (help overlay) or `pkg/ui/shortcuts_sidebar.go`.
+
+### Closed by shipping
+
+| Item | Bead | What changed |
+|---|---|---|
+| `<` / `>` undocumented in both help surfaces | bt-foit | Both `?` overlay (`navSection`) and `;` sidebar (Navigation) now list "Resize list pane" |
+| `S` = triage / `R` = free | bt-ktcr | Swapped: `R` = Triage recipe, `S` = Cycle sort reverse. Conventional reverse-cycle pattern restored |
+| `;` sidebar layout broken / overlapping body | bt-lin9 | bodyWidth-aware reflow + `RenderTitledPanel` chrome + L1.5 framing recorded in bt-xavk notes (this session) |
+
+### Drift that persisted
+
+| Item | Status | Notes |
+|---|---|---|
+| `V` = Cass sessions missing from `?` overlay | **persists** | Sidebar still has it; `?` `actionsSection` does not |
+| `f` = Flow matrix missing from `;` sidebar Views | **persists** | `?` Views panel has `f`; `;` Views section does not |
+| `Ctrl+R` / `F5` missing from `;` sidebar | **persists** | `?` `actionsSection` lists both; `;` Actions section omits them |
+| `p` category split (Actions in `?` vs Views in `;`) | **persists** | Real disagreement about whether toggle = action or view |
+| Footer `L:labels` with no `L` handler on main list | **persists** | Need decision: bind `L`, or change footer copy |
+
+### New drift introduced post-audit
+
+| Item | Cause | Notes |
+|---|---|---|
+| `s` / `S` (sort + reverse) absent from `;` sidebar's Filters section | bt-ktcr's S/R swap landed in `?` overlay only | Concrete validation of the audit's central claim — shipping a single-surface keybind change leaves the other surface stale. The two-touch-points failure mode keeps recurring. |
+
+### Implication for the registry design
+
+The `bt-ktcr` drift introduction is the cleanest possible empirical case for the shared registry. A keybinding rebind that explicitly intends to be visible everywhere it's documented still landed on only one surface, despite the audit having flagged this exact failure mode three weeks earlier. The fix-by-process approach ("remember to update both files") has now demonstrably failed in front of the audit's own author. The registry isn't speculative refactor anymore — it's the only mechanism that prevents the next bt-ktcr-shaped drift.
+
+Three surfaces now feed from the registry per bt-xavk's L1.5 reframe (status-bar hints, `;` sidebar, `?` overlay) instead of two.
+
+### Items still worth a bead
+
+Carried forward from the original "Open gaps" list, plus today's findings:
+
+1. **Footer `L:labels` with no handler** — still unresolved. Either bind `L` (to label dashboard? the `[` shortcut?) or fix footer copy.
+2. **`V` parity in `?` overlay** — either add it or retire it.
+3. **`f` / `Ctrl+R` / `F5` parity in `;` sidebar** — would be auto-fixed by registry adoption; meanwhile a one-shot patch would make this session's L1.5 dogfood more honest.
+4. **`s` / `S` parity in `;` sidebar Filters** — same as above.
+5. **`p` category disagreement** — design decision for the registry: is "Priority hints" an action or a view? Pick one place and have both surfaces render from it.
+
+*Refreshed: 2026-05-07. Triggered by bt-lin9 fix + bt-xavk L1.5 reframe. Next refresh whenever a registry candidate lands or a meaningful surface restructure ships.*
