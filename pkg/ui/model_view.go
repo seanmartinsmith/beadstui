@@ -116,35 +116,38 @@ func (m Model) View() tea.View {
 		if m.data.snapshotInitPending && m.data.snapshot == nil {
 			body = m.renderLoadingScreen()
 		} else {
+			// Body surfaces use bodyWidth so the shortcuts sidebar (when
+			// visible) gets reserved space rather than overflowing (bt-lin9).
+			bodyW := m.bodyWidth()
 			// Route by ViewMode enum
 			switch m.mode {
 			case ViewInsights, ViewAttention:
-				m.insightsPanel.SetSize(m.width, m.height-1)
+				m.insightsPanel.SetSize(bodyW, m.height-1)
 				body = m.insightsPanel.View()
 			case ViewFlowMatrix:
-				m.flowMatrix.SetSize(m.width, m.height-1)
+				m.flowMatrix.SetSize(bodyW, m.height-1)
 				body = m.flowMatrix.View()
 			case ViewTree:
-				m.tree.SetSize(m.width, m.height-1)
+				m.tree.SetSize(bodyW, m.height-1)
 				body = m.tree.View()
 			case ViewGraph:
-				body = m.graphView.View(m.width, m.height-1)
+				body = m.graphView.View(bodyW, m.height-1)
 			case ViewBoard:
-				body = m.board.View(m.width, m.height-1)
+				body = m.board.View(bodyW, m.height-1)
 			case ViewActionable:
-				m.actionableView.SetSize(m.width, m.height-2)
+				m.actionableView.SetSize(bodyW, m.height-2)
 				body = m.actionableView.Render()
 			case ViewHistory:
 				if m.historyLoading {
 					body = m.renderHistoryLoadingScreen()
 				} else {
-					m.historyView.SetSize(m.width, m.height-1)
+					m.historyView.SetSize(bodyW, m.height-1)
 					body = m.historyView.View()
 				}
 			case ViewSprint:
 				body = m.sprintViewText
 			case ViewLabelDashboard:
-				m.labelDashboard.SetSize(m.width, m.height-1)
+				m.labelDashboard.SetSize(bodyW, m.height-1)
 				body = m.labelDashboard.View()
 			default: // ViewList
 				if m.isSplitView {
@@ -357,10 +360,13 @@ func (m Model) renderListWithHeader() string {
 		availableHeight = m.height - 3 // fallback
 	}
 
+	// bodyWidth reserves space for the shortcuts sidebar when visible (bt-lin9).
+	bodyW := m.bodyWidth()
+
 	// Render column header. Clip to width; lipgloss Style.Width sets background
 	// fill but does NOT truncate, so at narrow widths the literal text would
 	// wrap to a second row (bt-i138).
-	headerWidth := m.width - 2
+	headerWidth := bodyW - 2
 	headerStyle := lipgloss.NewStyle().
 		Background(t.Primary).
 		Foreground(ColorBgContrast).
@@ -403,7 +409,7 @@ func (m Model) renderListWithHeader() string {
 	pageStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary).
 		Align(lipgloss.Right).
-		Width(m.width - 2)
+		Width(bodyW - 2)
 
 	// Combine header with page info on the right
 	headerLine := lipgloss.JoinHorizontal(lipgloss.Top,
@@ -430,13 +436,13 @@ func (m Model) renderListWithHeader() string {
 	// when Unfiltered, live FilterInput when Filtering, applied pill when
 	// FilterApplied. This fixed chrome height also keeps the click row math
 	// (splitViewListChromeHeight) deterministic.
-	searchRow := m.renderSearchRow(m.width - 2)
+	searchRow := m.renderSearchRow(bodyW - 2)
 	parts := []string{searchRow, headerLine, listView, pageLine}
 	content := lipgloss.JoinVertical(lipgloss.Left, parts...)
 
 	// Force exact height to prevent overflow
 	return lipgloss.NewStyle().
-		Width(m.width).
+		Width(bodyW).
 		Height(bodyHeight).
 		MaxHeight(bodyHeight).
 		Render(content)

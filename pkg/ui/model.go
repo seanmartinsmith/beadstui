@@ -140,6 +140,20 @@ const (
 // modalActive returns true when any modal overlay is open.
 func (m Model) modalActive() bool { return m.activeModal != ModalNone }
 
+// bodyWidth returns the width available to the main content area, reserving
+// space for the shortcuts sidebar when it is visible (bt-lin9). Modals,
+// footer, and other full-terminal surfaces should keep using m.width directly.
+func (m Model) bodyWidth() int {
+	if !m.showShortcutsSidebar {
+		return m.width
+	}
+	w := m.width - m.shortcutsSidebar.Width()
+	if w < 20 {
+		w = 20
+	}
+	return w
+}
+
 // shouldDeferRefresh reports whether a watcher-driven data refresh should be
 // deferred because the user has an interactive modal open (bt-cl2m). Re-rendering
 // list/board/graph state under a modal closes the modal mid-interaction. The

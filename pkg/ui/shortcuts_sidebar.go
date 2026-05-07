@@ -197,13 +197,6 @@ func (s *ShortcutsSidebar) allSections() []shortcutSection {
 func (s *ShortcutsSidebar) View() string {
 	t := s.theme
 
-	// Styles
-	titleStyle := lipgloss.NewStyle().
-		Foreground(t.Primary).
-		Bold(true).
-		Align(lipgloss.Center).
-		Width(s.width - 4)
-
 	sectionStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary).
 		Bold(true).
@@ -221,16 +214,11 @@ func (s *ShortcutsSidebar) View() string {
 		Foreground(t.Secondary).
 		Italic(true)
 
-	// Build content
+	// Build content. The "Shortcuts" title is embedded in the panel's top
+	// border (RenderTitledPanel below), matching the Issues/Details chrome,
+	// so the section list starts directly here.
 	var sb strings.Builder
-
-	sb.WriteString(titleStyle.Render("Shortcuts"))
-	sb.WriteString("\n")
-
-	// Filter sections by context
-	sections := s.allSections()
-	for _, section := range sections {
-		// Check if this section applies to current context
+	for _, section := range s.allSections() {
 		if len(section.contexts) > 0 {
 			found := false
 			for _, ctx := range section.contexts {
@@ -253,18 +241,18 @@ func (s *ShortcutsSidebar) View() string {
 		}
 	}
 
-	// Build content lines for scrolling
-	fullContent := sb.String()
+	// Trim the leading blank line MarginTop adds to the first section.
+	fullContent := strings.TrimPrefix(sb.String(), "\n")
 	lines := strings.Split(fullContent, "\n")
 	totalLines := len(lines)
 
-	// Calculate visible area
-	availableHeight := s.height - 4 // Reserve for border/padding and hint
+	// Reserve rows for the panel's top + bottom border (2) and the scroll/hide
+	// footer hint (1).
+	availableHeight := s.height - 3
 	if availableHeight < 5 {
 		availableHeight = 5
 	}
 
-	// Clamp scroll
 	maxScroll := totalLines - availableHeight
 	if maxScroll < 0 {
 		maxScroll = 0
@@ -273,40 +261,35 @@ func (s *ShortcutsSidebar) View() string {
 		s.scrollOffset = maxScroll
 	}
 
-	// Extract visible lines
 	startLine := s.scrollOffset
 	endLine := startLine + availableHeight
 	if endLine > totalLines {
 		endLine = totalLines
 	}
-	visibleLines := lines[startLine:endLine]
-	visibleContent := strings.Join(visibleLines, "\n")
+	visibleContent := strings.Join(lines[startLine:endLine], "\n")
 
-	// Add scroll hint if needed
 	var footer string
 	if totalLines > availableHeight {
 		scrollPercent := 0
 		if maxScroll > 0 {
 			scrollPercent = s.scrollOffset * 100 / maxScroll
 		}
-		footer = dimStyle.Render(fmt.Sprintf("j/k scroll %d%%", scrollPercent))
+		footer = dimStyle.Render(fmt.Sprintf("ctrl+j/k scroll %d%%", scrollPercent))
 	} else {
 		footer = dimStyle.Render("; hide")
 	}
 
-	// Combine content and footer
 	content := visibleContent + "\n" + footer
 
-	// Create the sidebar box
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(t.Secondary).
-		Padding(0, 1).
-		Width(s.width).
-		Height(s.height - 1).
-		MaxHeight(s.height - 1)
-
-	return boxStyle.Render(content)
+	// Match Issues/Details chrome — rounded borders + title-in-border (bt-lin9).
+	// Title is centered to differentiate the auxiliary sidebar from the
+	// content panels (Issues right-labeled, Details left-titled).
+	return RenderTitledPanel(content, PanelOpts{
+		Title:       "Shortcuts",
+		CenterTitle: true,
+		Width:       s.width,
+		Height:      s.height,
+	})
 }
 
 // contextFromFocus returns the context string for the current focus

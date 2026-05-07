@@ -622,6 +622,10 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		} else {
 			m.setStatus("")
 		}
+		// Re-flow layout so list/viewport reserve (or release) sidebar
+		// width. Without this the toggle leaves stale dimensions and the
+		// sidebar wraps onto the body (bt-lin9).
+		m = m.handleWindowSize(tea.WindowSizeMsg{Width: m.width, Height: m.height})
 		return m, nil
 	}
 
@@ -1688,7 +1692,10 @@ func (m Model) handleMouseWheel(msg tea.MouseWheelMsg) (Model, tea.Cmd) {
 func (m Model) handleWindowSize(msg tea.WindowSizeMsg) Model {
 	m.width = msg.Width
 	m.height = msg.Height
-	m.isSplitView = msg.Width > SplitViewThreshold
+	// Layout against bodyWidth so the shortcuts sidebar (when visible) gets
+	// reserved space rather than overflowing onto the body (bt-lin9).
+	bodyW := m.bodyWidth()
+	m.isSplitView = bodyW > SplitViewThreshold
 	m.ready = true
 	bodyHeight := m.height - 1 // keep 1 row for footer
 	if bodyHeight < 5 {
@@ -1698,7 +1705,7 @@ func (m Model) handleWindowSize(msg tea.WindowSizeMsg) Model {
 	if m.isSplitView {
 		// Calculate dimensions accounting for 2 panels with borders(2)+padding(2) = 4 overhead each
 		// Total overhead = 8
-		availWidth := msg.Width - 8
+		availWidth := bodyW - 8
 		if availWidth < 10 {
 			availWidth = 10
 		}
@@ -1722,19 +1729,21 @@ func (m Model) handleWindowSize(msg tea.WindowSizeMsg) Model {
 		if listHeight < 3 {
 			listHeight = 3
 		}
-		m.list.SetSize(msg.Width, listHeight)
-		m.viewport = viewport.New(viewport.WithWidth(msg.Width), viewport.WithHeight(bodyHeight-1))
+		m.list.SetSize(bodyW, listHeight)
+		m.viewport = viewport.New(viewport.WithWidth(bodyW), viewport.WithHeight(bodyHeight-1))
 
 		// Update renderer for full width
-		m.renderer.SetWidthWithTheme(msg.Width, m.theme)
+		m.renderer.SetWidthWithTheme(bodyW, m.theme)
 	}
 
 	m.updateListDelegate()
 
-	// Resize label dashboard table and modal overlay sizing
-	m.labelDashboard.SetSize(m.width, bodyHeight)
+	// Resize label dashboard table and modal overlay sizing.
+	// Body surfaces use bodyWidth so the shortcuts sidebar (when shown) gets
+	// reserved space; modals continue to size against the full terminal.
+	m.labelDashboard.SetSize(bodyW, bodyHeight)
 
-	m.insightsPanel.SetSize(m.width, bodyHeight)
+	m.insightsPanel.SetSize(bodyW, bodyHeight)
 
 	// Resize modal pickers so an open modal reflows to the new terminal
 	// size instead of staying at its open-time dimensions and overflowing

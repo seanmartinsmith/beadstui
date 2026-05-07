@@ -844,8 +844,9 @@ func (m *Model) recalculateSplitPaneSizes() {
 		bodyHeight = 5
 	}
 
-	// Calculate dimensions accounting for 2 panels with borders(2)+padding(2) = 4 overhead each
-	availWidth := m.width - 8
+	// Calculate dimensions accounting for 2 panels with borders(2)+padding(2) = 4 overhead each.
+	// bodyWidth reserves space for the shortcuts sidebar when visible (bt-lin9).
+	availWidth := m.bodyWidth() - 8
 	if availWidth < 10 {
 		availWidth = 10
 	}
