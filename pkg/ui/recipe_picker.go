@@ -60,7 +60,10 @@ func (m *RecipePickerModel) SelectedIndex() int {
 	return m.selectedIndex
 }
 
-// View renders the recipe picker overlay
+// View renders the recipe picker panel. Composited into the view via
+// OverlayCenterDimBackdrop in model_view.go (bt-vklk Phase 1 + bt-rhfo) so
+// callers do not center it again. Returns the rendered titled panel; the
+// dimmed-backdrop centering is the compositor's job.
 func (m *RecipePickerModel) View() string {
 	if m.width == 0 {
 		m.width = 60
@@ -80,22 +83,13 @@ func (m *RecipePickerModel) View() string {
 		boxWidth = 30
 	}
 
-	// Build content
+	// Build content (title is now in the panel border via RenderTitledPanel,
+	// so we no longer prepend it here).
 	var lines []string
 
-	// Title
-	titleStyle := lipgloss.NewStyle().
-		Foreground(t.Primary).
-		Bold(true).
-		MarginBottom(1)
-	lines = append(lines, titleStyle.Render("Select Recipe"))
-	lines = append(lines, "")
-
-	// Recipe list
 	for i, r := range m.recipes {
 		isSelected := i == m.selectedIndex
 
-		// Name line
 		nameStyle := lipgloss.NewStyle()
 		if isSelected {
 			nameStyle = nameStyle.Foreground(t.Primary).Bold(true)
@@ -111,7 +105,6 @@ func (m *RecipePickerModel) View() string {
 		name := prefix + r.Name
 		lines = append(lines, nameStyle.Render(name))
 
-		// Description (indented, dimmed)
 		if r.Description != "" {
 			descStyle := lipgloss.NewStyle().
 				Foreground(t.Secondary).
@@ -120,7 +113,6 @@ func (m *RecipePickerModel) View() string {
 			lines = append(lines, descStyle.Render(desc))
 		}
 
-		// Add blank line between recipes
 		if i < len(m.recipes)-1 {
 			lines = append(lines, "")
 		}
@@ -135,23 +127,16 @@ func (m *RecipePickerModel) View() string {
 
 	content := strings.Join(lines, "\n")
 
-	// Box style
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(t.Primary).
-		Padding(1, 2).
-		Width(boxWidth)
+	// Pad content with one row of vertical breathing room top and bottom (the
+	// previous boxStyle had Padding(1, 2); RenderTitledPanel renders content
+	// flush so we add the inner padding ourselves to preserve the look).
+	padded := lipgloss.NewStyle().Padding(1, 2).Render(content)
 
-	box := boxStyle.Render(content)
-
-	// Center in viewport
-	return lipgloss.Place(
-		m.width,
-		m.height,
-		lipgloss.Center,
-		lipgloss.Center,
-		box,
-	)
+	return RenderTitledPanel(padded, PanelOpts{
+		Title:   "Select Recipe",
+		Width:   boxWidth,
+		Focused: true,
+	})
 }
 
 // RecipeCount returns the number of recipes

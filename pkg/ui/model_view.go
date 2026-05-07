@@ -95,11 +95,13 @@ func (m Model) View() tea.View {
 	case ModalAlerts:
 		// Handled as overlay after background renders (below)
 	case ModalTimeTravelInput:
-		body = m.renderTimeTravelPrompt()
+		// Handled as overlay after background renders (below) — bt-rhfo /
+		// bt-vklk Phase 1: dimmed backdrop, rounded border, title-in-border.
 	case ModalBQLQuery:
 		body = m.bqlQuery.View()
 	case ModalRecipePicker:
-		body = m.recipePicker.View()
+		// Handled as overlay after background renders (below) — bt-vklk
+		// Phase 1: dimmed backdrop, rounded border, title-in-border.
 	case ModalRepoPicker:
 		// Handled as overlay after background renders (below)
 	case ModalLabelPicker:
@@ -181,6 +183,12 @@ func (m Model) View() tea.View {
 	}
 	if m.activeModal == ModalLabelPicker {
 		body = OverlayCenterDimBackdrop(body, m.labelPicker.View(), m.width, m.height-1)
+	}
+	if m.activeModal == ModalRecipePicker {
+		body = OverlayCenterDimBackdrop(body, m.recipePicker.View(), m.width, m.height-1)
+	}
+	if m.activeModal == ModalTimeTravelInput {
+		body = OverlayCenterDimBackdrop(body, m.renderTimeTravelPrompt(), m.width, m.height-1)
 	}
 	if m.activeModal == ModalAgentPrompt {
 		body = OverlayCenterDimBackdrop(body, m.agentPromptModal.View(), m.width, m.height-1)
@@ -1261,19 +1269,12 @@ func (m Model) renderLabelGraphAnalysis() string {
 	)
 }
 
-// renderTimeTravelPrompt renders the time-travel revision input overlay
+// renderTimeTravelPrompt renders the time-travel revision input panel.
+// Composited into the view via OverlayCenterDimBackdrop (bt-rhfo / bt-vklk
+// Phase 1) so callers do not center it again. Returns the rendered titled
+// panel; backdrop dimming and centering are the compositor's job.
 func (m Model) renderTimeTravelPrompt() string {
 	t := m.theme
-
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(t.Primary).
-		Padding(1, 3).
-		Align(lipgloss.Center)
-
-	titleStyle := lipgloss.NewStyle().
-		Foreground(t.Primary).
-		Bold(true)
 
 	subtitleStyle := lipgloss.NewStyle().
 		Foreground(t.Subtext).
@@ -1289,21 +1290,24 @@ func (m Model) renderTimeTravelPrompt() string {
 	textStyle := lipgloss.NewStyle().
 		Foreground(t.Base.GetForeground())
 
-	// Build content
-	content := titleStyle.Render("⏱️  Time-Travel Mode") + "\n\n" +
-		subtitleStyle.Render("Compare current state with a historical revision") + "\n\n" +
+	// Build content (title is now in the panel border via RenderTitledPanel,
+	// so we no longer prepend it here).
+	content := subtitleStyle.Render("Compare current state with a historical revision") + "\n\n" +
 		m.timeTravelInput.View() + "\n\n" +
 		exampleStyle.Render("Examples: HEAD~5, main, v1.0.0, 2024-01-01, abc123") + "\n\n" +
 		textStyle.Render("Press ") + keyStyle.Render("Enter") + textStyle.Render(" to compare, ") +
 		keyStyle.Render("Esc") + textStyle.Render(" to cancel")
 
-	box := boxStyle.Render(content)
+	const promptWidth = 64
 
-	return lipgloss.Place(
-		m.width,
-		m.height-1,
-		lipgloss.Center,
-		lipgloss.Center,
-		box,
-	)
+	padded := lipgloss.NewStyle().
+		Padding(1, 3).
+		Align(lipgloss.Center).
+		Render(content)
+
+	return RenderTitledPanel(padded, PanelOpts{
+		Title:   "⏱️  Time-Travel Mode",
+		Width:   promptWidth,
+		Focused: true,
+	})
 }

@@ -882,7 +882,10 @@ func TestRenderFooter_CombinedIndicators(t *testing.T) {
 	t.Cleanup(func() { w.Stop() })
 
 	m := NewModel(nil, nil, "", nil)
-	m.width = 200 // wide enough to avoid width-based badge dropping (bt-m9te)
+	m.width = 300 // wide enough to avoid width-based badge dropping (bt-m9te);
+	// bumped from 200 in bt-ift6.2 because ListNormalKeys.ShortHelp() expanded the
+	// L1 hint chain (~80 chars), squeezing tier-1 badges (phase2 "metrics", watcher
+	// "polling") out at 200. The footer compression rule itself is unchanged.
 	m.filter.currentFilter = "ready"
 	m.ac.countOpen, m.ac.countReady, m.ac.countBlocked, m.ac.countClosed = 1, 2, 3, 4
 	m.updateAvailable = true
