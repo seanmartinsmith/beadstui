@@ -112,8 +112,15 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 	case key.Matches(msg, k.OpenInEditor):
 		m.openInEditor()
 	case key.Matches(msg, k.RecipeTriage):
-		// Apply triage recipe - sort by triage score (bt-ktcr: moved from S to free S for reverse sort)
-		if r := m.filter.recipeLoader.Get("triage"); r != nil {
+		// Apply triage recipe - sort by triage score (bt-ktcr: moved from S to
+		// free S for reverse sort). Re-press toggles off (bt-wfug): if triage
+		// is already active, clear the recipe and re-apply the non-recipe
+		// filter so the user returns to where they were.
+		if m.filter.activeRecipe != nil && m.filter.activeRecipe.Name == "triage" {
+			m.setActiveRecipe(nil)
+			m.applyFilter()
+			m.setStatus("Triage recipe cleared")
+		} else if r := m.filter.recipeLoader.Get("triage"); r != nil {
 			m.setActiveRecipe(r)
 			m.applyRecipe(r)
 		}
