@@ -818,6 +818,15 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// Quit (Ctrl+C) lifted above the filter-state guard so it works
+	// mid-filter. The prior placement inside the not-filtering switch
+	// silently swallowed Ctrl+C while the user was typing a filter
+	// query — surfaced during bt-ift6.1 dogfood, absorbed during
+	// bt-ift6.2 while this code path is open.
+	if key.Matches(msg, m.keys.Global.Quit) {
+		return m, tea.Quit
+	}
+
 	// Handle keys when not filtering
 	if m.list.FilterState() != list.Filtering {
 		// View-switch globals dispatched via key.Matches against
@@ -825,9 +834,6 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		// moved into list_keys.go's handleListKeys per the no-match-and-
 		// fall-through rule.
 		switch {
-		case key.Matches(msg, m.keys.Global.Quit):
-			return m, tea.Quit
-
 		case key.Matches(msg, m.keys.Global.Back):
 			// q: context-aware cascade. Single binding, single Help.Desc;
 			// the cascade lives here in the dispatcher (ADR-004 Decision 1).
@@ -1333,8 +1339,17 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			// through cleanup. Without this forwarding, pressing tab from
 			// focusDetail would reach viewport.Update instead of toggling
 			// focus back to focusList.
-			switch msg.String() {
-			case "y", "C", "O", "R", "t", "T", "U", "V", "tab", "<", ">":
+			//
+			// The forwarded set is dispatched via key.Matches against the
+			// same ListNormalKeys bindings handleListKeys consumes, so this
+			// gate cannot drift from the per-view Map (bt-ift6.2).
+			ln := m.keys.ListNormal
+			switch {
+			case key.Matches(msg,
+				ln.CopyID, ln.CopyIssue, ln.OpenInEditor, ln.RecipeTriage,
+				ln.TimeTravelInput, ln.TimeTravelQuick,
+				ln.SelfUpdate, ln.CassSession,
+				ln.SplitFocusToggle, ln.SplitShrinkLeft, ln.SplitShrinkRight):
 				m = m.handleListKeys(msg)
 				return m, nil
 			}

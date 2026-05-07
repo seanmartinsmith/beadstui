@@ -16,8 +16,10 @@ import (
 // silent test passes when registries hand-maintain).
 func allMaps() map[string]help.KeyMap {
 	return map[string]help.KeyMap{
-		"Global": NewGlobalKeys(),
-		"Tree":   NewTreeKeys(),
+		"Global":     NewGlobalKeys(),
+		"Tree":       NewTreeKeys(),
+		"ListNormal": NewListNormalKeys(),
+		"ListSearch": NewListSearchKeys(),
 	}
 }
 

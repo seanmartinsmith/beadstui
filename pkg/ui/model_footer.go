@@ -532,10 +532,19 @@ func (m Model) l1KeyMap() help.KeyMap {
 // viewKeyMap maps m.mode to the matching pkg/ui/keys map. Only views
 // whose Maps are wired return non-nil; the rest fall through to nil
 // until their conversion child lands.
+//
+// ViewList has a sub-state branch per ADR-004 Decision 7 — when filter
+// typing is active, the truthful help is ListSearchKeys (apply / cancel /
+// result-nav), otherwise ListNormalKeys (the full action set).
 func (m Model) viewKeyMap() help.KeyMap {
 	switch m.mode {
 	case ViewTree:
 		return m.keys.Tree
+	case ViewList:
+		if m.list.FilterState() == list.Filtering {
+			return m.keys.ListSearch
+		}
+		return m.keys.ListNormal
 	}
 	return nil
 }

@@ -4,38 +4,40 @@ import (
 	"fmt"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/bubbles/v2/key"
 	"github.com/atotto/clipboard"
 )
 
-// handleListKeys handles keyboard input when the list is focused.
+// handleListKeys handles keyboard input when the main list is focused and
+// not in filter-typing mode (the dispatcher's filter-state guard at
+// model_update_input.go:822 prevents this from running while
+// m.list.FilterState() == list.Filtering).
 //
-// Body otherwise unchanged from the pre-bt-ift6.1 model_keys.go split, with
-// one targeted exception: the "tab", "<", ">" cases were moved INTO this
-// handler from the global dispatcher per ADR-004 Decision 1's "no
-// match-and-fall-through" rule. Each view that wants split-view detail
-// toggle / resize declares its own bindings; the prior global cases are
-// removed from model_update_input.go's dispatcher in the same change.
+// Dispatches via key.Matches against m.keys.ListNormal per ADR-004
+// Decision 1. ListSearchKeys is the help-only sibling Map for filter mode
+// — bubbles list owns dispatch there, so this handler does not consult it
+// (Decision 7).
 //
-// Conversion to dispatch via key.Matches against m.keys.List (split into
-// ListNormalKeys + ListSearchKeys per ADR-004 Decision 7) lands in
-// bt-ift6.2 (the spine).
+// History (h) is intentionally absent — it lives on GlobalKeys.History
+// because handleListKeys cannot return tea.Cmd and the history switch
+// dispatches an async LoadHistoryCmd (bt-uizm).
 func (m Model) handleListKeys(msg tea.KeyMsg) Model {
-	switch msg.String() {
-	case "enter":
+	k := m.keys.ListNormal
+	switch {
+	case key.Matches(msg, k.Enter):
 		if !m.isSplitView {
 			m.showDetails = true
 			m.focused = focusDetail
 			m.viewport.GotoTop() // Reset scroll position for new issue
 			m.updateViewportContent()
 		}
-	case "home":
+	case key.Matches(msg, k.JumpTop):
 		m.list.Select(0)
-	case "G", "end":
+	case key.Matches(msg, k.JumpBottom):
 		if len(m.list.Items()) > 0 {
 			m.list.Select(len(m.list.Items()) - 1)
 		}
-	case "ctrl+d":
-		// Page down
+	case key.Matches(msg, k.PageDown):
 		itemCount := len(m.list.Items())
 		if itemCount > 0 {
 			currentIdx := m.list.Index()
@@ -45,8 +47,7 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 			}
 			m.list.Select(newIdx)
 		}
-	case "ctrl+u":
-		// Page up
+	case key.Matches(msg, k.PageUp):
 		if len(m.list.Items()) > 0 {
 			currentIdx := m.list.Index()
 			newIdx := currentIdx - m.height/3
@@ -55,7 +56,7 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 			}
 			m.list.Select(newIdx)
 		}
-	case "o":
+	case key.Matches(msg, k.FilterOpen):
 		m.filter.activeBQLExpr = nil
 		if m.filter.currentFilter == "open" {
 			m.filter.currentFilter = "all"
@@ -65,7 +66,7 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 			m.setStatus("Filter: Open issues")
 		}
 		m.applyFilter()
-	case "c":
+	case key.Matches(msg, k.FilterClosed):
 		m.filter.activeBQLExpr = nil
 		if m.filter.currentFilter == "closed" {
 			m.filter.currentFilter = "all"
@@ -75,7 +76,7 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 			m.setStatus("Filter: Closed issues")
 		}
 		m.applyFilter()
-	case "r":
+	case key.Matches(msg, k.FilterReady):
 		m.filter.activeBQLExpr = nil
 		if m.filter.currentFilter == "ready" {
 			m.filter.currentFilter = "all"
@@ -85,57 +86,47 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 			m.setStatus("Filter: Ready (no blockers)")
 		}
 		m.applyFilter()
-	case "a":
-		m.filter.activeBQLExpr = nil
-		m.filter.currentFilter = "all"
-		m.applyFilter()
-	case "t":
+	// No FilterAll case: 'a' is GlobalKeys.Actionable and shadowed by the
+	// global view-switch before this handler runs. The pre-.2 `case "a"`
+	// here was dead. Reset-to-all is reachable via toggling the active
+	// filter key (o/c/r each toggle to "all" on second press).
+	case key.Matches(msg, k.TimeTravelInput):
 		// Toggle time-travel mode off, or show prompt for custom revision
 		if m.timeTravelMode {
 			m.exitTimeTravelMode()
 		} else {
-			// Show input prompt for revision
 			m.openModal(ModalTimeTravelInput)
 			m.timeTravelInput.SetValue("")
 			m.timeTravelInput.Focus()
 			m.focused = focusTimeTravelInput
 		}
-	case "T":
+	case key.Matches(msg, k.TimeTravelQuick):
 		// Quick time-travel with default HEAD~5
 		if m.timeTravelMode {
 			m.exitTimeTravelMode()
 		} else {
 			m.enterTimeTravelMode("HEAD~5")
 		}
-	case "C":
-		// Copy selected issue to clipboard
+	case key.Matches(msg, k.CopyIssue):
 		m.copyIssueToClipboard()
-	case "O":
-		// Open beads.jsonl in editor
+	case key.Matches(msg, k.OpenInEditor):
 		m.openInEditor()
-	// History view (h) is handled exclusively by the global key router in
-	// model_update_input.go so it can return the async LoadHistoryCmd into
-	// the tea.Batch (bt-uizm). handleListKeys cannot return a tea.Cmd, so
-	// no-op duplicate here.
-	case "R":
+	case key.Matches(msg, k.RecipeTriage):
 		// Apply triage recipe - sort by triage score (bt-ktcr: moved from S to free S for reverse sort)
 		if r := m.filter.recipeLoader.Get("triage"); r != nil {
 			m.setActiveRecipe(r)
 			m.applyRecipe(r)
 		}
-	case "S":
+	case key.Matches(msg, k.CycleSortReverse):
 		// Cycle sort mode reverse (bt-ktcr: matches alerts-modal s/S forward/reverse convention)
 		m.cycleSortModeReverse()
-	case "s":
-		// Cycle sort mode (bv-3ita)
+	case key.Matches(msg, k.CycleSort):
 		m.cycleSortMode()
-	case "V":
-		// Show cass session preview modal (bv-5bqh)
+	case key.Matches(msg, k.CassSession):
 		m.showCassSessionModal()
-	case "U":
-		// Show self-update modal (bv-182)
+	case key.Matches(msg, k.SelfUpdate):
 		m.showSelfUpdateModal()
-	case "y":
+	case key.Matches(msg, k.CopyID):
 		// Copy ID to clipboard (consistent with board view - bv-yg39)
 		selectedItem := m.list.SelectedItem()
 		if selectedItem == nil {
@@ -147,7 +138,7 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 				m.setStatus(fmt.Sprintf("Copied %s to clipboard", issueItem.Issue.ID))
 			}
 		}
-	case "tab":
+	case key.Matches(msg, k.SplitFocusToggle):
 		// Split-view focus toggle. Moved from the global dispatcher per
 		// ADR-004 Decision 1 (no match-and-fall-through). Active in
 		// split-view ViewList only; no-op otherwise.
@@ -158,7 +149,7 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 				m.focused = focusList
 			}
 		}
-	case "<":
+	case key.Matches(msg, k.SplitShrinkLeft):
 		// Shrink list pane (move divider left). Moved from the global
 		// dispatcher per ADR-004 Decision 1.
 		if m.isSplitView {
@@ -168,7 +159,7 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 			}
 			m.recalculateSplitPaneSizes()
 		}
-	case ">":
+	case key.Matches(msg, k.SplitShrinkRight):
 		// Expand list pane (move divider right). Moved from the global
 		// dispatcher per ADR-004 Decision 1.
 		if m.isSplitView {

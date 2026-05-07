@@ -16,18 +16,28 @@ package keys
 // The Model embeds this so handlers can dispatch via m.keys.<View>.<Binding>
 // and surfaces can look up the active map by name.
 //
-// bt-ift6.1 wires Global + Tree at minimum (the AppKeys minimum-fields
-// gate per ADR-004 Decision 4 / scope-guardian P2-S9). bt-ift6.2 adds
-// List; bt-ift6.3-.9 add the rest.
+// Sub-state Maps are declared as flat siblings (e.g. ListNormal +
+// ListSearch, not List.Normal + List.Search) per ADR-004 Decision 7. This
+// keeps reflection-based tests one-level and matches Decision 7's "~15
+// Maps total" cardinality: the .2 spine sets this convention for the
+// upcoming HistoryNormal/HistorySearch/HistoryFileTree (.6),
+// BoardNormal/BoardSearch (.3), and LabelPickerNav/LabelPickerSearch (.9).
+//
+// bt-ift6.1 wired Global + Tree at minimum. bt-ift6.2 adds ListNormal +
+// ListSearch; bt-ift6.3-.9 add the rest.
 type AppKeys struct {
-	Global GlobalKeys
-	Tree   TreeKeys
+	Global     GlobalKeys
+	Tree       TreeKeys
+	ListNormal ListNormalKeys
+	ListSearch ListSearchKeys
 }
 
 // NewAppKeys returns the default keymap for every view. Wire into NewModel.
 func NewAppKeys() AppKeys {
 	return AppKeys{
-		Global: NewGlobalKeys(),
-		Tree:   NewTreeKeys(),
+		Global:     NewGlobalKeys(),
+		Tree:       NewTreeKeys(),
+		ListNormal: NewListNormalKeys(),
+		ListSearch: NewListSearchKeys(),
 	}
 }
