@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/viewport"
 	tea "charm.land/bubbletea/v2"
@@ -555,7 +556,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 
 	// Handle help overlay toggle (? or F1)
-	if (msg.String() == "?" || msg.String() == "f1") && m.list.FilterState() != list.Filtering {
+	if key.Matches(msg, m.keys.Global.Help) && m.list.FilterState() != list.Filtering {
 		if m.activeModal == ModalHelp {
 			m.closeModal()
 			m.focused = m.restoreFocusFromHelp()
@@ -569,7 +570,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 
 	// Handle tutorial toggle (backtick `) - bv-8y31
-	if msg.String() == "`" && m.list.FilterState() != list.Filtering {
+	if key.Matches(msg, m.keys.Global.Tutorial) && m.list.FilterState() != list.Filtering {
 		if m.activeModal == ModalTutorial {
 			m.closeModal()
 			m.focused = focusList
@@ -583,7 +584,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 
 	// Force refresh (bv-4auz): Ctrl+R / F5 triggers an immediate reload.
-	if (msg.String() == "ctrl+r" || msg.String() == "f5") && m.list.FilterState() != list.Filtering {
+	if key.Matches(msg, m.keys.Global.Refresh) && m.list.FilterState() != list.Filtering {
 		now := time.Now()
 		if !m.data.lastForceRefresh.IsZero() && now.Sub(m.data.lastForceRefresh) < time.Second {
 			return m, nil
@@ -614,7 +615,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 
 	// Handle shortcuts sidebar toggle (; or F2) - bv-3qi5
-	if (msg.String() == ";" || msg.String() == "f2") && m.list.FilterState() != list.Filtering {
+	if key.Matches(msg, m.keys.Global.Sidebar) && m.list.FilterState() != list.Filtering {
 		m.showShortcutsSidebar = !m.showShortcutsSidebar
 		if m.showShortcutsSidebar {
 			m.shortcutsSidebar.ResetScroll()
@@ -631,11 +632,11 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 	// Handle shortcuts sidebar scrolling (Ctrl+j/k when sidebar visible) - bv-3qi5
 	if m.showShortcutsSidebar && m.list.FilterState() != list.Filtering {
-		switch msg.String() {
-		case "ctrl+j":
+		switch {
+		case key.Matches(msg, m.keys.Global.SidebarScrollDown):
 			m.shortcutsSidebar.ScrollDown()
 			return m, nil
-		case "ctrl+k":
+		case key.Matches(msg, m.keys.Global.SidebarScrollUp):
 			m.shortcutsSidebar.ScrollUp()
 			return m, nil
 		}
@@ -647,7 +648,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	// collapsed into a single Ctrl+S three-state cycle (fuzzy → hybrid →
 	// semantic) so this binding could be reclaimed for preset cycling, which
 	// is the only operation that doesn't already have a key.
-	if m.focused == focusList && m.list.FilterState() != list.Filtering && msg.String() == "H" {
+	if m.focused == focusList && m.list.FilterState() != list.Filtering && key.Matches(msg, m.keys.Global.HybridPreset) {
 		if !m.semanticHybridEnabled {
 			m.setStatus("Not in hybrid mode — press Ctrl+S to cycle there")
 			return m, nil
@@ -676,7 +677,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	// silently flipped the bit. Cycle order puts hybrid one keystroke from
 	// fuzzy because hybrid is the most useful daily mode; semantic-text-only
 	// is the niche case (skip the graph signal) reachable with two presses.
-	if msg.String() == "ctrl+s" && m.focused == focusList {
+	if key.Matches(msg, m.keys.Global.SearchMode) && m.focused == focusList {
 		next := nextSearchMode(m.currentSearchMode())
 
 		// Non-fuzzy modes need the semantic backend wired up. Fail fast if
@@ -805,7 +806,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	// details pane (or any non-list focus) bounces focus to the list and the
 	// router tail forwards / to the Bubbles list's Filter key. Remember prior
 	// focus so esc can restore it. Skipped when the list isn't visible.
-	if msg.String() == "/" &&
+	if key.Matches(msg, m.keys.Global.SearchBounce) &&
 		m.activeModal == ModalNone &&
 		m.mode == ViewList &&
 		m.isSplitView &&
@@ -819,12 +820,17 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 	// Handle keys when not filtering
 	if m.list.FilterState() != list.Filtering {
-		switch msg.String() {
-		case "ctrl+c":
+		// View-switch globals dispatched via key.Matches against
+		// m.keys.Global (ADR-004 Decision 1). The prior tab / < / > cases
+		// moved into list_keys.go's handleListKeys per the no-match-and-
+		// fall-through rule.
+		switch {
+		case key.Matches(msg, m.keys.Global.Quit):
 			return m, tea.Quit
 
-		case "q":
-			// q closes current view or quits if at top level
+		case key.Matches(msg, m.keys.Global.Back):
+			// q: context-aware cascade. Single binding, single Help.Desc;
+			// the cascade lives here in the dispatcher (ADR-004 Decision 1).
 			if m.showDetails && !m.isSplitView {
 				m.showDetails = false
 				m.focused = focusList
@@ -860,8 +866,8 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			}
 			return m, tea.Quit
 
-		case "esc":
-			// Escape closes modals and goes back
+		case key.Matches(msg, m.keys.Global.Cancel):
+			// esc: context-aware cascade closing modals and going back.
 			if m.showDetails && !m.isSplitView {
 				m.showDetails = false
 				m.focused = focusList
@@ -919,36 +925,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.focused = focusQuitConfirm
 			return m, nil
 
-		case "tab":
-			if m.isSplitView && m.mode == ViewList {
-				if m.focused == focusList {
-					m.focused = focusDetail
-				} else {
-					m.focused = focusList
-				}
-			}
-
-		case "<":
-			// Shrink list pane (move divider left)
-			if m.isSplitView {
-				m.splitPaneRatio -= 0.05
-				if m.splitPaneRatio < 0.2 {
-					m.splitPaneRatio = 0.2
-				}
-				m.recalculateSplitPaneSizes()
-			}
-
-		case ">":
-			// Expand list pane (move divider right)
-			if m.isSplitView {
-				m.splitPaneRatio += 0.05
-				if m.splitPaneRatio > 0.8 {
-					m.splitPaneRatio = 0.8
-				}
-				m.recalculateSplitPaneSizes()
-			}
-
-		case "b":
+		case key.Matches(msg, m.keys.Global.Board):
 			m.clearAttentionOverlay()
 			if m.mode == ViewBoard {
 				m.mode = ViewList
@@ -960,7 +937,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			}
 			return m, nil
 
-		case "g":
+		case key.Matches(msg, m.keys.Global.Graph):
 			// Toggle graph view
 			m.clearAttentionOverlay()
 			if m.mode == ViewGraph {
@@ -987,7 +964,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			}
 			return m, nil
 
-		case "a":
+		case key.Matches(msg, m.keys.Global.Actionable):
 			// Toggle actionable view
 			m.clearAttentionOverlay()
 			if m.mode == ViewActionable {
@@ -1004,7 +981,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			}
 			return m, nil
 
-		case "E":
+		case key.Matches(msg, m.keys.Global.Tree):
 			// Toggle hierarchical tree view (bv-gllx)
 			m.clearAttentionOverlay()
 			if m.mode == ViewTree {
@@ -1023,7 +1000,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			}
 			return m, nil
 
-		case "i":
+		case key.Matches(msg, m.keys.Global.Insights):
 			m.clearAttentionOverlay()
 			if m.mode == ViewInsights {
 				// Capture cursor on toggle-out so the next `i` restores
@@ -1041,7 +1018,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			}
 			return m, nil
 
-		case "p":
+		case key.Matches(msg, m.keys.Global.PriorityHints):
 			// Toggle priority hints
 			m.ac.showPriorityHints = !m.ac.showPriorityHints
 			// Update delegate with new state
@@ -1059,7 +1036,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			}
 			return m, nil
 
-		case "h":
+		case key.Matches(msg, m.keys.Global.History):
 			// Toggle history view. Routes through enterHistoryView so the
 			// per-bead resolveHistoryPath registry lookup (bt-u8iz Phase 3)
 			// runs - the previous direct mode-flip used the stale historyView
@@ -1077,7 +1054,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			}
 			return m, m.enterHistoryView()
 
-		case "[", "f3":
+		case key.Matches(msg, m.keys.Global.LabelDashboard):
 			// Open label dashboard (phase 1: table view)
 			m.clearAttentionOverlay()
 			m.mode = ViewLabelDashboard
@@ -1094,7 +1071,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.setStatus(fmt.Sprintf("Labels: %d total • critical %d • warning %d", m.labelHealthCache.TotalLabels, m.labelHealthCache.CriticalCount, m.labelHealthCache.WarningCount))
 			return m, nil
 
-		case "]", "f4":
+		case key.Matches(msg, m.keys.Global.Attention):
 			// Attention view: compute attention scores (cached) and render as text
 			if !m.attentionCached {
 				cfg := analysis.DefaultLabelHealthConfig()
@@ -1114,7 +1091,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.insightsPanel.SetSize(m.width, panelHeight)
 			return m, nil
 
-		case "f":
+		case key.Matches(msg, m.keys.Global.FlowMatrix):
 			// Flow matrix view (cross-label dependencies)
 			m.clearAttentionOverlay()
 			cfg := analysis.DefaultLabelHealthConfig()
@@ -1130,7 +1107,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.flowMatrix.SetSize(m.width, panelHeight)
 			return m, nil
 
-		case "!":
+		case key.Matches(msg, m.keys.Global.Alerts):
 			// Open alerts modal on alerts tab (closed → open). Open-already
 			// behavior (switch/close) lives in the modal block at line ~213.
 			if len(m.visibleAlerts()) == 0 {
@@ -1143,7 +1120,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.resetAlertFilters()
 			return m, nil
 
-		case "1":
+		case key.Matches(msg, m.keys.Global.Notifications):
 			// Open notifications modal (closed → open). Attention view's 1-9
 			// label quick-jump is gated on m.mode == ViewAttention and handled
 			// earlier at line ~196.
@@ -1155,7 +1132,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.notificationsCursor = 0
 			return m, nil
 
-		case ":":
+		case key.Matches(msg, m.keys.Global.BQL):
 			// Open BQL query modal
 			m.bqlQuery.SetSize(m.width, m.height-1)
 			m.bqlQuery.Reset()
@@ -1163,7 +1140,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.focused = focusBQLQuery
 			return m, m.bqlQuery.Focus()
 
-		case "'":
+		case key.Matches(msg, m.keys.Global.Recipes):
 			// Toggle recipe picker overlay
 			if m.activeModal == ModalRecipePicker {
 				m.closeModal()
@@ -1175,7 +1152,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			}
 			return m, nil
 
-		case "W":
+		case key.Matches(msg, m.keys.Global.WorkspaceHomeAll):
 			// Quick toggle between current project and all projects
 			if !m.workspaceMode || len(m.availableRepos) == 0 {
 				m.setStatus("Project filter available only in multi-project mode")
@@ -1201,7 +1178,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			}
 			return m, nil
 
-		case "w":
+		case key.Matches(msg, m.keys.Global.ProjectsOrWisps):
 			// Project picker overlay (multi-project mode), or wisp toggle (bt-9kdo)
 			if !m.workspaceMode || len(m.availableRepos) == 0 {
 				// bt-9kdo: toggle wisp (ephemeral) visibility
@@ -1226,12 +1203,12 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			}
 			return m, nil
 
-		case "x":
+		case key.Matches(msg, m.keys.Global.Export):
 			// Export to Markdown file
 			m.exportToMarkdown()
 			return m, nil
 
-		case "l":
+		case key.Matches(msg, m.keys.Global.LabelPicker):
 			// Open label picker for quick filter (bv-126)
 			if len(m.data.issues) == 0 {
 				return m, nil
@@ -1349,8 +1326,15 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			// (context: list/detail/split). These all read m.list.SelectedItem()
 			// or change global mode, so focus is irrelevant - without this
 			// dispatch they get swallowed by viewport.Update (bt-x5b7).
+			//
+			// "tab", "<", ">" are forwarded to handleListKeys per ADR-004
+			// Decision 1 — they migrated from the global dispatcher to
+			// list-scoped bindings as part of bt-ift6.1's no-match-and-fall-
+			// through cleanup. Without this forwarding, pressing tab from
+			// focusDetail would reach viewport.Update instead of toggling
+			// focus back to focusList.
 			switch msg.String() {
-			case "y", "C", "O", "R", "t", "T", "U", "V":
+			case "y", "C", "O", "R", "t", "T", "U", "V", "tab", "<", ">":
 				m = m.handleListKeys(msg)
 				return m, nil
 			}

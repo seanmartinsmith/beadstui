@@ -9,6 +9,7 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/search"
 	"github.com/seanmartinsmith/beadstui/pkg/watcher"
 
+	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -481,74 +482,70 @@ func (m *Model) extractAlertCounts() (total, critical, warning int) {
 	return
 }
 
+// extractKeyHints renders the L1 status-bar hint slot from the active
+// help.KeyMap's ShortHelp(). Per ADR-004 Decision 1, the prior 12-branch
+// if/else chain was deleted wholesale in bt-ift6.1; modal map takes
+// precedence over the view map, both routed through l1KeyMap().
+//
+// Foundation phase note: most per-view Maps and modal Maps are stubs in
+// bt-ift6.1 (only Global + Tree are wired). L1 will show empty hints in
+// views/modals whose Maps haven't been populated yet — bt-ift6.2-.9
+// fill them in. setInlineTransientStatus pre-empts ShortHelp() during
+// its display window unchanged (bt-y0k7).
 func (m *Model) extractKeyHints() []string {
 	keyStyle := lipgloss.NewStyle().
 		Foreground(ColorSecondary).
 		Background(ColorBgSubtle).
 		Padding(0, 0)
 
-	var hints []string
-	if m.activeModal == ModalHelp {
-		hints = append(hints, "Press any key to close")
-	} else if m.activeModal == ModalRecipePicker {
-		hints = append(hints, keyStyle.Render("j/k")+" nav", keyStyle.Render("⏎")+" apply", keyStyle.Render("esc")+" cancel")
-	} else if m.activeModal == ModalRepoPicker {
-		hints = append(hints, keyStyle.Render("j/k")+" nav", keyStyle.Render("space")+" toggle", keyStyle.Render("⏎")+" apply", keyStyle.Render("esc")+" cancel")
-	} else if m.activeModal == ModalLabelPicker {
-		hints = append(hints, "type to filter", keyStyle.Render("space")+" toggle", keyStyle.Render("⏎")+" apply", keyStyle.Render("esc")+" close")
-	} else if m.mode == ViewInsights {
-		hints = append(hints, keyStyle.Render("h/l")+" panels", keyStyle.Render("e")+" explain", keyStyle.Render("⏎")+" jump", keyStyle.Render("?")+" help")
-		hints = append(hints, keyStyle.Render("A")+" attention", keyStyle.Render("F")+" flow")
-	} else if m.mode == ViewFlowMatrix {
-		hints = append(hints, keyStyle.Render("j/k")+" nav", keyStyle.Render("tab")+" panel", keyStyle.Render("⏎")+" drill", keyStyle.Render("esc")+" back", keyStyle.Render("f")+" close")
-	} else if m.mode == ViewGraph {
-		hints = append(hints, keyStyle.Render("hjkl")+" nav", keyStyle.Render("H/L")+" scroll", keyStyle.Render("⏎")+" view", keyStyle.Render("g")+" list")
-	} else if m.mode == ViewBoard {
-		hints = append(hints, keyStyle.Render("hjkl")+" nav", keyStyle.Render("G")+" bottom", keyStyle.Render("⏎")+" view", keyStyle.Render("b")+" list")
-	} else if m.mode == ViewActionable {
-		hints = append(hints, keyStyle.Render("j/k")+" nav", keyStyle.Render("⏎")+" view", keyStyle.Render("a")+" list", keyStyle.Render("?")+" help")
-	} else if m.mode == ViewHistory {
-		hints = append(hints, keyStyle.Render("j/k")+" nav", keyStyle.Render("tab")+" focus", keyStyle.Render("⏎")+" jump", keyStyle.Render("h")+" close")
-	} else if m.list.FilterState() == list.Filtering {
-		// Footer reflects the new Ctrl+S three-state cycle (bt-krwp). The mode
-		// label after "ctrl+s" is the *current* mode — pressing the key cycles
-		// to the next. H is only meaningful in hybrid mode (preset cycle); it's
-		// hidden from the footer in other modes to reduce noise.
-		mode := "fuzzy"
-		if m.semanticSearchEnabled {
-			if m.semanticHybridEnabled {
-				mode = "hybrid"
-				if m.semanticHybridBuilding {
-					mode = "hybrid (metrics)"
-				}
-			} else {
-				mode = "semantic"
-				if m.semanticIndexBuilding {
-					mode = "semantic (indexing)"
-				}
-			}
+	km := m.l1KeyMap()
+	if km == nil {
+		return nil
+	}
+	bindings := km.ShortHelp()
+	if len(bindings) == 0 {
+		return nil
+	}
+	hints := make([]string, 0, len(bindings))
+	for _, b := range bindings {
+		if !b.Enabled() {
+			continue
 		}
-		hints = append(hints, keyStyle.Render("esc")+" cancel", keyStyle.Render("ctrl+s")+" "+mode, keyStyle.Render("⏎")+" select")
-		if m.semanticHybridEnabled {
-			hints = append(hints, keyStyle.Render("H")+" preset")
-		}
-	} else if m.activeModal == ModalTimeTravelInput {
-		hints = append(hints, keyStyle.Render("⏎")+" compare", keyStyle.Render("esc")+" cancel")
-	} else {
-		if m.timeTravelMode {
-			hints = append(hints, keyStyle.Render("t")+" exit diff", keyStyle.Render("C")+" copy", keyStyle.Render("abgi")+" views", keyStyle.Render("?")+" help")
-		} else if m.isSplitView {
-			hints = append(hints, keyStyle.Render("tab")+" focus", keyStyle.Render("C")+" copy", keyStyle.Render("x")+" export", keyStyle.Render("Ctrl+R")+" refresh", keyStyle.Render("?")+" help")
-		} else if m.showDetails {
-			hints = append(hints, keyStyle.Render("esc")+" back", keyStyle.Render("C")+" copy", keyStyle.Render("O")+" edit", keyStyle.Render("Ctrl+R")+" refresh", keyStyle.Render("?")+" help")
-		} else {
-			hints = append(hints, keyStyle.Render("⏎")+" details", keyStyle.Render("t")+" diff", keyStyle.Render("S")+" triage", keyStyle.Render("l")+" labels", keyStyle.Render("Ctrl+R")+" refresh", keyStyle.Render("?")+" help")
-			if m.workspaceMode {
-				hints = append(hints, keyStyle.Render("w")+" projects")
-			}
-		}
+		h := b.Help()
+		hints = append(hints, keyStyle.Render(h.Key)+" "+h.Desc)
 	}
 	return hints
+}
+
+// l1KeyMap returns the help.KeyMap whose ShortHelp() drives the L1
+// footer hint slot. Modal map takes precedence when active; otherwise
+// the view-scoped map. Returns nil when no map exists for the current
+// state — L1 shows nothing in that case (foundation phase; per-view
+// Maps land in bt-ift6.2-.9).
+func (m Model) l1KeyMap() help.KeyMap {
+	if m.activeModal != ModalNone {
+		return m.modalKeyMap()
+	}
+	return m.viewKeyMap()
+}
+
+// viewKeyMap maps m.mode to the matching pkg/ui/keys map. Only views
+// whose Maps are wired return non-nil; the rest fall through to nil
+// until their conversion child lands.
+func (m Model) viewKeyMap() help.KeyMap {
+	switch m.mode {
+	case ViewTree:
+		return m.keys.Tree
+	}
+	return nil
+}
+
+// modalKeyMap maps m.activeModal to the matching modal map. bt-ift6.9
+// wires modal Maps (LabelPickerNavKeys, BQLQueryKeys, RecipePickerKeys,
+// etc.). Until then, modals return nil and L1 shows nothing while a
+// modal is open.
+func (m Model) modalKeyMap() help.KeyMap {
+	return nil
 }
 
 // ---------------------------------------------------------------------------

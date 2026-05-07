@@ -23,6 +23,7 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/recipe"
 	"github.com/seanmartinsmith/beadstui/pkg/search"
 	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
+	"github.com/seanmartinsmith/beadstui/pkg/ui/keys"
 	"github.com/seanmartinsmith/beadstui/pkg/updater"
 	"github.com/seanmartinsmith/beadstui/pkg/watcher"
 
@@ -675,6 +676,12 @@ type Model struct {
 
 	// Self-update modal (bv-182, modal visibility via activeModal)
 	updateModal UpdateModal
+
+	// Per-view key.Maps backing the unified dispatch and help-surface
+	// plumbing (bt-ift6.1, ADR-004). AppKeys.Global is wired in .1;
+	// AppKeys.Tree is the worked-example carrier; AppKeys.List etc. land
+	// in .2-.9.
+	keys keys.AppKeys
 }
 
 // labelCount is a simple label->count pair for display
@@ -1194,6 +1201,7 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		tree:                   treeModel,
 		insightsPanel:          insightsPanel,
 		theme:                  theme,
+		keys:                   keys.NewAppKeys(),
 		semanticSearch:         semanticSearch,
 		semanticSearchEnabled:  bootSemanticEnabled,
 		semanticHybridEnabled:  bootHybridEnabled,
