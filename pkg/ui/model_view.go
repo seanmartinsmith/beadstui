@@ -72,7 +72,8 @@ func (m Model) View() tea.View {
 	// Modal overlays take highest priority - dispatch by activeModal
 	switch m.activeModal {
 	case ModalQuitConfirm:
-		body = m.renderQuitConfirm()
+		// Handled as overlay after background renders (below) so the
+		// backdrop dims behind the panel like the other modals (bt-yly4).
 	case ModalAgentPrompt:
 		// Handled as overlay after background renders (below)
 	case ModalCassSession:
@@ -197,6 +198,11 @@ func (m Model) View() tea.View {
 		// bleed-through from competing with the modal for attention (bt-v8he).
 		body = OverlayCenterDimBackdrop(body, m.renderAlertsPanel(), m.width, m.height-1)
 	}
+	if m.activeModal == ModalQuitConfirm {
+		// Dim the background behind the destructive-confirm modal so it
+		// reads as an overlay rather than a mode switch (bt-yly4).
+		body = OverlayCenterDimBackdrop(body, m.renderQuitConfirm(), m.width, m.height-1)
+	}
 
 	footer := m.renderFooter()
 
@@ -213,18 +219,11 @@ func (m Model) View() tea.View {
 	return v
 }
 
+// renderQuitConfirm returns the quit-confirm modal panel. The caller
+// composites it via OverlayCenterDimBackdrop in View() so the backdrop
+// dims uniformly with the other modals (bt-yly4).
 func (m Model) renderQuitConfirm() string {
 	t := m.theme
-
-	boxStyle := lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder()).
-		BorderForeground(t.Blocked).
-		Padding(1, 3).
-		Align(lipgloss.Center)
-
-	titleStyle := lipgloss.NewStyle().
-		Foreground(t.Blocked).
-		Bold(true)
 
 	textStyle := lipgloss.NewStyle().
 		Foreground(t.Base.GetForeground())
@@ -233,19 +232,48 @@ func (m Model) renderQuitConfirm() string {
 		Foreground(t.Primary).
 		Bold(true)
 
-	content := titleStyle.Render("Quit bt?") + "\n\n" +
-		textStyle.Render("Press ") + keyStyle.Render("Esc") + textStyle.Render(" or ") + keyStyle.Render("Y") + textStyle.Render(" to quit\n") +
-		textStyle.Render("Press any other key to cancel")
+	// Two centered body lines: key hint + cancel hint.
+	lineQuit := keyStyle.Render("esc") + textStyle.Render(" / ") + keyStyle.Render("y") + textStyle.Render(" to quit")
+	lineCancel := textStyle.Render("press any other key to cancel")
 
-	box := boxStyle.Render(content)
+	// Width sized to fit the longer body line plus breathing room. Title
+	// "Quit?" is short enough that body width drives the panel width.
+	innerW := lipgloss.Width(lineCancel)
+	if w := lipgloss.Width(lineQuit); w > innerW {
+		innerW = w
+	}
+	// Side padding inside the borders so text doesn't kiss the rules.
+	const sidePad = 4
+	panelWidth := innerW + 2 + sidePad // 2 for borders, sidePad for inner spacing
 
-	return lipgloss.Place(
-		m.width,
-		m.height-1,
-		lipgloss.Center,
-		lipgloss.Center,
-		box,
-	)
+	pad := strings.Repeat(" ", sidePad/2)
+	body := pad + centerLine(lineQuit, innerW) + pad + "\n" +
+		pad + centerLine(lineCancel, innerW) + pad
+
+	// Surround body with one blank line above and below for breathing.
+	content := "\n" + body + "\n"
+
+	return RenderTitledPanel(content, PanelOpts{
+		Title:       "Quit?",
+		Width:       panelWidth,
+		CenterTitle: true,
+		BorderColor: t.Blocked,
+		TitleColor:  t.Blocked,
+		Focused:     true,
+	})
+}
+
+// centerLine pads s with spaces on both sides so its visible width
+// equals width. If s is already at-or-over width, returns s unchanged.
+func centerLine(s string, width int) string {
+	w := lipgloss.Width(s)
+	if w >= width {
+		return s
+	}
+	gap := width - w
+	left := gap / 2
+	right := gap - left
+	return strings.Repeat(" ", left) + s + strings.Repeat(" ", right)
 }
 
 // renderSearchRow returns the always-present, one-line search row that lives

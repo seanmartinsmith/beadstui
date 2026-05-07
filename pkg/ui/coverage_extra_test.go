@@ -1256,9 +1256,9 @@ func TestOverlaysAndWorkspaceHelpers(t *testing.T) {
 		t.Fatalf("workspace mode should be enabled")
 	}
 
-	// Quit confirm overlay
+	// Quit confirm overlay (bt-yly4: title is "Quit?", not "Quit bt?")
 	m.openModal(ModalQuitConfirm)
-	if !strings.Contains(m.View().Content, "Quit bt?") {
+	if !strings.Contains(m.View().Content, "Quit?") {
 		t.Fatalf("quit overlay should render")
 	}
 	m.closeModal()
