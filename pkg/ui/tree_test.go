@@ -684,6 +684,106 @@ func TestTreeSelectByID(t *testing.T) {
 }
 
 // =============================================================================
+// ExpandPathTo tests (bt-w8j8)
+// =============================================================================
+
+// TestExpandPathToDeepBead verifies ExpandPathTo makes a deep bead visible
+// and that SelectByID can reach it after expansion.
+func TestExpandPathToDeepBead(t *testing.T) {
+	now := time.Now()
+	// Build a 4-level hierarchy: root -> child -> grandchild -> deep
+	// depth 0, 1, 2, 3 - default expand is depth < 2, so grandchild and deep
+	// are collapsed by default and not visible in the flat list.
+	issues := []model.Issue{
+		{ID: "root", Title: "Root", Priority: 1, IssueType: model.TypeEpic, CreatedAt: now},
+		{
+			ID: "child", Title: "Child", Priority: 1, IssueType: model.TypeTask, CreatedAt: now.Add(time.Hour),
+			Dependencies: []*model.Dependency{{IssueID: "child", DependsOnID: "root", Type: model.DepParentChild}},
+		},
+		{
+			ID: "grandchild", Title: "Grandchild", Priority: 1, IssueType: model.TypeTask, CreatedAt: now.Add(2 * time.Hour),
+			Dependencies: []*model.Dependency{{IssueID: "grandchild", DependsOnID: "child", Type: model.DepParentChild}},
+		},
+		{
+			ID: "deep", Title: "Deep bead", Priority: 1, IssueType: model.TypeTask, CreatedAt: now.Add(3 * time.Hour),
+			Dependencies: []*model.Dependency{{IssueID: "deep", DependsOnID: "grandchild", Type: model.DepParentChild}},
+		},
+	}
+
+	tree := NewTreeModel(newTreeTestTheme())
+	tree.Build(issues)
+
+	// Default expand covers depth 0 and 1 only, so only root and child are visible.
+	initialCount := tree.NodeCount()
+	if initialCount >= 4 {
+		t.Fatalf("expected fewer than 4 visible nodes before ExpandPathTo (depth >= 2 collapsed), got %d", initialCount)
+	}
+
+	// The deep bead should NOT be in the flat list before expansion.
+	found := false
+	for _, node := range tree.flatList {
+		if node != nil && node.Issue != nil && node.Issue.ID == "deep" {
+			found = true
+			break
+		}
+	}
+	if found {
+		t.Fatal("deep bead should not be visible in flatList before ExpandPathTo")
+	}
+
+	// Expand path to the deep bead.
+	if !tree.ExpandPathTo("deep") {
+		t.Fatal("ExpandPathTo returned false for known ID 'deep'")
+	}
+
+	// All 4 nodes should now be visible.
+	if tree.NodeCount() != 4 {
+		t.Errorf("expected 4 visible nodes after ExpandPathTo, got %d", tree.NodeCount())
+	}
+
+	// The deep bead should now appear in flatList.
+	found = false
+	for _, node := range tree.flatList {
+		if node != nil && node.Issue != nil && node.Issue.ID == "deep" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("deep bead should be visible in flatList after ExpandPathTo")
+	}
+
+	// SelectByID should land on the deep bead.
+	if !tree.SelectByID("deep") {
+		t.Fatal("SelectByID returned false for 'deep' after ExpandPathTo")
+	}
+	if tree.GetSelectedID() != "deep" {
+		t.Errorf("expected 'deep' selected after SelectByID, got %q", tree.GetSelectedID())
+	}
+}
+
+// TestExpandPathToNonexistent verifies ExpandPathTo returns false and does not
+// panic when the ID is not in the tree.
+func TestExpandPathToNonexistent(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "root", Title: "Root", Priority: 1, IssueType: model.TypeTask},
+	}
+	tree := NewTreeModel(newTreeTestTheme())
+	tree.Build(issues)
+
+	countBefore := tree.NodeCount()
+
+	if tree.ExpandPathTo("nonexistent-id") {
+		t.Error("ExpandPathTo should return false for an unknown ID")
+	}
+
+	// flatList should be unchanged.
+	if tree.NodeCount() != countBefore {
+		t.Errorf("NodeCount changed after failed ExpandPathTo: was %d, now %d", countBefore, tree.NodeCount())
+	}
+}
+
+// =============================================================================
 // TreeState persistence tests (bv-zv7p)
 // =============================================================================
 

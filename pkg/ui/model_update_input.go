@@ -1002,6 +1002,17 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 					m.tree.Build(m.data.issues)
 				}
 				m.tree.SetSize(m.width, m.height-2)
+				// Sync tree cursor to the issues-pane selection so pressing E
+				// lands on the bead the user was looking at, with its ancestor
+				// path expanded so it is immediately visible (bt-w8j8).
+				// ExpandPathTo first (rebuilds flatList), then SelectByID
+				// (sets cursor index after rebuild).
+				if sel := m.list.SelectedItem(); sel != nil {
+					if issueItem, ok := sel.(IssueItem); ok {
+						m.tree.ExpandPathTo(issueItem.Issue.ID)
+						m.tree.SelectByID(issueItem.Issue.ID)
+					}
+				}
 				m.focused = focusTree
 			}
 			return m, nil

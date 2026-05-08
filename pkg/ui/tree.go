@@ -943,6 +943,33 @@ func (t *TreeModel) visibleRange() (start, end int) {
 	return start, end
 }
 
+// ExpandPathTo expands all ancestors of the node with the given issue ID so
+// the node is visible in the flat list, then rebuilds the flat list.
+// Returns true if the node was found, false if the ID is unknown.
+//
+// This is a transient navigation action (jump-to-bead on tree open), not a
+// user expand/collapse decision, so saveState() is intentionally NOT called.
+// The expanded ancestors revert to default on the next Build/BuildFromSnapshot
+// call unless the user also explicitly toggles them.
+func (t *TreeModel) ExpandPathTo(id string) bool {
+	node, ok := t.issueMap[id]
+	if !ok {
+		return false
+	}
+
+	// Walk up the parent chain and expand each ancestor so the target is visible.
+	current := node.Parent
+	for current != nil {
+		current.Expanded = true
+		current = current.Parent
+	}
+	// Expand the target node itself so its children (if any) don't hide it.
+	node.Expanded = true
+
+	t.rebuildFlatList()
+	return true
+}
+
 // SelectByID moves cursor to the node with the given issue ID.
 // Returns true if found, false otherwise.
 // Useful for preserving cursor position after rebuild.
