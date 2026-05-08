@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -302,12 +303,43 @@ type DependencyNode struct {
 // BuildDependencyTree constructs a tree from dependencies for visualization.
 // maxDepth limits recursion to prevent infinite loops and performance issues.
 // Set maxDepth to 0 for unlimited depth (use with caution).
+//
+// Direction: outgoing dependencies are walked recursively (X -> things X
+// depends on). In addition, immediate inverse children (issues whose
+// parent_child dep points at the root or any visited node) are appended as
+// leaf nodes. This surfaces hierarchy in the detail render — e.g., viewing
+// an epic shows its direct children — without recursing into the inverse
+// direction (which would loop back via parent_child outgoing edges and
+// inflate large epics). Drilling into a child node shows that child's own
+// subtree.
 func BuildDependencyTree(rootID string, issueMap map[string]*model.Issue, maxDepth int) *DependencyNode {
 	visited := make(map[string]bool)
-	return buildTreeRecursive(rootID, issueMap, "root", visited, 0, maxDepth)
+	childrenOf := buildChildrenOfMap(issueMap)
+	return buildTreeRecursive(rootID, issueMap, childrenOf, "root", visited, 0, maxDepth)
 }
 
-func buildTreeRecursive(id string, issueMap map[string]*model.Issue, depType string, visited map[string]bool, depth, maxDepth int) *DependencyNode {
+// buildChildrenOfMap returns parentID -> sorted slice of child IDs, derived
+// from parent_child dependency edges stored on the children. Sorted output
+// keeps detail-render order deterministic (bt-cuyiz).
+func buildChildrenOfMap(issueMap map[string]*model.Issue) map[string][]string {
+	out := make(map[string][]string)
+	for id, issue := range issueMap {
+		if issue == nil {
+			continue
+		}
+		for _, dep := range issue.Dependencies {
+			if dep != nil && dep.Type == model.DepParentChild {
+				out[dep.DependsOnID] = append(out[dep.DependsOnID], id)
+			}
+		}
+	}
+	for k := range out {
+		sort.Strings(out[k])
+	}
+	return out
+}
+
+func buildTreeRecursive(id string, issueMap map[string]*model.Issue, childrenOf map[string][]string, depType string, visited map[string]bool, depth, maxDepth int) *DependencyNode {
 	// Check depth limit (0 = unlimited)
 	if maxDepth > 0 && depth > maxDepth {
 		return nil
@@ -343,12 +375,31 @@ func buildTreeRecursive(id string, issueMap map[string]*model.Issue, depType str
 		Type:   depType,
 	}
 
-	// Recursively add children (dependencies)
+	// Outgoing edges: things this issue depends on.
 	for _, dep := range issue.Dependencies {
-		childNode := buildTreeRecursive(dep.DependsOnID, issueMap, string(dep.Type), visited, depth+1, maxDepth)
+		childNode := buildTreeRecursive(dep.DependsOnID, issueMap, childrenOf, string(dep.Type), visited, depth+1, maxDepth)
 		if childNode != nil {
 			node.Children = append(node.Children, childNode)
 		}
+	}
+
+	// Inverse children: appended as leaves (no recursion) so an epic with N
+	// children renders as a flat list of N rows under the parent without
+	// looping back through their parent_child edges. (bt-cuyiz)
+	for _, childID := range childrenOf[id] {
+		if visited[childID] {
+			continue
+		}
+		child, ok := issueMap[childID]
+		if !ok || child == nil {
+			continue
+		}
+		node.Children = append(node.Children, &DependencyNode{
+			ID:     child.ID,
+			Title:  child.Title,
+			Status: string(child.Status),
+			Type:   "child",
+		})
 	}
 
 	return node
@@ -465,7 +516,7 @@ func getDepTypeIcon(depType string) string {
 		return "⛔"
 	case "related":
 		return "🔗"
-	case "parent-child":
+	case "parent-child", "child":
 		return "📦"
 	case "discovered-from":
 		return "🔍"

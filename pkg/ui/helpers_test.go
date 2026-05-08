@@ -1,6 +1,7 @@
 package ui_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -378,6 +379,87 @@ func TestBuildDependencyTreeMultipleDependencyTypes(t *testing.T) {
 	}
 	if typeMap["discovered-dep"] != "discovered-from" {
 		t.Errorf("Expected 'discovered-from' type, got %s", typeMap["discovered-dep"])
+	}
+}
+
+// TestBuildDependencyTreeInverseChildren mirrors the bt-ift6 detail-render
+// shape from bt-cuyiz: viewing a parent must surface its synthesized
+// parent_child children as leaf rows, even though the parent has no
+// outgoing parent_child edges of its own.
+func TestBuildDependencyTreeInverseChildren(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "bt-ift6", Title: "Epic", Status: model.StatusOpen},
+	}
+	for n := 0; n <= 13; n++ {
+		issues = append(issues, model.Issue{
+			ID:     fmt.Sprintf("bt-ift6.%d", n),
+			Title:  fmt.Sprintf("Child %d", n),
+			Status: model.StatusOpen,
+			Dependencies: []*model.Dependency{
+				{IssueID: fmt.Sprintf("bt-ift6.%d", n), DependsOnID: "bt-ift6", Type: model.DepParentChild},
+			},
+		})
+	}
+
+	issueMap := make(map[string]*model.Issue)
+	for i := range issues {
+		issueMap[issues[i].ID] = &issues[i]
+	}
+
+	tree := ui.BuildDependencyTree("bt-ift6", issueMap, 3)
+	if tree == nil {
+		t.Fatal("nil tree for bt-ift6 root")
+	}
+	if got := len(tree.Children); got != 14 {
+		t.Fatalf("bt-ift6 detail tree has %d children, want 14", got)
+	}
+	for _, child := range tree.Children {
+		if child.Type != "child" {
+			t.Errorf("child %s has Type=%q, want %q", child.ID, child.Type, "child")
+		}
+		// Each child appears as a leaf — no recursion into the inverse
+		// direction means no (cycle) markers from outgoing parent_child
+		// pointing back at the root.
+		if len(child.Children) != 0 {
+			t.Errorf("inverse child %s should be a leaf, got %d children", child.ID, len(child.Children))
+		}
+	}
+
+	rendered := ui.RenderDependencyTree(tree)
+	for n := 0; n <= 13; n++ {
+		needle := fmt.Sprintf("bt-ift6.%d", n)
+		if !strings.Contains(rendered, needle) {
+			t.Errorf("rendered detail tree missing %s:\n%s", needle, rendered)
+		}
+	}
+	if strings.Contains(rendered, "(cycle)") {
+		t.Errorf("rendered detail tree contains spurious (cycle) marker:\n%s", rendered)
+	}
+}
+
+// TestBuildDependencyTreeChildAsRoot verifies that viewing a child shows
+// its outgoing parent_child edge to the parent (existing behavior — we
+// did not break it by adding the inverse pass).
+func TestBuildDependencyTreeChildAsRoot(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "bt-ift6", Title: "Epic", Status: model.StatusOpen},
+		{ID: "bt-ift6.0", Title: "Child", Status: model.StatusOpen,
+			Dependencies: []*model.Dependency{
+				{IssueID: "bt-ift6.0", DependsOnID: "bt-ift6", Type: model.DepParentChild},
+			}},
+	}
+	issueMap := make(map[string]*model.Issue)
+	for i := range issues {
+		issueMap[issues[i].ID] = &issues[i]
+	}
+
+	tree := ui.BuildDependencyTree("bt-ift6.0", issueMap, 3)
+	if tree == nil || len(tree.Children) == 0 {
+		t.Fatal("expected outgoing parent_child edge from bt-ift6.0 to bt-ift6")
+	}
+	if tree.Children[0].ID != "bt-ift6" || tree.Children[0].Type != "parent-child" {
+		t.Errorf("child detail's first child should be parent-child→bt-ift6, got id=%s type=%s",
+			tree.Children[0].ID, tree.Children[0].Type)
 	}
 }
 
