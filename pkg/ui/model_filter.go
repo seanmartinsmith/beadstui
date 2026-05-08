@@ -360,6 +360,28 @@ func (m *Model) refreshBoardAndGraphForCurrentFilter() {
 	}
 }
 
+// rebuildTreeForCurrentFilter rebuilds the tree view's bead set from the
+// current data, respecting the workspace-mode project filter (activeRepos).
+// Mirrors refreshBoardAndGraphForCurrentFilter for the tree consumer (bt-dcby.2).
+//
+// No-op when the tree view is not the active mode. The snapshot's precomputed
+// tree is built over the full unfiltered set, so when activeRepos is filtering
+// we bypass the snapshot fast path and Build() over the prefiltered slice.
+func (m *Model) rebuildTreeForCurrentFilter() {
+	if m.mode != ViewTree {
+		return
+	}
+	if m.workspaceMode && m.activeRepos != nil {
+		m.tree.Build(m.workspacePrefilter(m.data.issues))
+		return
+	}
+	if m.data.snapshot != nil {
+		m.tree.BuildFromSnapshot(m.data.snapshot)
+		return
+	}
+	m.tree.Build(m.data.issues)
+}
+
 func (m *Model) applyFilter() {
 	var filteredItems []list.Item
 	var filteredIssues []model.Issue
@@ -410,6 +432,8 @@ func (m *Model) applyFilter() {
 		filterIns := m.data.analysis.GenerateInsights(len(filteredIssues))
 		m.graphView.SetIssues(filteredIssues, &filterIns)
 	}
+	// Tree view consumes activeRepos through this path too (bt-dcby.2).
+	m.rebuildTreeForCurrentFilter()
 
 	// Keep selection in bounds
 	if len(filteredItems) > 0 && m.list.Index() >= len(filteredItems) {
@@ -822,6 +846,8 @@ func (m *Model) applyRecipe(r *recipe.Recipe) {
 	// Generate insights for graph view (for metric rankings and sorting)
 	recipeIns := m.data.analysis.GenerateInsights(len(filteredIssues))
 	m.graphView.SetIssues(filteredIssues, &recipeIns)
+	// Tree view consumes activeRepos through this path too (bt-dcby.2).
+	m.rebuildTreeForCurrentFilter()
 
 	// Update filter indicator
 	m.filter.currentFilter = "recipe:" + r.Name

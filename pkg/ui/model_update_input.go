@@ -995,12 +995,10 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				m.focused = focusList
 			} else {
 				m.mode = ViewTree
-				// Build tree from snapshot when available (bv-t435)
-				if m.data.snapshot != nil {
-					m.tree.BuildFromSnapshot(m.data.snapshot)
-				} else {
-					m.tree.Build(m.data.issues)
-				}
+				// Build tree from snapshot when available (bv-t435), routing
+				// through the activeRepos-aware helper so the tree honors the
+				// workspace project filter (bt-dcby.2).
+				m.rebuildTreeForCurrentFilter()
 				m.tree.SetSize(m.width, m.height-2)
 				// Sync tree cursor to the issues-pane selection so pressing E
 				// lands on the bead the user was looking at, with its ancestor

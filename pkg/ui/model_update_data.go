@@ -339,9 +339,11 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 	}
 
 	// If the tree view is active, rebuild it from the new snapshot while preserving
-	// user state (selection + persisted expand/collapse) (bv-6n4c).
+	// user state (selection + persisted expand/collapse) (bv-6n4c). Routes through
+	// the activeRepos-aware helper so Dolt-poll refreshes do not reintroduce
+	// pruned repos (bt-dcby.2).
 	if m.focused == focusTree {
-		m.tree.BuildFromSnapshot(m.data.snapshot)
+		m.rebuildTreeForCurrentFilter()
 		m.tree.SetSize(m.width, m.height-2)
 	}
 
