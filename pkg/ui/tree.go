@@ -970,13 +970,17 @@ func (t *TreeModel) ExpandPathTo(id string) bool {
 	return true
 }
 
-// SelectByID moves cursor to the node with the given issue ID.
-// Returns true if found, false otherwise.
-// Useful for preserving cursor position after rebuild.
+// SelectByID moves cursor to the node with the given issue ID and adjusts
+// the viewport so the cursor is visible. Returns true if found, false
+// otherwise. Useful for preserving cursor position after rebuild and for
+// jump-to-bead navigation (e.g., the E-key tree-toggle from the issues pane).
+//
+// On a miss, neither the cursor nor the viewport is touched.
 func (t *TreeModel) SelectByID(id string) bool {
 	for i, node := range t.flatList {
 		if node != nil && node.Issue != nil && node.Issue.ID == id {
 			t.cursor = i
+			t.ensureCursorVisible()
 			return true
 		}
 	}

@@ -783,6 +783,51 @@ func TestExpandPathToNonexistent(t *testing.T) {
 	}
 }
 
+// TestSelectByIDEnsuresCursorVisible verifies that SelectByID adjusts the
+// viewport so the targeted bead is on screen, not just that the cursor index
+// moved (bt-w8j8.1).
+func TestSelectByIDEnsuresCursorVisible(t *testing.T) {
+	issues := make([]model.Issue, 50)
+	for i := 0; i < 50; i++ {
+		issues[i] = model.Issue{
+			ID:        fmt.Sprintf("item-%02d", i),
+			Title:     fmt.Sprintf("Item %d", i),
+			Priority:  1,
+			IssueType: model.TypeTask,
+		}
+	}
+
+	tree := NewTreeModel(newTreeTestTheme())
+	tree.Build(issues)
+	tree.SetSize(80, 10) // Viewport of 10 lines, 50 nodes -> target far below initial offset.
+
+	// Cursor and viewport start at 0; target a bead well outside the visible window.
+	if !tree.SelectByID("item-30") {
+		t.Fatal("SelectByID returned false for known ID 'item-30'")
+	}
+	if tree.GetSelectedID() != "item-30" {
+		t.Errorf("expected 'item-30' selected, got %q", tree.GetSelectedID())
+	}
+	// The cursor must land inside the viewport [offset, offset+height).
+	offset := tree.GetViewportOffset()
+	if tree.cursor < offset || tree.cursor >= offset+10 {
+		t.Errorf("cursor %d not visible with offset %d (height 10)", tree.cursor, offset)
+	}
+
+	// Viewport should not move when the lookup fails.
+	priorOffset := tree.GetViewportOffset()
+	priorCursor := tree.cursor
+	if tree.SelectByID("nonexistent") {
+		t.Error("SelectByID should return false for unknown ID")
+	}
+	if tree.cursor != priorCursor {
+		t.Errorf("cursor changed after failed SelectByID: was %d, now %d", priorCursor, tree.cursor)
+	}
+	if got := tree.GetViewportOffset(); got != priorOffset {
+		t.Errorf("viewport changed after failed SelectByID: was %d, now %d", priorOffset, got)
+	}
+}
+
 // =============================================================================
 // TreeState persistence tests (bv-zv7p)
 // =============================================================================
