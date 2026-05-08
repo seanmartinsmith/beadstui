@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -345,6 +347,102 @@ func TestEpicProgress(t *testing.T) {
 	done3, total3 := epicProgress("ep-1", all2)
 	if total3 != 3 || done3 != 3 {
 		t.Errorf("epicProgress all closed = (%d, %d), want (3, 3)", done3, total3)
+	}
+}
+
+func TestNaturalIDKey(t *testing.T) {
+	// Sort a shuffled set of IDs and assert natural-numeric ordering.
+	ids := []string{
+		"bt-ift6.13", "bt-ift6.2", "bt-ift6.10", "bt-ift6.0", "bt-ift6.9",
+		"bt-ift6.1", "bt-ift6.11", "bt-ift6.12", "bt-ift6.3", "bt-ift6.4",
+		"bt-ift6.5", "bt-ift6.6", "bt-ift6.7", "bt-ift6.8",
+	}
+	sort.Slice(ids, func(i, j int) bool { return naturalIDKey(ids[i]) < naturalIDKey(ids[j]) })
+
+	want := []string{
+		"bt-ift6.0", "bt-ift6.1", "bt-ift6.2", "bt-ift6.3", "bt-ift6.4",
+		"bt-ift6.5", "bt-ift6.6", "bt-ift6.7", "bt-ift6.8", "bt-ift6.9",
+		"bt-ift6.10", "bt-ift6.11", "bt-ift6.12", "bt-ift6.13",
+	}
+	for i, id := range ids {
+		if id != want[i] {
+			t.Errorf("naturalIDKey sort[%d] = %s, want %s\nfull: %v", i, id, want[i], ids)
+		}
+	}
+}
+
+func TestNaturalIDKey_DeepNesting(t *testing.T) {
+	ids := []string{"bt-foo.1.10", "bt-foo.1.2", "bt-foo.2", "bt-foo.1.1", "bt-foo.10"}
+	sort.Slice(ids, func(i, j int) bool { return naturalIDKey(ids[i]) < naturalIDKey(ids[j]) })
+	want := []string{"bt-foo.1.1", "bt-foo.1.2", "bt-foo.1.10", "bt-foo.2", "bt-foo.10"}
+	for i, id := range ids {
+		if id != want[i] {
+			t.Errorf("deep nest sort[%d] = %s, want %s", i, id, want[i])
+		}
+	}
+}
+
+func TestNaturalIDKey_NonNumericSuffix(t *testing.T) {
+	// Non-numeric segments compare lexically; numeric and non-numeric mix
+	// is well-defined (numeric pads to fixed width, non-numeric does not).
+	ids := []string{"bt-foo.bar", "bt-foo.1", "bt-foo.aaa"}
+	sort.Slice(ids, func(i, j int) bool { return naturalIDKey(ids[i]) < naturalIDKey(ids[j]) })
+	// "000000000001" < "aaa" < "bar" lexically (digits before letters)
+	want := []string{"bt-foo.1", "bt-foo.aaa", "bt-foo.bar"}
+	for i, id := range ids {
+		if id != want[i] {
+			t.Errorf("mixed-suffix sort[%d] = %s, want %s", i, id, want[i])
+		}
+	}
+}
+
+func TestEpicChildrenSorted(t *testing.T) {
+	epic := model.Issue{ID: "bt-ift6", IssueType: model.TypeEpic, Status: model.StatusOpen}
+	mk := func(suffix int) model.Issue {
+		return model.Issue{
+			ID:        fmt.Sprintf("bt-ift6.%d", suffix),
+			IssueType: model.TypeTask,
+			Status:    model.StatusOpen,
+			Dependencies: []*model.Dependency{
+				{IssueID: fmt.Sprintf("bt-ift6.%d", suffix), DependsOnID: "bt-ift6", Type: model.DepParentChild},
+			},
+		}
+	}
+	// Insert children in reverse-numeric order to mimic Dolt's created_at DESC.
+	all := []model.Issue{epic, mk(13), mk(12), mk(11), mk(10), mk(9), mk(8), mk(7), mk(6), mk(5), mk(4), mk(3), mk(2), mk(1), mk(0)}
+
+	got := epicChildrenSorted("bt-ift6", all)
+	if len(got) != 14 {
+		t.Fatalf("epicChildrenSorted len = %d, want 14", len(got))
+	}
+	for i := 0; i <= 13; i++ {
+		want := fmt.Sprintf("bt-ift6.%d", i)
+		if got[i].ID != want {
+			t.Errorf("epicChildrenSorted[%d] = %s, want %s", i, got[i].ID, want)
+		}
+	}
+}
+
+func TestStatusGlyph(t *testing.T) {
+	// Each status maps to a distinct, non-emoji Unicode geometric shape.
+	cases := []struct {
+		status model.Status
+		want   string
+	}{
+		{model.StatusOpen, "○"},
+		{model.StatusInProgress, "◐"},
+		{model.StatusBlocked, "⊘"},
+		{model.StatusClosed, "✓"},
+		{model.StatusTombstone, "✓"},
+		{model.StatusDeferred, "❄"},
+		{model.StatusPinned, "◆"},
+		{model.StatusReview, "◇"},
+		{model.StatusHooked, "◈"},
+	}
+	for _, tc := range cases {
+		if got := statusGlyph(tc.status); got != tc.want {
+			t.Errorf("statusGlyph(%s) = %q, want %q", tc.status, got, tc.want)
+		}
 	}
 }
 

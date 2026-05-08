@@ -1038,7 +1038,8 @@ func (m *Model) updateViewportContent() {
 		sb.WriteString("\n")
 	}
 
-	// Epic progress (bt-waeh)
+	// Epic progress (bt-waeh, bt-u05bo polish: natural sort + per-status
+	// markdown styling, no emoji header).
 	if item.IssueType == model.TypeEpic {
 		done, total := epicProgress(item.ID, m.data.issues)
 		if total > 0 {
@@ -1046,22 +1047,30 @@ func (m *Model) updateViewportContent() {
 			if total > 0 {
 				pct = done * 100 / total
 			}
-			sb.WriteString("### 🚀 Epic Progress\n")
+			sb.WriteString("### Epic Progress\n")
 			sb.WriteString(fmt.Sprintf("**%d / %d** children complete (%d%%)\n\n", done, total, pct))
 
-			// List children with status
-			for i := range m.data.issues {
-				for _, dep := range m.data.issues[i].Dependencies {
-					if dep != nil && dep.Type == model.DepParentChild && dep.DependsOnID == item.ID {
-						statusIcon := "○"
-						if m.data.issues[i].Status.IsClosed() {
-							statusIcon = "✓"
-						} else if m.data.issues[i].Status == model.StatusInProgress {
-							statusIcon = "◉"
-						}
-						sb.WriteString(fmt.Sprintf("- %s %s — %s\n", statusIcon, m.data.issues[i].ID, m.data.issues[i].Title))
-						break
-					}
+			for _, child := range epicChildrenSorted(item.ID, m.data.issues) {
+				glyph := statusGlyph(child.Status)
+				prio := fmt.Sprintf("`P%d`", child.Priority)
+				body := fmt.Sprintf("`%s` — %s", child.ID, child.Title)
+
+				// Per-status markdown styling. Strikethrough recedes closed
+				// work; bold pops in_progress/blocked; open is plain. These
+				// hit Glamour's Strong / Strikethrough / Emph styles which
+				// pick up the theme's featureColor + bold / crossed-out /
+				// inProgressColor + italic respectively.
+				switch {
+				case child.Status.IsClosed():
+					sb.WriteString(fmt.Sprintf("- %s ~~%s %s~~\n", glyph, prio, body))
+				case child.Status == model.StatusInProgress:
+					sb.WriteString(fmt.Sprintf("- %s **%s %s**\n", glyph, prio, body))
+				case child.Status == model.StatusBlocked:
+					sb.WriteString(fmt.Sprintf("- %s **%s %s**\n", glyph, prio, body))
+				case child.Status == model.StatusDeferred:
+					sb.WriteString(fmt.Sprintf("- %s *%s %s*\n", glyph, prio, body))
+				default:
+					sb.WriteString(fmt.Sprintf("- %s %s %s\n", glyph, prio, body))
 				}
 			}
 			sb.WriteString("\n")
@@ -1205,9 +1214,12 @@ func (m *Model) updateViewportContent() {
 		sb.WriteString(*item.CloseReason + "\n\n")
 	}
 
-	// Dependency Graph (Tree)
-	if len(item.Dependencies) > 0 {
-		rootNode := BuildDependencyTree(item.ID, m.data.issueMap, 3) // Max depth 3
+	// Dependency Graph (Tree). Build first, render iff the tree has any
+	// children — covers both outgoing dep edges and inverse parent_child
+	// children (bt-cuyiz). Previously gated on len(item.Dependencies) > 0
+	// which silently hid the section for parents whose only relevant edges
+	// pointed UP from their children (bt-u05bo).
+	if rootNode := BuildDependencyTree(item.ID, m.data.issueMap, 3); rootNode != nil && len(rootNode.Children) > 0 {
 		treeStr := RenderDependencyTree(rootNode)
 		sb.WriteString("```\n" + treeStr + "```\n\n")
 	}

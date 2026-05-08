@@ -107,6 +107,69 @@ func epicProgress(epicID string, allIssues []model.Issue) (done, total int) {
 	return
 }
 
+// epicChildrenSorted returns the parent's children in natural-numeric order
+// (.0 → .13, with .9 before .10), so the detail-pane Epic Progress block
+// reads top-to-bottom in suffix order rather than the Dolt load order
+// (which is created_at DESC and renders as .13 → .0). bt-u05bo.
+func epicChildrenSorted(epicID string, allIssues []model.Issue) []*model.Issue {
+	var children []*model.Issue
+	for i := range allIssues {
+		for _, dep := range allIssues[i].Dependencies {
+			if dep != nil && dep.Type == model.DepParentChild && dep.DependsOnID == epicID {
+				children = append(children, &allIssues[i])
+				break
+			}
+		}
+	}
+	sort.Slice(children, func(i, j int) bool {
+		return naturalIDKey(children[i].ID) < naturalIDKey(children[j].ID)
+	})
+	return children
+}
+
+// naturalIDKey returns a sort key that compares dot-separated IDs naturally:
+// numeric segments are zero-padded to a fixed width so .9 sorts before .10
+// and .1.2 sorts before .1.10. Non-numeric segments are compared lexically.
+// Pure stdlib; no regex.
+func naturalIDKey(id string) string {
+	const padWidth = 12
+	var sb strings.Builder
+	for _, seg := range strings.Split(id, ".") {
+		if n, err := strconv.Atoi(seg); err == nil && n >= 0 {
+			sb.WriteString(fmt.Sprintf("%0*d", padWidth, n))
+		} else {
+			sb.WriteString(seg)
+		}
+		sb.WriteByte('.')
+	}
+	return sb.String()
+}
+
+// statusGlyph returns a Unicode geometric shape representing the issue
+// status — used in the detail-pane Epic Progress list. Shapes (not emojis)
+// keep the btop/lazygit aesthetic: visual distinction without color
+// dependency, and they survive glamour's markdown rendering as plain text.
+func statusGlyph(s model.Status) string {
+	switch s {
+	case model.StatusClosed, model.StatusTombstone:
+		return "✓"
+	case model.StatusInProgress:
+		return "◐"
+	case model.StatusBlocked:
+		return "⊘"
+	case model.StatusDeferred:
+		return "❄"
+	case model.StatusPinned:
+		return "◆"
+	case model.StatusReview:
+		return "◇"
+	case model.StatusHooked:
+		return "◈"
+	default: // open
+		return "○"
+	}
+}
+
 // StateDimension represents a parsed dimension:value label.
 type StateDimension struct {
 	Dimension string
