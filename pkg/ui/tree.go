@@ -499,6 +499,14 @@ func (t *TreeModel) View() string {
 			line = t.theme.Selected.Render(line)
 		}
 
+		// Clamp the assembled row to the viewport width so deep prefixes,
+		// long IDs, and the selected-row cursor never push connectors onto
+		// the next line at narrow widths (bt-w8j8.3). Mirrors the bt-lin9
+		// pattern used by other body surfaces.
+		if t.width > 0 {
+			line = lipgloss.NewStyle().MaxWidth(t.width).Render(line)
+		}
+
 		sb.WriteString(line)
 		sb.WriteString("\n")
 	}

@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"charm.land/lipgloss/v2"
+
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
@@ -780,6 +782,56 @@ func TestExpandPathToNonexistent(t *testing.T) {
 	// flatList should be unchanged.
 	if tree.NodeCount() != countBefore {
 		t.Errorf("NodeCount changed after failed ExpandPathTo: was %d, now %d", countBefore, tree.NodeCount())
+	}
+}
+
+// TestRenderNodeClampsRowWidth asserts that no rendered tree row exceeds the
+// tree's configured width, even when the prefix is deep, the issue ID is long,
+// and the title would otherwise overflow (bt-w8j8.3). Pre-fix this failed
+// because renderNode's chrome budget hardcoded 25 chars and the title floor
+// was 20, so deep trees with long IDs at narrow widths overflowed and lipgloss
+// wrapped the connectors onto the next line in the terminal.
+func TestRenderNodeClampsRowWidth(t *testing.T) {
+	now := time.Now()
+	// 5-level hierarchy with long IDs (mirrors bt-w8j8.13 / bt-ift6.10 shape).
+	issues := []model.Issue{
+		{ID: "bt-aaaaaaaa", Title: "Root issue with a moderately long title that should compress", Priority: 1, IssueType: model.TypeEpic, CreatedAt: now},
+		{
+			ID: "bt-aaaaaaaa.1", Title: "First child with descriptive title that adds pressure", Priority: 1, IssueType: model.TypeFeature, CreatedAt: now.Add(time.Hour),
+			Dependencies: []*model.Dependency{{IssueID: "bt-aaaaaaaa.1", DependsOnID: "bt-aaaaaaaa", Type: model.DepParentChild}},
+		},
+		{
+			ID: "bt-aaaaaaaa.1.1", Title: "Grandchild also with words that take space", Priority: 2, IssueType: model.TypeTask, CreatedAt: now.Add(2 * time.Hour),
+			Dependencies: []*model.Dependency{{IssueID: "bt-aaaaaaaa.1.1", DependsOnID: "bt-aaaaaaaa.1", Type: model.DepParentChild}},
+		},
+		{
+			ID: "bt-aaaaaaaa.1.1.1", Title: "Deep great-grandchild with even more title content", Priority: 1, IssueType: model.TypeBug, CreatedAt: now.Add(3 * time.Hour),
+			Dependencies: []*model.Dependency{{IssueID: "bt-aaaaaaaa.1.1.1", DependsOnID: "bt-aaaaaaaa.1.1", Type: model.DepParentChild}},
+		},
+		{
+			ID: "bt-aaaaaaaa.1.1.1.1", Title: "Deepest with a title that pushes past any reasonable width", Priority: 1, IssueType: model.TypeChore, CreatedAt: now.Add(4 * time.Hour),
+			Dependencies: []*model.Dependency{{IssueID: "bt-aaaaaaaa.1.1.1.1", DependsOnID: "bt-aaaaaaaa.1.1.1", Type: model.DepParentChild}},
+		},
+	}
+
+	tree := NewTreeModel(newTreeTestTheme())
+	tree.Build(issues)
+	tree.ExpandPathTo("bt-aaaaaaaa.1.1.1.1")
+
+	// Stress-test at progressively narrower widths to mirror the dogfood repro
+	// (sidebar open at narrow terminals).
+	for _, width := range []int{40, 60, 80, 120} {
+		tree.SetSize(width, 30)
+		out := tree.View()
+		for i, line := range strings.Split(out, "\n") {
+			if line == "" {
+				continue
+			}
+			if w := lipgloss.Width(line); w > width {
+				t.Errorf("width=%d line=%d rendered width %d exceeds tree width: %q",
+					width, i, w, line)
+			}
+		}
 	}
 }
 
