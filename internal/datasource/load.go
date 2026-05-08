@@ -33,7 +33,11 @@ func LoadIssues(repoPath string) ([]model.Issue, error) {
 		}
 		// Last-resort fallback to legacy JSONL-only loader for environments
 		// the new discovery doesn't cover (e.g. exotic file layouts).
-		return loader.LoadIssues(repoPath)
+		issues, lerr := loader.LoadIssues(repoPath)
+		if lerr != nil {
+			return nil, lerr
+		}
+		return synthesizeHierarchyDeps(issues), nil
 	}
 
 	return LoadFromSource(src)
@@ -53,7 +57,11 @@ func LoadIssuesFromDir(beadsDir string) ([]model.Issue, error) {
 		if ferr != nil {
 			return nil, fmt.Errorf("no source in %s: %w", beadsDir, err)
 		}
-		return loader.LoadIssuesFromFile(jsonlPath)
+		issues, lerr := loader.LoadIssuesFromFile(jsonlPath)
+		if lerr != nil {
+			return nil, lerr
+		}
+		return synthesizeHierarchyDeps(issues), nil
 	}
 	return LoadFromSource(src)
 }
@@ -89,7 +97,7 @@ func LoadIssuesWithSource(repoPath string) (LoadResult, error) {
 		}
 		jsonlPath, _ := loader.FindJSONLPath(beadsDir)
 		return LoadResult{
-			Issues: issues,
+			Issues: synthesizeHierarchyDeps(issues),
 			Source: DataSource{Type: SourceTypeJSONLFallback, Path: jsonlPath},
 		}, nil
 	}
@@ -102,29 +110,39 @@ func LoadIssuesWithSource(repoPath string) (LoadResult, error) {
 }
 
 // LoadFromSource loads issues from a specific DataSource, dispatching to
-// the appropriate reader based on source type.
+// the appropriate reader based on source type. Synthesizes implicit
+// parent_child Dependencies from `.N`-suffix IDs (bt-cuyiz) so consumers
+// see the same hierarchy bd computes from ID structure.
 func LoadFromSource(source DataSource) ([]model.Issue, error) {
+	var (
+		issues []model.Issue
+		err    error
+	)
 	switch source.Type {
 	case SourceTypeDolt:
-		reader, err := NewDoltReader(source)
-		if err != nil {
-			return nil, fmt.Errorf("failed to open Dolt source %s: %w", source.Path, err)
+		reader, derr := NewDoltReader(source)
+		if derr != nil {
+			return nil, fmt.Errorf("failed to open Dolt source %s: %w", source.Path, derr)
 		}
 		defer reader.Close()
-		return reader.LoadIssues()
+		issues, err = reader.LoadIssues()
 
 	case SourceTypeDoltGlobal:
-		reader, err := NewGlobalDoltReader(source)
-		if err != nil {
-			return nil, err
+		reader, derr := NewGlobalDoltReader(source)
+		if derr != nil {
+			return nil, derr
 		}
 		defer reader.Close()
-		return reader.LoadIssues()
+		issues, err = reader.LoadIssues()
 
 	case SourceTypeJSONLFallback:
-		return loader.LoadIssuesFromFile(source.Path)
+		issues, err = loader.LoadIssuesFromFile(source.Path)
 
 	default:
 		return nil, fmt.Errorf("unknown source type: %s", source.Type)
 	}
+	if err != nil {
+		return nil, err
+	}
+	return synthesizeHierarchyDeps(issues), nil
 }
