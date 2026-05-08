@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 )
 
@@ -192,6 +193,31 @@ func TestRenderTitledPanel_PartialOverrides(t *testing.T) {
 	}
 }
 
+// TestTimeTravelPromptUniformRowWidth is a regression guard for bt-rhfo:
+// the time-travel modal's title and content rows must all match the panel
+// width. The original "⏱️  Time-Travel Mode" title and "⏱️  Revision: "
+// textinput prompt under-reported their cell width via runewidth (VS16
+// emoji presentation), which the terminal renders 1 cell wider — pushing
+// the top border and the input row's right border out of alignment.
+func TestTimeTravelPromptUniformRowWidth(t *testing.T) {
+	m := seedModel()
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	m = updated.(Model)
+
+	view := m.renderTimeTravelPrompt()
+	rows := strings.Split(view, "\n")
+	if len(rows) == 0 {
+		t.Fatal("time-travel prompt rendered no rows")
+	}
+	want := lipgloss.Width(rows[0])
+	for i, r := range rows {
+		if got := lipgloss.Width(r); got != want {
+			t.Errorf("row %d width = %d, want %d (top border); row=%q",
+				i, got, want, r)
+		}
+	}
+}
+
 func TestRenderTitledPanel_RightLabel(t *testing.T) {
 	// RightLabel renders on the top border with corner stability preserved.
 	result := RenderTitledPanel("body", PanelOpts{
@@ -219,6 +245,42 @@ func TestRenderTitledPanel_RightLabel(t *testing.T) {
 	plain := RenderTitledPanel("body", PanelOpts{Title: "Alerts!", Width: 40})
 	if strings.Contains(plain, "(") {
 		t.Errorf("empty RightLabel should not introduce parens; got:\n%s", plain)
+	}
+}
+
+// TestRenderTitledPanel_UniformRowWidthWithStyledContent is a regression
+// guard for bt-rhfo: when content has per-line ANSI scopes (every line
+// styled differently), every rendered row must end at the panel's right
+// border, not at the row's natural width. Pre-fix the recipe modal's name
+// row ended at column 50 while the description row (different style) ended
+// at column 28, leaving the right border ragged and the bg visible through
+// the modal interior.
+func TestRenderTitledPanel_UniformRowWidthWithStyledContent(t *testing.T) {
+	red := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000"))
+	green := lipgloss.NewStyle().Foreground(lipgloss.Color("#00ff00")).Italic(true)
+	blue := lipgloss.NewStyle().Foreground(lipgloss.Color("#0000ff")).Bold(true)
+
+	content := strings.Join([]string{
+		"  " + red.Render("name a"),
+		"  " + green.Render("desc a"),
+		"",
+		"  " + blue.Render("name b longer"),
+		"  " + green.Render("desc b"),
+	}, "\n")
+
+	const panelWidth = 40
+	result := RenderTitledPanel(content, PanelOpts{
+		Title: "Test",
+		Width: panelWidth,
+	})
+
+	rows := strings.Split(result, "\n")
+	for i, r := range rows {
+		w := lipgloss.Width(r)
+		if w != panelWidth {
+			t.Errorf("row %d width = %d, want %d (panel.Width); row=%q",
+				i, w, panelWidth, r)
+		}
 	}
 }
 

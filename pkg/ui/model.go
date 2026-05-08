@@ -1009,7 +1009,10 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 	ti.Placeholder = "HEAD~5, main, v1.0.0, 2024-01-01..."
 	ti.CharLimit = 100
 	ti.SetWidth(40)
-	ti.Prompt = "⏱️  Revision: "
+	// Plain-text prompt (no emoji): VS16 emoji presentation makes runewidth
+	// undercount the prompt width vs. terminal rendering, knocking the modal's
+	// right border one cell out of alignment on the input row (bt-rhfo).
+	ti.Prompt = "Revision: "
 	tiStyles := ti.Styles()
 	tiStyles.Focused.Prompt = lipgloss.NewStyle().Foreground(theme.Primary).Bold(true)
 	tiStyles.Focused.Text = lipgloss.NewStyle().Foreground(theme.Base.GetForeground())

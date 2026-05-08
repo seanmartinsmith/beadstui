@@ -1273,6 +1273,12 @@ func (m Model) renderLabelGraphAnalysis() string {
 // Composited into the view via OverlayCenterDimBackdrop (bt-rhfo / bt-vklk
 // Phase 1) so callers do not center it again. Returns the rendered titled
 // panel; backdrop dimming and centering are the compositor's job.
+//
+// Padding is applied via manual leading-space prefixes (matching the alerts
+// pattern). Wrapping the block in lipgloss.NewStyle().Padding(...).Render(...)
+// did not consistently pad multi-line styled content to a uniform width when
+// each line had its own SGR scope, producing rows that ended early and left
+// the right border misaligned (bt-rhfo dogfood).
 func (m Model) renderTimeTravelPrompt() string {
 	t := m.theme
 
@@ -1290,23 +1296,30 @@ func (m Model) renderTimeTravelPrompt() string {
 	textStyle := lipgloss.NewStyle().
 		Foreground(t.Base.GetForeground())
 
-	// Build content (title is now in the panel border via RenderTitledPanel,
-	// so we no longer prepend it here).
-	content := subtitleStyle.Render("Compare current state with a historical revision") + "\n\n" +
-		m.timeTravelInput.View() + "\n\n" +
-		exampleStyle.Render("Examples: HEAD~5, main, v1.0.0, 2024-01-01, abc123") + "\n\n" +
-		textStyle.Render("Press ") + keyStyle.Render("Enter") + textStyle.Render(" to compare, ") +
-		keyStyle.Render("Esc") + textStyle.Render(" to cancel")
-
 	const promptWidth = 64
+	const leadPad = "   " // 3 spaces of left padding (matches old Padding(1,3))
 
-	padded := lipgloss.NewStyle().
-		Padding(1, 3).
-		Align(lipgloss.Center).
-		Render(content)
+	contentLines := []string{
+		"", // top breathing room
+		leadPad + subtitleStyle.Render("Compare current state with a historical revision"),
+		"",
+		leadPad + m.timeTravelInput.View(),
+		"",
+		leadPad + exampleStyle.Render("Examples: HEAD~5, main, v1.0.0, 2024-01-01, abc123"),
+		"",
+		leadPad + textStyle.Render("Press ") + keyStyle.Render("Enter") +
+			textStyle.Render(" to compare, ") + keyStyle.Render("Esc") +
+			textStyle.Render(" to cancel"),
+		"", // bottom breathing room
+	}
 
-	return RenderTitledPanel(padded, PanelOpts{
-		Title:   "⏱️  Time-Travel Mode",
+	// Plain-text title (no emoji): VS16 emoji presentation makes runewidth
+	// undercount titles like "⏱️  Time-Travel Mode" by one cell vs. what the
+	// terminal actually renders, so the top border ends up one cell wider
+	// than the content rows. Other modals (Alerts!, Notifications, Select
+	// Recipe) all use plain titles — this matches them.
+	return RenderTitledPanel(strings.Join(contentLines, "\n"), PanelOpts{
+		Title:   "Time-Travel Mode",
 		Width:   promptWidth,
 		Focused: true,
 	})

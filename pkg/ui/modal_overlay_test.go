@@ -216,6 +216,18 @@ func TestAllModalsUseDimBackdrop(t *testing.T) {
 				m.activeModal = ModalUpdate
 			},
 		},
+		{
+			name: "recipe picker",
+			setup: func(m *Model) {
+				m.activeModal = ModalRecipePicker
+			},
+		},
+		{
+			name: "time travel input",
+			setup: func(m *Model) {
+				m.activeModal = ModalTimeTravelInput
+			},
+		},
 	}
 
 	for _, tc := range cases {

@@ -12,7 +12,12 @@ func (m Model) handleRecipePickerKeys(msg tea.KeyMsg) Model {
 		m.recipePicker.MoveDown()
 	case "k", "up":
 		m.recipePicker.MoveUp()
-	case "esc":
+	case "esc", "'":
+		// `'` toggles the modal off (bt-4l28). The dispatcher's modal
+		// early-return routes the open key here while the modal is open,
+		// so the toggle-off branch in handleListKeys is unreachable —
+		// per ADR-004 modals own their dispatch, so this is the right
+		// home for the close binding.
 		m.closeModal()
 		m.focused = focusList
 	case "enter":
