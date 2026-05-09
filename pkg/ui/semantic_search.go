@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"slices"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -23,11 +24,23 @@ type semanticSearchSnapshot struct {
 	Embedder search.Embedder
 	IDs      []string
 	Docs     map[string]string
+	// Version increments whenever IDs content changes. Cached ranks and
+	// in-flight async results are tagged with the version they were computed
+	// against; mismatch ⇒ stale, drop and recompute.
+	Version uint64
+}
+
+// cachedRanks pairs a result set with the snapshot version it was computed
+// against. Returning ranks from a different version risks panics in
+// list.filterItems where items[r.Index] reads past the current targets length.
+type cachedRanks struct {
+	ranks   []list.Rank
+	version uint64
 }
 
 // semanticResultCache holds cached filter results and pending state
 type semanticResultCache struct {
-	results     map[string][]list.Rank // term -> ranks
+	results     map[string]cachedRanks // term -> ranks
 	pendingTerm string                 // term awaiting async computation
 	lastQuery   time.Time              // for debounce
 }
@@ -65,7 +78,7 @@ type SemanticSearch struct {
 func NewSemanticSearch() *SemanticSearch {
 	s := &SemanticSearch{}
 	s.snapshot.Store(semanticSearchSnapshot{})
-	s.cache.Store(&semanticResultCache{results: make(map[string][]list.Rank)})
+	s.cache.Store(&semanticResultCache{results: make(map[string]cachedRanks)})
 	s.scores.Store(&semanticScoreCache{scores: make(map[string]SemanticScore)})
 	s.metricsCache.Store(&metricsCacheHolder{})
 	defaultWeights, err := search.GetPreset(search.PresetDefault)
@@ -83,7 +96,7 @@ func NewSemanticSearch() *SemanticSearch {
 func (s *SemanticSearch) getCache() *semanticResultCache {
 	v := s.cache.Load()
 	if v == nil {
-		return &semanticResultCache{results: make(map[string][]list.Rank)}
+		return &semanticResultCache{results: make(map[string]cachedRanks)}
 	}
 	return v.(*semanticResultCache)
 }
@@ -167,12 +180,31 @@ func (s *SemanticSearch) SetMetricsCache(cache search.MetricsCache) {
 
 // ResetCache clears cached semantic results and scores.
 func (s *SemanticSearch) ResetCache() {
-	s.cache.Store(&semanticResultCache{results: make(map[string][]list.Rank)})
+	s.cache.Store(&semanticResultCache{results: make(map[string]cachedRanks)})
 	s.ClearScores()
 }
 
-// SetCachedResults stores semantic filter results and clears pending state if matching
-func (s *SemanticSearch) SetCachedResults(term string, results []list.Rank) {
+// SetCachedResults stores semantic filter results and clears pending state if
+// matching. Results computed against a stale snapshot (version mismatch) are
+// rejected — Index values would be out of range against the current targets.
+func (s *SemanticSearch) SetCachedResults(term string, results []list.Rank, version uint64) {
+	currentVersion := s.Snapshot().Version
+	if version != currentVersion {
+		// In-flight result from a previous snapshot. Drop it and clear pending
+		// if it matched, so the caller can re-trigger compute against the
+		// current snapshot.
+		c := s.getCache()
+		if c.pendingTerm == term {
+			newCache := &semanticResultCache{
+				results:     c.results,
+				pendingTerm: "",
+				lastQuery:   c.lastQuery,
+			}
+			s.cache.Store(newCache)
+		}
+		return
+	}
+
 	c := s.getCache()
 
 	// Only clear pending if this is the term that was pending
@@ -183,7 +215,7 @@ func (s *SemanticSearch) SetCachedResults(term string, results []list.Rank) {
 	}
 
 	newCache := &semanticResultCache{
-		results:     make(map[string][]list.Rank),
+		results:     make(map[string]cachedRanks),
 		pendingTerm: newPendingTerm,
 		lastQuery:   c.lastQuery,
 	}
@@ -194,9 +226,9 @@ func (s *SemanticSearch) SetCachedResults(term string, results []list.Rank) {
 	// Limit cache size to prevent memory bloat
 	if len(newCache.results) > 20 {
 		// Clear old entries (simple approach: clear all)
-		newCache.results = make(map[string][]list.Rank)
+		newCache.results = make(map[string]cachedRanks)
 	}
-	newCache.results[term] = results
+	newCache.results[term] = cachedRanks{ranks: results, version: version}
 	s.cache.Store(newCache)
 }
 
@@ -232,6 +264,11 @@ func (s *SemanticSearch) SetIndex(idx *search.VectorIndex, embedder search.Embed
 
 func (s *SemanticSearch) SetIDs(ids []string) {
 	snap := s.Snapshot()
+	if !slices.Equal(snap.IDs, ids) {
+		// Items changed: bump Version so cached ranks (computed against the
+		// previous snapshot) are recognized as stale on next Filter call.
+		snap.Version++
+	}
 	cp := make([]string, len(ids))
 	copy(cp, ids)
 	snap.IDs = cp
@@ -267,14 +304,18 @@ func (s *SemanticSearch) Filter(term string, targets []string) []list.Rank {
 		return list.DefaultFilter(term, targets)
 	}
 	if len(snap.IDs) != len(targets) {
-		// If we don't have a stable ID mapping, fall back to fuzzy filtering.
+		// Snapshot/list desync: targets and snap.IDs are populated by separate
+		// code paths; if their lengths disagree the parallel-array contract
+		// underpinning the rank Index values is broken. Fall back to fuzzy.
 		return list.DefaultFilter(term, targets)
 	}
 
-	// Check cache first - return immediately if we have cached results
+	// Check cache first. Entries tagged with a stale version reference indices
+	// into a previous snapshot and would panic in list.filterItems where
+	// items[r.Index] reads past the current targets length.
 	c := s.getCache()
-	if cached, ok := c.results[term]; ok {
-		return cached
+	if cached, ok := c.results[term]; ok && cached.version == snap.Version {
+		return cached.ranks
 	}
 
 	// No cached results - mark as pending and return fuzzy results
@@ -291,11 +332,13 @@ func (s *SemanticSearch) Filter(term string, targets []string) []list.Rank {
 }
 
 // ComputeSemanticResults computes semantic similarity results synchronously.
-// This should be called from an async tea.Cmd, not from Filter.
-func (s *SemanticSearch) ComputeSemanticResults(term string) []list.Rank {
+// This should be called from an async tea.Cmd, not from Filter. Returns the
+// snapshot Version captured at the start of the computation so callers can
+// reject results that landed after a snapshot change.
+func (s *SemanticSearch) ComputeSemanticResults(term string) ([]list.Rank, uint64) {
 	snap := s.Snapshot()
 	if !snap.Ready || snap.Index == nil || snap.Embedder == nil {
-		return nil
+		return nil, snap.Version
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
@@ -303,7 +346,7 @@ func (s *SemanticSearch) ComputeSemanticResults(term string) []list.Rank {
 
 	vecs, err := snap.Embedder.Embed(ctx, []string{term})
 	if err != nil || len(vecs) != 1 {
-		return nil
+		return nil, snap.Version
 	}
 	q := vecs[0]
 
@@ -417,7 +460,7 @@ func (s *SemanticSearch) ComputeSemanticResults(term string) []list.Rank {
 		out = append(out, list.Rank{Index: it.index})
 	}
 	s.SetScores(term, scoreMap)
-	return out
+	return out, snap.Version
 }
 
 // SemanticIndexReadyMsg is emitted when the semantic index build/update completes.
@@ -430,10 +473,14 @@ type SemanticIndexReadyMsg struct {
 	Error     error
 }
 
-// SemanticFilterResultMsg is emitted when async semantic filter results are ready.
+// SemanticFilterResultMsg is emitted when async semantic filter results are
+// ready. Version is the snapshot version the results were computed against;
+// the consumer rejects results whose version no longer matches the current
+// snapshot (the user changed filters mid-flight).
 type SemanticFilterResultMsg struct {
 	Term    string
 	Results []list.Rank
+	Version uint64
 }
 
 // HybridMetricsReadyMsg is emitted when hybrid metrics are ready for scoring.
@@ -445,10 +492,11 @@ type HybridMetricsReadyMsg struct {
 // ComputeSemanticFilterCmd computes semantic filter results asynchronously.
 func ComputeSemanticFilterCmd(s *SemanticSearch, term string) tea.Cmd {
 	return func() tea.Msg {
-		results := s.ComputeSemanticResults(term)
+		results, version := s.ComputeSemanticResults(term)
 		return SemanticFilterResultMsg{
 			Term:    term,
 			Results: results,
+			Version: version,
 		}
 	}
 }

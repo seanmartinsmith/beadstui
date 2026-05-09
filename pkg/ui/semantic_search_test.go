@@ -269,7 +269,7 @@ func TestSemanticSearchFilterWithValidSetup(t *testing.T) {
 	ss.SetIDs([]string{"id-1", "id-2", "id-3"})
 
 	// Use ComputeSemanticResults for synchronous computation (testing)
-	ranks := ss.ComputeSemanticResults("search query")
+	ranks, _ := ss.ComputeSemanticResults("search query")
 
 	// Should return ranked results
 	if len(ranks) == 0 {
@@ -307,7 +307,7 @@ func TestSemanticSearchFilterSortsByScore(t *testing.T) {
 	ss.SetIDs([]string{"id-a", "id-b", "id-c"})
 
 	// Use ComputeSemanticResults for synchronous computation (testing)
-	ranks := ss.ComputeSemanticResults("query")
+	ranks, _ := ss.ComputeSemanticResults("query")
 
 	if len(ranks) < 3 {
 		t.Fatalf("Expected at least 3 ranks, got %d", len(ranks))
@@ -377,7 +377,7 @@ func TestSemanticSearchFilterMissingID(t *testing.T) {
 	ss.SetIDs([]string{"id-1", "id-missing"})
 
 	// Use ComputeSemanticResults for synchronous computation (testing)
-	ranks := ss.ComputeSemanticResults("query")
+	ranks, _ := ss.ComputeSemanticResults("query")
 
 	// Should return results for both valid and missing IDs
 	// Missing IDs are assigned a low score but included
@@ -459,8 +459,8 @@ func TestSemanticSearchFilterNonBlocking(t *testing.T) {
 	}
 
 	// Now simulate async computation completing
-	results := ss.ComputeSemanticResults("query")
-	ss.SetCachedResults("query", results)
+	results, version := ss.ComputeSemanticResults("query")
+	ss.SetCachedResults("query", results, version)
 
 	// Pending should be cleared
 	if ss.GetPendingTerm() != "" {
@@ -494,8 +494,8 @@ func TestSemanticSearchCacheManagement(t *testing.T) {
 	ss.SetIDs([]string{"id-1"})
 
 	// Test SetCachedResults
-	results := ss.ComputeSemanticResults("test")
-	ss.SetCachedResults("test", results)
+	results, version := ss.ComputeSemanticResults("test")
+	ss.SetCachedResults("test", results, version)
 
 	// Check that results are cached
 	targets := []string{"a"}

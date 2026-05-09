@@ -45,7 +45,7 @@ func TestTUIHybridSearchSmoke(t *testing.T) {
 	hybrid.SetMetricsCache(cache)
 	hybrid.SetHybridConfig(true, search.PresetImpactFirst)
 
-	ranks := hybrid.ComputeSemanticResults("auth")
+	ranks, _ := hybrid.ComputeSemanticResults("auth")
 	if len(ranks) == 0 {
 		t.Fatalf("expected hybrid ranks")
 	}

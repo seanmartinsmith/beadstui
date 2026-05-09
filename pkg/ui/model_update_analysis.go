@@ -161,7 +161,14 @@ func (m Model) handleHybridMetricsReady(msg HybridMetricsReadyMsg) (Model, tea.C
 // handleSemanticFilterResult processes async semantic filter results.
 func (m Model) handleSemanticFilterResult(msg SemanticFilterResultMsg) Model {
 	if m.semanticSearch != nil && msg.Results != nil {
-		m.semanticSearch.SetCachedResults(msg.Term, msg.Results)
+		// SetCachedResults rejects results whose snapshot version is stale.
+		// If rejected, skip the SetFilterText follow-up — re-running with
+		// stale ranks would either no-op (cache miss) or re-apply old scores.
+		preVersion := m.semanticSearch.Snapshot().Version
+		m.semanticSearch.SetCachedResults(msg.Term, msg.Results, msg.Version)
+		if msg.Version != preVersion {
+			return m
+		}
 
 		currentTerm := m.list.FilterInput.Value()
 		if m.semanticSearchEnabled && currentTerm == msg.Term {
