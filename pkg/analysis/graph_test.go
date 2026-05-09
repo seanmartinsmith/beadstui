@@ -250,6 +250,68 @@ func TestGetActionableIssuesRelatedDoesntBlock(t *testing.T) {
 	}
 }
 
+// TestAnalyzeExcludesParentChildFromCentrality guards bt-kfdnl: centrality
+// measures flow (blocking) not containment (hierarchy). A parent with N
+// children connected ONLY via parent_child should have in_degree=0 in the
+// centrality graph, not in_degree=N. This prevents epic families from
+// flooding PageRank/HITS/betweenness top lists.
+func TestAnalyzeExcludesParentChildFromCentrality(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "epic", Status: model.StatusOpen},
+	}
+	for n := 0; n < 14; n++ {
+		issues = append(issues, model.Issue{
+			ID:     fmt.Sprintf("epic.%d", n),
+			Status: model.StatusOpen,
+			Dependencies: []*model.Dependency{
+				{IssueID: fmt.Sprintf("epic.%d", n), DependsOnID: "epic", Type: model.DepParentChild},
+			},
+		})
+	}
+
+	an := analysis.NewAnalyzer(issues)
+	stats := an.Analyze()
+
+	if got := stats.InDegree["epic"]; got != 0 {
+		t.Fatalf("epic in_degree = %d, want 0 (parent_child must not contribute to centrality)", got)
+	}
+	for n := 0; n < 14; n++ {
+		id := fmt.Sprintf("epic.%d", n)
+		if got := stats.OutDegree[id]; got != 0 {
+			t.Errorf("%s out_degree = %d, want 0 (parent_child must not contribute to centrality)", id, got)
+		}
+	}
+}
+
+// TestAnalyzeBlockingPreservedAfterParentChildExclusion guards that the
+// bt-kfdnl fix didn't accidentally drop blocking edges from the graph.
+// epic + 14 children where each child also has a real blocks edge to the
+// previous one should still produce in_degree on the chain.
+func TestAnalyzeBlockingPreservedAfterParentChildExclusion(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "epic", Status: model.StatusOpen},
+		{ID: "epic.0", Status: model.StatusOpen, Dependencies: []*model.Dependency{
+			{IssueID: "epic.0", DependsOnID: "epic", Type: model.DepParentChild},
+		}},
+		{ID: "epic.1", Status: model.StatusOpen, Dependencies: []*model.Dependency{
+			{IssueID: "epic.1", DependsOnID: "epic", Type: model.DepParentChild},
+			{IssueID: "epic.1", DependsOnID: "epic.0", Type: model.DepBlocks},
+		}},
+	}
+
+	an := analysis.NewAnalyzer(issues)
+	stats := an.Analyze()
+
+	// epic.0 has 1 incoming blocks edge from epic.1 → in_degree 1
+	if got := stats.InDegree["epic.0"]; got != 1 {
+		t.Fatalf("epic.0 in_degree = %d, want 1 (blocks edge from epic.1)", got)
+	}
+	// epic.1 has 1 outgoing blocks edge → out_degree 1 (parent_child excluded)
+	if got := stats.OutDegree["epic.1"]; got != 1 {
+		t.Fatalf("epic.1 out_degree = %d, want 1 (only blocks counted; parent_child excluded)", got)
+	}
+}
+
 func TestGetActionableIssuesParentChildDoesntBlock(t *testing.T) {
 	// A has "parent-child" dep on B (open)
 	// Parent-child deps don't block → A is actionable

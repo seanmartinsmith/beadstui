@@ -1278,8 +1278,14 @@ func NewAnalyzer(issues []model.Issue) *Analyzer {
 				continue
 			}
 
-			// Model blocking and parent-child relationships in the analysis graph
-			if !dep.Type.IsGraphEdge() {
+			// Centrality measures flow, not containment. Blocking edges
+			// represent flow ("X depends on Y to proceed"); parent_child
+			// represents packaging ("X is part of Y"). Mixing them
+			// inflates ranks for any parent with many .N children
+			// (bt-kfdnl). Visualization callers (pkg/ui/graph.go,
+			// pkg/export/graph_interactive.go) keep IsGraphEdge() so
+			// hierarchy still draws — only the centrality graph excludes.
+			if !dep.Type.IsBlocking() {
 				continue
 			}
 
