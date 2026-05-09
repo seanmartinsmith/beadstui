@@ -7,6 +7,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -38,12 +39,18 @@ type cachedRanks struct {
 	version uint64
 }
 
-// semanticResultCache holds cached filter results and pending state
+// semanticResultCache holds cached filter results and pending state. Capacity
+// is bounded to semanticCacheCap entries via FIFO eviction (not LRU — the
+// working set is the term currently in the search box, so eviction order
+// barely matters; FIFO is simpler than maintaining access timestamps).
 type semanticResultCache struct {
 	results     map[string]cachedRanks // term -> ranks
+	order       []string               // insertion order for FIFO eviction
 	pendingTerm string                 // term awaiting async computation
 	lastQuery   time.Time              // for debounce
 }
+
+const semanticCacheCap = 10
 
 type semanticHybridConfig struct {
 	Enabled bool
@@ -68,6 +75,12 @@ type SemanticScore struct {
 }
 
 type SemanticSearch struct {
+	// snapshotMu serializes read-modify-write on snapshot. atomic.Value is
+	// atomic per load/store but does not compose into atomic RMW: two
+	// goroutines doing Snapshot()→mutate→Store() can lose updates. Readers
+	// stay on atomic.Load (no contention on the hot Filter path); writers
+	// (SetIndex, SetIDs, SetDocs) take the mutex around the RMW sequence.
+	snapshotMu   sync.Mutex
 	snapshot     atomic.Value // semanticSearchSnapshot
 	cache        atomic.Value // *semanticResultCache
 	scores       atomic.Value // *semanticScoreCache
@@ -197,6 +210,7 @@ func (s *SemanticSearch) SetCachedResults(term string, results []list.Rank, vers
 		if c.pendingTerm == term {
 			newCache := &semanticResultCache{
 				results:     c.results,
+				order:       c.order,
 				pendingTerm: "",
 				lastQuery:   c.lastQuery,
 			}
@@ -215,20 +229,33 @@ func (s *SemanticSearch) SetCachedResults(term string, results []list.Rank, vers
 	}
 
 	newCache := &semanticResultCache{
-		results:     make(map[string]cachedRanks),
+		results:     make(map[string]cachedRanks, len(c.results)+1),
+		order:       make([]string, 0, len(c.order)+1),
 		pendingTerm: newPendingTerm,
 		lastQuery:   c.lastQuery,
 	}
-	// Copy existing cache entries (keep a small LRU-like cache)
-	for k, v := range c.results {
+	// Replay existing entries in their insertion order, skipping the term
+	// being updated (re-inserted below at the tail) and any orphans whose
+	// version no longer matches the current snapshot.
+	for _, k := range c.order {
+		if k == term {
+			continue
+		}
+		v, ok := c.results[k]
+		if !ok || v.version != currentVersion {
+			continue
+		}
 		newCache.results[k] = v
-	}
-	// Limit cache size to prevent memory bloat
-	if len(newCache.results) > 20 {
-		// Clear old entries (simple approach: clear all)
-		newCache.results = make(map[string]cachedRanks)
+		newCache.order = append(newCache.order, k)
 	}
 	newCache.results[term] = cachedRanks{ranks: results, version: version}
+	newCache.order = append(newCache.order, term)
+	// FIFO eviction: drop oldest entries past the cap.
+	for len(newCache.order) > semanticCacheCap {
+		evict := newCache.order[0]
+		newCache.order = newCache.order[1:]
+		delete(newCache.results, evict)
+	}
 	s.cache.Store(newCache)
 }
 
@@ -240,6 +267,7 @@ func (s *SemanticSearch) ClearPending() {
 	}
 	newCache := &semanticResultCache{
 		results:     c.results,
+		order:       c.order,
 		pendingTerm: "",
 		lastQuery:   c.lastQuery,
 	}
@@ -255,6 +283,8 @@ func (s *SemanticSearch) Snapshot() semanticSearchSnapshot {
 }
 
 func (s *SemanticSearch) SetIndex(idx *search.VectorIndex, embedder search.Embedder) {
+	s.snapshotMu.Lock()
+	defer s.snapshotMu.Unlock()
 	snap := s.Snapshot()
 	snap.Index = idx
 	snap.Embedder = embedder
@@ -263,6 +293,8 @@ func (s *SemanticSearch) SetIndex(idx *search.VectorIndex, embedder search.Embed
 }
 
 func (s *SemanticSearch) SetIDs(ids []string) {
+	s.snapshotMu.Lock()
+	defer s.snapshotMu.Unlock()
 	snap := s.Snapshot()
 	if !slices.Equal(snap.IDs, ids) {
 		// Items changed: bump Version so cached ranks (computed against the
@@ -276,6 +308,8 @@ func (s *SemanticSearch) SetIDs(ids []string) {
 }
 
 func (s *SemanticSearch) SetDocs(docs map[string]string) {
+	s.snapshotMu.Lock()
+	defer s.snapshotMu.Unlock()
 	snap := s.Snapshot()
 	if docs == nil {
 		snap.Docs = nil
@@ -318,16 +352,21 @@ func (s *SemanticSearch) Filter(term string, targets []string) []list.Rank {
 		return cached.ranks
 	}
 
-	// No cached results - mark as pending and return fuzzy results
-	// The async computation will be triggered by the model
+	return s.markPendingAndFallback(term, targets)
+}
+
+// markPendingAndFallback flags term for async semantic computation and returns
+// fuzzy results so the UI stays responsive. Called from both the cache-miss
+// path and after a stale-version reject — single fallback policy in one place.
+func (s *SemanticSearch) markPendingAndFallback(term string, targets []string) []list.Rank {
+	c := s.getCache()
 	newCache := &semanticResultCache{
 		results:     c.results,
+		order:       c.order,
 		pendingTerm: term,
 		lastQuery:   time.Now(),
 	}
 	s.cache.Store(newCache)
-
-	// Return fuzzy results immediately so UI stays responsive
 	return list.DefaultFilter(term, targets)
 }
 
@@ -745,8 +784,6 @@ func (m *Model) clearSemanticScores() {
 	if changed && m.list.FilterState() != list.Unfiltered {
 		prevState := m.list.FilterState()
 		currentTerm := m.list.FilterInput.Value()
-		// Reset cursor before SetFilterText to avoid panic on out-of-bounds access
-		m.list.Select(0)
 		m.list.SetFilterText(currentTerm)
 		if prevState == list.Filtering {
 			m.list.SetFilterState(list.Filtering)
