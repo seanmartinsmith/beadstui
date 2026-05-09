@@ -413,7 +413,13 @@ func TestBuildDependencyTreeInverseChildren(t *testing.T) {
 	if got := len(tree.Children); got != 14 {
 		t.Fatalf("bt-ift6 detail tree has %d children, want 14", got)
 	}
-	for _, child := range tree.Children {
+	// Natural-numeric order: .0 first, .13 last (bt-u05bo sort fix). Plain
+	// lex sort would put .10 before .2 — guard against regression.
+	for i, child := range tree.Children {
+		want := fmt.Sprintf("bt-ift6.%d", i)
+		if child.ID != want {
+			t.Errorf("inverse child[%d] = %s, want %s (natural-numeric order)", i, child.ID, want)
+		}
 		if child.Type != "child" {
 			t.Errorf("child %s has Type=%q, want %q", child.ID, child.Type, "child")
 		}

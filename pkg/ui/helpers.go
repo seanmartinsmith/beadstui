@@ -382,8 +382,9 @@ func BuildDependencyTree(rootID string, issueMap map[string]*model.Issue, maxDep
 }
 
 // buildChildrenOfMap returns parentID -> sorted slice of child IDs, derived
-// from parent_child dependency edges stored on the children. Sorted output
-// keeps detail-render order deterministic (bt-cuyiz).
+// from parent_child dependency edges stored on the children. Sorted with
+// naturalIDKey so .9 renders before .10 in the detail dep tree, matching
+// the Epic Progress block (bt-cuyiz, sort fix bt-u05bo).
 func buildChildrenOfMap(issueMap map[string]*model.Issue) map[string][]string {
 	out := make(map[string][]string)
 	for id, issue := range issueMap {
@@ -397,7 +398,9 @@ func buildChildrenOfMap(issueMap map[string]*model.Issue) map[string][]string {
 		}
 	}
 	for k := range out {
-		sort.Strings(out[k])
+		sort.Slice(out[k], func(i, j int) bool {
+			return naturalIDKey(out[k][i]) < naturalIDKey(out[k][j])
+		})
 	}
 	return out
 }
