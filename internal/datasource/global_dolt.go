@@ -182,7 +182,12 @@ func EnumerateDatabases(db *sql.DB, repoFilter string) ([]string, error) {
 		return nil, fmt.Errorf("no beads databases found on shared server")
 	}
 
-	slog.Info("global mode: discovered databases", "count", len(databases), "databases", databases)
+	// Silence the discovery log in robot mode — agents pipe stderr too, and
+	// this INFO leak was noted in bt-ah53's 2026-05-11 comment as noisy. The
+	// cobra_robot.go PreRun discards stdlib log, but slog has its own writer.
+	if os.Getenv("BT_ROBOT") != "1" {
+		slog.Info("global mode: discovered databases", "count", len(databases), "databases", databases)
+	}
 
 	return databases, nil
 }

@@ -22,7 +22,18 @@ import (
 var robotCmd = &cobra.Command{
 	Use:   "robot",
 	Short: "Machine-readable output for AI agents",
-	Long:  "All subcommands under 'bt robot' produce structured output (JSON or TOON) for consumption by AI agents and scripts.",
+	Long: `All subcommands under 'bt robot' produce structured output (JSON or TOON) for consumption by AI agents and scripts.
+
+I/O contract (bt-ah53):
+  stdout    Structured data only — a single JSON object (or TOON document with --format=toon).
+            No log lines, banners, or status text. Safe to pipe directly into jq.
+  stderr    Error messages only. Empty on the success path. Errors are prefixed "Error:".
+  exit      0 on success. Non-zero on any failure, including unknown subcommands,
+            unknown flags, missing required args, parse errors, and data-load failures.
+
+Every envelope carries a 'scope' block (mode: cross-project|project|workspace) so
+agents can confirm whether counts and issue lists are cross-project, project-local,
+or workspace-narrowed. See 'bt robot docs' for per-subcommand schemas.`,
 	// Silence cobra's default usage/error printing on RunE failures so
 	// unknown-subcommand errors land on stderr (via main()) without dumping
 	// help to stdout. Robot-mode contract is stdout=structured-data only.

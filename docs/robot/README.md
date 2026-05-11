@@ -4,6 +4,55 @@
 >
 > **CRITICAL**: bare `bt` launches an interactive TUI that blocks a session. Always use `bt robot <subcmd>`.
 
+## I/O contract (bt-ah53)
+
+Every `bt robot` subcommand guarantees:
+
+| Channel | Contract |
+|---|---|
+| `stdout` | Structured data only — a single JSON object (or TOON document with `--format=toon`). No log lines, banners, or status text. Safe to pipe directly into `jq`. |
+| `stderr` | Error messages only. Empty on the success path. Errors are prefixed `Error:`. |
+| exit code | `0` on success; non-zero on any failure (unknown subcommands, unknown flags, missing required args, parse errors, data-load failures). |
+
+This contract is enforced by `tests/e2e/robot_io_contract_test.go`, which runs every robot subcommand and asserts the three invariants plus an envelope check (see below). New robot subcommands must add an entry to that sweep at landing time.
+
+## Envelope and scope (bt-sdg2k)
+
+Every robot subcommand emits the same standard envelope:
+
+```jsonc
+{
+  "generated_at": "2026-05-11T19:08:53Z",
+  "data_hash": "1fde1a72427292ab",
+  "output_format": "json",          // or "toon"
+  "version": "0.0.1",
+  "schema": "compact.v1",           // present only when payload is a non-default projection
+  "scope": {
+    "mode": "cross-project",        // or "project" or "workspace"
+    "databases": ["bd", "bt", ...], // present only when mode=cross-project
+    "project_filter": "bt",         // present when --source or --repo applied
+    "workspace": "...",             // present when --workspace applied
+    "as_of": "<sha>"                // present when --as-of applied
+  },
+  // ... subcommand-specific payload
+}
+```
+
+The `scope` block is the authoritative answer to "what scope do these counts cover?". Agents should read `.scope.mode` rather than inferring scope from cwd or invocation flags.
+
+## Wire-format stability
+
+Output shapes follow a strict add-only rule: **fields may be added, never renamed or removed**. Wire-versioned outputs (e.g., `activity.v1`, `tail.v1`, `compact.v1`) carry a `schema` or `schema_version` field so agents can detect incompatibility on the wire.
+
+| Surface | Schema marker | Tier |
+|---|---|---|
+| `bt robot activity` | `schema: "activity.v1"` on envelope | 1 (versioned) |
+| `bt robot search` | `schema: "search.v1"` on envelope | 1 (versioned) |
+| `bt robot pairs` / `refs` | `schema: "pair.v1"` / `"ref.v1"` on envelope | 1 (versioned) |
+| `bt robot list/triage/...` compact | `schema: "compact.v1"` on envelope | 1 (versioned) |
+| `bt tail --robot-format jsonl/json` | `schema_version: "tail.v1"` on each event | 1 (versioned) |
+| `bt tail --robot-format human/compact` | n/a | 3 (human-facing, agent-discouraged) |
+
 ## Conventions
 
 **Output format**: JSON to stdout by default. Pass `--format toon` for token-optimized TOON notation (~30-50% fewer tokens). Controlled by `BT_OUTPUT_FORMAT`.
@@ -12,7 +61,7 @@
 - `compact` (schema `compact.v1`): index projection - `id`, `title`, `status`, `priority`, `type`, `labels`, relationship counts. Envelope carries `"schema": "compact.v1"`. Drill in via `bd show <id>`.
 - `full`: pre-compact shape with `description`, `design`, `acceptance_criteria`, `notes`, `comments`, `close_reason`. Envelope omits `schema` field.
 
-**Errors**: human-readable message to stderr; non-zero exit code.
+**Errors**: human-readable message to stderr, prefixed `Error:`. Non-zero exit code on any failure.
 
 **Two-phase analysis**: Phase 1 (degree, topo sort, density, k-core, articulation, slack) is instant. Phase 2 (PageRank, betweenness, HITS, eigenvector, cycles) runs async with timeouts - check `status` flags in output to see which metrics were computed vs. skipped.
 

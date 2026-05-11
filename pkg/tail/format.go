@@ -48,32 +48,40 @@ func ParseFormat(raw string) (Format, error) {
 	return 0, fmt.Errorf("unknown --robot-format %q (valid: human, jsonl, json, compact)", raw)
 }
 
+// TailWireSchema is the schema marker emitted on every bt tail JSON/JSONL
+// event so agents can detect wire-format changes. Mirrors the activity.v1
+// envelope pattern used by bt robot activity. Bump the version on any
+// rename or removal; new optional fields don't require a bump. (bt-ah53)
+const TailWireSchema = "tail.v1"
+
 // wireEvent is the stable JSON shape emitted for --robot-format json/jsonl.
 // Adding fields is backwards-compatible; renames are not. Mirrors the schema
 // documented in the bt-yhe6 bead body.
 type wireEvent struct {
-	EventID string `json:"event_id"`
-	Kind    string `json:"kind"`
-	BeadID  string `json:"bead_id"`
-	Repo    string `json:"repo"`
-	Title   string `json:"title"`
-	Summary string `json:"summary"`
-	Actor   string `json:"actor,omitempty"`
-	At      string `json:"at"`
-	Source  string `json:"source"`
+	SchemaVersion string `json:"schema_version"`
+	EventID       string `json:"event_id"`
+	Kind          string `json:"kind"`
+	BeadID        string `json:"bead_id"`
+	Repo          string `json:"repo"`
+	Title         string `json:"title"`
+	Summary       string `json:"summary"`
+	Actor         string `json:"actor,omitempty"`
+	At            string `json:"at"`
+	Source        string `json:"source"`
 }
 
 func toWire(e events.Event) wireEvent {
 	return wireEvent{
-		EventID: e.ID,
-		Kind:    e.Kind.String(),
-		BeadID:  e.BeadID,
-		Repo:    e.Repo,
-		Title:   e.Title,
-		Summary: e.Summary,
-		Actor:   e.Actor,
-		At:      e.At.UTC().Format(time.RFC3339Nano),
-		Source:  e.Source.String(),
+		SchemaVersion: TailWireSchema,
+		EventID:       e.ID,
+		Kind:          e.Kind.String(),
+		BeadID:        e.BeadID,
+		Repo:          e.Repo,
+		Title:         e.Title,
+		Summary:       e.Summary,
+		Actor:         e.Actor,
+		At:            e.At.UTC().Format(time.RFC3339Nano),
+		Source:        e.Source.String(),
 	}
 }
 
