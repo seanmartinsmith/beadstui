@@ -78,6 +78,13 @@ func runTail(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// When emitting machine-readable output, opt into the same stderr-clean
+	// contract as 'bt robot' so agent consumers get a quiet stderr. Without
+	// this, slog discovery logs leak through. (bt-ah53 dogfood)
+	if format != tail.FormatHuman {
+		_ = os.Setenv("BT_ROBOT", "1")
+	}
+
 	kinds, err := tail.ParseKinds(flagTailKinds)
 	if err != nil {
 		return err
