@@ -3,6 +3,8 @@
 > `bt`'s agent-facing API. All `bt robot <subcmd>` invocations emit deterministic JSON to stdout. Errors go to stderr. Exit codes follow standard Unix conventions (0 = success, non-zero = error).
 >
 > **CRITICAL**: bare `bt` launches an interactive TUI that blocks a session. Always use `bt robot <subcmd>`.
+>
+> **New here?** [`docs/agents.md`](../agents.md) is the agent-oriented entry point — use-case-to-surface matrix, common patterns, stability tiers. This page is the per-subcommand reference; read agents.md first if you need the toolkit-level framing.
 
 ## I/O contract (bt-ah53)
 

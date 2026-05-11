@@ -33,7 +33,11 @@ I/O contract (bt-ah53):
 
 Every envelope carries a 'scope' block (mode: cross-project|project|workspace) so
 agents can confirm whether counts and issue lists are cross-project, project-local,
-or workspace-narrowed. See 'bt robot docs' for per-subcommand schemas.`,
+or workspace-narrowed. See 'bt robot docs' for per-subcommand schemas.
+
+Agent entry point: docs/agents.md frames bt as the agent-consumption layer for
+bead data (use-case-to-surface matrix, wire stability tiers, common patterns).
+Start there if you're an agent reaching for bt for the first time.`,
 	// Silence cobra's default usage/error printing on RunE failures so
 	// unknown-subcommand errors land on stderr (via main()) without dumping
 	// help to stdout. Robot-mode contract is stdout=structured-data only.
