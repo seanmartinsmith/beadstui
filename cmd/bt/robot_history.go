@@ -10,7 +10,6 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/correlation"
 	"github.com/seanmartinsmith/beadstui/pkg/loader"
 	"github.com/seanmartinsmith/beadstui/pkg/recipe"
-	"github.com/seanmartinsmith/beadstui/pkg/version"
 )
 
 // runHistory handles --robot-history and --bead-history.
@@ -401,16 +400,16 @@ func (rc *robotCtx) runOrphans(historyLimit, orphansMinScore int) {
 		orphanReport.Stats.AvgSuspicion = float64(totalSuspicion) / float64(len(filteredCandidates))
 	}
 
-	// Wrap orphan report with standard envelope fields
+	// Wrap orphan report with standard envelope fields (bt-sdg2k: embed
+	// RobotEnvelope so scope/generated_at/data_hash flow through; previously
+	// only output_format and version were set, leaving the envelope partial).
 	type OrphanOutputEnvelope struct {
+		RobotEnvelope
 		*correlation.OrphanReport
-		OutputFormat string `json:"output_format,omitempty"`
-		Version      string `json:"version,omitempty"`
 	}
 	output := OrphanOutputEnvelope{
-		OrphanReport: orphanReport,
-		OutputFormat: robotOutputFormat,
-		Version:      version.Version,
+		RobotEnvelope: NewRobotEnvelope(rc.dataHash),
+		OrphanReport:  orphanReport,
 	}
 
 	encoder := rc.newEncoder()
@@ -736,19 +735,17 @@ func (rc *robotCtx) runRelatedWork(beadID string, relatedMinRelevance, relatedMa
 		os.Exit(1)
 	}
 
-	// Add envelope fields to output
+	// Add envelope fields to output (bt-sdg2k: embed RobotEnvelope so scope
+	// flows through; data_hash sourced from the correlator report, which is
+	// the meaningful fingerprint for this command).
 	type RelatedWorkOutput struct {
+		RobotEnvelope
 		*correlation.RelatedWorkResult
-		DataHash     string `json:"data_hash"`
-		OutputFormat string `json:"output_format,omitempty"`
-		Version      string `json:"version,omitempty"`
 	}
 
 	output := RelatedWorkOutput{
+		RobotEnvelope:     NewRobotEnvelope(report.DataHash),
 		RelatedWorkResult: result,
-		DataHash:          report.DataHash,
-		OutputFormat:      robotOutputFormat,
-		Version:           version.Version,
 	}
 
 	encoder := rc.newEncoder()
@@ -853,14 +850,12 @@ func (rc *robotCtx) runImpactNetwork(networkArg string, networkDepth, historyLim
 	result := network.ToResult(beadID, depth)
 
 	type ImpactNetworkEnvelope struct {
+		RobotEnvelope
 		*correlation.ImpactNetworkResult
-		OutputFormat string `json:"output_format,omitempty"`
-		Version      string `json:"version,omitempty"`
 	}
 	output := ImpactNetworkEnvelope{
+		RobotEnvelope:       NewRobotEnvelope(rc.dataHash),
 		ImpactNetworkResult: result,
-		OutputFormat:        robotOutputFormat,
-		Version:             version.Version,
 	}
 
 	encoder := rc.newEncoder()
@@ -930,16 +925,14 @@ func (rc *robotCtx) runCausality(beadID string, historyLimit int) {
 		os.Exit(1)
 	}
 
-	// Wrap with envelope fields
+	// Wrap with envelope fields (bt-sdg2k).
 	type CausalityEnvelope struct {
+		RobotEnvelope
 		*correlation.CausalityResult
-		OutputFormat string `json:"output_format,omitempty"`
-		Version      string `json:"version,omitempty"`
 	}
 	output := CausalityEnvelope{
+		RobotEnvelope:   NewRobotEnvelope(rc.dataHash),
 		CausalityResult: result,
-		OutputFormat:    robotOutputFormat,
-		Version:         version.Version,
 	}
 
 	encoder := rc.newEncoder()

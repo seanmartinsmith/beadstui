@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/correlation"
@@ -139,22 +138,22 @@ func (rc *robotCtx) runTriage(robotNext, robotTriageByTrack, robotTriageByLabel 
 		os.Exit(0)
 	}
 
-	// Full triage output with usage hints
+	// Full triage output with usage hints. Envelope fields flow through the
+	// embedded RobotEnvelope so scope/version/output_format are consistent
+	// with every other robot subcommand (bt-sdg2k).
 	output := struct {
-		GeneratedAt string                 `json:"generated_at"`
-		DataHash    string                 `json:"data_hash"`
-		AsOf        string                 `json:"as_of,omitempty"`        // Historical snapshot ref (e.g., HEAD~30)
-		AsOfCommit  string                 `json:"as_of_commit,omitempty"` // Resolved commit SHA
-		Triage      analysis.TriageResult  `json:"triage"`
-		Feedback    *analysis.FeedbackJSON `json:"feedback,omitempty"` // bv-90: Feedback loop state
-		UsageHints  []string               `json:"usage_hints"`        // bv-84: Agent-friendly hints
+		RobotEnvelope
+		AsOf       string                 `json:"as_of,omitempty"`        // Historical snapshot ref (e.g., HEAD~30)
+		AsOfCommit string                 `json:"as_of_commit,omitempty"` // Resolved commit SHA
+		Triage     analysis.TriageResult  `json:"triage"`
+		Feedback   *analysis.FeedbackJSON `json:"feedback,omitempty"` // bv-90: Feedback loop state
+		UsageHints []string               `json:"usage_hints"`        // bv-84: Agent-friendly hints
 	}{
-		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-		DataHash:    rc.dataHash,
-		AsOf:        asOf,
-		AsOfCommit:  asOfResolved,
-		Triage:      triage,
-		Feedback:    feedbackInfo,
+		RobotEnvelope: NewRobotEnvelope(rc.dataHash),
+		AsOf:          asOf,
+		AsOfCommit:    asOfResolved,
+		Triage:        triage,
+		Feedback:      feedbackInfo,
 		UsageHints: []string{
 			"jq '.triage.quick_ref.top_picks[:3]' - Top 3 picks for immediate work",
 			"jq '.triage.recommendations[3:10] | map({id,title,score})' - Next candidates after top picks",
@@ -201,7 +200,14 @@ func (rc *robotCtx) runSuggest(suggestType string, suggestConfidence float64, su
 		os.Exit(1)
 	}
 
-	output := analysis.GenerateRobotSuggestOutput(rc.issues, config, rc.dataHash)
+	payload := analysis.GenerateRobotSuggestOutput(rc.issues, config, rc.dataHash)
+	output := struct {
+		RobotEnvelope
+		analysis.RobotSuggestOutput
+	}{
+		RobotEnvelope:      NewRobotEnvelope(rc.dataHash),
+		RobotSuggestOutput: payload,
+	}
 
 	encoder := rc.newEncoder()
 	if err := encoder.Encode(output); err != nil {

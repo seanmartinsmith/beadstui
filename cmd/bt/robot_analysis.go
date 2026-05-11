@@ -128,8 +128,7 @@ func (rc *robotCtx) runInsights(forceFullAnalysis bool, asOf, asOfResolved, labe
 	advancedInsights := analyzer.GenerateAdvancedInsights(analysis.DefaultAdvancedInsightsConfig())
 
 	output := struct {
-		GeneratedAt    string                  `json:"generated_at"`
-		DataHash       string                  `json:"data_hash"`
+		RobotEnvelope
 		AsOf           string                  `json:"as_of,omitempty"`        // Historical snapshot ref
 		AsOfCommit     string                  `json:"as_of_commit,omitempty"` // Resolved commit SHA
 		AnalysisConfig analysis.AnalysisConfig `json:"analysis_config"`
@@ -142,8 +141,7 @@ func (rc *robotCtx) runInsights(forceFullAnalysis bool, asOf, asOfResolved, labe
 		AdvancedInsights *analysis.AdvancedInsights `json:"advanced_insights,omitempty"` // bv-181: Canonical advanced features
 		UsageHints       []string                   `json:"usage_hints"`                 // bv-84: Agent-friendly hints
 	}{
-		GeneratedAt:      time.Now().UTC().Format(time.RFC3339),
-		DataHash:         rc.dataHash,
+		RobotEnvelope:    NewRobotEnvelope(rc.dataHash),
 		AsOf:             asOf,
 		AsOfCommit:       asOfResolved,
 		AnalysisConfig:   stats.Config,
@@ -209,8 +207,7 @@ func (rc *robotCtx) runPlan(forceFullAnalysis bool, asOf, asOfResolved, labelSco
 
 	// Wrap with metadata
 	output := struct {
-		GeneratedAt    string                  `json:"generated_at"`
-		DataHash       string                  `json:"data_hash"`
+		RobotEnvelope
 		AsOf           string                  `json:"as_of,omitempty"`        // Historical snapshot ref
 		AsOfCommit     string                  `json:"as_of_commit,omitempty"` // Resolved commit SHA
 		AnalysisConfig analysis.AnalysisConfig `json:"analysis_config"`
@@ -220,8 +217,7 @@ func (rc *robotCtx) runPlan(forceFullAnalysis bool, asOf, asOfResolved, labelSco
 		Plan           analysis.ExecutionPlan  `json:"plan"`
 		UsageHints     []string                `json:"usage_hints"` // bv-84: Agent-friendly hints
 	}{
-		GeneratedAt:    time.Now().UTC().Format(time.RFC3339),
-		DataHash:       rc.dataHash,
+		RobotEnvelope:  NewRobotEnvelope(rc.dataHash),
 		AsOf:           asOf,
 		AsOfCommit:     asOfResolved,
 		AnalysisConfig: cfg,
@@ -322,8 +318,7 @@ func (rc *robotCtx) runPriority(forceFullAnalysis bool, asOf, asOfResolved, labe
 
 	// Build output with summary
 	output := struct {
-		GeneratedAt       string                                    `json:"generated_at"`
-		DataHash          string                                    `json:"data_hash"`
+		RobotEnvelope
 		AsOf              string                                    `json:"as_of,omitempty"`        // Historical snapshot ref
 		AsOfCommit        string                                    `json:"as_of_commit,omitempty"` // Resolved commit SHA
 		AnalysisConfig    analysis.AnalysisConfig                   `json:"analysis_config"`
@@ -345,8 +340,7 @@ func (rc *robotCtx) runPriority(forceFullAnalysis bool, asOf, asOfResolved, labe
 		} `json:"summary"`
 		Usage []string `json:"usage_hints"` // bv-84: Agent-friendly hints
 	}{
-		GeneratedAt:       time.Now().UTC().Format(time.RFC3339),
-		DataHash:          rc.dataHash,
+		RobotEnvelope:     NewRobotEnvelope(rc.dataHash),
 		AsOf:              asOf,
 		AsOfCommit:        asOfResolved,
 		AnalysisConfig:    cfg,

@@ -470,16 +470,8 @@ func TestGenerateRobotSuggestOutput_Structure(t *testing.T) {
 
 	output := GenerateRobotSuggestOutput(issues, config, "robot-hash")
 
-	// Verify structure
-	if output.DataHash != "robot-hash" {
-		t.Errorf("DataHash: got %q, want %q", output.DataHash, "robot-hash")
-	}
-
-	// GeneratedAt should be valid RFC3339
-	_, err := time.Parse(time.RFC3339, output.GeneratedAt)
-	if err != nil {
-		t.Errorf("GeneratedAt not valid RFC3339: %v", err)
-	}
+	// Envelope fields (generated_at, data_hash) live on cmd/bt's RobotEnvelope
+	// since bt-sdg2k; the payload itself is envelope-agnostic.
 
 	// Filters should reflect config
 	if output.Filters.Type != string(SuggestionLabelSuggestion) {

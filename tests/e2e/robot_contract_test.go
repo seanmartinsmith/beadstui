@@ -496,13 +496,18 @@ func TestRobotNextContractActionable(t *testing.T) {
 // TestRobotEnvelopeConsistency verifies all robot commands include the
 // four standard envelope fields: generated_at, data_hash, output_format, version.
 // This is the acceptance test for bd-x1tm.
+//
+// bt-sdg2k extends this to assert the new envelope.scope block: every robot
+// subcommand must emit scope.mode set to one of cross-project|project|workspace.
+// In this test the project fixture is local-mode-only, so scope.mode must be
+// "project" and scope.databases must be absent.
 func TestRobotEnvelopeConsistency(t *testing.T) {
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"A","title":"Root","status":"open","priority":1,"issue_type":"task","labels":["api"]}
 {"id":"B","title":"Blocked","status":"open","priority":2,"issue_type":"task","labels":["web"],"dependencies":[{"issue_id":"B","depends_on_id":"A","type":"blocks"}]}`)
 
-	// Commands that produce JSON with the standard envelope
+	// Commands that produce JSON with the standard envelope.
 	commands := []struct {
 		flag string
 		name string
@@ -531,7 +536,38 @@ func TestRobotEnvelopeConsistency(t *testing.T) {
 					t.Fatalf("%s %s is empty", tc.flag, field)
 				}
 			}
+
+			assertEnvelopeScope(t, tc.flag, payload, "project")
 		})
+	}
+}
+
+// assertEnvelopeScope checks that envelope.scope.mode is the expected value
+// and that scope-specific invariants hold. (bt-sdg2k)
+func assertEnvelopeScope(t *testing.T, label string, payload map[string]any, wantMode string) {
+	t.Helper()
+	rawScope, ok := payload["scope"]
+	if !ok {
+		t.Fatalf("%s missing envelope.scope", label)
+	}
+	scope, ok := rawScope.(map[string]any)
+	if !ok {
+		t.Fatalf("%s envelope.scope is not an object: %T", label, rawScope)
+	}
+	mode, _ := scope["mode"].(string)
+	if mode != wantMode {
+		t.Fatalf("%s envelope.scope.mode = %q, want %q", label, mode, wantMode)
+	}
+	switch wantMode {
+	case "cross-project":
+		dbs, ok := scope["databases"].([]any)
+		if !ok || len(dbs) == 0 {
+			t.Fatalf("%s envelope.scope.databases must be a non-empty array when mode=cross-project (got %v)", label, scope["databases"])
+		}
+	case "project", "workspace":
+		if _, has := scope["databases"]; has {
+			t.Fatalf("%s envelope.scope.databases must be omitted when mode=%s", label, wantMode)
+		}
 	}
 }
 

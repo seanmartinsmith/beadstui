@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -11,6 +12,8 @@ import (
 
 	toon "github.com/Dicklesworthstone/toon-go"
 
+	"github.com/seanmartinsmith/beadstui/internal/datasource"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/version"
 )
 
@@ -33,6 +36,28 @@ type RobotEnvelope struct {
 	// (strict|verb|permissive). Omitted on the wire for all other schemas
 	// so existing envelope goldens stay byte-identical.
 	SigilMode string `json:"sigil_mode,omitempty"`
+	// Scope describes which databases/projects the counts and issue lists in
+	// the payload cover. Populated automatically from the resolved data source
+	// and flag set so every robot subcommand emits the same shape. (bt-sdg2k)
+	Scope *RobotScope `json:"scope,omitempty"`
+}
+
+// RobotScope captures the effective data-source scope for a robot invocation.
+// Agents read this to know whether counts and issue lists are cross-project,
+// project-local, or workspace-narrowed without re-deriving from cwd. (bt-sdg2k)
+type RobotScope struct {
+	// Mode is one of "cross-project", "project", "workspace".
+	Mode string `json:"mode"`
+	// Databases lists project prefixes contributing to the payload. Populated
+	// only when Mode == "cross-project" (derived from observed issue IDs).
+	Databases []string `json:"databases,omitempty"`
+	// ProjectFilter echoes --source/--repo when set so consumers can confirm
+	// the active narrowing.
+	ProjectFilter string `json:"project_filter,omitempty"`
+	// Workspace echoes the --workspace config path when set.
+	Workspace string `json:"workspace,omitempty"`
+	// AsOf echoes the resolved commit SHA when --as-of is in effect.
+	AsOf string `json:"as_of,omitempty"`
 }
 
 // NewRobotEnvelope creates a standard envelope for robot output.
@@ -42,7 +67,68 @@ func NewRobotEnvelope(dataHash string) RobotEnvelope {
 		DataHash:     dataHash,
 		OutputFormat: robotOutputFormat,
 		Version:      version.Version,
+		Scope:        currentRobotScope(),
 	}
+}
+
+// currentRobotScope inspects the resolved data source and active flag set to
+// produce the envelope scope block. Returns nil only when the data source
+// hasn't been resolved yet (commands that emit envelopes pre-load are rare;
+// nil is preferable to a misleading "project" claim in that case). (bt-sdg2k)
+func currentRobotScope() *RobotScope {
+	scope := &RobotScope{}
+
+	switch {
+	case flagWorkspace != "":
+		scope.Mode = "workspace"
+		scope.Workspace = flagWorkspace
+	case appCtx.selectedSource != nil && appCtx.selectedSource.Type == datasource.SourceTypeDoltGlobal:
+		scope.Mode = "cross-project"
+		scope.Databases = derivePrefixesFromIssues(appCtx.issues)
+	default:
+		scope.Mode = "project"
+	}
+
+	switch {
+	case robotFlagSource != "":
+		scope.ProjectFilter = robotFlagSource
+	case flagRepo != "":
+		scope.ProjectFilter = flagRepo
+	}
+
+	if appCtx.asOfResolved != "" {
+		scope.AsOf = appCtx.asOfResolved
+	}
+
+	return scope
+}
+
+// derivePrefixesFromIssues returns the sorted unique set of ID prefixes seen
+// in issues. Matches what the consumer's payload actually contains; a project
+// with zero open issues will not appear, which is the correct semantic for
+// "what scope do these counts cover". (bt-sdg2k)
+func derivePrefixesFromIssues(issues []model.Issue) []string {
+	if len(issues) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, 16)
+	for i := range issues {
+		id := issues[i].ID
+		dash := strings.IndexByte(id, '-')
+		if dash <= 0 {
+			continue
+		}
+		seen[id[:dash]] = struct{}{}
+	}
+	if len(seen) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(seen))
+	for p := range seen {
+		out = append(out, p)
+	}
+	sort.Strings(out)
+	return out
 }
 
 type robotEncoder interface {

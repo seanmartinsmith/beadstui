@@ -2,7 +2,6 @@ package analysis
 
 import (
 	"sort"
-	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
@@ -121,13 +120,14 @@ func GenerateAllSuggestions(issues []model.Issue, config SuggestAllConfig, dataH
 	return NewSuggestionSet(filtered, dataHash)
 }
 
-// RobotSuggestOutput is the JSON output structure for --robot-suggest
+// RobotSuggestOutput is the JSON payload produced by --robot-suggest. The
+// surrounding envelope (generated_at, data_hash, scope, version) is added by
+// the cmd/bt binary; pkg/analysis stays envelope-agnostic so the same
+// payload can be wrapped consistently with other robot subcommands. (bt-sdg2k)
 type RobotSuggestOutput struct {
-	GeneratedAt string        `json:"generated_at"`
-	DataHash    string        `json:"data_hash"`
-	Filters     SuggestFilter `json:"filters"`
-	Set         SuggestionSet `json:"suggestions"`
-	UsageHints  []string      `json:"usage_hints"`
+	Filters    SuggestFilter `json:"filters"`
+	Set        SuggestionSet `json:"suggestions"`
+	UsageHints []string      `json:"usage_hints"`
 }
 
 // SuggestFilter describes applied filters
@@ -137,13 +137,14 @@ type SuggestFilter struct {
 	BeadID        string  `json:"bead_id,omitempty"`
 }
 
-// GenerateRobotSuggestOutput creates the full robot-suggest output
+// GenerateRobotSuggestOutput creates the suggestion payload for --robot-suggest.
+// dataHash is forwarded to GenerateAllSuggestions for the SuggestionSet (which
+// embeds it for cross-suggestion grouping); the envelope's data_hash is set
+// separately at the binary layer. (bt-sdg2k)
 func GenerateRobotSuggestOutput(issues []model.Issue, config SuggestAllConfig, dataHash string) RobotSuggestOutput {
 	set := GenerateAllSuggestions(issues, config, dataHash)
 
 	return RobotSuggestOutput{
-		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-		DataHash:    dataHash,
 		Filters: SuggestFilter{
 			Type:          string(config.FilterType),
 			MinConfidence: config.MinConfidence,
