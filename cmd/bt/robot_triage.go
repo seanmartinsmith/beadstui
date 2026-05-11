@@ -219,7 +219,13 @@ func (rc *robotCtx) runSuggest(suggestType string, suggestConfidence float64, su
 
 // runMetrics handles --robot-metrics (bv-84tp).
 func (rc *robotCtx) runMetrics() {
-	output := metrics.GetAllMetrics()
+	output := struct {
+		RobotEnvelope
+		metrics.MetricsOutput
+	}{
+		RobotEnvelope: NewRobotEnvelope(rc.dataHash),
+		MetricsOutput: metrics.GetAllMetrics(),
+	}
 	encoder := rc.newEncoder()
 	if err := encoder.Encode(output); err != nil {
 		fmt.Fprintf(os.Stderr, "Error encoding metrics: %v\n", err)

@@ -105,7 +105,7 @@ func TestRobotIOContractSweep(t *testing.T) {
 {"id":"bt-C","title":"Leaf","status":"open","priority":3,"issue_type":"task","labels":["web"],"dependencies":[{"issue_id":"bt-C","depends_on_id":"bt-B","type":"blocks"}]}`)
 
 	cases := []robotContractCase{
-		// Subcommands with full RobotEnvelope coverage (bt-sdg2k).
+		// Subcommands with full RobotEnvelope coverage (bt-sdg2k, bt-govlj).
 		{name: "triage", args: []string{"robot", "triage"}},
 		{name: "next", args: []string{"robot", "next"}},
 		{name: "plan", args: []string{"robot", "plan"}},
@@ -115,24 +115,19 @@ func TestRobotIOContractSweep(t *testing.T) {
 		{name: "alerts", args: []string{"robot", "alerts"}},
 		{name: "list", args: []string{"robot", "list", "--limit=2"}},
 		{name: "bql", args: []string{"robot", "bql", "--query=status = open"}},
-
-		// Subcommands that wrap correlator/analysis payloads directly. These
-		// emit valid JSON and clean stderr but the envelope shape is not
-		// RobotEnvelope-derived yet. Tracked for follow-up.
-		{
-			name:          "metrics",
-			args:          []string{"robot", "metrics"},
-			skipEnvelope:  true,
-			skipEnvReason: "emits metrics map without RobotEnvelope; follow-up bead",
-		},
+		{name: "metrics", args: []string{"robot", "metrics"}},
+		{name: "labels-health", args: []string{"robot", "labels", "health"}},
+		{name: "labels-flow", args: []string{"robot", "labels", "flow"}},
+		{name: "labels-attention", args: []string{"robot", "labels", "attention"}},
 
 		// Subcommands that require state not present in a bare fixture (no
-		// baseline saved, no git history) are excluded from the sweep — they
-		// fail on the data precondition, not on the I/O contract. They have
-		// their own dedicated tests elsewhere.
+		// baseline saved, no git history of .beads/beads.jsonl) are excluded
+		// from the sweep — they fail on the data precondition, not on the
+		// I/O contract. They have their own dedicated tests where state
+		// fixtures are set up.
 		// - drift: requires a baseline saved via 'bt baseline save'
-		// - history/correlation/*: require git history of beads.jsonl
-		// - sprint/labels/files: have dedicated contract tests
+		// - history/correlation/* / files: require git history of beads.jsonl
+		// - sprint/burndown/forecast/capacity: require sprint definitions
 	}
 
 	for _, tc := range cases {

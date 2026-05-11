@@ -14,14 +14,12 @@ func (rc *robotCtx) runLabelHealth() {
 	results := analysis.ComputeAllLabelHealth(rc.issues, cfg, time.Now().UTC(), nil)
 
 	output := struct {
-		GeneratedAt    string                       `json:"generated_at"`
-		DataHash       string                       `json:"data_hash"`
+		RobotEnvelope
 		AnalysisConfig analysis.LabelHealthConfig   `json:"analysis_config"`
 		Results        analysis.LabelAnalysisResult `json:"results"`
 		UsageHints     []string                     `json:"usage_hints"`
 	}{
-		GeneratedAt:    time.Now().UTC().Format(time.RFC3339),
-		DataHash:       rc.dataHash,
+		RobotEnvelope:  NewRobotEnvelope(rc.dataHash),
 		AnalysisConfig: cfg,
 		Results:        results,
 		UsageHints: []string{
@@ -44,16 +42,14 @@ func (rc *robotCtx) runLabelFlow() {
 	cfg := analysis.DefaultLabelHealthConfig()
 	flow := analysis.ComputeCrossLabelFlow(rc.issues, cfg)
 	output := struct {
-		GeneratedAt string                     `json:"generated_at"`
-		DataHash    string                     `json:"data_hash"`
-		Flow        analysis.CrossLabelFlow    `json:"flow"`
-		Config      analysis.LabelHealthConfig `json:"analysis_config"`
-		UsageHints  []string                   `json:"usage_hints"`
+		RobotEnvelope
+		Flow       analysis.CrossLabelFlow    `json:"flow"`
+		Config     analysis.LabelHealthConfig `json:"analysis_config"`
+		UsageHints []string                   `json:"usage_hints"`
 	}{
-		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-		DataHash:    rc.dataHash,
-		Flow:        flow,
-		Config:      cfg,
+		RobotEnvelope: NewRobotEnvelope(rc.dataHash),
+		Flow:          flow,
+		Config:        cfg,
 		UsageHints: []string{
 			"jq '.flow.bottleneck_labels' - labels blocking the most others",
 			"jq '.flow.dependencies[] | select(.issue_count > 0) | {from:.from_label,to:.to_label,count:.issue_count}'",
@@ -84,10 +80,9 @@ func (rc *robotCtx) runLabelAttention(attentionLimit int) {
 
 	// Build limited output
 	type AttentionOutput struct {
-		GeneratedAt string `json:"generated_at"`
-		DataHash    string `json:"data_hash"`
-		Limit       int    `json:"limit"`
-		TotalLabels int    `json:"total_labels"`
+		RobotEnvelope
+		Limit       int `json:"limit"`
+		TotalLabels int `json:"total_labels"`
 		Labels      []struct {
 			Rank            int     `json:"rank"`
 			Label           string  `json:"label"`
@@ -104,10 +99,9 @@ func (rc *robotCtx) runLabelAttention(attentionLimit int) {
 	}
 
 	output := AttentionOutput{
-		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-		DataHash:    rc.dataHash,
-		Limit:       limit,
-		TotalLabels: result.TotalLabels,
+		RobotEnvelope: NewRobotEnvelope(rc.dataHash),
+		Limit:         limit,
+		TotalLabels:   result.TotalLabels,
 		UsageHints: []string{
 			"jq '.labels[0]' - top attention label details",
 			"jq '.labels[] | select(.blocked_count > 0)' - labels with blocked issues",

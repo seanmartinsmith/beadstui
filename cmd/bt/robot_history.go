@@ -10,6 +10,7 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/correlation"
 	"github.com/seanmartinsmith/beadstui/pkg/loader"
 	"github.com/seanmartinsmith/beadstui/pkg/recipe"
+	"github.com/seanmartinsmith/beadstui/pkg/version"
 )
 
 // runHistory handles --robot-history and --bead-history.
@@ -96,9 +97,24 @@ func (rc *robotCtx) runHistory(beadHistory, historySince string, historyLimit in
 		}
 	}
 
-	// Output JSON
+	// Output JSON. HistoryReport already carries generated_at and data_hash,
+	// so we extend it with the envelope-only fields (scope/version/
+	// output_format) rather than embedding RobotEnvelope (which would
+	// duplicate JSON keys). (bt-govlj)
+	output := struct {
+		*correlation.HistoryReport
+		Version      string      `json:"version,omitempty"`
+		OutputFormat string      `json:"output_format,omitempty"`
+		Schema       string      `json:"schema,omitempty"`
+		Scope        *RobotScope `json:"scope,omitempty"`
+	}{
+		HistoryReport: report,
+		Version:       version.Version,
+		OutputFormat:  robotOutputFormat,
+		Scope:         currentRobotScope(),
+	}
 	encoder := rc.newEncoder()
-	if err := encoder.Encode(report); err != nil {
+	if err := encoder.Encode(output); err != nil {
 		fmt.Fprintf(os.Stderr, "Error encoding history report: %v\n", err)
 		os.Exit(1)
 	}
@@ -123,8 +139,15 @@ func (rc *robotCtx) runCorrelationAudit(explainArg, confirmArg, rejectArg string
 	// Handle --robot-correlation-stats
 	if showStats {
 		stats := feedbackStore.GetStats()
+		output := struct {
+			RobotEnvelope
+			Stats correlation.FeedbackStats `json:"stats"`
+		}{
+			RobotEnvelope: NewRobotEnvelope(rc.dataHash),
+			Stats:         stats,
+		}
 		encoder := rc.newEncoder()
-		if err := encoder.Encode(stats); err != nil {
+		if err := encoder.Encode(output); err != nil {
 			fmt.Fprintf(os.Stderr, "Error encoding stats: %v\n", err)
 			os.Exit(1)
 		}
@@ -206,8 +229,15 @@ func (rc *robotCtx) runCorrelationAudit(explainArg, confirmArg, rejectArg string
 			explanation.Recommendation = fmt.Sprintf("Already has feedback: %s", fb.Type)
 		}
 
+		output := struct {
+			RobotEnvelope
+			correlation.CorrelationExplanation
+		}{
+			RobotEnvelope:          NewRobotEnvelope(rc.dataHash),
+			CorrelationExplanation: explanation,
+		}
 		encoder := rc.newEncoder()
-		if err := encoder.Encode(explanation); err != nil {
+		if err := encoder.Encode(output); err != nil {
 			fmt.Fprintf(os.Stderr, "Error encoding explanation: %v\n", err)
 			os.Exit(1)
 		}
@@ -268,16 +298,25 @@ func (rc *robotCtx) runCorrelationAudit(explainArg, confirmArg, rejectArg string
 			os.Exit(1)
 		}
 
-		result := map[string]interface{}{
-			"status":    "confirmed",
-			"commit":    commitSHA,
-			"bead":      beadID,
-			"by":        by,
-			"reason":    feedbackReason,
-			"orig_conf": originalConf,
+		output := struct {
+			RobotEnvelope
+			Status   string  `json:"status"`
+			Commit   string  `json:"commit"`
+			Bead     string  `json:"bead"`
+			By       string  `json:"by"`
+			Reason   string  `json:"reason"`
+			OrigConf float64 `json:"orig_conf"`
+		}{
+			RobotEnvelope: NewRobotEnvelope(rc.dataHash),
+			Status:        "confirmed",
+			Commit:        commitSHA,
+			Bead:          beadID,
+			By:            by,
+			Reason:        feedbackReason,
+			OrigConf:      originalConf,
 		}
 		encoder := rc.newEncoder()
-		if err := encoder.Encode(result); err != nil {
+		if err := encoder.Encode(output); err != nil {
 			fmt.Fprintf(os.Stderr, "Error encoding result: %v\n", err)
 			os.Exit(1)
 		}
@@ -305,16 +344,25 @@ func (rc *robotCtx) runCorrelationAudit(explainArg, confirmArg, rejectArg string
 			os.Exit(1)
 		}
 
-		result := map[string]interface{}{
-			"status":    "rejected",
-			"commit":    commitSHA,
-			"bead":      beadID,
-			"by":        by,
-			"reason":    feedbackReason,
-			"orig_conf": originalConf,
+		output := struct {
+			RobotEnvelope
+			Status   string  `json:"status"`
+			Commit   string  `json:"commit"`
+			Bead     string  `json:"bead"`
+			By       string  `json:"by"`
+			Reason   string  `json:"reason"`
+			OrigConf float64 `json:"orig_conf"`
+		}{
+			RobotEnvelope: NewRobotEnvelope(rc.dataHash),
+			Status:        "rejected",
+			Commit:        commitSHA,
+			Bead:          beadID,
+			By:            by,
+			Reason:        feedbackReason,
+			OrigConf:      originalConf,
 		}
 		encoder := rc.newEncoder()
-		if err := encoder.Encode(result); err != nil {
+		if err := encoder.Encode(output); err != nil {
 			fmt.Fprintf(os.Stderr, "Error encoding result: %v\n", err)
 			os.Exit(1)
 		}
