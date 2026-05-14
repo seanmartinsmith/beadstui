@@ -89,7 +89,7 @@ bt robot triage --shape compact         # what's actionable, blockers, project h
 bt robot --help                         # full subcommand list with per-command help
 ```
 
-Both inherit the cross-project default. `bt robot triage --source <prefix>` narrows when the agent's work is project-scoped.
+Both inherit the cross-project default when bt auto-discovers a running shared Dolt server (via `~/.beads/shared-server/dolt-server.port`) or when invoked outside any beads project. From inside a project cwd with no shared server running, scope narrows to that project. Pass `--global` to force the cross-project view explicitly. See the README Quick start for the bd-mode matrix; deeper treatment is tracked under bt-gm6ur. `bt robot triage --source <prefix>` narrows further when the agent's work is single-project-scoped.
 
 ### Following a single bead
 

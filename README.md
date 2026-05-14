@@ -43,7 +43,15 @@ cd your-project    # any directory with beads initialized
 bt                 # launches the TUI
 ```
 
-`bt` auto-starts a Dolt server if one isn't running, connects over MySQL protocol, and polls for changes. When you exit, it shuts down the server if it started one.
+bt needs a Dolt server it can talk to over the MySQL protocol. How it finds one depends on your bd setup:
+
+| Your bd setup | What bt does |
+|---|---|
+| Default (embedded - bd spawns a Dolt per command) | bt starts a per-session Dolt server for the project, stops it on exit. |
+| You ran `bd dolt start` (one shared server, N project DBs) | bt auto-discovers it via the port file and connects - no new server. |
+| You want a cross-project view | `bt --global` queries the `beads_global` aggregate database on the shared server. |
+
+**Caveat (tracked: bt-gm6ur):** in embedded mode, a `bd` command run from another shell *during* a bt session may collide with bt's auto-started server. Either use a shared server (`bd dolt start`) or run bd commands before/after bt, not during.
 
 ## Views
 
@@ -77,7 +85,7 @@ type = bug or label ~ backend
 
 Supports `=`, `!=`, `<`, `>`, `~` (substring), `in`, `not in`, `and`/`or`/`not`, parentheses, relative dates (`-7d`, `-3m`, `today`), `order by`, and `expand` for dependency traversal. Full reference: [`docs/bql.md`](docs/bql.md).
 
-**Dolt lifecycle management** - Auto-starts and stops the Dolt server. Freshness monitoring with configurable stale thresholds. Auto-reconnect on connection loss.
+**Dolt lifecycle management** - Auto-starts and stops a per-session Dolt server when no shared server is reachable; defers to `bd dolt start` when one is running. Freshness monitoring with configurable stale thresholds. Auto-reconnect on connection loss.
 
 **Theme system** - Ships with Tomorrow Night (dark) and Tomorrow Day (light). Fully customizable via YAML - user-level (`~/.config/bt/theme.yaml`) or project-level (`.bt/theme.yaml`).
 
