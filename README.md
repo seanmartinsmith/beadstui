@@ -36,6 +36,28 @@ cd beadstui
 go build ./cmd/bt/
 ```
 
+## Prerequisites: bd shared-server mode
+
+bt queries a single shared Dolt server at `~/.beads/shared-server/` and enumerates projects from the `beads_global` aggregate database on that server. Projects using bd's default embedded mode store their data inside the project's own `.beads/embeddeddolt/` directory - that data is invisible to bt because it never touches the shared server.
+
+**Any project you want bt to see must have shared-server mode enabled.**
+
+For a new project:
+
+```bash
+bd init --shared-server
+```
+
+For an existing project already initialized in embedded mode:
+
+```bash
+bd config set dolt.shared-server true
+```
+
+After switching, run `bd dolt start` once to migrate the project onto the shared server. See [bd's docs/DOLT.md - Shared-Server Mode](https://github.com/gastownhall/beads/blob/main/docs/DOLT.md#shared-server-mode) for the full migration walkthrough and background on the two modes.
+
+> **Note:** If you run bt and some of your beads projects are missing, this is the most likely cause. bt will show only the projects whose databases are registered on the shared server.
+
 ## Quick start
 
 ```bash
