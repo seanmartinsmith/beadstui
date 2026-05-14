@@ -23,8 +23,6 @@ func tutorialColorOpen() color.Color       { return ColorStatusOpen }
 func tutorialColorInProgress() color.Color { return ColorStatusInProgress }
 func tutorialColorBlocked() color.Color    { return ColorStatusBlocked }
 func tutorialColorClosed() color.Color     { return ColorStatusClosed }
-func tutorialColorPrimary() color.Color    { return ColorPrimary }
-func tutorialColorFeature() color.Color    { return ColorTypeFeature }
 
 // structuredTutorialPages returns tutorial content using the component system
 func structuredTutorialPages() []StructuredTutorialPage {

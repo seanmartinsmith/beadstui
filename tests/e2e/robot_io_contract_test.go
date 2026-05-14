@@ -72,18 +72,6 @@ func assertStderrClean(t *testing.T, label string, stderr []byte) {
 	}
 }
 
-// assertEnvelopeProject parses stdout as JSON, asserts the envelope.scope.mode
-// is "project", and returns the parsed map for further inspection. (bt-ah53)
-func assertEnvelopeProject(t *testing.T, label string, stdout []byte) map[string]any {
-	t.Helper()
-	var payload map[string]any
-	if err := json.Unmarshal(stdout, &payload); err != nil {
-		t.Fatalf("%s stdout is not valid JSON: %v\nout: %s", label, err, string(stdout))
-	}
-	assertEnvelopeScope(t, label, payload, "project")
-	return payload
-}
-
 // robotContractCase describes one subcommand invocation under the sweep.
 type robotContractCase struct {
 	name           string   // subtest label

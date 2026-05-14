@@ -138,9 +138,6 @@ const (
 	TabNotifications
 )
 
-// modalActive returns true when any modal overlay is open.
-func (m Model) modalActive() bool { return m.activeModal != ModalNone }
-
 // bodyWidth returns the width available to the main content area, reserving
 // space for the shortcuts sidebar when it is visible (bt-lin9). Modals,
 // footer, and other full-terminal surfaces should keep using m.width directly.

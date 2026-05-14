@@ -2139,20 +2139,6 @@ Navigate to a metric panel and select an item to view its details here.
 	})
 }
 
-// formatMetricValue formats a metric value nicely
-func formatMetricValue(v float64) string {
-	if v >= 100 {
-		return fmt.Sprintf("%.0f", v)
-	} else if v >= 1.0 {
-		return fmt.Sprintf("%.2f", v)
-	} else if v >= 0.01 {
-		return fmt.Sprintf("%.3f", v)
-	} else if v > 0 {
-		return fmt.Sprintf("%.2e", v)
-	}
-	return "0"
-}
-
 // Helper type for scored items
 type scoredItem struct {
 	id    string
@@ -2203,37 +2189,6 @@ func (m *InsightsModel) findDependencies(targetID string) []string {
 		deps = append(deps, dep.DependsOnID)
 	}
 	return deps
-}
-
-// findNeighborsWithScores returns neighbors with their metric scores, sorted by score
-func (m *InsightsModel) findNeighborsWithScores(targetID string, scores map[string]float64) []scoredItem {
-	var items []scoredItem
-	seen := make(map[string]bool)
-
-	// Add dependents
-	for _, id := range m.findDependents(targetID) {
-		if !seen[id] {
-			seen[id] = true
-			items = append(items, scoredItem{id: id, score: scores[id]})
-		}
-	}
-	// Add dependencies (avoid duplicates from cycles)
-	for _, id := range m.findDependencies(targetID) {
-		if !seen[id] {
-			seen[id] = true
-			items = append(items, scoredItem{id: id, score: scores[id]})
-		}
-	}
-
-	// Sort by score descending
-	for i := 0; i < len(items)-1; i++ {
-		for j := i + 1; j < len(items); j++ {
-			if items[j].score > items[i].score {
-				items[i], items[j] = items[j], items[i]
-			}
-		}
-	}
-	return items
 }
 
 // findDependenciesWithScores returns dependencies with their metric scores
@@ -2305,39 +2260,4 @@ func (m *InsightsModel) buildImpactChain(startID string, maxDepth int) []string 
 		current = bestDep
 	}
 	return chain
-}
-
-// wrapText wraps text to fit within maxWidth
-func wrapText(s string, maxWidth int) string {
-	if maxWidth <= 0 {
-		return s
-	}
-	words := strings.Fields(s)
-	if len(words) == 0 {
-		return ""
-	}
-
-	var lines []string
-	var currentLine strings.Builder
-	currentLen := 0
-
-	for _, word := range words {
-		wordLen := len([]rune(word))
-		if currentLen+wordLen+1 > maxWidth && currentLen > 0 {
-			lines = append(lines, currentLine.String())
-			currentLine.Reset()
-			currentLen = 0
-		}
-		if currentLen > 0 {
-			currentLine.WriteString(" ")
-			currentLen++
-		}
-		currentLine.WriteString(word)
-		currentLen += wordLen
-	}
-	if currentLen > 0 {
-		lines = append(lines, currentLine.String())
-	}
-
-	return strings.Join(lines, "\n")
 }

@@ -22,11 +22,6 @@ type appContext struct {
 	asOfResolved string  // resolved commit SHA when --as-of is used
 	loadDuration float64 // seconds
 
-	// Common flags
-	globalMode bool
-	repoFilter string
-	quiet      bool
-	verbose    bool
 }
 
 // appCtx is the package-level shared context populated during PersistentPreRunE.

@@ -16,7 +16,7 @@ const (
 
 // Package-level state resolved by resolveRobotOutputShape at robotCmd's
 // PersistentPreRunE. Any subcommand that projects []model.Issue consults
-// robotOutputShape directly via robotCtx.projectIssues.
+// robotOutputShape and view.CompactAll directly.
 var (
 	robotOutputShape = robotShapeCompact
 

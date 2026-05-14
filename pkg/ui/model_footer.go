@@ -15,21 +15,6 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
-// setTransientStatus sets a status message that auto-clears after the given duration.
-// Renders as a full-width banner that replaces the footer (use for errors or important
-// user-initiated confirmations). Background notifications should use setInlineTransientStatus.
-func (m *Model) setTransientStatus(msg string, d time.Duration) tea.Cmd {
-	m.statusMsg = msg
-	m.statusIsError = false
-	m.statusIsInline = false
-	m.statusSetAt = time.Now()
-	m.statusSeq++
-	seq := m.statusSeq
-	return tea.Tick(d, func(time.Time) tea.Msg {
-		return statusClearMsg{seq: seq}
-	})
-}
-
 // setInlineTransientStatus sets a subtle status that renders in the footer hint slot
 // (not a full-width banner) and auto-clears after the given duration. Use for background
 // notifications that should not clobber key hints (bt-y0k7).
