@@ -1219,9 +1219,16 @@ func (m *Model) updateViewportContent() {
 	// children (bt-cuyiz). Previously gated on len(item.Dependencies) > 0
 	// which silently hid the section for parents whose only relevant edges
 	// pointed UP from their children (bt-u05bo).
+	//
+	// The tree is rendered with lipgloss (ANSI SGR sequences) and CANNOT
+	// pass through Glamour: chroma's code-fence path strips ESC bytes,
+	// leaving the rest of every escape sequence as visible literal text
+	// (bt-x5xc4). Instead, emit a unique placeholder line here, then
+	// spliceDepTree replaces it in the Glamour-rendered output below.
+	var treeStr string
 	if rootNode := BuildDependencyTree(item.ID, m.data.issueMap, 3); rootNode != nil && len(rootNode.Children) > 0 {
-		treeStr := RenderDependencyTree(rootNode)
-		sb.WriteString("```\n" + treeStr + "```\n\n")
+		treeStr = RenderDependencyTree(rootNode)
+		sb.WriteString(depTreePlaceholder + "\n\n")
 	}
 
 	// Comments. Track per-comment byte offsets in the markdown source so the
@@ -1261,6 +1268,7 @@ func (m *Model) updateViewportContent() {
 		m.pendingCommentScroll = time.Time{}
 		return
 	}
+	rendered = spliceDepTree(rendered, treeStr)
 	m.viewport.SetContent(rendered)
 
 	// Apply the bt-46p6.16 deep-link scroll if one is queued. Render the
@@ -1279,12 +1287,48 @@ func (m *Model) updateViewportContent() {
 		if target >= 0 {
 			prefix := source[:commentAnchors[target].byteOffset]
 			if prefixRendered, perr := m.renderer.Render(prefix); perr == nil {
+				// Splice the tree into the prefix render too so the line
+				// count matches the viewport content (bt-x5xc4).
+				prefixRendered = spliceDepTree(prefixRendered, treeStr)
 				line := strings.Count(strings.TrimRight(prefixRendered, "\n"), "\n")
 				m.viewport.SetYOffset(line)
 			}
 		}
 		m.pendingCommentScroll = time.Time{}
 	}
+}
+
+// depTreePlaceholder is a unique ASCII marker emitted into the markdown
+// source where the dependency-graph tree should appear. Glamour renders it
+// as a plain paragraph; spliceDepTree replaces the whole line in the
+// rendered output with the lipgloss-styled tree, bypassing chroma's ESC-
+// stripping code-fence path (bt-x5xc4). Must be pure uppercase letters
+// with no underscores or other punctuation — Glamour treats underscores
+// as word-wrap boundaries and emits a separate SGR block around each
+// segment, breaking simple substring search.
+const depTreePlaceholder = "BTXDEPGRAPHANCHORLINE"
+
+// spliceDepTree replaces the whole rendered-output line containing
+// depTreePlaceholder with treeStr. Returns rendered unchanged when treeStr
+// is empty or the marker is absent. Removes the entire line (including any
+// Glamour-applied indentation or paragraph SGR) so the tree drops in
+// cleanly with no surrounding artifacts.
+func spliceDepTree(rendered, treeStr string) string {
+	if treeStr == "" {
+		return rendered
+	}
+	idx := strings.Index(rendered, depTreePlaceholder)
+	if idx < 0 {
+		return rendered
+	}
+	lineStart := strings.LastIndex(rendered[:idx], "\n") + 1
+	lineEnd := idx + len(depTreePlaceholder)
+	if nl := strings.Index(rendered[lineEnd:], "\n"); nl >= 0 {
+		lineEnd += nl
+	} else {
+		lineEnd = len(rendered)
+	}
+	return rendered[:lineStart] + treeStr + rendered[lineEnd:]
 }
 
 // renderBeadHistoryMD generates markdown for a bead's history

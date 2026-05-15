@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/tree"
 	"github.com/mattn/go-runewidth"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
@@ -471,16 +472,54 @@ func buildTreeRecursive(id string, issueMap map[string]*model.Issue, childrenOf 
 	return node
 }
 
-// RenderDependencyTree renders a dependency tree as a formatted string
+// RenderDependencyTree renders a dependency tree as a formatted string.
+// Uses charm.land/lipgloss/v2/tree for connectors and indentation. Per-row
+// content is pre-styled with lipgloss; the resulting ANSI must NOT pass
+// through Glamour's code-fence path (chroma strips ESC bytes — bt-x5xc4).
+// Callers in markdown-rendering paths must splice this output past Glamour.
 func RenderDependencyTree(node *DependencyNode) string {
 	if node == nil {
 		return "No dependency data."
 	}
 
-	var sb strings.Builder
-	sb.WriteString("Dependency Graph:\n")
-	renderTreeNode(&sb, node, "", true, true) // isRoot=true for root node
-	return sb.String()
+	t := tree.New().Root(formatTreeNode(node))
+	for _, child := range node.Children {
+		addTreeChild(t, child)
+	}
+	return "Dependency Graph:\n" + t.String()
+}
+
+// formatTreeNode formats a single tree row: unstyled type icon + lipgloss-
+// styled body (ID, title, status icon, status text, dep type).
+func formatTreeNode(node *DependencyNode) string {
+	statusIcon := GetStatusIcon(node.Status)
+	typeIcon := getDepTypeIcon(node.Type)
+	title := truncateRunesHelper(node.Title, 40, "...")
+
+	style := statusTreeStyle(node.Status)
+	rowBody := style.Render(fmt.Sprintf("%s %s %s (%s) [%s]",
+		node.ID,
+		title,
+		statusIcon,
+		node.Status,
+		node.Type,
+	))
+	return typeIcon + " " + rowBody
+}
+
+// addTreeChild appends a DependencyNode (and its descendants) to a lipgloss
+// tree, preserving cycle markers and the natural-numeric ordering established
+// by BuildDependencyTree.
+func addTreeChild(parent *tree.Tree, node *DependencyNode) {
+	if len(node.Children) == 0 {
+		parent.Child(formatTreeNode(node))
+		return
+	}
+	sub := tree.Root(formatTreeNode(node))
+	for _, child := range node.Children {
+		addTreeChild(sub, child)
+	}
+	parent.Child(sub)
 }
 
 // statusTreeStyle returns a lipgloss style appropriate for the given bead
@@ -512,65 +551,6 @@ func statusTreeStyle(status string) lipgloss.Style {
 		return lipgloss.NewStyle().Foreground(ColorStatusReview)
 	default:
 		return lipgloss.NewStyle().Foreground(ColorMuted)
-	}
-}
-
-func renderTreeNode(sb *strings.Builder, node *DependencyNode, prefix string, isLast bool, isRoot bool) {
-	if node == nil {
-		return
-	}
-
-	// Determine the connector
-	var connector string
-	if isRoot {
-		connector = "" // Root has no connector
-	} else if isLast {
-		connector = "└── "
-	} else {
-		connector = "├── "
-	}
-
-	// Get icons
-	statusIcon := GetStatusIcon(node.Status)
-	typeIcon := getDepTypeIcon(node.Type)
-
-	// Truncate title if too long (UTF-8 safe)
-	title := truncateRunesHelper(node.Title, 40, "...")
-
-	// Style the row body (ID + title + status) based on status for legibility
-	// at a scan. The prefix and connector are unstyled so tree structure stays
-	// readable against any background.
-	style := statusTreeStyle(node.Status)
-	rowBody := style.Render(fmt.Sprintf("%s %s %s (%s) [%s]",
-		node.ID,
-		title,
-		statusIcon,
-		node.Status,
-		node.Type,
-	))
-
-	// Render this node: unstyled structural prefix + connector, then styled body
-	sb.WriteString(fmt.Sprintf("%s%s%s %s\n",
-		prefix,
-		connector,
-		typeIcon,
-		rowBody,
-	))
-
-	// Calculate prefix for children
-	var childPrefix string
-	if isRoot {
-		childPrefix = "" // Children of root start with no prefix
-	} else if isLast {
-		childPrefix = prefix + "    "
-	} else {
-		childPrefix = prefix + "│   "
-	}
-
-	// Render children
-	for i, child := range node.Children {
-		isChildLast := i == len(node.Children)-1
-		renderTreeNode(sb, child, childPrefix, isChildLast, false) // isRoot=false for children
 	}
 }
 
