@@ -13,6 +13,7 @@ import (
 
 	"charm.land/bubbles/v2/list"
 	"charm.land/bubbles/v2/viewport"
+	"charm.land/lipgloss/v2"
 )
 
 // setListItems sets list items while preserving any active Bubbles filter
@@ -906,7 +907,30 @@ func (m *Model) updateViewportContent() {
 	}
 	item := issueItem.Issue
 
-	var sb strings.Builder
+	// Detail panel is composed as a []renderSection: "md" fragments are
+	// concatenated and routed through Glamour; "ansi" fragments are pre-
+	// rendered lipgloss strings whose placeholder line is replaced post-
+	// Glamour by spliceSections. See detail_sections.go and bt-x5xc4 for
+	// why any styled (ANSI SGR) region must bypass Glamour's chroma path.
+	var sections []renderSection
+	ansiCounter := 0
+	addMD := func(s string) {
+		if s == "" {
+			return
+		}
+		sections = append(sections, renderSection{kind: "md", content: s})
+	}
+	addANSI := func(s string) {
+		if s == "" {
+			return
+		}
+		ansiCounter++
+		sections = append(sections, renderSection{
+			kind:        "ansi",
+			content:     s,
+			placeholder: sectionPlaceholder(ansiCounter),
+		})
+	}
 
 	// Update notice was previously rendered here as a markdown block above
 	// the bead title. As of bt-9u39 it lives in the notifications center
@@ -914,83 +938,40 @@ func (m *Model) updateViewportContent() {
 	// badge for ambient awareness.
 
 	// Title Block
-	sb.WriteString(fmt.Sprintf("# %s %s\n\n", GetTypeIconMD(string(item.IssueType)), item.Title))
+	addMD(fmt.Sprintf("# %s %s\n\n", GetTypeIconMD(string(item.IssueType)), item.Title))
 
 	// Identity strip: ID, status, priority on a single prose line. Type lives
 	// in the title icon already, so don't duplicate it here. The wide markdown
 	// table this replaces (bt-aw4h) ran out of horizontal room around 5 fields
 	// — see bt-2cvx. Property block below scales without truncation.
-	sb.WriteString(fmt.Sprintf("**%s**  ·  **%s**  ·  %s P%d\n\n",
+	addMD(fmt.Sprintf("**%s**  ·  **%s**  ·  %s P%d\n\n",
 		item.ID,
 		strings.ToUpper(string(item.Status)),
 		GetPriorityIcon(item.Priority), item.Priority,
 	))
 
-	// Property block: aligned key/value rows in a fenced code block. Glamour
-	// renders fences as monospaced cards, which buys us:
-	//   - exact column alignment (impossible inside markdown prose)
-	//   - no bullet noise
-	//   - empty fields can be skipped without breaking row shape
-	//
-	// We collect only-populated rows first, then format with a uniform label
-	// width so eyes can scan down the value column.
-	type metaRow struct{ label, value string }
-	rows := []metaRow{}
-	if item.Author != "" {
-		rows = append(rows, metaRow{"Author", "@" + item.Author})
-	}
-	if item.Assignee != "" {
-		rows = append(rows, metaRow{"Assignee", "@" + item.Assignee})
-	}
-	if item.SourceRepo != "" {
-		rows = append(rows, metaRow{"Source", item.SourceRepo})
-	}
-	rows = append(rows, metaRow{"Created", FormatTimeAbs(item.CreatedAt)})
-	rows = append(rows, metaRow{"Updated", FormatTimeAbs(item.UpdatedAt)})
-	if item.ClosedAt != nil {
-		rows = append(rows, metaRow{"Closed", FormatTimeAbs(*item.ClosedAt)})
-	}
-	if len(item.Labels) > 0 {
-		rows = append(rows, metaRow{"Labels", strings.Join(item.Labels, " · ")})
-	}
-	// Session provenance (bt-2cvx) folds into the same block. Each session row
-	// is paired with its time field above so the eye can connect "when" with
-	// "by which session". Raw UUIDs by design — cass-joa1 will introduce a
-	// short-id surface; don't gold-plate trimming here.
-	if item.CreatedBySession != "" {
-		rows = append(rows, metaRow{"Created by", item.CreatedBySession})
-	}
-	if item.ClaimedBySession != "" {
-		rows = append(rows, metaRow{"Claimed by", item.ClaimedBySession})
-	}
-	if item.ClosedBySession != "" {
-		rows = append(rows, metaRow{"Closed by", item.ClosedBySession})
-	}
-	labelWidth := 0
-	for _, r := range rows {
-		if n := len(r.label); n > labelWidth {
-			labelWidth = n
-		}
-	}
-	sb.WriteString("```\n")
-	for _, r := range rows {
-		sb.WriteString(fmt.Sprintf("%-*s  %s\n", labelWidth, r.label, r.value))
-	}
-	sb.WriteString("```\n\n")
+	// Property block (ANSI). Migrated from a fenced code block (chroma path)
+	// to lipgloss-styled aligned rows so labels can be muted without going
+	// through Glamour's ESC-stripping code-fence rendering (bt-x5xc4 trap
+	// generalised by bt-gfxhz).
+	addANSI(buildPropertyBlockANSI(item))
 
 	// State dimensions (bt-jprp) - parsed from dimension:value labels
 	if dims := parseStateDimensions(item.Labels); len(dims) > 0 {
+		var sb strings.Builder
 		sb.WriteString("### 🏷️ State Dimensions\n")
 		for _, d := range dims {
 			sb.WriteString(fmt.Sprintf("- **%s:** %s\n", d.Dimension, d.Value))
 		}
 		sb.WriteString("\n")
+		addMD(sb.String())
 	}
 
 	// Capabilities (bt-t0z6) - cross-project capability labels in workspace mode
 	if m.workspaceMode {
 		caps := parseCapabilities(item)
 		if len(caps) > 0 {
+			var sb strings.Builder
 			sb.WriteString("### 🔗 Capabilities\n")
 			for _, cap := range caps {
 				switch cap.Type {
@@ -1003,11 +984,13 @@ func (m *Model) updateViewportContent() {
 				}
 			}
 			sb.WriteString("\n")
+			addMD(sb.String())
 		}
 	}
 
 	// Gate status (bt-c69c) - blocking coordination
 	if item.AwaitType != nil {
+		var sb strings.Builder
 		sb.WriteString("### 🚧 Gate (Blocking)\n")
 		sb.WriteString(fmt.Sprintf("- **Type:** %s\n", *item.AwaitType))
 		if item.AwaitID != nil {
@@ -1017,14 +1000,15 @@ func (m *Model) updateViewportContent() {
 			sb.WriteString(fmt.Sprintf("- **Timeout:** %s\n", formatNanoseconds(*item.TimeoutNs)))
 		}
 		sb.WriteString("\n")
+		addMD(sb.String())
 	} else if hasHumanLabel(item.Labels) {
 		// Advisory human flag (label, not gate)
-		sb.WriteString("### 🏷️ Flagged for Human Input\n")
-		sb.WriteString("This issue is flagged for human review (advisory - not blocking workflow).\n\n")
+		addMD("### 🏷️ Flagged for Human Input\nThis issue is flagged for human review (advisory - not blocking workflow).\n\n")
 	}
 
 	// Molecule/wisp metadata (bt-c69c)
 	if item.MolType != nil || (item.Ephemeral != nil && *item.Ephemeral) || (item.IsTemplate != nil && *item.IsTemplate) {
+		var sb strings.Builder
 		sb.WriteString("### 🧪 Molecule\n")
 		if item.MolType != nil {
 			sb.WriteString(fmt.Sprintf("- **Type:** %s\n", *item.MolType))
@@ -1036,6 +1020,7 @@ func (m *Model) updateViewportContent() {
 			sb.WriteString("- **Template:** yes\n")
 		}
 		sb.WriteString("\n")
+		addMD(sb.String())
 	}
 
 	// Epic progress (bt-waeh, bt-u05bo polish: natural sort + per-status
@@ -1047,6 +1032,7 @@ func (m *Model) updateViewportContent() {
 			if total > 0 {
 				pct = done * 100 / total
 			}
+			var sb strings.Builder
 			sb.WriteString("### Epic Progress\n")
 			sb.WriteString(fmt.Sprintf("**%d / %d** children complete (%d%%)\n\n", done, total, pct))
 
@@ -1074,19 +1060,18 @@ func (m *Model) updateViewportContent() {
 				}
 			}
 			sb.WriteString("\n")
+			addMD(sb.String())
 		}
 	}
 
 	// Overdue/stale notices (bt-5oqf)
 	if isOverdue(&item) {
-		sb.WriteString(fmt.Sprintf("### ⏰ Overdue\n"))
-		sb.WriteString(fmt.Sprintf("Due date **%s** has passed (%s ago).\n\n",
+		addMD(fmt.Sprintf("### ⏰ Overdue\nDue date **%s** has passed (%s ago).\n\n",
 			FormatTimeAbs(*item.DueDate),
 			FormatTimeRel(*item.DueDate),
 		))
 	} else if isStale(&item) {
-		sb.WriteString(fmt.Sprintf("### 💤 Stale\n"))
-		sb.WriteString(fmt.Sprintf("No updates for **%s** (last: %s). Threshold: %d days.\n\n",
+		addMD(fmt.Sprintf("### 💤 Stale\nNo updates for **%s** (last: %s). Threshold: %d days.\n\n",
 			FormatTimeRel(item.UpdatedAt),
 			FormatTimeAbs(item.UpdatedAt),
 			staleDays(),
@@ -1100,6 +1085,7 @@ func (m *Model) updateViewportContent() {
 	if m.data.analysis != nil && m.data.analysis.IsPhase2Ready() {
 		if rank, ok := m.data.analysis.PageRankRankValue(item.ID); ok {
 			prVal, _ := m.data.analysis.PageRankValue(item.ID)
+			var sb strings.Builder
 			sb.WriteString("### 📊 Centrality\n")
 			sb.WriteString(fmt.Sprintf("- **PageRank:** rank #%d · %.4f\n", rank, prVal))
 			if brank, bok := m.data.analysis.BetweennessRankValue(item.ID); bok {
@@ -1109,11 +1095,13 @@ func (m *Model) updateViewportContent() {
 			sb.WriteString(fmt.Sprintf("- **Degree:** in %d / out %d\n",
 				m.data.analysis.InDegree[item.ID], m.data.analysis.OutDegree[item.ID]))
 			sb.WriteString("\n")
+			addMD(sb.String())
 		}
 	}
 
 	// Triage Insights (bv-151)
 	if issueItem.TriageScore > 0 || issueItem.TriageReason != "" || issueItem.UnblocksCount > 0 || issueItem.IsQuickWin || issueItem.IsBlocker {
+		var sb strings.Builder
 		sb.WriteString("### 🎯 Triage Insights\n")
 
 		// Score with visual indicator
@@ -1152,10 +1140,12 @@ func (m *Model) updateViewportContent() {
 		}
 
 		sb.WriteString("\n")
+		addMD(sb.String())
 	}
 
 	// Search Scores (hybrid mode)
 	if m.semanticSearchEnabled && m.semanticHybridEnabled && issueItem.SearchScoreSet && m.list.FilterState() != list.Unfiltered {
+		var sb strings.Builder
 		sb.WriteString("### 🔎 Search Scores\n")
 		sb.WriteString(fmt.Sprintf("- **Hybrid Score:** %.3f\n", issueItem.SearchScore))
 		sb.WriteString(fmt.Sprintf("- **Text Score:** %.3f\n", issueItem.SearchTextScore))
@@ -1169,113 +1159,109 @@ func (m *Model) updateViewportContent() {
 			}
 		}
 		sb.WriteString("\n")
+		addMD(sb.String())
 	}
 
-	// Graph Analysis (using thread-safe accessors)
+	// Graph Analysis. Heading stays on Glamour so its H3 styling matches
+	// neighbouring sections (📊 Centrality, 🔎 Search Scores). Only the
+	// three numeric rows go through ANSI — labels in ColorMuted, values
+	// default — since that's where the lipgloss styling actually matters.
 	pr := m.data.analysis.GetPageRankScore(item.ID)
 	bt := m.data.analysis.GetBetweennessScore(item.ID)
 	imp := m.data.analysis.GetCriticalPathScore(item.ID)
 	ev := m.data.analysis.GetEigenvectorScore(item.ID)
 	hub := m.data.analysis.GetHubScore(item.ID)
 	auth := m.data.analysis.GetAuthorityScore(item.ID)
-
-	sb.WriteString("### Graph Analysis\n")
-	sb.WriteString(fmt.Sprintf("- **Impact Depth**: %.0f (downstream chain length)\n", imp))
-	sb.WriteString(fmt.Sprintf("- **Centrality**: PR %.4f • BW %.4f • EV %.4f\n", pr, bt, ev))
-	sb.WriteString(fmt.Sprintf("- **Flow Role**: Hub %.4f • Authority %.4f\n\n", hub, auth))
+	addMD("### Graph Analysis\n")
+	addANSI(buildGraphAnalysisANSI(pr, bt, imp, ev, hub, auth))
 
 	// Description
 	if item.Description != "" {
-		sb.WriteString("### Description\n")
-		sb.WriteString(item.Description + "\n\n")
+		addMD("### Description\n" + item.Description + "\n\n")
 	}
 
 	// Design Notes
 	if item.Design != "" {
-		sb.WriteString("### Design Notes\n")
-		sb.WriteString(item.Design + "\n\n")
+		addMD("### Design Notes\n" + item.Design + "\n\n")
 	}
 
 	// Acceptance Criteria
 	if item.AcceptanceCriteria != "" {
-		sb.WriteString("### Acceptance Criteria\n")
-		sb.WriteString(item.AcceptanceCriteria + "\n\n")
+		addMD("### Acceptance Criteria\n" + item.AcceptanceCriteria + "\n\n")
 	}
 
 	// Notes
 	if item.Notes != "" {
-		sb.WriteString("### Notes\n")
-		sb.WriteString(item.Notes + "\n\n")
+		addMD("### Notes\n" + item.Notes + "\n\n")
 	}
 
 	// Resolution (for closed issues with close_reason)
 	if item.Status.IsClosed() && item.CloseReason != nil && *item.CloseReason != "" {
-		sb.WriteString("### Resolution\n")
-		sb.WriteString(*item.CloseReason + "\n\n")
+		addMD("### Resolution\n" + *item.CloseReason + "\n\n")
 	}
 
-	// Dependency Graph (Tree). Build first, render iff the tree has any
+	// Dependency Graph (ANSI). Built first, rendered iff the tree has any
 	// children — covers both outgoing dep edges and inverse parent_child
-	// children (bt-cuyiz). Previously gated on len(item.Dependencies) > 0
-	// which silently hid the section for parents whose only relevant edges
-	// pointed UP from their children (bt-u05bo).
-	//
-	// The tree is rendered with lipgloss (ANSI SGR sequences) and CANNOT
-	// pass through Glamour: chroma's code-fence path strips ESC bytes,
-	// leaving the rest of every escape sequence as visible literal text
-	// (bt-x5xc4). Instead, emit a unique placeholder line here, then
-	// spliceDepTree replaces it in the Glamour-rendered output below.
-	var treeStr string
-	if rootNode := BuildDependencyTree(item.ID, m.data.issueMap, 3); rootNode != nil && len(rootNode.Children) > 0 {
-		treeStr = RenderDependencyTree(rootNode)
-		sb.WriteString(depTreePlaceholder + "\n\n")
-	}
+	// children (bt-cuyiz). The tree is rendered with lipgloss and CANNOT
+	// pass through Glamour (bt-x5xc4); the renderSection / spliceSections
+	// primitive in detail_sections.go handles the bypass.
+	addANSI(buildDepGraphSection(item.ID, m.data.issueMap))
 
-	// Comments. Track per-comment byte offsets in the markdown source so the
-	// notifications-tab deep-link path (bt-46p6.16) can render a prefix slice
-	// to compute the exact rendered-line offset for the target comment.
+	// Comments. The comment markdown is built as a single "md" section so
+	// the section list stays compact, but each comment's byte offset within
+	// the section's content is recorded for the bt-46p6.16 deep-link scroll
+	// path. The prefix-render slices that section content at the recorded
+	// offset to compute the rendered-line target.
 	type commentAnchor struct {
-		createdAt  time.Time
-		byteOffset int
+		createdAt        time.Time
+		intraSectionByte int
 	}
 	var commentAnchors []commentAnchor
+	var commentsContent string
+	commentsSectionIdx := -1
 	if len(item.Comments) > 0 {
-		sb.WriteString(fmt.Sprintf("### Comments (%d)\n", len(item.Comments)))
+		var csb strings.Builder
+		csb.WriteString(fmt.Sprintf("### Comments (%d)\n", len(item.Comments)))
 		for _, comment := range item.Comments {
 			commentAnchors = append(commentAnchors, commentAnchor{
-				createdAt:  comment.CreatedAt,
-				byteOffset: sb.Len(),
+				createdAt:        comment.CreatedAt,
+				intraSectionByte: csb.Len(),
 			})
-			sb.WriteString(fmt.Sprintf("> **%s** (%s)\n> \n> %s\n\n",
+			csb.WriteString(fmt.Sprintf("> **%s** (%s)\n> \n> %s\n\n",
 				comment.Author,
 				FormatTimeRel(comment.CreatedAt),
 				strings.ReplaceAll(comment.Text, "\n", "\n> ")))
 		}
+		commentsContent = csb.String()
+		commentsSectionIdx = len(sections)
+		addMD(commentsContent)
 	}
 
 	// History Section (if data is loaded)
 	if m.historyView.HasReport() {
 		historyMD := m.renderBeadHistoryMD(item.ID)
 		if historyMD != "" {
-			sb.WriteString(historyMD)
+			addMD(historyMD)
 		}
 	}
 
-	source := sb.String()
+	source := buildMarkdownSource(sections)
 	rendered, err := m.renderer.Render(source)
 	if err != nil {
 		m.viewport.SetContent(fmt.Sprintf("Error rendering markdown: %v", err))
 		m.pendingCommentScroll = time.Time{}
 		return
 	}
-	rendered = spliceDepTree(rendered, treeStr)
+	rendered = spliceSections(rendered, sections)
 	m.viewport.SetContent(rendered)
 
-	// Apply the bt-46p6.16 deep-link scroll if one is queued. Render the
-	// prefix (everything in source up to the target comment's byte offset)
-	// through the same renderer so styling-induced line growth matches the
-	// full output, count its newlines, and align the viewport. Cleared
-	// unconditionally — a single user action consumes a single scroll.
+	// Apply the bt-46p6.16 deep-link scroll if one is queued. Build a prefix
+	// sections slice that includes everything before the comments section,
+	// plus a truncated comments fragment ending at the target comment's
+	// intra-section byte offset. Render through the same pipeline (Glamour
+	// + spliceSections) so styling-induced line growth matches the viewport
+	// content. Cleared unconditionally — a single user action consumes a
+	// single scroll.
 	if !m.pendingCommentScroll.IsZero() {
 		target := -1
 		for i, a := range commentAnchors {
@@ -1284,12 +1270,14 @@ func (m *Model) updateViewportContent() {
 				break
 			}
 		}
-		if target >= 0 {
-			prefix := source[:commentAnchors[target].byteOffset]
-			if prefixRendered, perr := m.renderer.Render(prefix); perr == nil {
-				// Splice the tree into the prefix render too so the line
-				// count matches the viewport content (bt-x5xc4).
-				prefixRendered = spliceDepTree(prefixRendered, treeStr)
+		if target >= 0 && commentsSectionIdx >= 0 {
+			prefixSections := make([]renderSection, 0, commentsSectionIdx+1)
+			prefixSections = append(prefixSections, sections[:commentsSectionIdx]...)
+			truncated := commentsContent[:commentAnchors[target].intraSectionByte]
+			prefixSections = append(prefixSections, renderSection{kind: "md", content: truncated})
+			prefixSource := buildMarkdownSource(prefixSections)
+			if prefixRendered, perr := m.renderer.Render(prefixSource); perr == nil {
+				prefixRendered = spliceSections(prefixRendered, prefixSections)
 				line := strings.Count(strings.TrimRight(prefixRendered, "\n"), "\n")
 				m.viewport.SetYOffset(line)
 			}
@@ -1298,37 +1286,87 @@ func (m *Model) updateViewportContent() {
 	}
 }
 
-// depTreePlaceholder is a unique ASCII marker emitted into the markdown
-// source where the dependency-graph tree should appear. Glamour renders it
-// as a plain paragraph; spliceDepTree replaces the whole line in the
-// rendered output with the lipgloss-styled tree, bypassing chroma's ESC-
-// stripping code-fence path (bt-x5xc4). Must be pure uppercase letters
-// with no underscores or other punctuation — Glamour treats underscores
-// as word-wrap boundaries and emits a separate SGR block around each
-// segment, breaking simple substring search.
-const depTreePlaceholder = "BTXDEPGRAPHANCHORLINE"
+// buildPropertyBlockANSI renders the bead property block (author, assignee,
+// timestamps, labels, session provenance) as lipgloss-styled aligned rows.
+// Replaces the previous fenced-code-block path which routed through chroma
+// (bt-x5xc4 trap class). Labels use ColorMuted; values use the default
+// foreground. Returns empty string when no rows are populated.
+func buildPropertyBlockANSI(item model.Issue) string {
+	type metaRow struct{ label, value string }
+	rows := []metaRow{}
+	if item.Author != "" {
+		rows = append(rows, metaRow{"Author", "@" + item.Author})
+	}
+	if item.Assignee != "" {
+		rows = append(rows, metaRow{"Assignee", "@" + item.Assignee})
+	}
+	if item.SourceRepo != "" {
+		rows = append(rows, metaRow{"Source", item.SourceRepo})
+	}
+	rows = append(rows, metaRow{"Created", FormatTimeAbs(item.CreatedAt)})
+	rows = append(rows, metaRow{"Updated", FormatTimeAbs(item.UpdatedAt)})
+	if item.ClosedAt != nil {
+		rows = append(rows, metaRow{"Closed", FormatTimeAbs(*item.ClosedAt)})
+	}
+	if len(item.Labels) > 0 {
+		rows = append(rows, metaRow{"Labels", strings.Join(item.Labels, " · ")})
+	}
+	// Session provenance (bt-2cvx). Raw UUIDs by design — cass-joa1 will
+	// introduce a short-id surface; don't gold-plate trimming here.
+	if item.CreatedBySession != "" {
+		rows = append(rows, metaRow{"Created by", item.CreatedBySession})
+	}
+	if item.ClaimedBySession != "" {
+		rows = append(rows, metaRow{"Claimed by", item.ClaimedBySession})
+	}
+	if item.ClosedBySession != "" {
+		rows = append(rows, metaRow{"Closed by", item.ClosedBySession})
+	}
+	if len(rows) == 0 {
+		return ""
+	}
+	labelWidth := 0
+	for _, r := range rows {
+		if n := len(r.label); n > labelWidth {
+			labelWidth = n
+		}
+	}
+	labelStyle := lipgloss.NewStyle().Foreground(ColorMuted)
+	var lines []string
+	for _, r := range rows {
+		paddedLabel := fmt.Sprintf("%-*s", labelWidth, r.label)
+		lines = append(lines, labelStyle.Render(paddedLabel)+"  "+r.value)
+	}
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+}
 
-// spliceDepTree replaces the whole rendered-output line containing
-// depTreePlaceholder with treeStr. Returns rendered unchanged when treeStr
-// is empty or the marker is absent. Removes the entire line (including any
-// Glamour-applied indentation or paragraph SGR) so the tree drops in
-// cleanly with no surrounding artifacts.
-func spliceDepTree(rendered, treeStr string) string {
-	if treeStr == "" {
-		return rendered
+// buildGraphAnalysisANSI renders the three numeric rows of the graph-
+// position panel (Impact Depth, Centrality, Flow Role) with lipgloss.
+// Labels are muted; values use default foreground. The "### Graph
+// Analysis" heading is emitted as a separate md section by the caller so
+// Glamour styles it consistently with adjacent H3 headings.
+func buildGraphAnalysisANSI(pr, bt, imp, ev, hub, auth float64) string {
+	muted := lipgloss.NewStyle().Foreground(ColorMuted)
+	lines := []string{
+		muted.Render("Impact Depth:") + fmt.Sprintf(" %.0f (downstream chain length)", imp),
+		muted.Render("Centrality:") + fmt.Sprintf(" PR %.4f • BW %.4f • EV %.4f", pr, bt, ev),
+		muted.Render("Flow Role:") + fmt.Sprintf(" Hub %.4f • Authority %.4f", hub, auth),
 	}
-	idx := strings.Index(rendered, depTreePlaceholder)
-	if idx < 0 {
-		return rendered
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+}
+
+// buildDepGraphSection returns the lipgloss-rendered dependency tree for
+// rootID, or empty string when the bead has no children to draw (no
+// outgoing dep edges AND no inverse parent_child children — bt-cuyiz).
+// RenderDependencyTree (helpers.go) is the consumer of choice; this is
+// the call site that gates on emptiness so the section is skipped when
+// there's nothing to show.
+func buildDepGraphSection(rootID string, issueMap map[string]*model.Issue) string {
+	rootNode := BuildDependencyTree(rootID, issueMap, 3)
+	if rootNode == nil || len(rootNode.Children) == 0 {
+		return ""
 	}
-	lineStart := strings.LastIndex(rendered[:idx], "\n") + 1
-	lineEnd := idx + len(depTreePlaceholder)
-	if nl := strings.Index(rendered[lineEnd:], "\n"); nl >= 0 {
-		lineEnd += nl
-	} else {
-		lineEnd = len(rendered)
-	}
-	return rendered[:lineStart] + treeStr + rendered[lineEnd:]
+	return RenderDependencyTree(rootNode)
 }
 
 // renderBeadHistoryMD generates markdown for a bead's history
