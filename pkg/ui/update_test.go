@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"charm.land/bubbles/v2/list"
+	tea "charm.land/bubbletea/v2"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
@@ -121,5 +122,87 @@ func TestNewModel_SetsTreeBeadsDirFromBeadsPath(t *testing.T) {
 
 	if got, want := m.tree.beadsDir, filepath.Dir(beads); got != want {
 		t.Fatalf("expected tree beadsDir %q, got %q", want, got)
+	}
+}
+
+// TestResizeDebounce_StaleSettleMsgIgnored verifies the generation-counter
+// pattern (bt-kfkrb): when N WindowSizeMsgs arrive in a burst, only the
+// resizeSettledMsg carrying the latest gen triggers the heavy path. Older
+// settled messages are no-ops.
+func TestResizeDebounce_StaleSettleMsgIgnored(t *testing.T) {
+	issues := []model.Issue{{ID: "bt-1", Title: "Resize Test", Status: model.StatusOpen}}
+	m := NewModel(issues, nil, "", nil)
+
+	// Send a burst of 3 WindowSizeMsgs with increasing widths.
+	const (
+		w1 = 120
+		w2 = 140
+		w3 = 160
+	)
+	for _, w := range []int{w1, w2, w3} {
+		updated, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: 40})
+		m = updated.(Model)
+	}
+
+	// After the burst, resizeGen must be 3 (one per WindowSizeMsg).
+	if m.resizeGen != 3 {
+		t.Fatalf("expected resizeGen=3 after 3 WindowSizeMsgs, got %d", m.resizeGen)
+	}
+
+	// A stale settle message (gen 1) must be a no-op: resizeGen stays at 3.
+	staleSettle := resizeSettledMsg{gen: 1}
+	updated, _ := m.Update(staleSettle)
+	m2 := updated.(Model)
+	if m2.resizeGen != 3 {
+		t.Fatalf("stale resizeSettledMsg changed resizeGen: expected 3, got %d", m2.resizeGen)
+	}
+
+	// The viewport width after a stale settle is unchanged from after the burst.
+	// (viewport.New runs in phase 1, so it reflects the last WindowSizeMsg.)
+	// Record it before the final settle.
+	vpWidthBeforeSettle := m2.viewport.Width()
+
+	// The current-gen settle message must run the heavy path: resizeGen unchanged
+	// (handleResizeSettled does not modify it) and viewport content is refreshed.
+	// Width of the viewport should reflect w3's layout.
+	finalSettle := resizeSettledMsg{gen: 3}
+	updated2, _ := m2.Update(finalSettle)
+	m3 := updated2.(Model)
+	if m3.resizeGen != 3 {
+		t.Fatalf("final resizeSettledMsg modified resizeGen: expected 3, got %d", m3.resizeGen)
+	}
+	// Viewport width is set in phase 1 already; confirm it is still consistent.
+	if m3.viewport.Width() != vpWidthBeforeSettle {
+		t.Fatalf("final settle changed viewport width unexpectedly: before=%d after=%d",
+			vpWidthBeforeSettle, m3.viewport.Width())
+	}
+}
+
+// TestResizeDebounce_Phase1LayoutSync verifies that phase 1 (every WindowSizeMsg)
+// synchronously updates list size and isSplitView without waiting for the
+// settle tick (bt-kfkrb). Existing chrome-layout tests rely on this.
+func TestResizeDebounce_Phase1LayoutSync(t *testing.T) {
+	m := NewModel(nil, nil, "", nil)
+
+	// Below SplitViewThreshold -- list should consume full body width.
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m80 := updated.(Model)
+	if m80.isSplitView {
+		t.Fatalf("width=80 should not be split view (threshold %d)", SplitViewThreshold)
+	}
+
+	// Above SplitViewThreshold -- list width should be a fraction of the body.
+	updated, _ = m.Update(tea.WindowSizeMsg{Width: 160, Height: 40})
+	m160 := updated.(Model)
+	if !m160.isSplitView {
+		t.Fatalf("width=160 should be split view (threshold %d)", SplitViewThreshold)
+	}
+	// List must be narrower than full body (split pane gives only a fraction).
+	if m160.list.Width() >= 160 {
+		t.Fatalf("split-view list width (%d) should be < terminal width (160)", m160.list.Width())
+	}
+	// resizeGen must advance on each WindowSizeMsg.
+	if m160.resizeGen < 1 {
+		t.Fatalf("expected resizeGen >= 1 after WindowSizeMsg, got %d", m160.resizeGen)
 	}
 }

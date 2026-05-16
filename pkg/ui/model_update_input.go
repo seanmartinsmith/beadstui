@@ -625,8 +625,13 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		}
 		// Re-flow layout so list/viewport reserve (or release) sidebar
 		// width. Without this the toggle leaves stale dimensions and the
-		// sidebar wraps onto the body (bt-lin9).
-		m = m.handleWindowSize(tea.WindowSizeMsg{Width: m.width, Height: m.height})
+		// sidebar wraps onto the body (bt-lin9). Use the full immediate
+		// path (both phases) since this is a discrete user action, not a
+		// drag burst (bt-kfkrb).
+		var resizeCmd tea.Cmd
+		m, resizeCmd = m.handleWindowSize(tea.WindowSizeMsg{Width: m.width, Height: m.height})
+		m = m.applyWindowSizeHeavy()
+		_ = resizeCmd // discard the settle tick - heavy path already ran
 		return m, nil
 	}
 
@@ -1696,8 +1701,14 @@ func (m Model) handleMouseWheel(msg tea.MouseWheelMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
-// handleWindowSize processes terminal resize events.
-func (m Model) handleWindowSize(msg tea.WindowSizeMsg) Model {
+// handleWindowSize processes terminal resize events using a two-phase debounce
+// (bt-kfkrb). Phase 1 (this function) runs on every WindowSizeMsg and applies
+// cheap layout changes immediately: dimensions, split-view flag, list size,
+// viewport allocation, and panel chrome. It defers the two expensive operations
+// -- SetWidthWithTheme (creates a new Glamour TermRenderer) and
+// updateViewportContent (renders all markdown through that renderer) -- to
+// Phase 2 via a generation-counter settle tick.
+func (m Model) handleWindowSize(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
 	m.width = msg.Width
 	m.height = msg.Height
 	// Layout against bodyWidth so the shortcuts sidebar (when visible) gets
@@ -1710,6 +1721,9 @@ func (m Model) handleWindowSize(msg tea.WindowSizeMsg) Model {
 		bodyHeight = 5
 	}
 
+	// Phase 1: cheap layout — list sizing and viewport allocation only.
+	// SetWidthWithTheme (Glamour) and updateViewportContent are deferred to
+	// Phase 2 so per-event cost during a drag is negligible.
 	if m.isSplitView {
 		// Calculate dimensions accounting for 2 panels with borders(2)+padding(2) = 4 overhead each
 		// Total overhead = 8
@@ -1730,8 +1744,6 @@ func (m Model) handleWindowSize(msg tea.WindowSizeMsg) Model {
 
 		m.list.SetSize(listInnerWidth, listHeight)
 		m.viewport = viewport.New(viewport.WithWidth(detailInnerWidth), viewport.WithHeight(bodyHeight-2)) // Account for border
-
-		m.renderer.SetWidthWithTheme(detailInnerWidth, m.theme)
 	} else {
 		listHeight := bodyHeight - 2
 		if listHeight < 3 {
@@ -1739,9 +1751,6 @@ func (m Model) handleWindowSize(msg tea.WindowSizeMsg) Model {
 		}
 		m.list.SetSize(bodyW, listHeight)
 		m.viewport = viewport.New(viewport.WithWidth(bodyW), viewport.WithHeight(bodyHeight-1))
-
-		// Update renderer for full width
-		m.renderer.SetWidthWithTheme(bodyW, m.theme)
 	}
 
 	m.updateListDelegate()
@@ -1759,8 +1768,53 @@ func (m Model) handleWindowSize(msg tea.WindowSizeMsg) Model {
 	m.labelPicker.SetSize(m.width, bodyHeight)
 	m.repoPicker.SetSize(m.width, bodyHeight)
 
+	// Bump the generation counter and schedule phase 2 after the settle delay.
+	// Any prior pending resizeSettledMsg with an older gen is ignored by
+	// handleResizeSettled, so only the last resize in a burst runs the heavy path.
+	m.resizeGen++
+	gen := m.resizeGen
+	cmd := tea.Tick(resizeSettleDelay, func(time.Time) tea.Msg {
+		return resizeSettledMsg{gen: gen}
+	})
+	return m, cmd
+}
+
+// applyWindowSizeHeavy runs the expensive phase of resize: rebuilds the Glamour
+// renderer via SetWidthWithTheme and refreshes viewport content. Called from
+// handleResizeSettled (debounced path) and from callers that need an immediate
+// full reflow (e.g., sidebar width toggle), where the settle tick is discarded.
+func (m Model) applyWindowSizeHeavy() Model {
+	bodyW := m.bodyWidth()
+	bodyHeight := m.height - 1
+	if bodyHeight < 5 {
+		bodyHeight = 5
+	}
+
+	if m.isSplitView {
+		availWidth := bodyW - 8
+		if availWidth < 10 {
+			availWidth = 10
+		}
+		listInnerWidth := int(float64(availWidth) * m.splitPaneRatio)
+		detailInnerWidth := availWidth - listInnerWidth
+
+		m.renderer.SetWidthWithTheme(detailInnerWidth, m.theme)
+	} else {
+		m.renderer.SetWidthWithTheme(bodyW, m.theme)
+	}
+
 	m.updateViewportContent()
 	return m
+}
+
+// handleResizeSettled is phase 2 of the debounced resize. It runs only when
+// no newer WindowSizeMsg has arrived since this message was scheduled.
+func (m Model) handleResizeSettled(msg resizeSettledMsg) Model {
+	if msg.gen != m.resizeGen {
+		// A newer resize is in flight; this settle message is stale.
+		return m
+	}
+	return m.applyWindowSizeHeavy()
 }
 
 // handleNotificationsKey routes keypresses when the shared modal is on the

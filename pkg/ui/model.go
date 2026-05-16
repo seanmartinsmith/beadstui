@@ -248,6 +248,16 @@ type DataSourceReloadMsg struct {
 // semanticDebounceTickMsg is sent after debounce delay to trigger semantic computation
 type semanticDebounceTickMsg struct{}
 
+// resizeSettleDelay is how long after the last WindowSizeMsg the heavy path waits
+// before running. 70ms covers typical terminal resize burst cadence while keeping
+// pause-and-release snap-feeling (bt-kfkrb).
+const resizeSettleDelay = 70 * time.Millisecond
+
+// resizeSettledMsg fires after resizeSettleDelay with the generation counter that
+// was current when the tick was scheduled. If m.resizeGen has advanced by then,
+// a newer resize is in flight and this message is ignored.
+type resizeSettledMsg struct{ gen uint64 }
+
 // statusClearMsg is sent after a delay to auto-clear transient status messages.
 type statusClearMsg struct{ seq uint64 }
 
@@ -533,6 +543,7 @@ type Model struct {
 	ready                    bool
 	width                    int
 	height                   int
+	resizeGen                uint64 // incremented on each WindowSizeMsg; gating resizeSettledMsg (bt-kfkrb)
 	labelHealthDetail        *analysis.LabelHealth
 	labelHealthDetailFlow    labelFlowSummary
 	labelDrilldownLabel      string
@@ -1518,7 +1529,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 
 	case tea.WindowSizeMsg:
-		m = m.handleWindowSize(msg)
+		m, cmd = m.handleWindowSize(msg)
+		cmds = append(cmds, cmd)
+
+	case resizeSettledMsg:
+		m = m.handleResizeSettled(msg)
 
 	case tea.BackgroundColorMsg:
 		isDark := msg.IsDark()
