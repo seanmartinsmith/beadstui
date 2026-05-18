@@ -287,6 +287,150 @@ func extractQuotedPhrases(term string) []string {
 	return phrases
 }
 
+// whitespaceAndFilter wraps a FilterFunc so that whitespace within a single
+// (non-comma-separated) token is treated as AND-semantics: each whitespace-
+// separated word must independently match, and only the intersection of their
+// result sets is returned (bt-6pzni). A user typing "migration release notes"
+// expects items containing all three concepts; bare fuzzy matching treats the
+// 22-char string as one pattern, which is permissive enough on a large corpus
+// that almost everything qualifies.
+//
+// Quoted terms bypass this filter entirely — quotedExactFilter has already
+// handled them (see composition order below). A token with no whitespace
+// passes through unchanged (identical to today's single-word behavior).
+//
+// For multi-word tokens, each word's result set is intersected: an item must
+// appear in ALL per-word result sets. MatchedIndexes from all word matches
+// are merged on the surviving item so highlight rendering covers every
+// matched position. Items whose inner-ranker MatchedIndexes span is
+// disproportionately large relative to the word length are dropped as low-
+// quality fuzzy matches (span-based floor; see FuzzyMatchSpanFactor).
+//
+// Composition order (outermost first):
+//   multiTokenFilter (comma → OR, today)
+//   whitespaceAndFilter (space inside token → AND, new)
+//   quotedExactFilter (today)
+//   idPriorityFilter (today)
+//   inner ranker
+//
+// Note: whitespaceAndFilter sits OUTSIDE quotedExactFilter so that quoted
+// phrases (which may contain spaces) are already handled by the time this
+// wrapper runs — quotedExactFilter short-circuits on detected quotes and
+// returns before whitespaceAndFilter sees the term.
+func whitespaceAndFilter(inner list.FilterFunc) list.FilterFunc {
+	return func(term string, targets []string) []list.Rank {
+		// If the term contains quotes, it's handled by quotedExactFilter
+		// which is our inner wrapper. Let it through unchanged.
+		if strings.ContainsRune(term, '"') {
+			return inner(term, targets)
+		}
+
+		words := splitWhitespaceTokens(term)
+		if len(words) <= 1 {
+			// Single-word: no change, pass directly to inner.
+			return inner(term, targets)
+		}
+
+		// Multi-word: compute per-word result sets and intersect.
+		// First word seeds the result set; subsequent words narrow it.
+		type wordRank struct {
+			matchedIndexes []int
+		}
+		// surviving maps target index -> merged MatchedIndexes so far.
+		surviving := make(map[int][]int)
+		firstWord := true
+		for _, word := range words {
+			wordRanks := inner(word, targets)
+			// Apply span-based floor: drop matches where the matched
+			// character span is much larger than the word (permissive
+			// sahilm matches on a rich-text target). Threshold:
+			// span > len(word) * FuzzyMatchSpanFactor.
+			maxSpan := len(word) * FuzzyMatchSpanFactor
+			wordSet := make(map[int][]int, len(wordRanks))
+			for _, r := range wordRanks {
+				if len(r.MatchedIndexes) == 0 {
+					// No span to check — include (e.g. semantic mode
+					// doesn't populate MatchedIndexes).
+					wordSet[r.Index] = nil
+					continue
+				}
+				span := r.MatchedIndexes[len(r.MatchedIndexes)-1] - r.MatchedIndexes[0] + 1
+				if maxSpan > 0 && span > maxSpan {
+					continue // span too large — low-quality match, drop
+				}
+				wordSet[r.Index] = r.MatchedIndexes
+			}
+			if firstWord {
+				for idx, mi := range wordSet {
+					surviving[idx] = mi
+				}
+				firstWord = false
+			} else {
+				// Intersect: keep only items present in both.
+				for idx := range surviving {
+					if mi, ok := wordSet[idx]; ok {
+						surviving[idx] = mergeMatchedIndexes(surviving[idx], mi)
+					} else {
+						delete(surviving, idx)
+					}
+				}
+			}
+			if len(surviving) == 0 {
+				return nil
+			}
+		}
+
+		// Rebuild result slice. Preserve the ordering from the first word's
+		// result set so the inner ranker's quality signal survives.
+		firstWordRanks := inner(words[0], targets)
+		result := make([]list.Rank, 0, len(surviving))
+		seen := make(map[int]bool, len(surviving))
+		for _, r := range firstWordRanks {
+			if mi, ok := surviving[r.Index]; ok && !seen[r.Index] {
+				result = append(result, list.Rank{Index: r.Index, MatchedIndexes: mi})
+				seen[r.Index] = true
+			}
+		}
+		// Add any surviving items not in the first-word ordering (can happen
+		// in semantic mode where inner doesn't use fuzzy ranking).
+		for idx, mi := range surviving {
+			if !seen[idx] {
+				result = append(result, list.Rank{Index: idx, MatchedIndexes: mi})
+			}
+		}
+		return result
+	}
+}
+
+// FuzzyMatchSpanFactor is the multiplier applied to a word's length to compute
+// the maximum acceptable match span in the fuzzy fallback path. A match where
+// the first and last matched characters are more than len(word)*Factor apart
+// indicates the fuzzy matcher found the characters scattered across a long
+// string — a permissive, low-quality match. Those items are dropped.
+//
+// Value 4: a 9-char word ("migration") may span up to 36 chars in the target
+// before being considered too permissive. This keeps legitimate typo-tolerant
+// matches (e.g. "migrat...ion" in a compound) while cutting matches where
+// "m-i-g-r-a-t-i-o-n" is scattered across 80+ chars of prose.
+//
+// Calibration note (bt-6pzni): single-word queries on small corpora were
+// tested empirically against common bead titles. Factor 4 retains all direct
+// substring matches and most abbreviation matches while cutting tail noise.
+// Setting to 0 disables the span floor entirely (for semantic mode, where
+// MatchedIndexes is not populated and the check is already bypassed).
+const FuzzyMatchSpanFactor = 4
+
+// splitWhitespaceTokens splits term on whitespace and returns trimmed non-empty
+// tokens. A term with no whitespace returns a single-element slice (or nil if
+// empty) so callers can short-circuit on len <= 1.
+func splitWhitespaceTokens(term string) []string {
+	fields := strings.Fields(term)
+	if len(fields) == 0 {
+		return nil
+	}
+	return fields
+}
+
 // SemanticPerTokenCap is the per-token result cap applied in semantic/hybrid
 // mode by semanticSearchFilter, passed to multiTokenFilter. Cap takes effect
 // only for multi-token queries (bt-da4f). Tuned to match the bt-krwp
@@ -322,20 +466,26 @@ func nextSearchMode(cur searchMode) searchMode {
 }
 
 // fuzzySearchFilter returns the canonical fuzzy-mode filter composition.
-// Outermost: comma-OR (multiTokenFilter, no cap); then quoted-exact bypass;
-// then ID-priority bucket promotion; innermost: list.DefaultFilter (sahilm
-// fuzzy).
+// Outermost: comma-OR (multiTokenFilter, no cap); then whitespace-AND
+// (whitespaceAndFilter, bt-6pzni); then quoted-exact bypass; then ID-priority
+// bucket promotion; innermost: list.DefaultFilter (sahilm fuzzy).
+//
+// Wrap order matches the spec (bt-6pzni):
+//   multiTokenFilter → whitespaceAndFilter → quotedExactFilter → idPriorityFilter → ranker
 func fuzzySearchFilter() list.FilterFunc {
-	return multiTokenFilter(quotedExactFilter(idPriorityFilter(list.DefaultFilter)), 0)
+	return multiTokenFilter(whitespaceAndFilter(quotedExactFilter(idPriorityFilter(list.DefaultFilter))), 0)
 }
 
 // semanticSearchFilter returns the canonical semantic/hybrid-mode composition.
-// Same shape as fuzzy but multiTokenFilter applies SemanticPerTokenCap to each
-// token's results before union (multi-token only — single-token bypasses, see
-// bt-da4f). The inner ranker is SemanticSearch.Filter, which honors hybrid
+// Same shape as fuzzySearchFilter but multiTokenFilter applies SemanticPerTokenCap
+// to each token's results before union (multi-token only — single-token bypasses,
+// see bt-da4f). The inner ranker is SemanticSearch.Filter, which honors hybrid
 // config set via SetHybridConfig.
+//
+// Wrap order matches the spec (bt-6pzni):
+//   multiTokenFilter → whitespaceAndFilter → quotedExactFilter → idPriorityFilter → ranker
 func semanticSearchFilter(s *SemanticSearch) list.FilterFunc {
-	return multiTokenFilter(quotedExactFilter(idPriorityFilter(s.Filter)), SemanticPerTokenCap)
+	return multiTokenFilter(whitespaceAndFilter(quotedExactFilter(idPriorityFilter(s.Filter))), SemanticPerTokenCap)
 }
 
 // extractIDToken returns the first whitespace-separated token of target,

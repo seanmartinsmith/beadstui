@@ -51,6 +51,14 @@ type semanticResultCache struct {
 
 const semanticCacheCap = 10
 
+// HybridScoreFloor is the minimum final score an item must have to appear in
+// semantic or hybrid search results. Items below this threshold are dropped
+// from ComputeSemanticResults output — they are noise at this score level.
+// The value (0.05) reuses the former SearchScoreBadgeMinAbs threshold removed
+// in bt-r3zxj: the project already decided sub-0.05 hybrid scores were noise
+// (they were the gate for showing a score badge before badges were removed).
+const HybridScoreFloor = 0.05
+
 type semanticHybridConfig struct {
 	Enabled bool
 	Preset  search.PresetName
@@ -493,8 +501,20 @@ func (s *SemanticSearch) ComputeSemanticResults(term string) ([]list.Rank, uint6
 	if len(scoredItems) > limit {
 		scoredItems = scoredItems[:limit]
 	}
+
+	// Change A: relevance floor. Items whose final score falls below
+	// HybridScoreFloor are excluded from results. The threshold value
+	// (0.05) matches the former SearchScoreBadgeMinAbs constant removed in
+	// bt-r3zxj — the project already decided sub-0.05 hybrid scores were
+	// noise. Applies to both semantic-only (text score) and hybrid (final
+	// score) paths. If the floor empties the result set the caller receives
+	// an empty slice, which causes Bubbles to render its built-in "No items."
+	// indicator — no additional empty-state surface needed (bt-6pzni).
 	out := make([]list.Rank, 0, len(scoredItems))
 	for _, it := range scoredItems {
+		if it.score < HybridScoreFloor {
+			break // sorted descending, so all remaining are also below floor
+		}
 		out = append(out, list.Rank{Index: it.index})
 	}
 	s.SetScores(term, scoreMap)

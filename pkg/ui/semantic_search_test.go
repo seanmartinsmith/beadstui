@@ -299,21 +299,26 @@ func TestSemanticSearchFilterSortsByScore(t *testing.T) {
 
 	ss.SetIndex(idx, embedder)
 
-	// Add vectors with different similarities
-	idx.Upsert("id-a", search.ContentHash{}, []float32{0.0, 1.0, 0.0}) // Low similarity
-	idx.Upsert("id-b", search.ContentHash{}, []float32{1.0, 0.0, 0.0}) // High similarity
-	idx.Upsert("id-c", search.ContentHash{}, []float32{0.5, 0.5, 0.0}) // Medium similarity
+	// Add vectors with different similarities to query vector [1,0,0].
+	// id-a: dot product = 0.0 (below HybridScoreFloor, excluded by relevance floor).
+	// id-b: dot product = 1.0 (included).
+	// id-c: dot product = 0.5 (included).
+	idx.Upsert("id-a", search.ContentHash{}, []float32{0.0, 1.0, 0.0}) // score 0.0 -> below floor
+	idx.Upsert("id-b", search.ContentHash{}, []float32{1.0, 0.0, 0.0}) // score 1.0 -> included
+	idx.Upsert("id-c", search.ContentHash{}, []float32{0.5, 0.5, 0.0}) // score 0.5 -> included
 
 	ss.SetIDs([]string{"id-a", "id-b", "id-c"})
 
 	// Use ComputeSemanticResults for synchronous computation (testing)
 	ranks, _ := ss.ComputeSemanticResults("query")
 
-	if len(ranks) < 3 {
-		t.Fatalf("Expected at least 3 ranks, got %d", len(ranks))
+	// id-a scores 0.0 (below HybridScoreFloor=0.05) and is excluded.
+	// Only id-b and id-c pass the floor.
+	if len(ranks) < 2 {
+		t.Fatalf("Expected at least 2 ranks (id-b and id-c above floor), got %d", len(ranks))
 	}
 
-	// id-b (index 1) should be first (highest similarity)
+	// id-b (index 1) should be first (highest similarity = 1.0)
 	if ranks[0].Index != 1 {
 		t.Errorf("Expected first rank index 1 (id-b), got %d", ranks[0].Index)
 	}
@@ -371,7 +376,7 @@ func TestSemanticSearchFilterMissingID(t *testing.T) {
 
 	ss.SetIndex(idx, embedder)
 
-	// Only add one vector but set two IDs
+	// Only add one vector but set two IDs.
 	idx.Upsert("id-1", search.ContentHash{}, []float32{1.0, 0.0, 0.0})
 
 	ss.SetIDs([]string{"id-1", "id-missing"})
@@ -379,13 +384,15 @@ func TestSemanticSearchFilterMissingID(t *testing.T) {
 	// Use ComputeSemanticResults for synchronous computation (testing)
 	ranks, _ := ss.ComputeSemanticResults("query")
 
-	// Should return results for both valid and missing IDs
-	// Missing IDs are assigned a low score but included
-	if len(ranks) != 2 {
-		t.Errorf("Expected 2 ranks (valid + missing), got %d", len(ranks))
+	// id-1 scores 1.0 (above HybridScoreFloor) and is included.
+	// id-missing is not in the index and receives score -2.0, which is below
+	// HybridScoreFloor (0.05), so it is excluded by the relevance floor
+	// (bt-6pzni Change A). Pre-floor behavior was to include it at the bottom.
+	if len(ranks) != 1 {
+		t.Errorf("Expected 1 rank (id-1 above floor; id-missing below floor), got %d", len(ranks))
 	}
 
-	// First result should be id-1 (index 0) as it has a positive score
+	// Result should be id-1 (index 0)
 	if len(ranks) > 0 && ranks[0].Index != 0 {
 		t.Errorf("Expected first rank index 0 (id-1), got %d", ranks[0].Index)
 	}
@@ -436,6 +443,8 @@ func TestSemanticSearchFilterNonBlocking(t *testing.T) {
 	}
 
 	ss.SetIndex(idx, embedder)
+	// id-1: dot product with query [1,0,0] = 1.0 (above HybridScoreFloor).
+	// id-2: dot product with query [1,0,0] = 0.0 (below HybridScoreFloor, excluded).
 	idx.Upsert("id-1", search.ContentHash{}, []float32{1.0, 0.0, 0.0})
 	idx.Upsert("id-2", search.ContentHash{}, []float32{0.0, 1.0, 0.0})
 	ss.SetIDs([]string{"id-1", "id-2"})
@@ -467,10 +476,11 @@ func TestSemanticSearchFilterNonBlocking(t *testing.T) {
 		t.Errorf("Expected pending term to be cleared, got %q", ss.GetPendingTerm())
 	}
 
-	// Second call to Filter should return cached semantic results
+	// Second call to Filter should return cached semantic results.
+	// Only id-1 (score 1.0) passes HybridScoreFloor; id-2 (score 0.0) is excluded.
 	ranks2 := ss.Filter("query", targets)
-	if len(ranks2) != 2 {
-		t.Errorf("Expected 2 cached ranks, got %d", len(ranks2))
+	if len(ranks2) < 1 {
+		t.Errorf("Expected at least 1 cached rank (id-1 above floor), got %d", len(ranks2))
 	}
 }
 
@@ -767,5 +777,86 @@ func BenchmarkDotFloat32(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = dotFloat32(a, bVec)
+	}
+}
+
+// =============================================================================
+// Relevance Floor Tests (bt-6pzni Change A)
+// =============================================================================
+
+// TestHybridScoreFloor_ExcludesBelowFloor verifies that items whose computed
+// score falls below HybridScoreFloor are excluded from ComputeSemanticResults
+// output (bt-6pzni Change A).
+func TestHybridScoreFloor_ExcludesBelowFloor(t *testing.T) {
+	ss := NewSemanticSearch()
+	idx := search.NewVectorIndex(3)
+	embedder := &mockEmbedder{
+		dim: 3,
+		embedFunc: func(ctx context.Context, texts []string) ([][]float32, error) {
+			result := make([][]float32, len(texts))
+			for i := range result {
+				result[i] = []float32{1.0, 0.0, 0.0} // query vector
+			}
+			return result, nil
+		},
+	}
+	ss.SetIndex(idx, embedder)
+
+	// id-high: score 1.0 (above floor) → kept.
+	// id-low:  score 0.0 (below floor) → dropped.
+	// id-exact: score = HybridScoreFloor exactly → kept (floor is exclusive).
+	idx.Upsert("id-high", search.ContentHash{}, []float32{1.0, 0.0, 0.0})
+	idx.Upsert("id-low", search.ContentHash{}, []float32{0.0, 1.0, 0.0})
+	idx.Upsert("id-exact", search.ContentHash{}, []float32{float32(HybridScoreFloor), 0.0, 0.0})
+
+	ss.SetIDs([]string{"id-high", "id-low", "id-exact"})
+	ranks, _ := ss.ComputeSemanticResults("query")
+
+	// id-low (score 0.0) must be absent.
+	for _, r := range ranks {
+		if r.Index == 1 { // id-low is at index 1
+			t.Fatalf("id-low (score 0.0) should be excluded by HybridScoreFloor but appeared in results")
+		}
+	}
+	// id-high must be present.
+	found := false
+	for _, r := range ranks {
+		if r.Index == 0 {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("id-high (score 1.0) should be present in results but was absent")
+	}
+}
+
+// TestHybridScoreFloor_EmptyResultsWhenAllBelowFloor verifies that when all
+// items score below the floor, ComputeSemanticResults returns an empty slice
+// (which causes Bubbles to render "No items.") rather than backfilling with
+// low-relevance results (bt-6pzni Change A).
+func TestHybridScoreFloor_EmptyResultsWhenAllBelowFloor(t *testing.T) {
+	ss := NewSemanticSearch()
+	idx := search.NewVectorIndex(3)
+	embedder := &mockEmbedder{
+		dim: 3,
+		embedFunc: func(ctx context.Context, texts []string) ([][]float32, error) {
+			result := make([][]float32, len(texts))
+			for i := range result {
+				result[i] = []float32{1.0, 0.0, 0.0} // query vector
+			}
+			return result, nil
+		},
+	}
+	ss.SetIndex(idx, embedder)
+
+	// All items score 0.0 (orthogonal to query) — below floor.
+	idx.Upsert("id-1", search.ContentHash{}, []float32{0.0, 1.0, 0.0})
+	idx.Upsert("id-2", search.ContentHash{}, []float32{0.0, 0.0, 1.0})
+
+	ss.SetIDs([]string{"id-1", "id-2"})
+	ranks, _ := ss.ComputeSemanticResults("xqzwvb")
+
+	if len(ranks) != 0 {
+		t.Fatalf("expected empty results when all items below HybridScoreFloor, got %d ranks", len(ranks))
 	}
 }
