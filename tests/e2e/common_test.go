@@ -29,6 +29,15 @@ func TestMain(m *testing.M) {
 	os.Setenv("BT_NO_BROWSER", "1")
 	os.Setenv("BT_TEST_MODE", "1")
 
+	// Redirect agent-prompts prefs to an isolated temp dir so tests don't
+	// pollute the user's %APPDATA%\bt\agent-prompts (bt-zgnoa).
+	promptsTmp, err := os.MkdirTemp("", "bt-agent-prompts-e2e-*")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to create isolated prompts dir: %v\n", err)
+		os.Exit(1)
+	}
+	os.Setenv("BT_AGENT_PROMPTS_DIR", promptsTmp)
+
 	// Build the binary once for all tests
 	if err := buildBtOnce(); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to build bt binary: %v\n", err)
@@ -41,6 +50,7 @@ func TestMain(m *testing.M) {
 	if btBinaryDir != "" {
 		_ = os.RemoveAll(btBinaryDir)
 	}
+	_ = os.RemoveAll(promptsTmp)
 	os.Exit(code)
 }
 

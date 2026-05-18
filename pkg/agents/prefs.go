@@ -31,7 +31,12 @@ type AgentPromptPreference struct {
 }
 
 // getPrefsDir returns the directory for storing agent prompt preferences.
+// BT_AGENT_PROMPTS_DIR overrides the default user-config path so tests can
+// redirect into a temp dir and not pollute user state (bt-zgnoa).
 func getPrefsDir() (string, error) {
+	if override := os.Getenv("BT_AGENT_PROMPTS_DIR"); override != "" {
+		return override, nil
+	}
 	configDir, err := os.UserConfigDir()
 	if err != nil {
 		return "", err

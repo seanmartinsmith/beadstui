@@ -220,6 +220,10 @@ func TestClearPreference(t *testing.T) {
 }
 
 func TestGetPrefsDir(t *testing.T) {
+	// TestMain sets BT_AGENT_PROMPTS_DIR for isolation; unset it here so we
+	// validate the production path resolution (os.UserConfigDir + bt/agent-prompts).
+	t.Setenv("BT_AGENT_PROMPTS_DIR", "")
+
 	dir, err := getPrefsDir()
 	if err != nil {
 		t.Fatal(err)
@@ -231,6 +235,19 @@ func TestGetPrefsDir(t *testing.T) {
 	}
 	if !contains(dir, "bt") || !contains(dir, "agent-prompts") {
 		t.Errorf("Unexpected prefs dir: %s", dir)
+	}
+}
+
+func TestGetPrefsDir_EnvOverride(t *testing.T) {
+	want := t.TempDir()
+	t.Setenv("BT_AGENT_PROMPTS_DIR", want)
+
+	got, err := getPrefsDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Errorf("env override not honored: got %q, want %q", got, want)
 	}
 }
 
