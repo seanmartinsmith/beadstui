@@ -1,5 +1,7 @@
 # TUI Search Latency Implementation Plan
 
+> **STATUS 2026-05-18: NOT ACTIONABLE AS WRITTEN.** Phase 2 measurement falsified the plan's working hypothesis. The benchmark (`pkg/ui/search_latency_bench_test.go`, commit 4c2c8c0e) recorded the filter chain at 2.06 ms/keystroke on a 4k synthetic corpus — 7.7x under the 16 ms target. The user-reported lag is real but mild ("manageable but not great"); whatever residual cost exists is in a layer this plan did not address (likely delegate row render, detail-pane re-render on selection change, or async-result-landing hitch). `bt-qlasl` was closed deferred. Treat this doc as reference for the benchmark scaffolding and the falsified-premise audit trail only — do NOT execute Phases 3-5 without first reopening `bt-qlasl` against a reproduced symptom and re-deriving the fix targets from a real profile.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make `bt`'s global TUI search responsive on 4000+ issue corpora when typing at fast speeds, measured by per-keystroke filter-chain duration.
