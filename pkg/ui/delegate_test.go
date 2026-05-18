@@ -175,6 +175,32 @@ func TestIssueDelegate_RenderHidesAuthorAtNarrowWidth(t *testing.T) {
 	}
 }
 
+// Row rendering must never emit a [0.NN] score badge. The hybrid score is
+// now consumed only by the detail-pane Search Scores section (bt-gfxhz.6).
+// bt-r3zxj decided row badges are noise for humans; agents continue to
+// receive scores via bt robot search JSON.
+func TestIssueDelegate_RenderOmitsSearchScoreBadge(t *testing.T) {
+	item := newTestIssueItem("NOBADGE-1")
+	item.SearchScoreSet = true
+	item.SearchScore = 0.48 // well above the former 0.05 threshold
+	theme := DefaultTheme()
+	delegate := IssueDelegate{Theme: theme}
+
+	l := list.New([]list.Item{item}, delegate, 0, 0)
+	l.SetWidth(120)
+
+	var buf bytes.Buffer
+	delegate.Render(&buf, l, 0, item)
+	out := buf.String()
+
+	if strings.Contains(out, "[0.48]") {
+		t.Fatalf("render output should not contain row score badge: %q", out)
+	}
+	if strings.Contains(out, "[0.") {
+		t.Fatalf("render output contains a [0.NN]-shaped score badge: %q", out)
+	}
+}
+
 func TestIssueDelegate_RenderNarrow(t *testing.T) {
 	item := newTestIssueItem("NARROW-1")
 	theme := DefaultTheme()

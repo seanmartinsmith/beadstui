@@ -6,7 +6,6 @@ import (
 	"os"
 	"slices"
 	"sort"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -712,26 +711,12 @@ func (m *Model) updateSemanticIDs(items []list.Item) {
 	m.semanticSearch.SetDocs(docs)
 }
 
-func (m *Model) shouldShowSearchScores() bool {
-	if !m.semanticSearchEnabled || !m.semanticHybridEnabled || m.semanticSearch == nil {
-		return false
-	}
-	if m.list.FilterState() == list.Unfiltered {
-		return false
-	}
-	if strings.TrimSpace(m.list.FilterInput.Value()) == "" {
-		return false
-	}
-	return true
-}
-
 func (m *Model) updateListDelegate() {
 	m.list.SetDelegate(IssueDelegate{
 		Theme:             m.theme,
 		ShowPriorityHints: m.ac.showPriorityHints,
 		PriorityHints:     m.ac.priorityHints,
 		WorkspaceMode:     m.workspaceMode,
-		ShowSearchScores:  m.shouldShowSearchScores(),
 	})
 }
 
