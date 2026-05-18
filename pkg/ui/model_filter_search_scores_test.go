@@ -189,7 +189,7 @@ func TestSearchScoreSummary_TopThree(t *testing.T) {
 		"priority": 0.400,
 		"recency":  0.285,
 	}
-	summary := searchScoreSummary(components)
+	summary := searchScoreSummary(components, referenceIssue())
 	// Top 3 by absolute value: status (1.0), priority (0.4), recency (0.285)
 	// Expected tokens: "active", "priority", "recent"
 	if !strings.Contains(summary, "active") {
@@ -213,7 +213,7 @@ func TestSearchScoreSummary_BelowThreshold(t *testing.T) {
 		"pagerank": 0.01,
 		"status":   0.02,
 	}
-	summary := searchScoreSummary(components)
+	summary := searchScoreSummary(components, referenceIssue())
 	if summary != "" {
 		t.Errorf("expected empty summary when all components below threshold, got %q", summary)
 	}
@@ -225,12 +225,73 @@ func TestSearchScoreSummary_OneContributor(t *testing.T) {
 	components := map[string]float64{
 		"status": 1.0,
 	}
-	summary := searchScoreSummary(components)
+	summary := searchScoreSummary(components, referenceIssue())
 	if summary == "" {
 		t.Fatal("expected non-empty summary for one above-threshold contributor")
 	}
 	if strings.Contains(summary, " + ") {
 		t.Errorf("single-contributor summary should not contain ' + ': %q", summary)
+	}
+}
+
+// TestSearchScoreSummary_StatusReflectsIssueState verifies the reviewer-flagged
+// correctness bug: a non-in_progress status with high contribution must surface
+// the issue's actual status word in the summary, not a fixed "active" label.
+// Spec: anchor each component to the issue's actual state in plain language.
+func TestSearchScoreSummary_StatusReflectsIssueState(t *testing.T) {
+	components := map[string]float64{
+		"status":   1.0,
+		"priority": 0.4,
+	}
+
+	// Blocked bead with high status contribution must surface "blocked".
+	blocked := referenceIssue()
+	blocked.Status = model.StatusBlocked
+	got := searchScoreSummary(components, blocked)
+	if !strings.Contains(got, "blocked") {
+		t.Errorf("blocked status should appear in summary, got %q", got)
+	}
+	if strings.Contains(got, "active") {
+		t.Errorf("blocked bead must NOT render as 'active' in summary, got %q", got)
+	}
+
+	// Closed bead should surface "closed".
+	closed := referenceIssue()
+	closed.Status = model.StatusClosed
+	got = searchScoreSummary(components, closed)
+	if !strings.Contains(got, "closed") {
+		t.Errorf("closed status should appear in summary, got %q", got)
+	}
+	if strings.Contains(got, "active") {
+		t.Errorf("closed bead must NOT render as 'active' in summary, got %q", got)
+	}
+
+	// in_progress still maps to "active" (existing contract).
+	inProg := referenceIssue() // StatusInProgress
+	got = searchScoreSummary(components, inProg)
+	if !strings.Contains(got, "active") {
+		t.Errorf("in_progress should render as 'active' in summary, got %q", got)
+	}
+}
+
+// TestStatusToken verifies the shared status -> token mapping that both
+// searchScoreAnchor and searchScoreSummary delegate to.
+func TestStatusToken(t *testing.T) {
+	cases := []struct {
+		status model.Status
+		want   string
+	}{
+		{model.StatusInProgress, "active"},
+		{model.StatusOpen, "open"},
+		{model.StatusBlocked, "blocked"},
+		{model.StatusClosed, "closed"},
+		{model.StatusDeferred, "deferred"},
+	}
+	for _, tc := range cases {
+		got := statusToken(tc.status)
+		if got != tc.want {
+			t.Errorf("statusToken(%q) = %q, want %q", tc.status, got, tc.want)
+		}
 	}
 }
 
@@ -304,5 +365,74 @@ func TestSearchScoreMinAbs_ThresholdBoundary(t *testing.T) {
 	out2 := buildSearchScoresANSI(belowThreshold, 0.1, 0.1, item)
 	if !strings.Contains(out2, "not contributing") {
 		t.Errorf("component below threshold should be suppressed:\n%s", out2)
+	}
+}
+
+// TestBuildSearchScoresANSI_DeterministicTiebreak verifies the reviewer-flagged
+// non-determinism bug in the contribs sort: when two components have equal
+// absolute contribution, they must be ordered alphabetically by key, not by
+// Go's randomised map iteration. Running the same input N times must produce
+// byte-identical output.
+func TestBuildSearchScoresANSI_DeterministicTiebreak(t *testing.T) {
+	components := map[string]float64{
+		// All three have equal absolute contribution.
+		"status":   0.5,
+		"priority": 0.5,
+		"recency":  0.5,
+	}
+	item := referenceIssue()
+
+	first := buildSearchScoresANSI(components, 0.5, 0.5, item)
+	for i := 0; i < 50; i++ {
+		got := buildSearchScoresANSI(components, 0.5, 0.5, item)
+		if got != first {
+			t.Fatalf("non-deterministic output on iter %d:\nfirst:\n%s\ngot:\n%s", i, first, got)
+		}
+	}
+
+	// Alphabetical order: priority < recency < status.
+	idxPriority := strings.Index(first, "priority")
+	idxRecency := strings.Index(first, "recency")
+	idxStatus := strings.Index(first, "status")
+	if idxPriority < 0 || idxRecency < 0 || idxStatus < 0 {
+		t.Fatalf("missing component keys in output:\n%s", first)
+	}
+	if !(idxPriority < idxRecency && idxRecency < idxStatus) {
+		t.Errorf("equal-value components should sort alphabetically (priority < recency < status), got positions %d/%d/%d", idxPriority, idxRecency, idxStatus)
+	}
+}
+
+// TestSearchScoreSummary_DeterministicTiebreak verifies the same determinism
+// property for the heading-summary sort. Two components with equal absolute
+// contribution must appear in alphabetical key order in the summary string,
+// not in a randomised order driven by map iteration.
+func TestSearchScoreSummary_DeterministicTiebreak(t *testing.T) {
+	components := map[string]float64{
+		"status":   0.5,
+		"priority": 0.5,
+	}
+	// Use an open status so the summary token is the literal "open"
+	// and we get a stable lexical comparison vs "priority".
+	item := referenceIssue()
+	item.Status = model.StatusOpen
+
+	first := searchScoreSummary(components, item)
+	for i := 0; i < 50; i++ {
+		got := searchScoreSummary(components, item)
+		if got != first {
+			t.Fatalf("non-deterministic summary on iter %d:\nfirst: %q\ngot:   %q", i, first, got)
+		}
+	}
+
+	// Alphabetical order by KEY: priority < status. The summary tokens
+	// derived from those keys must appear in that order regardless of
+	// how the tokens themselves compare lexically.
+	idxPriority := strings.Index(first, "priority")
+	idxOpen := strings.Index(first, "open")
+	if idxPriority < 0 || idxOpen < 0 {
+		t.Fatalf("expected 'priority' and 'open' tokens in summary, got %q", first)
+	}
+	if idxPriority > idxOpen {
+		t.Errorf("equal-value components should sort alphabetically by key (priority before status): %q", first)
 	}
 }

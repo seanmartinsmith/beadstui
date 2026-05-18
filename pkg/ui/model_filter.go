@@ -1149,7 +1149,7 @@ func (m *Model) updateViewportContent() {
 	// code-fence path (bt-x5xc4 class). Same two-track pattern as Graph
 	// Analysis. (bt-gfxhz.6)
 	if m.semanticSearchEnabled && m.semanticHybridEnabled && issueItem.SearchScoreSet && m.list.FilterState() != list.Unfiltered {
-		summary := searchScoreSummary(issueItem.SearchComponents)
+		summary := searchScoreSummary(issueItem.SearchComponents, item)
 		heading := "### 🔎 Search Scores"
 		if summary != "" {
 			heading += "  (" + summary + ")"
@@ -1523,7 +1523,11 @@ const searchScoreMinAbs = 0.05
 func buildSearchScoresANSI(components map[string]float64, hybridScore, textScore float64, item model.Issue) string {
 	muted := lipgloss.NewStyle().Foreground(ColorMuted)
 
-	// Sort components by absolute contribution descending.
+	// Sort components by absolute contribution descending; alphabetical key
+	// as tiebreaker so the bar order is deterministic when two components
+	// have equal absolute value (bt-gfxhz.6 reviewer note). Map iteration
+	// in Go is randomised, so without a tiebreak equal-value rows would
+	// flip position between renders.
 	var contribs []searchScoreContrib
 	for k, v := range components {
 		contribs = append(contribs, searchScoreContrib{k, v})
@@ -1537,7 +1541,10 @@ func buildSearchScoresANSI(components map[string]float64, hybridScore, textScore
 		if aj < 0 {
 			aj = -aj
 		}
-		return ai > aj
+		if ai != aj {
+			return ai > aj
+		}
+		return contribs[i].key < contribs[j].key
 	})
 
 	// Separate above-threshold from suppressed.
@@ -1604,10 +1611,23 @@ func searchScoreBar(value float64) string {
 	return strings.Repeat("█", filled) + strings.Repeat("░", empty)
 }
 
+// statusToken maps an issue status to a compact human token used by both the
+// bar-row anchor and the heading parenthetical summary. Centralising this
+// keeps the two surfaces in sync — a "status" component must surface the
+// issue's actual state (active / blocked / closed / ...), not a fixed label.
+// in_progress is renamed to "active" for readability; everything else passes
+// through as the status string.
+func statusToken(s model.Status) string {
+	if s == model.StatusInProgress {
+		return "active"
+	}
+	return string(s)
+}
+
 // searchScoreAnchor maps a component key to a human-readable label derived
 // from the issue's actual state, so the bar row is self-annotating.
 //
-//   - status   -> the issue's status word (active = in_progress)
+//   - status   -> the issue's status word (in_progress = "active")
 //   - priority -> P0/P1/P2/P3/P4
 //   - recency  -> relative time already used in the detail pane
 //   - pagerank -> tier label based on raw PR score (no rank# available here)
@@ -1615,18 +1635,14 @@ func searchScoreBar(value float64) string {
 func searchScoreAnchor(key string, value float64, item model.Issue) string {
 	switch key {
 	case "status":
-		s := string(item.Status)
-		if item.Status == model.StatusInProgress {
-			s = "active"
-		}
-		return padRight(s, 10)
+		return padRight(statusToken(item.Status), 10)
 	case "priority":
 		return padRight(fmt.Sprintf("P%d", item.Priority), 10)
 	case "recency":
 		return padRight(FormatTimeRel(item.UpdatedAt), 10)
 	case "pagerank":
 		// Tier from raw PR score. Cut points are rough quantiles observed
-		// across typical beads repos (top 5% ~ 0.05, top 20% ~ 0.02). If
+		// across typical beads repos (top 5% ~ 0.10, top 20% ~ 0.04). If
 		// the value is zero the component was not contributing anyway.
 		var tier string
 		switch {
@@ -1664,7 +1680,12 @@ func searchScoreAnchor(key string, value float64, item model.Issue) string {
 // above-threshold contributors, joined with " + ". Used in the section
 // heading: "Search Scores  (active + P3 + recent)". Returns empty string
 // when no components exceed the threshold.
-func searchScoreSummary(components map[string]float64) string {
+//
+// The "status" token reuses statusToken(item.Status) so the summary
+// reflects the issue's actual state — a blocked or closed bead whose
+// status component contributes strongly surfaces as "(blocked + ...)"
+// rather than a fixed "active" label.
+func searchScoreSummary(components map[string]float64, item model.Issue) string {
 	type kv struct {
 		key string
 		val float64
@@ -1682,13 +1703,22 @@ func searchScoreSummary(components map[string]float64) string {
 	if len(items) == 0 {
 		return ""
 	}
-	sort.Slice(items, func(i, j int) bool { return items[i].val > items[j].val })
+	// Sort by absolute value descending; alphabetical key for deterministic
+	// ordering when contributions are equal (bt-gfxhz.6 reviewer note).
+	sort.Slice(items, func(i, j int) bool {
+		if items[i].val != items[j].val {
+			return items[i].val > items[j].val
+		}
+		return items[i].key < items[j].key
+	})
 
-	// Map keys to compact human tokens for the summary.
+	// Map keys to compact human tokens for the summary. status delegates to
+	// statusToken so it tracks the issue's actual state in both bar-row
+	// anchor and heading summary (single source of truth).
 	tokenOf := func(key string) string {
 		switch key {
 		case "status":
-			return "active"
+			return statusToken(item.Status)
 		case "priority":
 			return "priority"
 		case "recency":
