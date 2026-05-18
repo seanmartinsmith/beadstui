@@ -1143,29 +1143,25 @@ func (m *Model) updateViewportContent() {
 		addMD(sb.String())
 	}
 
-	// Search Scores (hybrid mode)
+	// Search Scores (hybrid mode). Heading via Glamour for consistent H3
+	// styling with neighbouring sections. Body via ANSI so lipgloss bar
+	// characters and muted labels survive without Glamour's ESC-stripping
+	// code-fence path (bt-x5xc4 class). Same two-track pattern as Graph
+	// Analysis. (bt-gfxhz.6)
 	if m.semanticSearchEnabled && m.semanticHybridEnabled && issueItem.SearchScoreSet && m.list.FilterState() != list.Unfiltered {
-		var sb strings.Builder
-		sb.WriteString("### 🔎 Search Scores\n")
-		sb.WriteString(fmt.Sprintf("- **Hybrid Score:** %.3f\n", issueItem.SearchScore))
-		sb.WriteString(fmt.Sprintf("- **Text Score:** %.3f\n", issueItem.SearchTextScore))
-		if len(issueItem.SearchComponents) > 0 {
-			sb.WriteString("- **Components:**\n")
-			order := []string{"pagerank", "status", "impact", "priority", "recency"}
-			for _, key := range order {
-				if val, ok := issueItem.SearchComponents[key]; ok {
-					sb.WriteString(fmt.Sprintf("  - %s: %.3f\n", key, val))
-				}
-			}
+		summary := searchScoreSummary(issueItem.SearchComponents)
+		heading := "### 🔎 Search Scores"
+		if summary != "" {
+			heading += "  (" + summary + ")"
 		}
-		sb.WriteString("\n")
-		addMD(sb.String())
+		addMD(heading + "\n")
+		addANSI(buildSearchScoresANSI(issueItem.SearchComponents, issueItem.SearchScore, issueItem.SearchTextScore, item))
 	}
 
 	// Graph Analysis. Heading stays on Glamour so its H3 styling matches
 	// neighbouring sections (📊 Centrality, 🔎 Search Scores). Only the
-	// three numeric rows go through ANSI — labels in ColorMuted, values
-	// default — since that's where the lipgloss styling actually matters.
+	// numeric rows go through ANSI — labels in ColorMuted, values default —
+	// since that's where the lipgloss styling actually matters (bt-x5xc4).
 	pr := m.data.analysis.GetPageRankScore(item.ID)
 	bt := m.data.analysis.GetBetweennessScore(item.ID)
 	imp := m.data.analysis.GetCriticalPathScore(item.ID)
@@ -1503,6 +1499,218 @@ func (m *Model) workspacePrefilter(issues []model.Issue) []model.Issue {
 		}
 	}
 	return filtered
+}
+
+// searchScoreContrib represents one component's contribution to the hybrid score,
+// sorted descending by absolute value for the bar display. (bt-gfxhz.6)
+type searchScoreContrib struct {
+	key   string
+	value float64
+}
+
+// searchScoreMinAbs is the suppression threshold for bar display. Components
+// whose absolute contribution is below this are collapsed to a single
+// "not contributing" line. Matches the former row-badge floor (bt-r3zxj).
+const searchScoreMinAbs = 0.05
+
+// buildSearchScoresANSI renders the Search Scores detail-pane section as a
+// lipgloss-styled block: contribution bars sorted descending, suppressed-
+// components line, and a final Hybrid / Text score row. Called from
+// updateViewportContent after the H3 heading is emitted via addMD.
+//
+// The caller routes this through addANSI so it bypasses Glamour's code-fence
+// path (bt-x5xc4 trap) and the ANSI block characters survive intact.
+func buildSearchScoresANSI(components map[string]float64, hybridScore, textScore float64, item model.Issue) string {
+	muted := lipgloss.NewStyle().Foreground(ColorMuted)
+
+	// Sort components by absolute contribution descending.
+	var contribs []searchScoreContrib
+	for k, v := range components {
+		contribs = append(contribs, searchScoreContrib{k, v})
+	}
+	sort.Slice(contribs, func(i, j int) bool {
+		ai := contribs[i].value
+		if ai < 0 {
+			ai = -ai
+		}
+		aj := contribs[j].value
+		if aj < 0 {
+			aj = -aj
+		}
+		return ai > aj
+	})
+
+	// Separate above-threshold from suppressed.
+	var active, suppressed []searchScoreContrib
+	for _, c := range contribs {
+		abs := c.value
+		if abs < 0 {
+			abs = -abs
+		}
+		if abs >= searchScoreMinAbs {
+			active = append(active, c)
+		} else {
+			suppressed = append(suppressed, c)
+		}
+	}
+
+	var lines []string
+
+	// Bar rows for above-threshold components.
+	for _, c := range active {
+		bar := searchScoreBar(c.value)
+		anchor := searchScoreAnchor(c.key, c.value, item)
+		sign := "+"
+		if c.value < 0 {
+			sign = "-"
+		}
+		absVal := c.value
+		if absVal < 0 {
+			absVal = -absVal
+		}
+		label := muted.Render(fmt.Sprintf("  %-9s", c.key))
+		scorePart := fmt.Sprintf("%s%.1f", sign, absVal)
+		lines = append(lines, label+" "+bar+"  "+anchor+"  "+muted.Render(scorePart))
+	}
+
+	// Suppressed components collapsed to one line.
+	if len(suppressed) > 0 {
+		names := make([]string, len(suppressed))
+		for i, c := range suppressed {
+			names[i] = c.key
+		}
+		lines = append(lines, muted.Render("  "+strings.Join(names, ", ")+": not contributing"))
+	}
+
+	// Final summary row: hybrid and text scores for power users.
+	lines = append(lines, muted.Render(fmt.Sprintf("  Hybrid: %.2f | Text: %.2f", hybridScore, textScore)))
+
+	return lipgloss.JoinVertical(lipgloss.Left, lines...)
+}
+
+// searchScoreBar returns a 10-cell block-character bar for the given score
+// value (expected 0.0-1.0). Full blocks for filled cells, light shade for
+// empty. Clamped to [0, 1] before scaling.
+func searchScoreBar(value float64) string {
+	const barWidth = 10
+	if value < 0 {
+		value = -value
+	}
+	if value > 1 {
+		value = 1
+	}
+	filled := int(value * barWidth)
+	empty := barWidth - filled
+	return strings.Repeat("█", filled) + strings.Repeat("░", empty)
+}
+
+// searchScoreAnchor maps a component key to a human-readable label derived
+// from the issue's actual state, so the bar row is self-annotating.
+//
+//   - status   -> the issue's status word (active = in_progress)
+//   - priority -> P0/P1/P2/P3/P4
+//   - recency  -> relative time already used in the detail pane
+//   - pagerank -> tier label based on raw PR score (no rank# available here)
+//   - impact   -> downstream chain count (critical path score)
+func searchScoreAnchor(key string, value float64, item model.Issue) string {
+	switch key {
+	case "status":
+		s := string(item.Status)
+		if item.Status == model.StatusInProgress {
+			s = "active"
+		}
+		return padRight(s, 10)
+	case "priority":
+		return padRight(fmt.Sprintf("P%d", item.Priority), 10)
+	case "recency":
+		return padRight(FormatTimeRel(item.UpdatedAt), 10)
+	case "pagerank":
+		// Tier from raw PR score. Cut points are rough quantiles observed
+		// across typical beads repos (top 5% ~ 0.05, top 20% ~ 0.02). If
+		// the value is zero the component was not contributing anyway.
+		var tier string
+		switch {
+		case value >= 0.10:
+			tier = "top 5%"
+		case value >= 0.04:
+			tier = "top 20%"
+		case value >= 0.01:
+			tier = "mid"
+		case value > 0:
+			tier = "low"
+		default:
+			tier = "-"
+		}
+		return padRight(tier, 10)
+	case "impact":
+		// Critical path score is a float representing downstream chain length.
+		// Round to int for display.
+		chain := int(value + 0.5)
+		var label string
+		if chain <= 0 {
+			label = "0 deps"
+		} else if chain == 1 {
+			label = "1 dep"
+		} else {
+			label = fmt.Sprintf("%d deps", chain)
+		}
+		return padRight(label, 10)
+	default:
+		return padRight(fmt.Sprintf("%.2f", value), 10)
+	}
+}
+
+// searchScoreSummary returns a compact parenthetical label for the top 2-3
+// above-threshold contributors, joined with " + ". Used in the section
+// heading: "Search Scores  (active + P3 + recent)". Returns empty string
+// when no components exceed the threshold.
+func searchScoreSummary(components map[string]float64) string {
+	type kv struct {
+		key string
+		val float64
+	}
+	var items []kv
+	for k, v := range components {
+		abs := v
+		if abs < 0 {
+			abs = -abs
+		}
+		if abs >= searchScoreMinAbs {
+			items = append(items, kv{k, abs})
+		}
+	}
+	if len(items) == 0 {
+		return ""
+	}
+	sort.Slice(items, func(i, j int) bool { return items[i].val > items[j].val })
+
+	// Map keys to compact human tokens for the summary.
+	tokenOf := func(key string) string {
+		switch key {
+		case "status":
+			return "active"
+		case "priority":
+			return "priority"
+		case "recency":
+			return "recent"
+		case "pagerank":
+			return "pagerank"
+		case "impact":
+			return "impact"
+		default:
+			return key
+		}
+	}
+
+	max := 3
+	if len(items) < max {
+		max = len(items)
+	}
+	parts := make([]string, max)
+	for i := 0; i < max; i++ {
+		parts[i] = tokenOf(items[i].key)
+	}
+	return strings.Join(parts, " + ")
 }
 
 // applyBQL applies a parsed BQL query using the dedicated BQL execution path.
