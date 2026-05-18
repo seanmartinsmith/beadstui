@@ -674,6 +674,73 @@ func TestFuzzyRankerWithScoreFloor_StableEqualScoreOrder(t *testing.T) {
 	}
 }
 
+// TestFuzzyRankerWithScoreFloor_ShortQueryBypassesFloor verifies the
+// short-query typing UX fix (bt-6pzni follow-up). Queries shorter than
+// FuzzyScoreFloorMinTermLen must bypass the floor and fall back to
+// list.DefaultFilter semantics, otherwise sahilm's length-penalty
+// arithmetic on typical FilterValue strings drives real matches negative
+// during the first few keystrokes — users see an empty list as they type
+// the start of a meaningful word.
+//
+// Example: query "re" against a corpus where "release notes" and
+// "repository setup" are genuine substring matches but score negative on
+// sahilm. Without the bypass, the floor would cut all matches; with the
+// bypass, both real items must appear in the result.
+func TestFuzzyRankerWithScoreFloor_ShortQueryBypassesFloor(t *testing.T) {
+	// Realistic 50+-char FilterValue shape so the length penalty drives
+	// short-query scores negative (matches reviewer's probe data).
+	targets := []string{
+		"bt-abc1 release notes for v2 open feature release docs",
+		"bt-abc2 repository setup notes open chore data",
+		"bt-noise totally unrelated bead with no matching chars open task",
+	}
+	ranks := fuzzyRankerWithScoreFloor("re", targets)
+	seen := make(map[int]bool, len(ranks))
+	for _, r := range ranks {
+		seen[r.Index] = true
+	}
+	if !seen[0] {
+		t.Errorf("expected index 0 ('release notes...') in short-query results, missing")
+	}
+	if !seen[1] {
+		t.Errorf("expected index 1 ('repository setup...') in short-query results, missing")
+	}
+	// Sanity: at least 2 matches survived (we want SOME results, not empty)
+	if len(ranks) < 2 {
+		t.Fatalf("expected short-query floor bypass to return >=2 ranks, got %d (floor was not bypassed?)",
+			len(ranks))
+	}
+}
+
+// TestFuzzyRankerWithScoreFloor_LongQueryAppliesFloor verifies the boundary:
+// at FuzzyScoreFloorMinTermLen and above, the floor is active and cuts the
+// negative-score class even though shorter queries against the same corpus
+// would bypass the floor entirely. Pairs with the short-query bypass test to
+// pin the threshold from both sides.
+//
+// Corpus is sized so the 5-char query "relea" scores positive (48) for a
+// strong leading match (index 0) and negative (-4) for a mid-string match
+// (index 1) — empirically verified. With the floor active, index 0 survives
+// and index 1 is cut. The 3-char query "rel" against the same corpus would
+// bypass the floor (short-query passthrough) and keep both.
+func TestFuzzyRankerWithScoreFloor_LongQueryAppliesFloor(t *testing.T) {
+	targets := []string{
+		"bt-r1 Release notes v2 open",      // index 0: leading match, score +48 on "relea"
+		"bt-r2 New release coming soon open", // index 1: mid-string match, score -4 on "relea"
+	}
+	ranks := fuzzyRankerWithScoreFloor("relea", targets) // 5 chars >= FuzzyScoreFloorMinTermLen
+	seen := make(map[int]bool, len(ranks))
+	for _, r := range ranks {
+		seen[r.Index] = true
+	}
+	if !seen[0] {
+		t.Errorf("expected index 0 (positive-score real match) in results, missing: %+v", ranks)
+	}
+	if seen[1] {
+		t.Errorf("expected index 1 (negative-score match) to be cut by floor at >= FuzzyScoreFloorMinTermLen, but present")
+	}
+}
+
 // TestFuzzyRankerWithScoreFloor_NarrowsLargeCorpus verifies the acceptance
 // criterion that single-word queries are bounded by the relevance floor.
 // Builds a synthetic 50-target corpus where only a handful contain the query

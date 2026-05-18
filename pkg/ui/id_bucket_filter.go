@@ -339,9 +339,16 @@ func whitespaceAndFilter(inner list.FilterFunc) list.FilterFunc {
 		}
 		// surviving maps target index -> merged MatchedIndexes so far.
 		surviving := make(map[int][]int)
+		// firstWordRanks captures the first word's ordered ranks so we can
+		// reuse them when rebuilding the result slice (avoids a redundant
+		// inner() pass on every keystroke — bt-6pzni follow-up Minor #1).
+		var firstWordRanks []list.Rank
 		firstWord := true
 		for _, word := range words {
 			wordRanks := inner(word, targets)
+			if firstWord {
+				firstWordRanks = wordRanks
+			}
 			// Apply span-based floor: drop matches where the matched
 			// character span is much larger than the word (permissive
 			// sahilm matches on a rich-text target). Threshold:
@@ -383,7 +390,6 @@ func whitespaceAndFilter(inner list.FilterFunc) list.FilterFunc {
 
 		// Rebuild result slice. Preserve the ordering from the first word's
 		// result set so the inner ranker's quality signal survives.
-		firstWordRanks := inner(words[0], targets)
 		result := make([]list.Rank, 0, len(surviving))
 		seen := make(map[int]bool, len(surviving))
 		for _, r := range firstWordRanks {
@@ -466,6 +472,35 @@ func nextSearchMode(cur searchMode) searchMode {
 	}
 }
 
+// FuzzyScoreFloorMinTermLen is the minimum query length at which
+// FuzzyScoreFloor applies. Queries shorter than this bypass the floor and
+// fall through to list.DefaultFilter semantics (bt-6pzni follow-up).
+//
+// Why: sahilm Score = (match bonuses) + (matched - target_len). On a
+// realistic 56-char FilterValue, the length penalty dominates short
+// queries — empirical scores for "release" typed char-by-char against a
+// target containing "release":
+//
+//	r     score=-51   (real match, but negative)
+//	re    score=-45   (real match, still negative)
+//	rel   score=-29   (real match, still negative)
+//	rele  score=+17   (real match, finally positive)
+//	relea score=+153
+//
+// At 1-3 chars, real matches and scattered-char noise are
+// indistinguishable on score alone. Cutting them all (FuzzyScoreFloor=0)
+// produces a jarring UX: as the user types, the list goes empty for
+// several keystrokes before snapping to a narrow set. Users see "broken
+// search" during the empty window. idPriorityFilter only helps for
+// ID-shaped queries; prose-shaped short queries like "ui", "db", "cli"
+// fall through to the inner ranker and would be wiped by the floor.
+//
+// Value 4: the natural transition point in the probe data — at 4 chars,
+// real matches score positive while noise stays negative. The floor
+// gains its discriminating power exactly there. Below 4 chars, fall
+// through to list.DefaultFilter so the user sees results while typing.
+const FuzzyScoreFloorMinTermLen = 4
+
 // FuzzyScoreFloor is the minimum sahilm score an item must achieve to remain
 // in fuzzy results (bt-6pzni). Items scoring below the floor are dropped.
 //
@@ -519,6 +554,14 @@ const FuzzyScoreFloor = 0
 // no-query behavior (no filtering, original order).
 func fuzzyRankerWithScoreFloor(term string, targets []string) []list.Rank {
 	if term == "" {
+		return list.DefaultFilter(term, targets)
+	}
+	// Short queries: sahilm's length-penalty arithmetic drives real
+	// matches negative on typical FilterValue strings, so the floor would
+	// cut everything during the user's first few keystrokes. Fall through
+	// to list.DefaultFilter to keep the typing UX responsive. See the doc
+	// comment on FuzzyScoreFloorMinTermLen for the calibration probe.
+	if len(term) < FuzzyScoreFloorMinTermLen {
 		return list.DefaultFilter(term, targets)
 	}
 	matches := fuzzy.Find(term, targets)
