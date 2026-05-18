@@ -342,13 +342,15 @@ func (s *SemanticSearch) Filter(term string, targets []string) []list.Rank {
 
 	snap := s.Snapshot()
 	if !snap.Ready || snap.Index == nil || snap.Embedder == nil {
-		return list.DefaultFilter(term, targets)
+		// Fuzzy fallback uses the score-floor ranker (bt-6pzni) so single-word
+		// queries on the fallback display are bounded by the per-query floor.
+		return fuzzyRankerWithScoreFloor(term, targets)
 	}
 	if len(snap.IDs) != len(targets) {
 		// Snapshot/list desync: targets and snap.IDs are populated by separate
 		// code paths; if their lengths disagree the parallel-array contract
 		// underpinning the rank Index values is broken. Fall back to fuzzy.
-		return list.DefaultFilter(term, targets)
+		return fuzzyRankerWithScoreFloor(term, targets)
 	}
 
 	// Check cache first. Entries tagged with a stale version reference indices
@@ -365,6 +367,9 @@ func (s *SemanticSearch) Filter(term string, targets []string) []list.Rank {
 // markPendingAndFallback flags term for async semantic computation and returns
 // fuzzy results so the UI stays responsive. Called from both the cache-miss
 // path and after a stale-version reject — single fallback policy in one place.
+// The fuzzy fallback applies the per-query sahilm score floor (bt-6pzni) so
+// the temporary display while semantic computes is bounded by the same
+// relevance gate as fuzzy mode.
 func (s *SemanticSearch) markPendingAndFallback(term string, targets []string) []list.Rank {
 	c := s.getCache()
 	newCache := &semanticResultCache{
@@ -374,7 +379,7 @@ func (s *SemanticSearch) markPendingAndFallback(term string, targets []string) [
 		lastQuery:   time.Now(),
 	}
 	s.cache.Store(newCache)
-	return list.DefaultFilter(term, targets)
+	return fuzzyRankerWithScoreFloor(term, targets)
 }
 
 // ComputeSemanticResults computes semantic similarity results synchronously.

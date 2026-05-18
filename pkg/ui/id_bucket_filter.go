@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"charm.land/bubbles/v2/list"
+	"github.com/sahilm/fuzzy"
 )
 
 // idPriorityFilter wraps a FilterFunc so that bead-ID matches pre-empt the
@@ -465,15 +466,95 @@ func nextSearchMode(cur searchMode) searchMode {
 	}
 }
 
+// FuzzyScoreFloor is the minimum sahilm score an item must achieve to remain
+// in fuzzy results (bt-6pzni). Items scoring below the floor are dropped.
+//
+// Calibration (empirical, bt-6pzni dogfood):
+//
+// Sahilm scores combine match-quality bonuses (firstChar +10, separator +20,
+// camelCase +20, adjacent +5) with two penalties: a leading-char penalty
+// (-5 per unmatched leading char, capped at -15) and a per-target-length
+// penalty (-1 per unmatched char in the whole target). The length penalty
+// dominates on long FilterValue strings — a perfect substring match for
+// "bug" in "Fix login bug" scores ~15, but on a long bead-row FilterValue
+// (~60 chars) it scores ~-50 even though "bug" is genuinely present.
+//
+// On the realistic bead-row FilterValue shape ("id title status type
+// labels", typically 40-80 chars), the score classes cluster cleanly:
+//
+//   - Direct substring matches (e.g. "release" in "release notes"): hundreds
+//     to thousands, depending on length-penalty offset.
+//   - Strong partial matches (substring mid-string): mid-hundreds.
+//   - Scattered-char noise matches (m-i-g-r-a-t-i-o-n across 80 chars of
+//     unrelated prose): negative tens to low positive.
+//
+// A floor of 0 cleanly separates "real match" (score >= 0) from "scattered
+// noise" (score < 0) for queries of 3+ chars. The spec (bt-6pzni) suggested
+// `len(query)*0.5` as a starting point; that formulation underestimated the
+// magnitude of sahilm penalties for long targets and would not cut the
+// scattered-char class. After empirical validation against realistic
+// FilterValue shapes, floor = 0 is the defensible threshold.
+//
+// Trade-off: for queries of 1-2 chars, real matches may also score
+// negative (because the length penalty exceeds the small set of bonuses).
+// Such queries rarely produce useful narrow results anyway; ID-shape
+// queries — which can be short — are handled by idPriorityFilter on a
+// separate code path that lifts ID matches above the fuzzy gate.
+//
+// Setting FuzzyScoreFloor to math.MinInt disables the floor entirely.
+const FuzzyScoreFloor = 0
+
+// fuzzyRankerWithScoreFloor is the sahilm-backed inner ranker used in the
+// fuzzy-mode composition and as the semantic fallback (bt-6pzni). It calls
+// fuzzy.Find directly so it can read each match's Score, then drops items
+// whose score falls below FuzzyScoreFloor. This is the single source of
+// truth for "what the fuzzy ranker returns" in this codebase — both fuzzy
+// mode and the hybrid/semantic fallback path route through it.
+//
+// Replaces list.DefaultFilter (which discards sahilm's Score field) at the
+// innermost ranker position. The floor cuts the scattered-char noise class
+// that pollutes large-corpus single-word queries.
+//
+// Empty term short-circuits to list.DefaultFilter to preserve the existing
+// no-query behavior (no filtering, original order).
+func fuzzyRankerWithScoreFloor(term string, targets []string) []list.Rank {
+	if term == "" {
+		return list.DefaultFilter(term, targets)
+	}
+	matches := fuzzy.Find(term, targets)
+	if len(matches) == 0 {
+		return nil
+	}
+	// Re-sort matches stably to match list.DefaultFilter's ordering exactly:
+	// list.DefaultFilter calls sort.Stable(ranks) after fuzzy.Find (which is
+	// itself sorted), and sahilm's Less uses >= for equal scores — the second
+	// stable sort settles equal-score ties to original target order. Mirror
+	// that here so swapping fuzzyRankerWithScoreFloor in for list.DefaultFilter
+	// doesn't change row order for equal-score matches.
+	sort.Stable(matches)
+	result := make([]list.Rank, 0, len(matches))
+	for _, m := range matches {
+		if m.Score < FuzzyScoreFloor {
+			continue
+		}
+		result = append(result, list.Rank{
+			Index:          m.Index,
+			MatchedIndexes: m.MatchedIndexes,
+		})
+	}
+	return result
+}
+
 // fuzzySearchFilter returns the canonical fuzzy-mode filter composition.
 // Outermost: comma-OR (multiTokenFilter, no cap); then whitespace-AND
 // (whitespaceAndFilter, bt-6pzni); then quoted-exact bypass; then ID-priority
-// bucket promotion; innermost: list.DefaultFilter (sahilm fuzzy).
+// bucket promotion; innermost: fuzzyRankerWithScoreFloor (sahilm fuzzy with
+// per-query score floor — bt-6pzni).
 //
 // Wrap order matches the spec (bt-6pzni):
 //   multiTokenFilter → whitespaceAndFilter → quotedExactFilter → idPriorityFilter → ranker
 func fuzzySearchFilter() list.FilterFunc {
-	return multiTokenFilter(whitespaceAndFilter(quotedExactFilter(idPriorityFilter(list.DefaultFilter))), 0)
+	return multiTokenFilter(whitespaceAndFilter(quotedExactFilter(idPriorityFilter(fuzzyRankerWithScoreFloor))), 0)
 }
 
 // semanticSearchFilter returns the canonical semantic/hybrid-mode composition.

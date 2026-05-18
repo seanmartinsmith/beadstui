@@ -591,6 +591,136 @@ func TestSplitWhitespaceTokens(t *testing.T) {
 	}
 }
 
+// TestFuzzyRankerWithScoreFloor_KeepsRealMatchesCutsScattered verifies that
+// the sahilm score floor cuts items where the query chars are scattered
+// across an unrelated long target while keeping items where the query is a
+// genuine substring (bt-6pzni). This is the core acceptance criterion:
+// "Searching a single word (e.g. `release`) returns a sensible set bounded
+// by the relevance floor."
+func TestFuzzyRankerWithScoreFloor_KeepsRealMatchesCutsScattered(t *testing.T) {
+	// Realistic IssueItem.FilterValue shape: "id title status type labels".
+	targets := []string{
+		"bt-real1 Doc gap: release process documentation open feature docs",   // 0: real "release"
+		"bt-real2 Add release versioning and CHANGELOG mgmt open chore release", // 1: real "release"
+		"bt-noise Random unrelated about login flow closed bug auth",            // 2: scattered r-e-l-e-a-s-e
+	}
+	ranks := fuzzyRankerWithScoreFloor("release", targets)
+
+	// Items 0 and 1 must be present; item 2 (scattered noise) must be cut.
+	seen := make(map[int]bool)
+	for _, r := range ranks {
+		seen[r.Index] = true
+	}
+	if !seen[0] {
+		t.Errorf("expected index 0 (real 'release' match) in results, missing")
+	}
+	if !seen[1] {
+		t.Errorf("expected index 1 (real 'release' match) in results, missing")
+	}
+	if seen[2] {
+		t.Errorf("expected index 2 (scattered 'release' noise) to be cut by score floor, but it was present")
+	}
+}
+
+// TestFuzzyRankerWithScoreFloor_EmptyForNonsenseQuery verifies the spec
+// acceptance criterion: "Searching a nonsense query (e.g. `xqzwvb foobarbaz`)
+// renders an empty list... not the full ranked corpus." (bt-6pzni). For a
+// single nonsense word, sahilm scores all items as scattered (negative) and
+// the floor cuts them.
+func TestFuzzyRankerWithScoreFloor_EmptyForNonsenseQuery(t *testing.T) {
+	targets := []string{
+		"bt-aaa Bead about migration open feature data",
+		"bt-bbb Another bead about releases open chore release",
+		"bt-ccc Some other bead open task",
+	}
+	ranks := fuzzyRankerWithScoreFloor("xqzwvbfoobarbaz", targets)
+	if len(ranks) != 0 {
+		t.Fatalf("expected empty result for nonsense query, got %d ranks: %+v", len(ranks), ranks)
+	}
+}
+
+// TestFuzzyRankerWithScoreFloor_EmptyTermDelegates verifies that an empty
+// query short-circuits to list.DefaultFilter. Sahilm returns no matches for
+// an empty pattern, matching list.DefaultFilter behavior — the assertion is
+// "behaves identically to list.DefaultFilter for the empty case so the
+// no-filter path is unchanged."
+func TestFuzzyRankerWithScoreFloor_EmptyTermDelegates(t *testing.T) {
+	targets := []string{"bt-aaa one", "bt-bbb two", "bt-ccc three"}
+	got := fuzzyRankerWithScoreFloor("", targets)
+	want := list.DefaultFilter("", targets)
+	if len(got) != len(want) {
+		t.Fatalf("expected empty-term to match list.DefaultFilter (len %d), got len %d",
+			len(want), len(got))
+	}
+}
+
+// TestFuzzyRankerWithScoreFloor_StableEqualScoreOrder verifies that when
+// multiple targets receive identical sahilm scores, the ranker emits them
+// in original target order (matches list.DefaultFilter behavior so callers
+// don't see a row-order regression when the floor is wrapped around).
+func TestFuzzyRankerWithScoreFloor_StableEqualScoreOrder(t *testing.T) {
+	// Both targets score identically (15) for "bug" — first and third positions.
+	targets := []string{"Fix login bug", "Add dark mode", "Fix crash bug"}
+	ranks := fuzzyRankerWithScoreFloor("bug", targets)
+	if len(ranks) < 2 {
+		t.Fatalf("expected at least 2 ranks for 'bug' query, got %d", len(ranks))
+	}
+	// "Fix login bug" (index 0) comes before "Fix crash bug" (index 2).
+	if ranks[0].Index != 0 {
+		t.Fatalf("expected ranks[0].Index=0 (Fix login bug, original target order), got %d", ranks[0].Index)
+	}
+	if ranks[1].Index != 2 {
+		t.Fatalf("expected ranks[1].Index=2 (Fix crash bug), got %d", ranks[1].Index)
+	}
+}
+
+// TestFuzzyRankerWithScoreFloor_NarrowsLargeCorpus verifies the acceptance
+// criterion that single-word queries are bounded by the relevance floor.
+// Builds a synthetic 50-target corpus where only a handful contain the query
+// as a genuine substring; the floor must shrink results well below 50.
+func TestFuzzyRankerWithScoreFloor_NarrowsLargeCorpus(t *testing.T) {
+	// 5 real matches + 45 noise items that the chars-in-order matcher would
+	// otherwise admit.
+	targets := []string{
+		"bt-r1 release process documentation",
+		"bt-r2 release notes for v2 open feature",
+		"bt-r3 prepare release pipeline chore",
+		"bt-r4 release-blocker on data layer feature",
+		"bt-r5 deferred release work for next sprint",
+	}
+	// Pad with noise that contains the chars r-e-l-e-a-s-e somewhere in order
+	// but is not a genuine 'release' match.
+	noise := []string{
+		"bt-n1 the user really wants to easily access settings",
+		"bt-n2 some unrelated reorganization plan ease into it slowly",
+		"bt-n3 we should review every login flow ease user pain",
+		"bt-n4 random bead about agents please make it easy to use",
+		"bt-n5 totally different topic about reliability and ease",
+	}
+	for i := len(noise); i < 45; i++ {
+		noise = append(noise, "bt-x"+string(rune('a'+i%26))+" totally unrelated bead text "+string(rune('A'+i%26)))
+	}
+	targets = append(targets, noise...)
+
+	ranks := fuzzyRankerWithScoreFloor("release", targets)
+
+	// Floor must narrow results well below the 50-target corpus.
+	if len(ranks) >= len(targets) {
+		t.Fatalf("expected floor to narrow results below corpus size %d, got %d ranks (no narrowing)",
+			len(targets), len(ranks))
+	}
+	// All 5 real matches (indices 0-4) should be present.
+	seen := make(map[int]bool)
+	for _, r := range ranks {
+		seen[r.Index] = true
+	}
+	for i := 0; i < 5; i++ {
+		if !seen[i] {
+			t.Errorf("expected real 'release' match at index %d in results, missing", i)
+		}
+	}
+}
+
 // TestSplitCommaTokens covers parser edge cases directly.
 func TestSplitCommaTokens(t *testing.T) {
 	cases := []struct {
