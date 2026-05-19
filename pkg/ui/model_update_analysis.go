@@ -12,6 +12,7 @@ import (
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
+	"github.com/seanmartinsmith/beadstui/pkg/debug"
 	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
 )
 
@@ -95,6 +96,8 @@ func (m Model) handleStatusTick(_ statusTickMsg) (Model, tea.Cmd) {
 // handleSemanticIndexReady processes the semantic index build completion.
 // Returns (Model, tea.Cmd, done). If done is true, caller should return immediately.
 func (m Model) handleSemanticIndexReady(msg SemanticIndexReadyMsg) (Model, tea.Cmd, bool) {
+	semIdxStart := time.Now()
+	defer func() { debug.LogTiming("handleSemanticIndexReady.total", time.Since(semIdxStart)) }()
 	m.semanticIndexBuilding = false
 	if msg.Error != nil {
 		m.semanticSearchEnabled = false
@@ -213,8 +216,21 @@ func (m Model) handleWorkerPollTick() (Model, tea.Cmd) {
 
 // handlePhase2Ready processes async graph analysis Phase 2 completion.
 func (m Model) handlePhase2Ready(msg Phase2ReadyMsg) (Model, tea.Cmd) {
+	phase2Start := time.Now()
+	defer func() { debug.LogTiming("handlePhase2Ready.total", time.Since(phase2Start)) }()
+
 	// Ignore stale Phase2 completions (from before a file reload)
 	if msg.Stats != m.data.analysis {
+		return m, nil
+	}
+
+	// Multiple call sites dispatch WaitForPhase2Cmd against the same stats
+	// pointer (Init + handleSnapshotReady at minimum). Both deliver
+	// Phase2ReadyMsg with msg.Stats == m.data.analysis, and historically both
+	// re-ran the full O(N) triage / recommendations / alerts pipeline. Once
+	// the snapshot is marked Phase2Ready we have already processed this stats
+	// pointer; subsequent identical messages are no-ops (bt-kfkrb).
+	if m.data.snapshot != nil && m.data.snapshot.Phase2Ready {
 		return m, nil
 	}
 
@@ -228,6 +244,7 @@ func (m Model) handlePhase2Ready(msg Phase2ReadyMsg) (Model, tea.Cmd) {
 	if m.data.snapshot != nil {
 		m.data.snapshot.Insights = ins
 	}
+	insightsStart := time.Now()
 	m.insightsPanel.SetInsights(ins)
 	m.insightsPanel.issueMap = m.data.issueMap
 	bodyHeight := m.height - 1
@@ -235,6 +252,9 @@ func (m Model) handlePhase2Ready(msg Phase2ReadyMsg) (Model, tea.Cmd) {
 		bodyHeight = 5
 	}
 	m.insightsPanel.SetSize(m.width, bodyHeight)
+	debug.LogTiming("phase2.insightsPanel.setup", time.Since(insightsStart))
+
+	graphStart := time.Now()
 	if m.data.snapshot != nil {
 		if m.data.snapshot.GraphLayout != nil {
 			m.data.snapshot.GraphLayout.UpdatePhase2Ranks(msg.Stats)
@@ -243,9 +263,12 @@ func (m Model) handlePhase2Ready(msg Phase2ReadyMsg) (Model, tea.Cmd) {
 	} else {
 		m.graphView.SetIssues(m.data.issues, &ins)
 	}
+	debug.LogTiming("phase2.graphView.setup", time.Since(graphStart))
 
 	// Generate triage for priority panel
+	triageStart := time.Now()
 	triage := analysis.ComputeTriageFromAnalyzer(m.data.analyzer, m.data.analysis, m.data.issues, analysis.TriageOptions{}, time.Now())
+	debug.LogTiming("phase2.ComputeTriageFromAnalyzer", time.Since(triageStart))
 	triageScores := make(map[string]float64, len(triage.Recommendations))
 	triageReasons := make(map[string]analysis.TriageReasons, len(triage.Recommendations))
 	quickWinSet := make(map[string]bool, len(triage.QuickWins))
@@ -281,14 +304,18 @@ func (m Model) handlePhase2Ready(msg Phase2ReadyMsg) (Model, tea.Cmd) {
 	m.insightsPanel.SetRecommendations(triage.Recommendations, dataHash)
 
 	// Generate priority recommendations
+	recsStart := time.Now()
 	recommendations := m.data.analyzer.GenerateRecommendations()
 	m.ac.priorityHints = make(map[string]*analysis.PriorityRecommendation, len(recommendations))
 	for i := range recommendations {
 		m.ac.priorityHints[recommendations[i].IssueID] = &recommendations[i]
 	}
+	debug.LogTiming("phase2.GenerateRecommendations", time.Since(recsStart))
 
 	// Refresh alerts with full Phase 2 metrics
+	alertsStart := time.Now()
 	m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.data.issues, m.workspaceMode)
+	debug.LogTiming("phase2.computeAlerts", time.Since(alertsStart))
 
 	// Invalidate label health cache
 	m.labelHealthCached = false
@@ -343,6 +370,7 @@ func (m Model) handlePhase2Ready(msg Phase2ReadyMsg) (Model, tea.Cmd) {
 	}
 
 	// Re-apply filters
+	filterStart := time.Now()
 	if m.filter.activeRecipe != nil {
 		m.applyRecipe(m.filter.activeRecipe)
 	} else if m.filter.currentFilter == "" || m.filter.currentFilter == "all" {
@@ -350,6 +378,7 @@ func (m Model) handlePhase2Ready(msg Phase2ReadyMsg) (Model, tea.Cmd) {
 	} else {
 		m.applyFilter()
 	}
+	debug.LogTiming("phase2.filter.reapply", time.Since(filterStart))
 
 	return m, nil
 }
