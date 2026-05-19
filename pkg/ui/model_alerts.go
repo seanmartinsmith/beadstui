@@ -313,8 +313,7 @@ func (m Model) renderAlertsTab() string {
 		warnStyle := lipgloss.NewStyle().Foreground(t.Feature)
 		infoStyle := lipgloss.NewStyle().Foreground(t.Secondary)
 		sepStyle := lipgloss.NewStyle().Foreground(t.Muted)
-		// ASCII separator (was U+2022 •) — see bt-ffqnw / WT EAW-Ambiguous drift.
-		sep := sepStyle.Render(" - ")
+		sep := sepStyle.Render(" • ")
 
 		sb.WriteString(" ")
 		sb.WriteString(totalStyle.Render(fmt.Sprintf("%d total", len(visibleAlerts))))
@@ -349,7 +348,7 @@ func (m Model) renderAlertsTab() string {
 		}
 		filterLabel := ""
 		if len(filterParts) > 0 {
-			filterLabel = "filter: " + strings.Join(filterParts, " - ")
+			filterLabel = "filter: " + strings.Join(filterParts, " • ")
 		}
 
 		// Page-aligned visible window (cursor position determines page)
@@ -415,7 +414,7 @@ func (m Model) renderAlertsTab() string {
 			typeTag := fmt.Sprintf("[%s]", alertTypeLabel(a.Type))
 			line := fmt.Sprintf("%s %s %s", severityIcon, typeTag, msg)
 			if lipgloss.Width(cursor)+lipgloss.Width(line) > innerWidth {
-				line = truncateRunesHelper(line, innerWidth-lipgloss.Width(cursor), "...")
+				line = truncateRunesHelper(line, innerWidth-lipgloss.Width(cursor), "…")
 			}
 			if selected {
 				severityStyle = severityStyle.Bold(true)
@@ -445,7 +444,7 @@ func (m Model) renderAlertsTab() string {
 
 				if a.IssueID != "" {
 					if title, ok := issueTitles[a.IssueID]; ok && title != "" {
-						title = truncateRunesHelper(title, detailMaxWidth, "...")
+						title = truncateRunesHelper(title, detailMaxWidth, "…")
 						styled := detailStyle.Render("    " + title)
 						styledWidth := lipgloss.Width(styled)
 						dPad := (innerWidth - styledWidth) / 2
@@ -467,7 +466,7 @@ func (m Model) renderAlertsTab() string {
 					if len(a.Details) > 1 {
 						first = fmt.Sprintf("%s  (+%d more)", first, len(a.Details)-1)
 					}
-					first = truncateRunesHelper(first, detailMaxWidth, "...")
+					first = truncateRunesHelper(first, detailMaxWidth, "…")
 					styled := detailStyle.Render("    " + first)
 					styledWidth := lipgloss.Width(styled)
 					dPad := (innerWidth - styledWidth) / 2
@@ -514,7 +513,7 @@ func (m Model) renderAlertsTab() string {
 
 	// Footer: centered help text (with breathing room above)
 	helpStyle := lipgloss.NewStyle().Foreground(t.Muted).Italic(true)
-	helpText := helpStyle.Render("filter: s/t/p/o (\u21e7:prev) reset: r - open: enter clear: c (\u21e7:all)")
+	helpText := helpStyle.Render("filter: s/t/p/o (\u21e7:prev) reset: r • open: enter clear: c (\u21e7:all)")
 	helpW := lipgloss.Width(helpText)
 	helpPad := (innerWidth - helpW) / 2
 	if helpPad < 0 {
@@ -604,13 +603,10 @@ func trimEndForDaySeparators(active []events.Event, start, end, pageSize int) in
 }
 
 // formatNotificationRow renders a single ring-buffer event as a one-line
-// notification. Format: "15:04 closed bt-46p6.1 - Fix: modal expands..."
-// Single space between time/kind/id; " - " separates id from title.
+// notification. Format: "15:04 closed bt-46p6.1 • Fix: modal expands…"
+// Single space between time/kind/id; " • " separates id from title.
 // Columns are unaligned (intentional — tighter spacing over grid alignment).
 // Title is sanitized (newlines → spaces) and truncated at runtime width.
-// ASCII separator and "..." truncation suffix are bt-ffqnw: WT renders the
-// EAW=Ambiguous chars `•` (U+2022) and `…` (U+2026) inconsistently at some
-// font/size combos (microsoft/terminal #14702 — unresolved tail of #2066).
 func formatNotificationRow(e events.Event, width int) string {
 	timeStr := e.At.Format("15:04")
 	kindStr := e.Kind.String()
@@ -620,10 +616,10 @@ func formatNotificationRow(e events.Event, width int) string {
 	// effectively gated by visibleNotifications.
 	prefix := ""
 	if e.Dismissed {
-		prefix = "x "
+		prefix = "✕ "
 	}
 	title := strings.ReplaceAll(e.Title, "\n", " ")
-	// System events (bt-9u39) carry no BeadID — render as "15:04 system - Title"
+	// System events (bt-9u39) carry no BeadID — render as "15:04 system • Title"
 	// without the empty id slot to avoid a double-space gap.
 	if e.Kind == events.EventSystem || idStr == "" {
 		consumed := len(prefix) + len(timeStr) + 1 + len(kindStr) + 3
@@ -631,15 +627,15 @@ func formatNotificationRow(e events.Event, width int) string {
 		if titleWidth < 10 {
 			titleWidth = 10
 		}
-		return prefix + timeStr + " " + kindStr + " - " + truncateRunesHelper(title, titleWidth, "...")
+		return prefix + timeStr + " " + kindStr + " • " + truncate(title, titleWidth)
 	}
-	// timeStr(5) + " " + kindStr + " " + idStr + " - " (3) + optional prefix
+	// timeStr(5) + " " + kindStr + " " + idStr + " • " (3) + optional prefix
 	consumed := len(prefix) + len(timeStr) + 1 + len(kindStr) + 1 + len(idStr) + 3
 	titleWidth := width - consumed
 	if titleWidth < 10 {
 		titleWidth = 10
 	}
-	return prefix + timeStr + " " + kindStr + " " + idStr + " - " + truncateRunesHelper(title, titleWidth, "...")
+	return prefix + timeStr + " " + kindStr + " " + idStr + " • " + truncate(title, titleWidth)
 }
 
 // renderNotificationsTab builds the notifications tab body. Reads from
@@ -702,8 +698,7 @@ func (m Model) renderNotificationsTab() string {
 		}
 	}
 	sepStyle := lipgloss.NewStyle().Foreground(t.Muted)
-	// ASCII " - " separator (was " • ") — see bt-ffqnw / WT EAW-Ambiguous drift.
-	sep := sepStyle.Render(" - ")
+	sep := sepStyle.Render(" • ")
 	sb.WriteString(" ")
 	first := true
 	// bt-0mxw: color the per-kind counts using the same token map as the
@@ -789,7 +784,7 @@ func (m Model) renderNotificationsTab() string {
 			s := strings.ReplaceAll(active[i].Summary, "\n", " ")
 			s = strings.TrimSpace(s)
 			if s != "" {
-				sb.WriteString("    " + summaryStyle.Render(truncateRunesHelper(s, rowWidth-2, "...")))
+				sb.WriteString("    " + summaryStyle.Render(truncate(s, rowWidth-2)))
 				sb.WriteString("\n")
 				rowsWritten++
 			}

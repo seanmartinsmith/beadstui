@@ -279,12 +279,12 @@ func TestAlertsModal_ModalBandRowWidthsAreUniform(t *testing.T) {
 			// Seed enough notification events across two calendar dates and
 			// with mixed kinds to render the full chrome the user sees in
 			// production:
-			//   - day separator    ─── YYYY-MM-DD ───
-			//   - per-row sep      time kind id - title (ASCII post-bt-ffqnw)
-			//   - truncation       trailing ... (ASCII post-bt-ffqnw)
-			//   - cursor caret     >  on selected row (post-bt-2s3a5)
-			//   - above hint       ^ N more above (post-bt-2s3a5)
-			//   - below hint       v N more below (post-bt-2s3a5)
+			//   • day separator    ─── YYYY-MM-DD ───
+			//   • per-row bullets  time kind id • title
+			//   • truncation       trailing …
+			//   • cursor caret     >  on selected row (post-bt-2s3a5)
+			//   • above hint       ^ N more above (post-bt-2s3a5)
+			//   • below hint       v N more below (post-bt-2s3a5)
 			// At height=48 alertsVisibleLines() = 24 and pageSize = 23, so 50
 			// events with notificationsCursor=25 lands us on page 2 with both
 			// the above-hint and below-hint in the same rendered frame.
@@ -294,7 +294,7 @@ func TestAlertsModal_ModalBandRowWidthsAreUniform(t *testing.T) {
 				events.EventCreated, events.EventEdited, events.EventClosed,
 				events.EventCommented, events.EventBulk,
 			}
-			// Title long enough that the per-row truncator emits the "..." suffix
+			// Title long enough that the per-row truncator emits the … suffix
 			// at every tested terminal width.
 			longTitle := "long descriptive notification title that will overflow and be truncated to fit the modal row width"
 			for i := 0; i < 50; i++ {
@@ -348,22 +348,32 @@ func TestAlertsModal_ModalBandRowWidthsAreUniform(t *testing.T) {
 				t.Fatalf("could not locate modal band at width %d (top=%d bottom=%d)", w, topRow, bottomRow)
 			}
 
-			// Sanity: the seed must render the day separator `─` — otherwise
-			// the seed isn't exercising the layout pathway at all. (`─` is in
-			// the strict-safe WT box-drawing zone U+2500-U+257F so it stays.)
+			// Sanity: the seed must render some non-ASCII chrome (`•`, `…`,
+			// `─`) — otherwise the seed isn't exercising the layout pathway
+			// at all. (`▸ ▴ ▾ ▲ ▼` were removed by bt-2s3a5; only the safe
+			// remainder should be present.)
 			band := strings.Join(rows[topRow:bottomRow+1], "\n")
-			if !strings.Contains(band, "─") {
-				t.Fatalf("seed produced a modal band with no day separator (─); seed setup likely wrong")
+			needSomeChrome := []string{"•", "…", "─"}
+			foundAny := false
+			for _, g := range needSomeChrome {
+				if strings.Contains(band, g) {
+					foundAny = true
+					break
+				}
+			}
+			if !foundAny {
+				t.Fatalf("seed produced a modal band with none of the chrome glyphs (• … ─); seed setup likely wrong")
 			}
 
-			// bt-2s3a5 + bt-ffqnw regression guard: glyphs known to drift in
-			// Windows Terminal must not reappear in the modal band.
-			//   ▸ ▴ ▾ ▲ ▼ — geometric shapes (MS Terminal #16451)
-			//   • …       — EAW=Ambiguous (MS Terminal #14702 tail of #2066)
-			denylist := []string{"▸", "▴", "▾", "▲", "▼", "•", "…"}
+			// bt-2s3a5 regression guard: the WT-misrendered geometric
+			// triangles must not reappear in the modal band. MS Terminal
+			// #16451 categorizes these as box-drawing-class and shapes them
+			// wider than ansi.StringWidth reports, drifting the modal's
+			// right border at certain widths.
+			denylist := []string{"▸", "▴", "▾", "▲", "▼"} // ▸ ▴ ▾ ▲ ▼
 			for _, g := range denylist {
 				if strings.Contains(band, g) {
-					t.Errorf("modal band contains WT-misrendered glyph %q — replace with ASCII per bt-2s3a5/bt-ffqnw", g)
+					t.Errorf("modal band contains WT-misrendered glyph %q — replace with ASCII per bt-2s3a5", g)
 				}
 			}
 
