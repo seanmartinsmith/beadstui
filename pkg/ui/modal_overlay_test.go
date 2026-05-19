@@ -498,6 +498,88 @@ func TestOverlayCenter_RowWidthInvariant(t *testing.T) {
 	}
 }
 
+// TestOverlay_MidGlyphCutDoesNotShortenRow is the bt-3ykii regression guard.
+// When the modal's left cut column (startCol) or right cut column
+// (startCol+fgWidth) falls INSIDE a multi-cell glyph in the bg row,
+// ansi.Truncate / ansi.TruncateLeft cut BEFORE the glyph rather than
+// splitting it. Without compensation, the reassembled row ends up shorter
+// than bgWidth, which shifts everything to the right of the modal one cell
+// left. Modal borders drift between adjacent rows depending on whether
+// THAT row's bg has a multi-cell glyph at the cut column.
+//
+// Both OverlayCenter and OverlayCenterDimBackdrop must compensate by
+// padding the sliced portions back up to their intended widths.
+func TestOverlay_MidGlyphCutDoesNotShortenRow(t *testing.T) {
+	// bgWidth=20, fgWidth=10 → startCol = (20-10)/2 = 5.
+	// Place a 2-cell emoji at cells 4-5 of bg row 0 so cell 5 is INSIDE
+	// the emoji. ansi.Truncate(bg, 5, "") will cut at cell 4, returning a
+	// 4-cell prefix. Without the fix, reassembled width = 4 + 10 + 10 = 24
+	// (the TruncateLeft side recovers cleanly because it skips the partial
+	// glyph; we just lose a cell on the left).
+	//
+	// Actually both sides can lose cells. We construct rows where:
+	//   row 0: emoji at left cut (cells 4-5)
+	//   row 1: emoji at right cut (cells 14-15)
+	//   row 2: emoji at neither cut, control
+	//   row 3: emoji at BOTH cuts
+	const bgWidth = 20
+	const bgHeight = 5
+
+	// Modal occupies rows 1..3 (startRow = (5-3)/2 = 1). Place the emoji-cut
+	// rows where the modal will actually slice them so the bug surfaces.
+	bgLines := []string{
+		"xxxxxxxxxxxxxxxxxxxx",     // row 0: control (not sliced)
+		"xxxx🌟xxxxxxxxxxxxxx",     // row 1: emoji at cells 4-5 (left cut col 5)
+		"xxxxxxxxxxxxxx🌟xxxx",     // row 2: emoji at cells 14-15 (right cut col 15)
+		"xxxx🌟xxxxxxxx🌟xxxx",   // row 3: emojis at BOTH cut columns
+		"xxxxxxxxxxxxxxxxxxxx",     // row 4: control (not sliced)
+	}
+	bg := strings.Join(bgLines, "\n")
+
+	const fgInnerWidth = 8
+	fgTop := "╭" + strings.Repeat("─", fgInnerWidth) + "╮"
+	fgMid := "│" + strings.Repeat(" ", fgInnerWidth) + "│"
+	fgBot := "╰" + strings.Repeat("─", fgInnerWidth) + "╯"
+	fg := fgTop + "\n" + fgMid + "\n" + fgBot
+
+	// Sanity check the seed: each bg row should be exactly bgWidth cells.
+	for i, line := range bgLines {
+		if w := ansi.StringWidth(line); w != bgWidth {
+			t.Fatalf("seed bg row %d width = %d, want %d (seed is wrong)", i, w, bgWidth)
+		}
+	}
+
+	t.Run("OverlayCenter", func(t *testing.T) {
+		out := OverlayCenter(bg, fg, bgWidth, bgHeight)
+		outRows := strings.Split(out, "\n")
+		if len(outRows) != bgHeight {
+			t.Fatalf("expected %d output rows, got %d", bgHeight, len(outRows))
+		}
+		for i, r := range outRows {
+			stripped := ansi.Strip(r)
+			if w := ansi.StringWidth(stripped); w != bgWidth {
+				t.Errorf("row %d visible width = %d, want %d; stripped=%q",
+					i, w, bgWidth, stripped)
+			}
+		}
+	})
+
+	t.Run("OverlayCenterDimBackdrop", func(t *testing.T) {
+		out := OverlayCenterDimBackdrop(bg, fg, bgWidth, bgHeight)
+		outRows := strings.Split(out, "\n")
+		if len(outRows) != bgHeight {
+			t.Fatalf("expected %d output rows, got %d", bgHeight, len(outRows))
+		}
+		for i, r := range outRows {
+			stripped := ansi.Strip(r)
+			if w := ansi.StringWidth(stripped); w != bgWidth {
+				t.Errorf("row %d visible width = %d, want %d; stripped=%q",
+					i, w, bgWidth, stripped)
+			}
+		}
+	})
+}
+
 // runeAt returns the rune at the given visible-cell column of s, treating
 // each rune as one cell. The test input is plain ASCII + box-drawing chars
 // (all narrow), so cell-index == rune-index after stripping ANSI.

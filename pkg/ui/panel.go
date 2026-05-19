@@ -304,14 +304,63 @@ func OverlayCenter(bg, fg string, bgWidth, bgHeight int) string {
 
 		bgLine := bgLines[bgRow]
 
-		// ANSI-aware slicing: keep styling intact in left/right bg regions
-		left := ansi.Truncate(bgLine, startCol, "")
-		right := ansi.TruncateLeft(bgLine, startCol+fgWidth, "")
+		// ANSI-aware slicing with mid-glyph compensation (bt-3ykii). When the
+		// cut columns fall inside a multi-cell glyph in the bg, ansi.Truncate
+		// cuts BEFORE the glyph (left ends up short) and ansi.TruncateLeft
+		// preserves the partial glyph (right ends up long). Normalize each
+		// portion to its target width with plain-space padding / truncation
+		// so the reassembled row equals bgWidth.
+		left, right := sliceBgRow(bgLine, startCol, fgWidth, bgWidth, identityPad)
 
 		bgLines[bgRow] = left + fgLine + right
 	}
 
 	return strings.Join(bgLines, "\n")
+}
+
+// identityPad returns its argument unchanged. Used as the padding wrapper for
+// OverlayCenter where the bg has no compositor-applied SGR styling.
+func identityPad(s string) string { return s }
+
+// sliceBgRow extracts the left and right portions of bgLine for compositing
+// around an fg modal at startCol with width fgWidth. The returned strings
+// have visible widths of EXACTLY startCol and EXACTLY
+// (bgWidth - startCol - fgWidth) cells, even when the cut columns fall
+// mid-glyph. Without this, ansi.Truncate / ansi.TruncateLeft produce a left
+// that is short (cuts before the partial glyph) or a right that is long
+// (preserves the partial glyph), and the reassembled row width drifts row to
+// row depending on bg content. bt-3ykii.
+//
+// padder wraps any synthesized space padding so the caller can match the
+// surrounding SGR state (e.g., dim.Render for the dim-backdrop compositor).
+// Pass identityPad for plain spaces.
+func sliceBgRow(bgLine string, startCol, fgWidth, bgWidth int, padder func(string) string) (left, right string) {
+	// Left side: ansi.Truncate cuts BEFORE a partial glyph, so the result
+	// may be 1+ cells short. Pad up with synthesized spaces.
+	left = ansi.Truncate(bgLine, startCol, "")
+	if w := ansi.StringWidth(left); w < startCol {
+		left = left + padder(strings.Repeat(" ", startCol-w))
+	}
+
+	// Right side: ansi.TruncateLeft refuses to split a partial glyph, so it
+	// returns the partial glyph intact — making `right` too wide. Advance
+	// the cut column past the partial glyph (one cell at a time, bounded by
+	// bgWidth), then pad any resulting shortfall with leading spaces so the
+	// total width matches the target.
+	rightTarget := bgWidth - startCol - fgWidth
+	if rightTarget < 0 {
+		rightTarget = 0
+	}
+	cutAt := startCol + fgWidth
+	right = ansi.TruncateLeft(bgLine, cutAt, "")
+	for ansi.StringWidth(right) > rightTarget && cutAt < bgWidth {
+		cutAt++
+		right = ansi.TruncateLeft(bgLine, cutAt, "")
+	}
+	if w := ansi.StringWidth(right); w < rightTarget {
+		right = padder(strings.Repeat(" ", rightTarget-w)) + right
+	}
+	return left, right
 }
 
 // OverlayCenterDimBackdrop composites fg centered on top of bg like
@@ -392,8 +441,10 @@ func OverlayCenterDimBackdrop(bg, fg string, bgWidth, bgHeight int) string {
 		}
 
 		bgLine := bgLines[bgRow]
-		left := ansi.Truncate(bgLine, startCol, "")
-		right := ansi.TruncateLeft(bgLine, startCol+fgWidth, "")
+		// ANSI-aware slicing with mid-glyph compensation (bt-3ykii). Padding
+		// is wrapped in dim.Render so the synthesized spaces blend into the
+		// receded backdrop visually.
+		left, right := sliceBgRow(bgLine, startCol, fgWidth, bgWidth, func(s string) string { return dim.Render(s) })
 
 		bgLines[bgRow] = left + fgLine + right
 	}
