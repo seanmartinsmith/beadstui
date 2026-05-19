@@ -1769,7 +1769,11 @@ func (m Model) handleWindowSize(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
 	// reserved space; modals continue to size against the full terminal.
 	m.labelDashboard.SetSize(bodyW, bodyHeight)
 
-	m.insightsPanel.SetSize(bodyW, bodyHeight)
+	// insightsPanel.SetSize is deferred to applyWindowSizeHeavy because it
+	// rebuilds a Glamour TermRenderer on every call (insights.go:216 ->
+	// SetWidthWithTheme). Leaving it in phase 1 reintroduced the per-event
+	// cost that c5b63fe8 was meant to suppress, regardless of whether the
+	// insights view is currently visible (bt-kfkrb regression, bt-jqst3).
 
 	// Resize modal pickers so an open modal reflows to the new terminal
 	// size instead of staying at its open-time dimensions and overflowing
@@ -1811,6 +1815,10 @@ func (m Model) applyWindowSizeHeavy() Model {
 	} else {
 		m.renderer.SetWidthWithTheme(bodyW, m.theme)
 	}
+
+	// Resize the insights panel here (not in phase 1) because its SetSize
+	// recreates a Glamour TermRenderer on any width > 120 (bt-jqst3).
+	m.insightsPanel.SetSize(bodyW, bodyHeight)
 
 	m.updateViewportContent()
 	return m

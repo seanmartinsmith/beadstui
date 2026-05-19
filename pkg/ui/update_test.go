@@ -178,6 +178,43 @@ func TestResizeDebounce_StaleSettleMsgIgnored(t *testing.T) {
 	}
 }
 
+// TestResizeDebounce_InsightsDeferredToSettle verifies that the insights
+// panel SetSize (which rebuilds a Glamour renderer when width > 120) is
+// deferred to phase 2, not run on every WindowSizeMsg (bt-kfkrb regression,
+// originally filed as bt-jqst3).
+func TestResizeDebounce_InsightsDeferredToSettle(t *testing.T) {
+	issues := []model.Issue{{ID: "bt-1", Title: "Resize Test", Status: model.StatusOpen}}
+	m := NewModel(issues, nil, "", nil)
+
+	// Send a burst of WindowSizeMsgs. The insights panel's width must NOT
+	// advance during the burst -- it is only updated when the gen-current
+	// settle tick fires.
+	const w1, w2, w3 = 140, 160, 180
+	for _, w := range []int{w1, w2, w3} {
+		updated, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: 40})
+		m = updated.(Model)
+	}
+	if m.insightsPanel.width == w3 {
+		t.Fatalf("insightsPanel.width=%d after burst, expected unchanged (deferred to settle)", m.insightsPanel.width)
+	}
+
+	// A stale settle (older gen) is a no-op for insights too.
+	updated, _ := m.Update(resizeSettledMsg{gen: 1})
+	m2 := updated.(Model)
+	if m2.insightsPanel.width == w3 {
+		t.Fatalf("stale settle should not advance insightsPanel.width, got %d", m2.insightsPanel.width)
+	}
+
+	// Current-gen settle runs applyWindowSizeHeavy, which now also resizes
+	// the insights panel. Width must reflect the latest burst event.
+	updated2, _ := m2.Update(resizeSettledMsg{gen: m2.resizeGen})
+	m3 := updated2.(Model)
+	wantBodyW := m3.bodyWidth()
+	if m3.insightsPanel.width != wantBodyW {
+		t.Fatalf("after settle, insightsPanel.width=%d want=%d", m3.insightsPanel.width, wantBodyW)
+	}
+}
+
 // TestResizeDebounce_Phase1LayoutSync verifies that phase 1 (every WindowSizeMsg)
 // synchronously updates list size and isSplitView without waiting for the
 // settle tick (bt-kfkrb). Existing chrome-layout tests rely on this.
