@@ -621,7 +621,9 @@ func (m *LabelPickerModel) View() string {
 				cursor = nameStyle.Render("> ")
 			}
 
-			indicator := dimStyle.Render("• ")
+			// ASCII `. ` instead of U+2022 `• ` — see bt-ffqnw / WT EAW-Ambiguous
+			// drift. ✓ kept (Unicode EAW=Narrow, not in the reported drift class).
+			indicator := dimStyle.Render(". ")
 			if isSelected {
 				indicator = activeStyle.Render("✓ ")
 			}
@@ -647,7 +649,7 @@ func (m *LabelPickerModel) View() string {
 		Bold(true)
 	selSuffix := ""
 	if len(m.selected) > 0 {
-		selSuffix = " • " + selCountStyle.Render(fmt.Sprintf("%d selected", len(m.selected)))
+		selSuffix = " - " + selCountStyle.Render(fmt.Sprintf("%d selected", len(m.selected)))
 	}
 	lines = append(lines, "")
 	if len(m.filtered) > maxVisible {

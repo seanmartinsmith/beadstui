@@ -377,7 +377,10 @@ func (m *RepoPickerModel) View() string {
 				cursor = nameStyle.Render("> ")
 			}
 
-			indicator := uncheckStyle.Render("• ")
+			// ASCII `. ` instead of U+2022 `• ` — see bt-ffqnw / WT EAW-Ambiguous
+			// drift. Keep ✓ for selected; it's EAW=Narrow per Unicode and isn't
+			// in the reported drift class — flip later if it bites.
+			indicator := uncheckStyle.Render(". ")
 			if isSelected {
 				indicator = checkStyle.Render("✓ ")
 			}
