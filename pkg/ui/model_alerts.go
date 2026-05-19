@@ -359,14 +359,10 @@ func (m Model) renderAlertsTab() string {
 			end = len(visibleAlerts)
 		}
 
-		// Above indicator line: "^ N more above" left, filter label right.
-		// Plain caret (was U+25B4 ▴): Windows Terminal classifies geometric
-		// triangles in its box-drawing-class shaper (MS Terminal #16451) and
-		// renders them at a wider cell than ansi.StringWidth reports, which
-		// shifts the modal's right border at certain widths (bt-2s3a5).
+		// Above indicator line: "▴ N more above" left, filter label right
 		aboveHint := ""
 		if start > 0 {
-			aboveHint = fmt.Sprintf(" ^ %d more above", start)
+			aboveHint = fmt.Sprintf(" ▴ %d more above", start)
 		}
 		if aboveHint != "" || filterLabel != "" {
 			leftPart := lipgloss.NewStyle().Foreground(t.Muted).Render(aboveHint)
@@ -401,12 +397,10 @@ func (m Model) renderAlertsTab() string {
 				severityIcon = "○"
 			}
 
-			// Cursor indicator (neutral color so it stands out from severity).
-			// Plain `>` instead of U+25B8 ▸ — see bt-2s3a5; Windows Terminal
-			// over-widens geometric triangles relative to ansi.StringWidth.
+			// Cursor indicator (neutral color so it stands out from severity)
 			cursor := "  "
 			if selected {
-				cursor = lipgloss.NewStyle().Foreground(t.Muted).Bold(true).Render("> ")
+				cursor = lipgloss.NewStyle().Foreground(t.Muted).Bold(true).Render("▸ ")
 			}
 
 			// Alert line (sanitize newlines to prevent panel expansion)
@@ -485,12 +479,11 @@ func (m Model) renderAlertsTab() string {
 			sb.WriteString("\n")
 		}
 
-		// Below indicator line: "v N more below" left, page indicator right.
-		// Plain `v` (was U+25BE ▾) — see bt-2s3a5.
+		// Below indicator line: "▾ N more below" left, page indicator right
 		belowHint := ""
 		remaining := len(visibleAlerts) - end
 		if remaining > 0 {
-			belowHint = fmt.Sprintf(" v %d more below", remaining)
+			belowHint = fmt.Sprintf(" ▾ %d more below", remaining)
 		}
 		pageLabel := ""
 		if len(visibleAlerts) > pageSize {
@@ -737,9 +730,8 @@ func (m Model) renderNotificationsTab() string {
 	mutedStyle := lipgloss.NewStyle().Foreground(t.Muted)
 
 	// Above-indicator line (matches alerts' above-hint row).
-	// Plain caret (was U+25B4 ▴) — see bt-2s3a5.
 	if start > 0 {
-		sb.WriteString(mutedStyle.Render(fmt.Sprintf(" ^ %d more above", start)))
+		sb.WriteString(mutedStyle.Render(fmt.Sprintf(" ▴ %d more above", start)))
 	}
 	sb.WriteString("\n")
 
@@ -750,7 +742,7 @@ func (m Model) renderNotificationsTab() string {
 	// kindRowStyle. Cursor row keeps cursorStyle so it always pops above
 	// the kind-tinted neighbors.
 
-	// Usable width for the row content after our "> " / "   " prefix (3)
+	// Usable width for the row content after our "▸ " / "   " prefix (3)
 	// and a right-side margin (2) to keep text from kissing the border.
 	rowWidth := innerWidth - 5
 	if rowWidth < 20 {
@@ -776,7 +768,7 @@ func (m Model) renderNotificationsTab() string {
 		}
 		row := formatNotificationRow(active[i], rowWidth)
 		if i == m.notificationsCursor {
-			sb.WriteString(" " + cursorStyle.Render("> "+row))
+			sb.WriteString(" " + cursorStyle.Render("▸ "+row))
 			sb.WriteString("\n")
 			rowsWritten++
 			// Sanitize Summary: strip newlines so the hover-expand stays on
@@ -802,12 +794,11 @@ func (m Model) renderNotificationsTab() string {
 		sb.WriteString("\n")
 	}
 
-	// Below-indicator + page counter on a single line: " v N more below" left,
+	// Below-indicator + page counter on a single line: " ▾ N more below" left,
 	// "N/M" right. Mirrors the alerts tab's above/below pattern.
-	// Plain `v` (was U+25BE ▾) — see bt-2s3a5.
 	belowHint := ""
 	if end < len(active) {
-		belowHint = fmt.Sprintf(" v %d more below", len(active)-end)
+		belowHint = fmt.Sprintf(" ▾ %d more below", len(active)-end)
 	}
 	pageLabel := fmt.Sprintf("%d/%d", m.notificationsCursor+1, len(active))
 	leftPart := mutedStyle.Render(belowHint)

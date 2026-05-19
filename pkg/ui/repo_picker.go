@@ -369,12 +369,9 @@ func (m *RepoPickerModel) View() string {
 				nameStyle = nameStyle.Foreground(t.Primary).Bold(true)
 			}
 
-			// Plain `> ` instead of U+25B8 ▸ — see bt-2s3a5; Windows Terminal
-			// widens geometric triangles relative to ansi.StringWidth, which
-			// drifts the modal's right border at certain widths.
 			cursor := "  "
 			if isCursor {
-				cursor = nameStyle.Render("> ")
+				cursor = nameStyle.Render("▸ ")
 			}
 
 			indicator := uncheckStyle.Render("• ")
