@@ -250,6 +250,146 @@ func TestAllModalsUseDimBackdrop(t *testing.T) {
 	}
 }
 
+// TestOverlayCenterDimBackdrop_RowWidthInvariant is the bt-l22b regression
+// guard: every output row must equal bgWidth in visible cells, regardless
+// of whether the corresponding bg row was shorter than bgWidth. Pre-fix,
+// short bg rows caused ansi.Truncate(line, startCol, "") to return the
+// whole short line and ansi.TruncateLeft(line, startCol+fgWidth, "") to
+// return empty, so the fg modal was composited at the wrong absolute
+// column on those rows. The modal's right border landed at varying x
+// positions across rows, producing the dimension-sensitive broken-border
+// shape the bead documents.
+//
+// The fix is structural: pad every bg row to bgWidth before slicing so
+// the compositor's slice positions are stable across all rows. This is
+// applied in both OverlayCenter and OverlayCenterDimBackdrop.
+func TestOverlayCenterDimBackdrop_RowWidthInvariant(t *testing.T) {
+	const bgWidth = 60
+	const bgHeight = 10
+
+	// BG rows have deliberately uneven widths, matching the shape of
+	// real view bodies where stacked panels or sparsely-rendered content
+	// rows produce variable line widths.
+	bgLines := []string{
+		strings.Repeat("x", 60),
+		strings.Repeat("x", 30), // short
+		strings.Repeat("x", 60),
+		"",                      // empty
+		strings.Repeat("x", 45), // short
+		strings.Repeat("x", 60),
+		strings.Repeat("x", 60),
+		strings.Repeat("x", 60),
+		strings.Repeat("x", 20), // very short
+		strings.Repeat("x", 60),
+	}
+	bg := strings.Join(bgLines, "\n")
+
+	// FG is a synthetic 3-row modal of consistent width.
+	const fgInnerWidth = 18
+	fgTop := "╭" + strings.Repeat("─", fgInnerWidth) + "╮"
+	fgMid := "│" + strings.Repeat(" ", fgInnerWidth) + "│"
+	fgBot := "╰" + strings.Repeat("─", fgInnerWidth) + "╯"
+	fg := fgTop + "\n" + fgMid + "\n" + fgBot
+
+	out := OverlayCenterDimBackdrop(bg, fg, bgWidth, bgHeight)
+	outRows := strings.Split(out, "\n")
+	if len(outRows) != bgHeight {
+		t.Fatalf("expected %d output rows, got %d", bgHeight, len(outRows))
+	}
+
+	for i, r := range outRows {
+		stripped := ansi.Strip(r)
+		if w := ansi.StringWidth(stripped); w != bgWidth {
+			t.Errorf("row %d visible width = %d, want %d; stripped=%q",
+				i, w, bgWidth, stripped)
+		}
+	}
+
+	// The modal's vertical borders must land at the same column on every
+	// fg row. Pre-fix, short-bg rows shifted the fg left and the border
+	// columns drifted.
+	fgWidth := ansi.StringWidth(fgTop)
+	startRow := (bgHeight - 3) / 2
+	startCol := (bgWidth - fgWidth) / 2
+	for i := 0; i < 3; i++ {
+		row := ansi.Strip(outRows[startRow+i])
+		// Left border column: the corner or vertical char at startCol.
+		leftChar := runeAt(row, startCol)
+		if !isModalBorderRune(leftChar) {
+			t.Errorf("fg row %d (output row %d): left border at col %d = %q, want a box-drawing rune",
+				i, startRow+i, startCol, string(leftChar))
+		}
+		rightChar := runeAt(row, startCol+fgWidth-1)
+		if !isModalBorderRune(rightChar) {
+			t.Errorf("fg row %d (output row %d): right border at col %d = %q, want a box-drawing rune",
+				i, startRow+i, startCol+fgWidth-1, string(rightChar))
+		}
+	}
+}
+
+// TestOverlayCenter_RowWidthInvariant mirrors TestOverlayCenterDimBackdrop_RowWidthInvariant
+// for the non-dim compositor. Both functions share the same slicing pattern
+// and so share the same bt-l22b shift bug; the fix is applied in both.
+func TestOverlayCenter_RowWidthInvariant(t *testing.T) {
+	const bgWidth = 60
+	const bgHeight = 8
+
+	bgLines := []string{
+		strings.Repeat("x", 60),
+		strings.Repeat("x", 25),
+		strings.Repeat("x", 60),
+		strings.Repeat("x", 10),
+		strings.Repeat("x", 60),
+		strings.Repeat("x", 40),
+		strings.Repeat("x", 60),
+		strings.Repeat("x", 60),
+	}
+	bg := strings.Join(bgLines, "\n")
+
+	const fgInnerWidth = 16
+	fg := "╭" + strings.Repeat("─", fgInnerWidth) + "╮\n" +
+		"│" + strings.Repeat(" ", fgInnerWidth) + "│\n" +
+		"╰" + strings.Repeat("─", fgInnerWidth) + "╯"
+
+	out := OverlayCenter(bg, fg, bgWidth, bgHeight)
+	outRows := strings.Split(out, "\n")
+	if len(outRows) != bgHeight {
+		t.Fatalf("expected %d output rows, got %d", bgHeight, len(outRows))
+	}
+
+	for i, r := range outRows {
+		stripped := ansi.Strip(r)
+		if w := ansi.StringWidth(stripped); w != bgWidth {
+			t.Errorf("row %d visible width = %d, want %d; stripped=%q",
+				i, w, bgWidth, stripped)
+		}
+	}
+}
+
+// runeAt returns the rune at the given visible-cell column of s, treating
+// each rune as one cell. The test input is plain ASCII + box-drawing chars
+// (all narrow), so cell-index == rune-index after stripping ANSI.
+func runeAt(s string, col int) rune {
+	i := 0
+	for _, r := range s {
+		if i == col {
+			return r
+		}
+		i++
+	}
+	return 0
+}
+
+// isModalBorderRune reports whether r is one of the box-drawing characters
+// used by the modal frame (corners or vertical edge).
+func isModalBorderRune(r rune) bool {
+	switch r {
+	case '╭', '╮', '╰', '╯', '│':
+		return true
+	}
+	return false
+}
+
 // TestModalContentWidth_ConstantAcrossTerminalSizes guards the chrome
 // stability promise of bt-v8he: as the terminal grows wider the modal does
 // not — it stays capped at the content-comfortable width so the pop-up

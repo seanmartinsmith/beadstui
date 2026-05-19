@@ -264,6 +264,21 @@ func OverlayCenter(bg, fg string, bgWidth, bgHeight int) string {
 		startCol = 0
 	}
 
+	// Pad every bg row to bgWidth so the per-row slice positions are
+	// consistent. Without this, rows whose underlying content is shorter
+	// than bgWidth cause ansi.Truncate(line, startCol, "") to return the
+	// whole short line and ansi.TruncateLeft(line, startCol+fgWidth, "")
+	// to return empty - so the fg lands at column = visibleWidth(line)
+	// instead of startCol on those rows, drifting the modal's vertical
+	// borders across rows (bt-l22b). Appending plain spaces inherits
+	// whatever SGR state the line ended in; lipgloss-rendered rows reset
+	// at end-of-content so the padding renders as default-style blanks.
+	for i, line := range bgLines {
+		if w := ansi.StringWidth(line); w < bgWidth {
+			bgLines[i] = line + strings.Repeat(" ", bgWidth-w)
+		}
+	}
+
 	for i, fgLine := range fgLines {
 		bgRow := startRow + i
 		if bgRow < 0 || bgRow >= len(bgLines) {
@@ -329,6 +344,16 @@ func OverlayCenterDimBackdrop(bg, fg string, bgWidth, bgHeight int) string {
 		// Strip any pre-existing ANSI styling so the dim wrap is uniform —
 		// mid-line resets cannot punch holes in the receded look.
 		plain := ansi.Strip(bgLines[i])
+		// Pad to bgWidth so per-row slice positions are stable. Without
+		// this, rows whose underlying content is shorter than bgWidth
+		// cause ansi.Truncate / ansi.TruncateLeft to position the fg at
+		// the wrong absolute column on that row, drifting the modal's
+		// vertical borders across rows (bt-l22b). The dim wrap applies
+		// uniformly to padding and content so the backdrop reads as one
+		// receded surface.
+		if w := ansi.StringWidth(plain); w < bgWidth {
+			plain = plain + strings.Repeat(" ", bgWidth-w)
+		}
 		bgLines[i] = dim.Render(plain)
 	}
 
