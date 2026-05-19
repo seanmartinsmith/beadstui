@@ -6,6 +6,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func TestRenderTitledPanel_Basic(t *testing.T) {
@@ -281,6 +282,120 @@ func TestRenderTitledPanel_UniformRowWidthWithStyledContent(t *testing.T) {
 			t.Errorf("row %d width = %d, want %d (panel.Width); row=%q",
 				i, w, panelWidth, r)
 		}
+	}
+}
+
+// TestRenderTitledPanel_StyledRowOverWidthClampsToInnerWidth is the bt-l22b
+// root-cause regression guard: when a content row is styled AND exceeds
+// innerWidth, the truncate branch must produce a row whose ansi.StringWidth
+// is exactly innerWidth. Pre-fix, panel.go used runewidth.Truncate which
+// counts SGR escape bytes as visible cells and over-truncates, returning a
+// row whose ansi.StringWidth is below innerWidth. The compositor then sees
+// fg rows of inconsistent widths and drifts the modal's right border across
+// rows - the dimension-sensitive shape that bit Notifications at 117-124+
+// and Project Filter at 77-78 / 83-84 / 163-175 even after the defensive
+// bg/fg padding landed in OverlayCenter{,DimBackdrop}.
+//
+// The fix replaces runewidth.Truncate with ansi.Truncate so SGR codes are
+// preserved and visible-cell counting is correct. This test exercises the
+// truncate branch with styled content well over innerWidth.
+func TestRenderTitledPanel_StyledRowOverWidthClampsToInnerWidth(t *testing.T) {
+	italic := lipgloss.NewStyle().Italic(true).Foreground(lipgloss.Color("#aaaaaa"))
+	bold := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#ffaa00"))
+
+	// Each row's visible content well exceeds innerWidth (28) so every row
+	// hits the truncate branch. ANSI styling on every row exercises the
+	// runewidth-counts-SGR-as-visible bug.
+	content := strings.Join([]string{
+		italic.Render(strings.Repeat("italic text overflow ", 5)),
+		bold.Render(strings.Repeat("bold text overflow ", 5)),
+		"plain text " + strings.Repeat("padding ", 8),
+		italic.Render("short styled row that fits"), // exercises the < innerWidth branch alongside
+	}, "\n")
+
+	const panelWidth = 30
+	result := RenderTitledPanel(content, PanelOpts{
+		Title: "T",
+		Width: panelWidth,
+	})
+
+	rows := strings.Split(result, "\n")
+	for i, r := range rows {
+		w := ansi.StringWidth(r)
+		if w != panelWidth {
+			t.Errorf("row %d ansi.StringWidth = %d, want %d (panel.Width); row=%q",
+				i, w, panelWidth, r)
+		}
+	}
+}
+
+// TestTruncateRunesHelper_StyledInputANSIAware is the bt-l22b second-pass
+// regression guard. truncateRunesHelper is called from 20+ sites across
+// the TUI (alerts/notifications rows, board cards, history entries, etc.)
+// to truncate row content before it reaches RenderTitledPanel. Pre-fix it
+// used runewidth.* internally, which counts SGR escape bytes as visible
+// cells and over-truncates styled input - leaving rows shorter than the
+// caller expected. The L8 panel.go fix did not reach this layer because
+// the over-truncation happens upstream of RenderTitledPanel.
+//
+// Post-fix: helpers.go uses ansi.* internally, so SGR bytes are excluded
+// from the cell count and the truncated row's ansi.StringWidth matches
+// what the caller asked for.
+func TestTruncateRunesHelper_StyledInputANSIAware(t *testing.T) {
+	italic := lipgloss.NewStyle().Italic(true).Foreground(lipgloss.Color("#aaaaaa"))
+	bold := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#ffaa00"))
+
+	cases := []struct {
+		name     string
+		input    string
+		maxWidth int
+		wantW    int // expected ansi.StringWidth of the output
+	}{
+		{
+			name:     "plain text under width passes through",
+			input:    "short",
+			maxWidth: 20,
+			wantW:    5,
+		},
+		{
+			name:     "styled text under width passes through",
+			input:    italic.Render("short"),
+			maxWidth: 20,
+			wantW:    5,
+		},
+		{
+			name:     "plain text over width truncates to width including suffix",
+			input:    "this is a long plain string",
+			maxWidth: 10,
+			wantW:    10, // 9 chars + "…"
+		},
+		{
+			name:     "styled text over width truncates to width including suffix",
+			input:    italic.Render("this is a long italic string"),
+			maxWidth: 10,
+			wantW:    10, // 9 visible chars + "…", SGR bytes not counted
+		},
+		{
+			name:     "bold styled text over width truncates to width including suffix",
+			input:    bold.Render(strings.Repeat("bold ", 8)),
+			maxWidth: 15,
+			wantW:    15,
+		},
+		{
+			name:     "styled text at exact width passes through",
+			input:    italic.Render("exact10chr"),
+			maxWidth: 10,
+			wantW:    10,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			out := truncateRunesHelper(tc.input, tc.maxWidth, "…")
+			if w := ansi.StringWidth(out); w != tc.wantW {
+				t.Errorf("ansi.StringWidth = %d, want %d; out=%q", w, tc.wantW, out)
+			}
+		})
 	}
 }
 

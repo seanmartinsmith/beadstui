@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -245,6 +246,91 @@ func TestAllModalsUseDimBackdrop(t *testing.T) {
 			if !strings.Contains(view, faintSGR) {
 				t.Errorf("expected Faint SGR (\\x1b[2m) in rendered output for %s modal, found none — backdrop not dimmed (modal must use OverlayCenterDimBackdrop, not OverlayCenter)",
 					tc.name)
+			}
+		})
+	}
+}
+
+// TestAlertsModal_ModalBandRowWidthsAreUniform is the bt-l22b end-to-end
+// regression guard. Renders the actual alerts/notifications modal at every
+// terminal width in the user-reported broken range (117..124) and asserts
+// every row within the modal's vertical band has the same visible width
+// (ansi.StringWidth). Pre-fix, runewidth-based truncation upstream of
+// RenderTitledPanel produced rows with inconsistent visible widths, the
+// compositor then drifted the modal's right border across rows.
+//
+// This test exercises the full pipeline (Model.View() -> body composition
+// -> OverlayCenterDimBackdrop -> finalStyle.Render) and asserts the
+// invariant the user actually sees: modal borders form a clean rectangle.
+func TestAlertsModal_ModalBandRowWidthsAreUniform(t *testing.T) {
+	// FALSE POSITIVE GUARD (bt-2s3a5): seedModel() produces an empty
+	// alerts/notifications modal — chrome rows only, no real events.
+	// Chrome uses only box-drawing chars (╭ ╮ ╰ ╯ ─ │) which are not in
+	// the disagreement class, so the test passes at every width despite
+	// the user-visible bug at 117..124. The fresh session that owns
+	// bt-2s3a5 must seed actual notification events (events.Event with
+	// mixed kinds, a selected cursor row, a day separator, and an
+	// above/below pagination state) so the rendered modal contains the
+	// `▸ ▴ ▾ • …` glyph soup where the WT-rendering disagreement
+	// actually surfaces. Until then this test is structure-only and
+	// would give a false sense of security.
+	t.Skip("bt-2s3a5: needs real notification events seeded; chrome-only rendering masks the bug")
+
+	// User-reported broken range: 117..124 for Notifications at height 48.
+	// Sweep every width in that band plus a couple outside for control.
+	widths := []int{115, 117, 118, 119, 120, 121, 122, 123, 124, 126, 130}
+	const height = 48
+
+	for _, w := range widths {
+		t.Run(fmt.Sprintf("w=%d", w), func(t *testing.T) {
+			m := seedModel()
+			updated, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: height})
+			m = updated.(Model)
+
+			// Open the alerts/notifications modal (key '1' in the seedModel
+			// test harness, matching the existing TestAlertsModalOccludesDetailPane
+			// flow).
+			m = pressRune(m, '1')
+			if m.activeModal != ModalAlerts {
+				t.Fatalf("expected ModalAlerts after pressing '1', got %v", m.activeModal)
+			}
+
+			view := m.View().Content
+			rows := strings.Split(view, "\n")
+
+			// Locate the modal band by the title corner row. The body has
+			// multiple `╭` corners (outer panels, modal); the modal title
+			// row contains "Notifications" or "Alerts!" in the bordered top.
+			topRow, bottomRow := -1, -1
+			for i, r := range rows {
+				stripped := ansi.Strip(r)
+				if topRow == -1 && (strings.Contains(stripped, "╭─ Notifications") || strings.Contains(stripped, "╭─ Alerts")) {
+					topRow = i
+				}
+				if topRow != -1 && bottomRow == -1 && i > topRow {
+					if strings.Contains(stripped, "╰─") &&
+						strings.Contains(stripped, "─╯") &&
+						!strings.Contains(stripped, " Notifications") &&
+						!strings.Contains(stripped, " Alerts") {
+						bottomRow = i
+					}
+				}
+			}
+			if topRow == -1 || bottomRow == -1 {
+				t.Skipf("could not locate modal band at width %d (top=%d bottom=%d) — modal may not fit", w, topRow, bottomRow)
+				return
+			}
+
+			// Every row in the band [topRow..bottomRow] must have the same
+			// visible width. This is the load-bearing invariant the modal's
+			// right border depends on.
+			widthOfTop := ansi.StringWidth(ansi.Strip(rows[topRow]))
+			for i := topRow; i <= bottomRow; i++ {
+				rowW := ansi.StringWidth(ansi.Strip(rows[i]))
+				if rowW != widthOfTop {
+					t.Errorf("row %d (relative %d) width = %d, want %d (top row width); stripped=%q",
+						i, i-topRow, rowW, widthOfTop, ansi.Strip(rows[i]))
+				}
 			}
 		})
 	}

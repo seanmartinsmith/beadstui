@@ -214,12 +214,18 @@ func RenderTitledPanel(content string, opts PanelOpts) string {
 
 	var body strings.Builder
 	for _, line := range contentLines {
-		// Pad or truncate each line to innerWidth
+		// Pad or truncate each line to innerWidth. Truncate via ansi.Truncate
+		// rather than runewidth.Truncate so SGR escape bytes in styled rows
+		// are not counted as visible cells; runewidth.Truncate over-truncates
+		// styled content, producing rows whose ansi.StringWidth is below
+		// innerWidth. The compositor then sees fg rows of inconsistent widths
+		// and drifts the modal's right border across rows (bt-l22b root cause,
+		// surfaced after the defensive bg/fg padding fix).
 		lineWidth := lipgloss.Width(line)
 		if lineWidth < innerWidth {
 			line = line + strings.Repeat(" ", innerWidth-lineWidth)
 		} else if lineWidth > innerWidth {
-			line = runewidth.Truncate(line, innerWidth, "")
+			line = ansi.Truncate(line, innerWidth, "")
 		}
 		body.WriteString(leftBorder)
 		body.WriteString(line)
@@ -283,6 +289,17 @@ func OverlayCenter(bg, fg string, bgWidth, bgHeight int) string {
 		bgRow := startRow + i
 		if bgRow < 0 || bgRow >= len(bgLines) {
 			continue
+		}
+
+		// Pad fg row to fgWidth so the right bg slice resumes immediately
+		// after the modal's actual right edge. Without this, fg rows whose
+		// reported visible width is less than fgWidth (e.g., bt-rhfo class:
+		// terminal renders a glyph wider than runewidth / ansi.StringWidth
+		// reports) leave a gap between the modal's visible right edge and
+		// where the right bg slice starts - drifting the modal's right
+		// border across rows (bt-l22b hypothesis #3).
+		if w := ansi.StringWidth(fgLine); w < fgWidth {
+			fgLine = fgLine + strings.Repeat(" ", fgWidth-w)
 		}
 
 		bgLine := bgLines[bgRow]
@@ -365,6 +382,13 @@ func OverlayCenterDimBackdrop(bg, fg string, bgWidth, bgHeight int) string {
 		bgRow := startRow + i
 		if bgRow < 0 || bgRow >= len(bgLines) {
 			continue
+		}
+
+		// Pad fg row to fgWidth so the right bg slice resumes immediately
+		// after the modal's actual right edge (bt-l22b hypothesis #3).
+		// Mirrors the same defense in OverlayCenter above.
+		if w := ansi.StringWidth(fgLine); w < fgWidth {
+			fgLine = fgLine + strings.Repeat(" ", fgWidth-w)
 		}
 
 		bgLine := bgLines[bgRow]

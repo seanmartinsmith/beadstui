@@ -11,6 +11,7 @@ import (
 
 	"charm.land/lipgloss/v2"
 	"charm.land/lipgloss/v2/tree"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/mattn/go-runewidth"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
@@ -318,25 +319,33 @@ func formatNanoseconds(ns int64) string {
 }
 
 // truncateRunesHelper truncates a string to max visual width (cells), adding suffix if needed.
-// Uses go-runewidth to handle wide characters correctly.
+// ANSI-aware: SGR escape sequences in `s` are not counted toward width and
+// are preserved across the truncation cut. Plain-text input behaves
+// identically to the previous runewidth-based implementation because ansi.*
+// functions agree with runewidth.* on cell counting for unstyled text.
+//
+// The switch from runewidth.* to ansi.* closes the bt-l22b class of bug
+// where SGR bytes were counted as visible chars, over-truncating styled
+// rows and leaving them with visible width below the target. Downstream
+// compositors then saw inconsistent row widths and drifted modal borders.
 func truncateRunesHelper(s string, maxWidth int, suffix string) string {
 	if maxWidth <= 0 {
 		return ""
 	}
 
-	width := runewidth.StringWidth(s)
+	width := ansi.StringWidth(s)
 	if width <= maxWidth {
 		return s
 	}
 
-	suffixWidth := runewidth.StringWidth(suffix)
+	suffixWidth := ansi.StringWidth(suffix)
 	if suffixWidth > maxWidth {
 		// Even suffix is too wide, truncate suffix
-		return runewidth.Truncate(suffix, maxWidth, "")
+		return ansi.Truncate(suffix, maxWidth, "")
 	}
 
 	targetWidth := maxWidth - suffixWidth
-	return runewidth.Truncate(s, targetWidth, "") + suffix
+	return ansi.Truncate(s, targetWidth, "") + suffix
 }
 
 // padRight pads string s with spaces on the right to reach visual width.
