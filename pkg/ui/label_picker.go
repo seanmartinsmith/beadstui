@@ -614,9 +614,11 @@ func (m *LabelPickerModel) View() string {
 				countStyle = countStyle.Foreground(t.Primary)
 			}
 
+			// Plain `> ` instead of U+25B8 ▸ — see bt-2s3a5; same WT
+			// triangle-shaping issue as the alerts/notifications modal.
 			cursor := "  "
 			if isCursor {
-				cursor = nameStyle.Render("▸ ")
+				cursor = nameStyle.Render("> ")
 			}
 
 			indicator := dimStyle.Render("• ")
