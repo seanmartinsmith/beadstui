@@ -12,6 +12,7 @@ import (
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func (m Model) renderLoadingScreen() string {
@@ -221,10 +222,41 @@ func (m Model) View() tea.View {
 		Height(m.height).
 		MaxHeight(m.height)
 
-	v := tea.NewView(finalStyle.Render(lipgloss.JoinVertical(lipgloss.Left, body, footer)))
+	rendered := finalStyle.Render(lipgloss.JoinVertical(lipgloss.Left, body, footer))
+	if m.showDebugDims {
+		rendered = spliceDebugDims(rendered, m.width, m.height)
+	}
+	v := tea.NewView(rendered)
 	v.AltScreen = true
 	v.MouseMode = tea.MouseModeCellMotion
 	return v
+}
+
+// spliceDebugDims overlays a high-contrast [WxH] chip in the top-right of
+// the first rendered row. Used by the undocumented ctrl+p toggle for
+// dimension-sensitive bug repros - lets the user screenshot with exact
+// terminal cell counts baked in. ANSI-aware: slices the first line's
+// rightmost chipWidth cells off and replaces them with the chip.
+func spliceDebugDims(s string, width, height int) string {
+	chipText := fmt.Sprintf(" %dx%d ", width, height)
+	chip := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#000000")).
+		Background(lipgloss.Color("#ffff00")).
+		Bold(true).
+		Render(chipText)
+	chipW := ansi.StringWidth(chip)
+	if chipW >= width {
+		return s
+	}
+
+	parts := strings.SplitN(s, "\n", 2)
+	first := parts[0]
+	rest := ""
+	if len(parts) == 2 {
+		rest = "\n" + parts[1]
+	}
+	left := ansi.Truncate(first, width-chipW, "")
+	return left + chip + rest
 }
 
 // renderQuitConfirm returns the quit-confirm modal panel. The caller

@@ -552,6 +552,7 @@ type Model struct {
 	labelGraphAnalysisResult *LabelGraphAnalysisResult
 	showShortcutsSidebar     bool // bv-3qi5 toggleable shortcuts sidebar
 	showWisps                bool // bt-9kdo: toggle wisp visibility (default: hide)
+	showDebugDims            bool // ctrl+p: top-right WxH overlay for dimension-sensitive bug screenshots; undocumented in help
 	labelHealthCached        bool
 	labelHealthCache         analysis.LabelAnalysisResult
 	attentionCached          bool

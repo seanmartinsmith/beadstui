@@ -614,6 +614,15 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 	}
 
+	// Undocumented: ctrl+p toggles a top-right [WxH] dimension chip so
+	// dimension-sensitive bugs can be reported with exact terminal cell
+	// counts. Bypasses the keymap so it stays out of `?` help and is
+	// effectively hidden from users who don't know to press it.
+	if msg.String() == "ctrl+p" && m.list.FilterState() != list.Filtering {
+		m.showDebugDims = !m.showDebugDims
+		return m, nil
+	}
+
 	// Handle shortcuts sidebar toggle (; or F2) - bv-3qi5
 	if key.Matches(msg, m.keys.Global.Sidebar) && m.list.FilterState() != list.Filtering {
 		m.showShortcutsSidebar = !m.showShortcutsSidebar
