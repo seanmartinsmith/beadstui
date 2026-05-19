@@ -23,6 +23,8 @@ import (
 
 // handleSnapshotReady processes a new snapshot from the background worker.
 func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
+	snapshotStart := time.Now()
+	defer func() { debug.LogTiming("handleSnapshotReady.total", time.Since(snapshotStart)) }()
 	var cmds []tea.Cmd
 
 	// Background worker has a new snapshot ready (bv-m7v8)
@@ -463,6 +465,8 @@ func (m Model) handleDataSourceReload(msg DataSourceReloadMsg) (Model, tea.Cmd) 
 
 // handleDoltVerified processes a successful Dolt poll.
 func (m Model) handleDoltVerified(msg DoltVerifiedMsg) (Model, tea.Cmd) {
+	doltVerifiedStart := time.Now()
+	defer func() { debug.LogTiming("handleDoltVerified.total", time.Since(doltVerifiedStart)) }()
 	var cmds []tea.Cmd
 
 	// Dolt poll succeeded - data is verified current (bt-3ynd).

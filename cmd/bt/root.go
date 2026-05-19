@@ -764,10 +764,47 @@ func runTUIProgram(m ui.Model) error {
 	// Suppress log output while TUI is running.
 	log.SetOutput(io.Discard)
 
-	p := tea.NewProgram(
-		m,
-		tea.WithoutSignalHandler(),
-	)
+	// Resize behavior (bt-kfkrb):
+	//   BT_RESIZE_MODE=snap     (default) coalescer with burstSettle=200ms;
+	//                           body stays at the pre-drag size during the
+	//                           drag, snaps to the final size ~200ms after
+	//                           the burst settles.
+	//   BT_RESIZE_MODE=realtime no coalescer; bt sees every WindowSizeMsg
+	//                           the OS delivers (capped by ultraviolet's
+	//                           same-size dedup, ~5-7/sec during a slow
+	//                           corner drag). The body pans continuously
+	//                           but each step advances only a col or two.
+	// Legacy: BT_RESIZE_COALESCE=0 still forces realtime for compatibility
+	// with the prior session's flag.
+	mode := os.Getenv("BT_RESIZE_MODE")
+	if os.Getenv("BT_RESIZE_COALESCE") == "0" {
+		mode = "realtime"
+	}
+	// burstSettle: how long the coalescer waits for the resize burst to fall
+	// quiet before re-emitting. Longer = fewer mid-drag snaps (tolerates
+	// hand-pauses) but longer post-release latency. Default 350ms is a
+	// trade between the user-perceptible step pattern (smaller values) and
+	// the felt post-release wait (larger values). Override with
+	// BT_RESIZE_SETTLE_MS for tuning.
+	burstSettle := 350 * time.Millisecond
+	if s := os.Getenv("BT_RESIZE_SETTLE_MS"); s != "" {
+		if v, err := strconv.Atoi(s); err == nil && v > 0 {
+			burstSettle = time.Duration(v) * time.Millisecond
+		}
+	}
+	var coalescer *ui.ResizeCoalescer
+	coalesceStop := make(chan struct{})
+	defer close(coalesceStop)
+	teaOpts := []tea.ProgramOption{tea.WithoutSignalHandler()}
+	if mode != "realtime" {
+		coalescer = ui.NewResizeCoalescer(burstSettle, 25*time.Millisecond)
+		teaOpts = append(teaOpts, tea.WithFilter(coalescer.Filter))
+	}
+	p := tea.NewProgram(m, teaOpts...)
+	if coalescer != nil {
+		coalescer.SetSender(p.Send)
+		coalescer.RunFlushPump(coalesceStop)
+	}
 	// Mouse input is enabled per-view via tea.View.MouseMode = tea.MouseModeCellMotion
 	// (see pkg/ui/model_view.go). bt-d8d1 wires MouseClickMsg into Update.
 	//

@@ -544,6 +544,7 @@ type Model struct {
 	width                    int
 	height                   int
 	resizeGen                uint64 // incremented on each WindowSizeMsg; gating resizeSettledMsg (bt-kfkrb)
+	lastHeavyWidth           int    // bodyWidth at last applyWindowSizeHeavy; lets height-only resizes skip Glamour re-render (bt-kfkrb)
 	labelHealthDetail        *analysis.LabelHealth
 	labelHealthDetailFlow    labelFlowSummary
 	labelDrilldownLabel      string

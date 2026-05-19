@@ -17,6 +17,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/seanmartinsmith/beadstui/pkg/agents"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
+	"github.com/seanmartinsmith/beadstui/pkg/debug"
 	"github.com/seanmartinsmith/beadstui/pkg/drift"
 	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
 )
@@ -1718,6 +1719,8 @@ func (m Model) handleMouseWheel(msg tea.MouseWheelMsg) (Model, tea.Cmd) {
 // updateViewportContent (renders all markdown through that renderer) -- to
 // Phase 2 via a generation-counter settle tick.
 func (m Model) handleWindowSize(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
+	wsStart := time.Now()
+	defer func() { debug.LogTiming(fmt.Sprintf("handleWindowSize w=%d h=%d", msg.Width, msg.Height), time.Since(wsStart)) }()
 	m.width = msg.Width
 	m.height = msg.Height
 	// Layout against bodyWidth so the shortcuts sidebar (when visible) gets
@@ -1731,28 +1734,22 @@ func (m Model) handleWindowSize(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
 	}
 
 	// Phase 1: cheap layout — list sizing and viewport allocation only.
-	// SetWidthWithTheme (Glamour) and updateViewportContent are deferred to
-	// Phase 2 so per-event cost during a drag is negligible.
+	// SetWidthWithTheme (Glamour), insightsPanel.SetSize, and
+	// updateViewportContent are deferred to phase 2 so per-event cost during
+	// a drag is negligible.
 	if m.isSplitView {
-		// Calculate dimensions accounting for 2 panels with borders(2)+padding(2) = 4 overhead each
-		// Total overhead = 8
 		availWidth := bodyW - 8
 		if availWidth < 10 {
 			availWidth = 10
 		}
-
-		// Use configurable split ratio (default 0.4, adjustable via [ and ])
 		listInnerWidth := int(float64(availWidth) * m.splitPaneRatio)
 		detailInnerWidth := availWidth - listInnerWidth
-
-		// listHeight fits header (1) + page line (1) inside a panel with Border (2)
 		listHeight := bodyHeight - 4
 		if listHeight < 3 {
 			listHeight = 3
 		}
-
 		m.list.SetSize(listInnerWidth, listHeight)
-		m.viewport = viewport.New(viewport.WithWidth(detailInnerWidth), viewport.WithHeight(bodyHeight-2)) // Account for border
+		m.viewport = viewport.New(viewport.WithWidth(detailInnerWidth), viewport.WithHeight(bodyHeight-2))
 	} else {
 		listHeight := bodyHeight - 2
 		if listHeight < 3 {
@@ -1761,23 +1758,8 @@ func (m Model) handleWindowSize(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
 		m.list.SetSize(bodyW, listHeight)
 		m.viewport = viewport.New(viewport.WithWidth(bodyW), viewport.WithHeight(bodyHeight-1))
 	}
-
 	m.updateListDelegate()
-
-	// Resize label dashboard table and modal overlay sizing.
-	// Body surfaces use bodyWidth so the shortcuts sidebar (when shown) gets
-	// reserved space; modals continue to size against the full terminal.
 	m.labelDashboard.SetSize(bodyW, bodyHeight)
-
-	// insightsPanel.SetSize is deferred to applyWindowSizeHeavy because it
-	// rebuilds a Glamour TermRenderer on every call (insights.go:216 ->
-	// SetWidthWithTheme). Leaving it in phase 1 reintroduced the per-event
-	// cost that c5b63fe8 was meant to suppress, regardless of whether the
-	// insights view is currently visible (bt-kfkrb regression, bt-jqst3).
-
-	// Resize modal pickers so an open modal reflows to the new terminal
-	// size instead of staying at its open-time dimensions and overflowing
-	// the viewport (bt-vr2h).
 	m.labelPicker.SetSize(m.width, bodyHeight)
 	m.repoPicker.SetSize(m.width, bodyHeight)
 
@@ -1797,12 +1779,26 @@ func (m Model) handleWindowSize(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
 // handleResizeSettled (debounced path) and from callers that need an immediate
 // full reflow (e.g., sidebar width toggle), where the settle tick is discarded.
 func (m Model) applyWindowSizeHeavy() Model {
+	heavyStart := time.Now()
 	bodyW := m.bodyWidth()
 	bodyHeight := m.height - 1
 	if bodyHeight < 5 {
 		bodyHeight = 5
 	}
 
+	// Width-only short-circuit (bt-kfkrb): updateViewportContent + Glamour
+	// rebuild only depend on bodyW; if width hasn't changed since the last
+	// applyHeavy this is a height-only resize and the body wraps identically.
+	// Skip the ~100 ms re-render and only refresh size-dependent panels.
+	if m.lastHeavyWidth == bodyW && m.lastHeavyWidth != 0 {
+		insightsStart := time.Now()
+		m.insightsPanel.SetSize(bodyW, bodyHeight)
+		debug.LogTiming("applyHeavy.insightsPanel.SetSize", time.Since(insightsStart))
+		debug.LogTiming("applyHeavy.total[width-unchanged]", time.Since(heavyStart))
+		return m
+	}
+
+	rendererStart := time.Now()
 	if m.isSplitView {
 		availWidth := bodyW - 8
 		if availWidth < 10 {
@@ -1810,17 +1806,23 @@ func (m Model) applyWindowSizeHeavy() Model {
 		}
 		listInnerWidth := int(float64(availWidth) * m.splitPaneRatio)
 		detailInnerWidth := availWidth - listInnerWidth
-
 		m.renderer.SetWidthWithTheme(detailInnerWidth, m.theme)
 	} else {
 		m.renderer.SetWidthWithTheme(bodyW, m.theme)
 	}
+	debug.LogTiming("applyHeavy.renderer.SetWidthWithTheme", time.Since(rendererStart))
 
-	// Resize the insights panel here (not in phase 1) because its SetSize
-	// recreates a Glamour TermRenderer on any width > 120 (bt-jqst3).
+	insightsStart := time.Now()
 	m.insightsPanel.SetSize(bodyW, bodyHeight)
+	debug.LogTiming("applyHeavy.insightsPanel.SetSize", time.Since(insightsStart))
 
+	vpStart := time.Now()
 	m.updateViewportContent()
+	debug.LogTiming("applyHeavy.updateViewportContent", time.Since(vpStart))
+
+	m.lastHeavyWidth = bodyW
+
+	debug.LogTiming("applyHeavy.total", time.Since(heavyStart))
 	return m
 }
 

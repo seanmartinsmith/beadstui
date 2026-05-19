@@ -144,9 +144,13 @@ func TestResizeDebounce_StaleSettleMsgIgnored(t *testing.T) {
 		m = updated.(Model)
 	}
 
-	// After the burst, resizeGen must be 3 (one per WindowSizeMsg).
+	// After the burst, resizeGen must be 3 (one per WindowSizeMsg). Phase 1
+	// does update m.width and the cheap chrome layout, so m.width is w3 here.
 	if m.resizeGen != 3 {
 		t.Fatalf("expected resizeGen=3 after 3 WindowSizeMsgs, got %d", m.resizeGen)
+	}
+	if m.width != w3 {
+		t.Fatalf("expected m.width=%d after burst (phase 1 commits dims), got %d", w3, m.width)
 	}
 
 	// A stale settle message (gen 1) must be a no-op: resizeGen stays at 3.
@@ -158,20 +162,15 @@ func TestResizeDebounce_StaleSettleMsgIgnored(t *testing.T) {
 	}
 
 	// The viewport width after a stale settle is unchanged from after the burst.
-	// (viewport.New runs in phase 1, so it reflects the last WindowSizeMsg.)
-	// Record it before the final settle.
 	vpWidthBeforeSettle := m2.viewport.Width()
 
-	// The current-gen settle message must run the heavy path: resizeGen unchanged
-	// (handleResizeSettled does not modify it) and viewport content is refreshed.
-	// Width of the viewport should reflect w3's layout.
+	// The current-gen settle message must run the heavy path: resizeGen unchanged.
 	finalSettle := resizeSettledMsg{gen: 3}
 	updated2, _ := m2.Update(finalSettle)
 	m3 := updated2.(Model)
 	if m3.resizeGen != 3 {
 		t.Fatalf("final resizeSettledMsg modified resizeGen: expected 3, got %d", m3.resizeGen)
 	}
-	// Viewport width is set in phase 1 already; confirm it is still consistent.
 	if m3.viewport.Width() != vpWidthBeforeSettle {
 		t.Fatalf("final settle changed viewport width unexpectedly: before=%d after=%d",
 			vpWidthBeforeSettle, m3.viewport.Width())
@@ -215,9 +214,10 @@ func TestResizeDebounce_InsightsDeferredToSettle(t *testing.T) {
 	}
 }
 
-// TestResizeDebounce_Phase1LayoutSync verifies that phase 1 (every WindowSizeMsg)
-// synchronously updates list size and isSplitView without waiting for the
-// settle tick (bt-kfkrb). Existing chrome-layout tests rely on this.
+// TestResizeDebounce_Phase1LayoutSync verifies that phase 1 (every
+// WindowSizeMsg) synchronously updates list size and isSplitView without
+// waiting for the settle tick (bt-kfkrb). Existing chrome-layout tests rely
+// on this; only the renderer rebuild + viewport content is deferred.
 func TestResizeDebounce_Phase1LayoutSync(t *testing.T) {
 	m := NewModel(nil, nil, "", nil)
 
@@ -234,11 +234,9 @@ func TestResizeDebounce_Phase1LayoutSync(t *testing.T) {
 	if !m160.isSplitView {
 		t.Fatalf("width=160 should be split view (threshold %d)", SplitViewThreshold)
 	}
-	// List must be narrower than full body (split pane gives only a fraction).
 	if m160.list.Width() >= 160 {
 		t.Fatalf("split-view list width (%d) should be < terminal width (160)", m160.list.Width())
 	}
-	// resizeGen must advance on each WindowSizeMsg.
 	if m160.resizeGen < 1 {
 		t.Fatalf("expected resizeGen >= 1 after WindowSizeMsg, got %d", m160.resizeGen)
 	}
