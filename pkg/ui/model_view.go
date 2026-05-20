@@ -38,6 +38,32 @@ func (m Model) renderLoadingScreen() string {
 	return lipgloss.Place(m.width, m.height-1, lipgloss.Center, lipgloss.Center, content)
 }
 
+// renderHistoryDoltOnly is the calm empty-state shown when enterHistoryView's
+// cheap git-log gate detects that no .beads/*.jsonl file has ever been
+// tracked in this repo's git history. bt's commit correlator (pkg/correlation)
+// still uses the JSONL file as its witness; on Dolt-only repos that yields
+// either an empty pane or a confusing red error. Phase 1 of bt-ydjw replaces
+// that with this message; phase 2 wires the Dolt extractor (bt-08sh) so the
+// pane actually renders events. Style mirrors renderHistoryLoadingScreen.
+func (m Model) renderHistoryDoltOnly(width, height int) string {
+	titleStyle := lipgloss.NewStyle().Foreground(ColorText).Bold(true)
+	bodyStyle := lipgloss.NewStyle().Foreground(ColorMuted)
+	hintStyle := lipgloss.NewStyle().Foreground(ColorMuted).Italic(true)
+
+	lines := []string{
+		titleStyle.Render("No commit history yet"),
+		"",
+		bodyStyle.Render("This repo's beads live in Dolt, not in .beads/*.jsonl."),
+		bodyStyle.Render("The history view's git-based correlator is being migrated"),
+		bodyStyle.Render("to read events from Dolt directly (bt-08sh)."),
+		"",
+		hintStyle.Render("Press h or Esc to close"),
+	}
+
+	content := lipgloss.JoinVertical(lipgloss.Center, lines...)
+	return lipgloss.Place(width, height, lipgloss.Center, lipgloss.Center, content)
+}
+
 // renderHistoryLoadingScreen mirrors renderLoadingScreen but for the History
 // view's async dispatch path (bt-uizm). The user pressed `h`, the view
 // transitioned immediately, and the report is being assembled off the event
@@ -142,9 +168,12 @@ func (m Model) View() tea.View {
 				m.actionableView.SetSize(bodyW, m.height-2)
 				body = m.actionableView.Render()
 			case ViewHistory:
-				if m.historyLoading {
+				switch {
+				case m.historyDoltOnly:
+					body = m.renderHistoryDoltOnly(bodyW, m.height-1)
+				case m.historyLoading:
 					body = m.renderHistoryLoadingScreen()
-				} else {
+				default:
 					m.historyView.SetSize(bodyW, m.height-1)
 					body = m.historyView.View()
 				}

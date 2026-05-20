@@ -49,6 +49,32 @@ func pickBeadsFiles(repoPath string, candidates []string) []string {
 	return out
 }
 
+// HasJSONLOnDisk reports whether any of the standard beads JSONL files
+// (.beads/issues.jsonl, .beads/beads.jsonl, .beads/beads.base.jsonl) exists
+// on disk at repoPath. Mirrors the existence test that ValidateRepository
+// (correlator.go:344) already uses to decide whether the JSONL+git-diff
+// witness path can run.
+//
+// Used as the cheap gate that bt-ydjw phase 1 needs before bt-08sh.4 lands
+// the canonical RepoStatus.JSONLTracked field. Returning false means the
+// JSONL extractor cannot produce current data on this repo (either the
+// project never used JSONL, or it migrated to Dolt-only and the file was
+// removed - bt itself, post commit 90d8432d, is the latter case).
+//
+// Returns false when repoPath is empty. Errors from os.Stat are silently
+// treated as absent.
+func HasJSONLOnDisk(repoPath string) bool {
+	if repoPath == "" {
+		return false
+	}
+	for _, rel := range defaultBeadsFiles {
+		if fileExists(filepath.Join(repoPath, rel)) {
+			return true
+		}
+	}
+	return false
+}
+
 func prependBeadsFile(primary string, candidates []string) []string {
 	if primary == "" {
 		return candidates

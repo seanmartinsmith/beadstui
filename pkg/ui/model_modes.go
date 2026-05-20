@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
+	"github.com/seanmartinsmith/beadstui/pkg/correlation"
 	"github.com/seanmartinsmith/beadstui/pkg/loader"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/projects"
@@ -110,6 +111,29 @@ func (m *Model) enterHistoryView() tea.Cmd {
 
 	ctx := m.historyContext()
 	repoPath := resolveHistoryPath(ctx, cwd)
+
+	// bt-ydjw phase 1: gate the JSONL+git-diff correlator on Dolt-only repos.
+	// The correlator's witness file is .beads/*.jsonl (see
+	// pkg/correlation/extractor.go) and ValidateRepository already rejects
+	// the request with "no beads file found" when none exists on disk. Mirror
+	// that on-disk test here and short-circuit to a calm empty-state instead
+	// of letting the request go through and surface as an error toast plus a
+	// stale or empty pane. Phase 2 (bt-ydjw phase 2 / bt-08sh.4) replaces this
+	// heuristic with RepoStatus.JSONLTracked once the Dolt-native extractor
+	// lands.
+	if !correlation.HasJSONLOnDisk(repoPath) {
+		m.historyView = NewHistoryModel(nil, m.theme)
+		m.historyView.SetContext(ctx)
+		m.historyView.SetSize(m.width, m.height-1)
+		m.historyDoltOnly = true
+		m.historyLoading = false
+		m.historyLoadFailed = false
+		m.mode = ViewHistory
+		m.focused = focusHistory
+		m.setStatus("History: Dolt-only repo (commit correlator pending bt-08sh)")
+		return nil
+	}
+	m.historyDoltOnly = false
 
 	// Initialize a placeholder HistoryModel with the textinput properly
 	// constructed. Without this the cursor (inside textinput) is nil and any

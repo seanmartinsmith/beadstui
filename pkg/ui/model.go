@@ -566,6 +566,13 @@ type Model struct {
 	historyView       HistoryModel
 	historyLoading    bool // True while history is being loaded in background
 	historyLoadFailed bool // True if history loading failed
+	// historyDoltOnly is set by enterHistoryView when the cheap git-log
+	// gate detects a Dolt-only repo (no .beads/*.jsonl in git history).
+	// While set, the View() routes ViewHistory to renderHistoryDoltOnly
+	// instead of dispatching LoadHistoryCmd against the JSONL-based
+	// correlator. Phase 1 of bt-ydjw; collapses into RepoStatus.JSONLTracked
+	// once bt-08sh.4 lands.
+	historyDoltOnly bool
 
 	// Filter, sort, search, recipe, BQL state
 	filter *FilterState
@@ -1397,8 +1404,16 @@ func (m Model) Init() tea.Cmd {
 	cmds = append(cmds, statusTickCmd())
 	// Start loading history in background. Path resolution happens here on
 	// the main goroutine (bt-uizm) -- the async closure must not hit os.Getwd.
+	//
+	// bt-ydjw phase 1: skip the preload on Dolt-only repos. The correlator
+	// would return "no beads file found", which then surfaces as a red
+	// status-bar error at startup. enterHistoryView's gate already handles
+	// the in-view empty state; the preload is wasted work here.
 	if len(m.data.issues) > 0 {
-		cmds = append(cmds, LoadHistoryCmd(resolveHistoryRepoPath(m.data.beadsPath), m.data.beadsPath, m.issuesForAsync()))
+		repoPath := resolveHistoryRepoPath(m.data.beadsPath)
+		if correlation.HasJSONLOnDisk(repoPath) {
+			cmds = append(cmds, LoadHistoryCmd(repoPath, m.data.beadsPath, m.issuesForAsync()))
+		}
 	}
 	// Boot the semantic index loader if hybrid/semantic was selected as the
 	// initial cycle position (bt-ja2y). Loads from disk asynchronously so
@@ -1712,8 +1727,20 @@ func (m *Model) RenderDebugView(viewName string, width, height int) string {
 	case "board":
 		return m.board.View(width, height-1)
 	case "history":
-		m.historyView.SetSize(width, height-1)
-		return m.historyView.View()
+		// Route through enterHistoryView so --debug-render history exercises
+		// the same state transitions a real `h` keypress does (Dolt-only gate,
+		// loading screen, etc). The returned Cmd is discarded; the debug
+		// path doesn't run the event loop. bt-ydjw phase 1.
+		_ = m.enterHistoryView()
+		switch {
+		case m.historyDoltOnly:
+			return m.renderHistoryDoltOnly(width, height-1)
+		case m.historyLoading:
+			return m.renderHistoryLoadingScreen()
+		default:
+			m.historyView.SetSize(width, height-1)
+			return m.historyView.View()
+		}
 	default:
 		return "Unknown view: " + viewName
 	}

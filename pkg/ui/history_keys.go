@@ -267,6 +267,7 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 		}
 	case "h", "esc":
 		// Exit history view
+		m.historyDoltOnly = false
 		m.mode = ViewList
 		m.focused = focusList
 	}

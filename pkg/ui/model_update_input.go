@@ -1080,6 +1080,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			if m.mode == ViewHistory {
 				m.mode = ViewList
 				m.focused = focusList
+				m.historyDoltOnly = false
 				return m, nil
 			}
 			return m, m.enterHistoryView()

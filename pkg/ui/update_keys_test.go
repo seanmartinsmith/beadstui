@@ -248,7 +248,28 @@ func TestHistoryViewTransitionNoLeakage(t *testing.T) {
 //  2. m.historyLoading is true so the view renders the loading screen.
 //  3. Update returns a non-nil tea.Cmd (the LoadHistoryCmd dispatch).
 //  4. Pressing `h` again from the loading state exits cleanly back to ViewList.
+//
+// bt-ydjw phase 1 added the Dolt-only short-circuit, which fires when no
+// .beads/*.jsonl exists on disk. To keep this test focused on the original
+// async-dispatch invariants, chdir into a temp repo that has a JSONL file
+// so the gate does NOT fire here; enterHistoryView resolves the JSONL-
+// presence check off cwd. The Dolt-only short-circuit gets its own test.
 func TestHistoryAsyncDispatch(t *testing.T) {
+	tmp := t.TempDir()
+	beadsDir := filepath.Join(tmp, ".beads")
+	if err := os.MkdirAll(beadsDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	beadsFile := filepath.Join(beadsDir, "beads.jsonl")
+	if err := os.WriteFile(beadsFile, []byte(""), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	// Chdir-only so enterHistoryView's cwd-derived resolveHistoryPath sees
+	// the JSONL. Leave NewModel's beadsPath empty so the background worker
+	// doesn't lock files inside the temp dir (the lock would survive past
+	// t.TempDir() cleanup on Windows and fail the test).
+	t.Chdir(tmp)
+
 	issues := []model.Issue{
 		{ID: "bv-1", Title: "Test", Status: model.StatusOpen},
 	}
@@ -287,6 +308,69 @@ func TestHistoryAsyncDispatch(t *testing.T) {
 	}
 	if m.focused != focusList {
 		t.Errorf("h-from-loading: expected focusList, got %v", m.focused)
+	}
+}
+
+// TestHistoryDoltOnlyShortCircuit covers bt-ydjw phase 1: pressing `h` in a
+// repo with no .beads/*.jsonl on disk must short-circuit to the polite
+// empty-state instead of dispatching LoadHistoryCmd against a correlator
+// that has no data to read.
+//
+// Invariants:
+//  1. m.mode flips to ViewHistory.
+//  2. m.historyDoltOnly is true so the view renders renderHistoryDoltOnly.
+//  3. m.historyLoading is false (no spinner shown).
+//  4. enterHistoryView returns nil (no async dispatch).
+//  5. The rendered frame contains the bt-08sh reference so users know where
+//     the migration work is being tracked.
+//  6. Pressing `h` again exits to ViewList and clears historyDoltOnly.
+func TestHistoryDoltOnlyShortCircuit(t *testing.T) {
+	// TempDir with no .beads/*.jsonl files = Dolt-only repo for the purposes
+	// of the gate. Real bt repos look like this post-90d8432d.
+	tmp := t.TempDir()
+	beadsFile := filepath.Join(tmp, ".beads", "beads.jsonl")
+	// Do NOT create the file - the absence is the test condition.
+
+	issues := []model.Issue{
+		{ID: "bv-1", Title: "Test", Status: model.StatusOpen},
+	}
+	m := NewModel(issues, nil, beadsFile, nil)
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
+	m = updated.(Model)
+
+	updated, cmd := m.Update(tea.KeyPressMsg{Code: 'h', Text: "h"})
+	m = updated.(Model)
+
+	if m.mode != ViewHistory {
+		t.Fatalf("after h: expected ViewHistory, got %v", m.mode)
+	}
+	if !m.historyDoltOnly {
+		t.Errorf("after h: expected historyDoltOnly=true, got false")
+	}
+	if m.historyLoading {
+		t.Errorf("after h: expected historyLoading=false, got true")
+	}
+	if cmd != nil {
+		t.Errorf("after h: expected nil Cmd (no async dispatch), got %T", cmd)
+	}
+
+	frame := m.View().Content
+	if !strings.Contains(frame, "bt-08sh") {
+		t.Errorf("Dolt-only empty state must reference bt-08sh, frame was:\n%s", frame)
+	}
+	if !strings.Contains(frame, "No commit history yet") {
+		t.Errorf("Dolt-only empty state missing title; frame was:\n%s", frame)
+	}
+
+	updated, _ = m.Update(tea.KeyPressMsg{Code: 'h', Text: "h"})
+	m = updated.(Model)
+
+	if m.mode != ViewList {
+		t.Errorf("h-from-dolt-only: expected ViewList, got %v", m.mode)
+	}
+	if m.historyDoltOnly {
+		t.Errorf("h-from-dolt-only: expected historyDoltOnly cleared, still true")
 	}
 }
 
