@@ -105,6 +105,20 @@ func (c *Correlator) GenerateReport(beads []BeadInfo, opts CorrelatorOptions) (*
 		return nil, fmt.Errorf("extracting co-commits: %w", err)
 	}
 
+	// bt-ydjw.5: on the Dolt path, co-commit correlation is structurally
+	// impossible (events have no CommitSHA per 592c), so commits would be
+	// empty and the History view's COMMITS pane stays blank. Run the
+	// explicit-ID matcher against host git history to recover developer-
+	// declared bead-to-commit links from commit message subjects. This
+	// signal class is intent-based (commit message text), not heuristic
+	// (author/temporal proximity), so 592c's rejection of git correlation on
+	// the Dolt path -- which targeted MethodTemporalAuthor specifically --
+	// does not apply. Errors are non-fatal: the report still renders with
+	// events but no commits.
+	if !jsonlTracked {
+		commits = append(commits, c.explicitCommits(extractOpts, beads)...)
+	}
+
 	// Build bead histories
 	histories := c.buildHistories(beads, events, commits)
 
@@ -172,6 +186,52 @@ func (c *Correlator) emptyReport(beads []BeadInfo, opts CorrelatorOptions) *Hist
 			JSONLTracked:   HasJSONLOnDisk(c.repoPath),
 		},
 	}
+}
+
+// explicitCommits runs a single git log scan via ExplicitMatcher and returns
+// CorrelatedCommit entries for any commit message that references a bead ID
+// in the provided beads list. Used by GenerateReport on the Dolt path
+// (bt-ydjw.5); the JSONL path already covers explicit-ID via co-commit's
+// containsBeadID confidence bump plus its own MethodExplicitID flow.
+//
+// Errors from ScanCommits are swallowed deliberately: a malformed git output
+// or a repo with no commits is not fatal to the report -- the consumer sees
+// events with empty COMMITS, which is the same UX as a fresh Dolt-only repo.
+//
+// Bead-set filtering: ExplicitMatcher.ScanCommits emits every dashed token
+// in commit messages (a deliberate trade for one-pass scan performance), so
+// the inner loop drops anything whose normalized ID isn't in the bead list.
+// This is what keeps the dispatcher's contract honest: a commit attaches to
+// bead X only if bead X exists in the report.
+func (c *Correlator) explicitCommits(opts ExtractOptions, beads []BeadInfo) []CorrelatedCommit {
+	if len(beads) == 0 {
+		return nil
+	}
+	matcher := NewExplicitMatcher(c.repoPath)
+	byBead, err := matcher.ScanCommits(opts)
+	if err != nil || len(byBead) == 0 {
+		return nil
+	}
+
+	known := make(map[string]struct{}, len(beads))
+	for _, b := range beads {
+		known[b.ID] = struct{}{}
+	}
+
+	var commits []CorrelatedCommit
+	for beadID, matches := range byBead {
+		if _, ok := known[beadID]; !ok {
+			continue
+		}
+		for _, m := range matches {
+			// Pass c.coCommitter so the resulting CorrelatedCommit carries
+			// file-change metadata. CreateCorrelatedCommit tolerates nil
+			// (returns no files), but the bt-h COMMITS pane is much more
+			// useful with files attached.
+			commits = append(commits, matcher.CreateCorrelatedCommit(m, c.coCommitter))
+		}
+	}
+	return commits
 }
 
 // extractEvents routes between the JSONL+git-diff extractor (legacy repos that

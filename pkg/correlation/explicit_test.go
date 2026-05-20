@@ -39,9 +39,14 @@ func TestExtractIDsFromMessage(t *testing.T) {
 			wantType: "refs",
 		},
 		{
+			// The legacy `beads?[-_](\d+)` pattern coerces the numeric capture
+			// to bt-456 (normalizeBeadID's numeric-only branch). The new
+			// alphanumeric pattern (bt-ydjw.5) captures the literal beads-456
+			// as itself. Both IDs come out; the merge step at GenerateReport
+			// drops whichever isn't in the report's bead set.
 			name:     "beads format",
 			message:  "Update beads-456 with new status",
-			wantIDs:  []string{"bt-456"},
+			wantIDs:  []string{"bt-456", "beads-456"},
 			wantType: "bead",
 		},
 		{

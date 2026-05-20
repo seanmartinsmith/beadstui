@@ -18,24 +18,47 @@ type ExplicitMatcher struct {
 }
 
 // DefaultPatterns returns the default set of bead ID patterns.
+//
+// Two families coexist here:
+//
+//  1. Legacy digits-only patterns (PROJ-123, beads-456, bt-67). These predate
+//     beads' alphanumeric ID format and remain in place for projects that
+//     still use sequential numeric suffixes. Each `\d+` capture is anchored
+//     with `\b` to prevent mid-ID truncation -- e.g. `bt-08sh.5` must NOT
+//     match `bt-08` and be normalized to the wrong parent bead (bt-ydjw.5
+//     recon found this active false positive).
+//  2. Modern alphanumeric pattern (bt-ydjw, bt-08sh.5, bd-46p6.1.2). Beads
+//     since v0.x uses base36-ish suffixes that may be all-letter, all-digit,
+//     or mixed, with optional `.N` parent-child suffixes. The generic
+//     `\b([a-z]+-[a-z0-9]+(?:\.\d+)*)\b` capture handles all three shapes.
+//     Over-capture of dashed phrases (e.g. "non-bead", "Dolt-only") is
+//     accepted: the merge step in GenerateReport filters by the report's
+//     bead-histories map, so spurious extractions don't attach to any bead.
 func DefaultPatterns() []*regexp.Regexp {
 	return []*regexp.Regexp{
 		// [ID] format - very explicit
-		regexp.MustCompile(`\[([A-Za-z]+-\d+)\]`),
+		regexp.MustCompile(`\[([A-Za-z]+-\d+)\b\]`),
 
 		// Closes/Fixes/Refs keywords with optional # prefix
 		// Note: Allow optional colon and whitespace after keyword
-		regexp.MustCompile(`(?i)closes?:?\s*#?([A-Za-z]+-\d+)`),
-		regexp.MustCompile(`(?i)fix(?:es|ed)?:?\s*#?([A-Za-z]+-\d+)`),
-		regexp.MustCompile(`(?i)refs?:?\s*#?([A-Za-z]+-\d+)`),
-		regexp.MustCompile(`(?i)resolves?:?\s*#?([A-Za-z]+-\d+)`),
+		regexp.MustCompile(`(?i)closes?:?\s*#?([A-Za-z]+-\d+)\b`),
+		regexp.MustCompile(`(?i)fix(?:es|ed)?:?\s*#?([A-Za-z]+-\d+)\b`),
+		regexp.MustCompile(`(?i)refs?:?\s*#?([A-Za-z]+-\d+)\b`),
+		regexp.MustCompile(`(?i)resolves?:?\s*#?([A-Za-z]+-\d+)\b`),
 
-		// beads-123 or bead-123 format (common for this project)
-		regexp.MustCompile(`(?i)beads?[-_](\d+)`),
-		regexp.MustCompile(`(?i)bt[-_](\d+)`),
+		// beads-123 or bead-123 format (legacy digits-only IDs).
+		// `\b` after `\d+` prevents `beads-08sh` from truncating to `beads-08`.
+		regexp.MustCompile(`(?i)beads?[-_](\d+)\b`),
+		regexp.MustCompile(`(?i)bt[-_](\d+)\b`),
 
-		// Generic ID at word boundary (PROJECT-123 style)
+		// Generic uppercase ID at word boundary (PROJECT-123 style)
 		regexp.MustCompile(`\b([A-Z]{2,10}-\d+)\b`),
+
+		// Modern alphanumeric bead ID with optional `.N` child suffix(es)
+		// (bt-ydjw, bt-08sh.5, bt-72l8.1.1, bd-46p6). Case-insensitive; the
+		// merge step in GenerateReport drops any extracted ID that isn't in
+		// the bead histories map, so false positives are noise not bugs.
+		regexp.MustCompile(`(?i)\b([a-z]+-[a-z0-9]+(?:\.\d+)*)\b`),
 	}
 }
 
@@ -246,7 +269,7 @@ func (m *ExplicitMatcher) searchWithGrep(pattern string, opts ExtractOptions) ([
 		args = append(args, fmt.Sprintf("-n%d", opts.Limit))
 	}
 
-	cmd := exec.Command("git", args...)
+	cmd := gitCommand("git", args...)
 	cmd.Dir = m.repoPath
 
 	out, err := cmd.Output()
@@ -367,5 +390,86 @@ func (m *ExplicitMatcher) FindAllExplicitMatches(beadIDs []string, opts ExtractO
 		}
 	}
 
+	return results, nil
+}
+
+// ScanCommits performs a single `git log` scan over the repo and extracts all
+// bead IDs referenced in each commit message subject, returning per-bead
+// ExplicitMatch entries. This is the bulk-correlation entry point used by the
+// Dolt-path correlator (bt-ydjw.5): one git invocation regardless of bead
+// count, versus FindAllExplicitMatches which spawns one git log per bead.
+//
+// The returned map is keyed by the normalized bead ID extracted from the
+// commit message via DefaultPatterns. Callers filter by their own bead-set
+// (typically the histories map in GenerateReport) -- ScanCommits itself does
+// no membership filtering, so dashed-phrase noise like "Dolt-only" appears as
+// orphan map entries the caller drops.
+//
+// Confidence is computed per match using CalculateConfidence(matchType,
+// totalIDsInMessage), so multi-ID commits get a small penalty per the
+// existing scoring contract. MatchType is whatever classifyMatch returns
+// for the raw match string (closes/fixes/refs/resolves/bracket/bead/generic).
+func (m *ExplicitMatcher) ScanCommits(opts ExtractOptions) (map[string][]ExplicitMatch, error) {
+	args := []string{
+		"log",
+		"--format=" + gitLogHeaderFormat,
+	}
+	if opts.Since != nil {
+		args = append(args, fmt.Sprintf("--since=%s", opts.Since.Format(time.RFC3339)))
+	}
+	if opts.Until != nil {
+		args = append(args, fmt.Sprintf("--until=%s", opts.Until.Format(time.RFC3339)))
+	}
+	if opts.Limit > 0 {
+		args = append(args, fmt.Sprintf("-n%d", opts.Limit))
+	}
+
+	cmd := gitCommand("git", args...)
+	cmd.Dir = m.repoPath
+
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("git log scan failed: %w", err)
+	}
+
+	results := make(map[string][]ExplicitMatch)
+	scanner := bufio.NewScanner(bytes.NewReader(out))
+	buf := make([]byte, 64*1024)
+	scanner.Buffer(buf, gitLogMaxScanTokenSize)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+
+		info, err := parseCommitInfo(line)
+		if err != nil {
+			continue
+		}
+
+		idMatches := m.ExtractIDsFromMessage(info.Message)
+		if len(idMatches) == 0 {
+			continue
+		}
+
+		totalMatches := len(idMatches)
+		for _, idMatch := range idMatches {
+			confidence := CalculateConfidence(idMatch.MatchType, totalMatches)
+			results[idMatch.ID] = append(results[idMatch.ID], ExplicitMatch{
+				BeadID:      idMatch.ID,
+				CommitSHA:   info.SHA,
+				Message:     info.Message,
+				Author:      info.Author,
+				AuthorEmail: info.AuthorEmail,
+				Timestamp:   info.Timestamp,
+				MatchType:   idMatch.MatchType,
+				Confidence:  confidence,
+			})
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("scanning git log output: %w", err)
+	}
 	return results, nil
 }
