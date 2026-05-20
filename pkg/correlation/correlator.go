@@ -3,6 +3,7 @@ package correlation
 
 import (
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -15,6 +16,11 @@ type Correlator struct {
 	repoPath    string
 	extractor   *Extractor
 	coCommitter *CoCommitExtractor
+	// doltDB is an optional, already-open connection to a beads Dolt server.
+	// When non-nil and the repo has no JSONL on disk, GenerateReport dispatches
+	// to the Dolt-native DoltExtractor instead of the JSONL+git-diff Extractor
+	// (bt-08sh.4). Borrowed, not owned: the Correlator does not Close it.
+	doltDB *sql.DB
 }
 
 // NewCorrelator creates a new correlator for the given repository.
@@ -27,6 +33,24 @@ func NewCorrelator(repoPath string, beadsFilePath ...string) *Correlator {
 		extractor:   NewExtractor(repoPath, beadsFilePath...),
 		coCommitter: NewCoCommitExtractor(repoPath),
 	}
+}
+
+// NewCorrelatorWithDolt creates a correlator that can also read events from a
+// Dolt server when the repo has migrated off JSONL. Callers that have an
+// already-open *datasource.DoltReader pass reader.DB() here; the underlying
+// connection is borrowed, not owned.
+//
+// When the repo still has .beads/*.jsonl on disk, GenerateReport ignores
+// doltDB and uses the JSONL+git-diff Extractor (unchanged behavior). When the
+// repo is Dolt-only (no JSONL on disk) and doltDB is non-nil, GenerateReport
+// dispatches to the Dolt-native DoltExtractor. When the repo is Dolt-only and
+// doltDB is nil (no caller opted in), GenerateReport returns an empty events
+// list rather than failing — consumers inspect RepoStatus.JSONLTracked to
+// distinguish that case from "no events recorded".
+func NewCorrelatorWithDolt(repoPath string, doltDB *sql.DB, beadsFilePath ...string) *Correlator {
+	c := NewCorrelator(repoPath, beadsFilePath...)
+	c.doltDB = doltDB
+	return c
 }
 
 // CorrelatorOptions controls how the history report is generated
@@ -51,7 +75,8 @@ func (c *Correlator) GenerateReport(beads []BeadInfo, opts CorrelatorOptions) (*
 	if !insideRepo {
 		return c.emptyReport(beads, opts), nil
 	}
-	repoStatus := RepoStatus{RepoPath: c.repoPath, InsideWorkTree: true}
+	jsonlTracked := HasJSONLOnDisk(c.repoPath)
+	repoStatus := RepoStatus{RepoPath: c.repoPath, InsideWorkTree: true, JSONLTracked: jsonlTracked}
 
 	// Build extract options
 	extractOpts := ExtractOptions{
@@ -61,8 +86,15 @@ func (c *Correlator) GenerateReport(beads []BeadInfo, opts CorrelatorOptions) (*
 		BeadID: opts.BeadID,
 	}
 
-	// Extract lifecycle events from git history
-	events, err := c.extractor.Extract(extractOpts)
+	// bt-08sh.4 (Option C of bt-592c): dispatch on whether JSONL is still on
+	// disk. JSONL-tracked repos keep the historical extractor (git log over
+	// .beads/*.jsonl plus diff witness). Dolt-only repos read events from the
+	// upstream events / wisp_events tables via DoltExtractor, but only when a
+	// caller opted in by handing us a *sql.DB (NewCorrelatorWithDolt). Callers
+	// that constructed the plain NewCorrelator on a Dolt-only repo get back an
+	// empty events list rather than a synthetic error — RepoStatus.JSONLTracked
+	// tells the consumer which case it is.
+	events, err := c.extractEvents(jsonlTracked, extractOpts)
 	if err != nil {
 		return nil, fmt.Errorf("extracting events: %w", err)
 	}
@@ -134,8 +166,28 @@ func (c *Correlator) emptyReport(beads []BeadInfo, opts CorrelatorOptions) *Hist
 		Stats:       c.calculateStats(histories, nil),
 		Histories:   histories,
 		CommitIndex: c.buildCommitIndex(histories),
-		RepoStatus:  RepoStatus{RepoPath: c.repoPath, InsideWorkTree: false},
+		RepoStatus: RepoStatus{
+			RepoPath:       c.repoPath,
+			InsideWorkTree: false,
+			JSONLTracked:   HasJSONLOnDisk(c.repoPath),
+		},
 	}
+}
+
+// extractEvents routes between the JSONL+git-diff extractor (legacy repos that
+// still have .beads/*.jsonl on disk) and the Dolt-native DoltExtractor
+// (Dolt-only repos, when the caller opted in by providing a *sql.DB). When the
+// repo is Dolt-only and no DB was provided, returns an empty slice — consumers
+// distinguish "Dolt-only, no extractor wired" from "JSONL-tracked, no events"
+// via RepoStatus.JSONLTracked.
+func (c *Correlator) extractEvents(jsonlTracked bool, opts ExtractOptions) ([]BeadEvent, error) {
+	if jsonlTracked {
+		return c.extractor.Extract(opts)
+	}
+	if c.doltDB == nil {
+		return nil, nil
+	}
+	return NewDoltExtractor(c.doltDB).Extract(opts)
 }
 
 // findLatestCommitSHA finds the most recent commit SHA from events and commits

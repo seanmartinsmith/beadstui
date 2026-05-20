@@ -102,6 +102,13 @@ func (r *DoltReader) Close() error {
 	return nil
 }
 
+// DB returns the underlying *sql.DB so that out-of-package callers (e.g.
+// pkg/correlation's Dolt-native extractor, wired through bt-08sh.4) can
+// borrow the already-open connection instead of opening a second one.
+//
+// Borrowed, not owned: the caller must not Close() the returned handle.
+func (r *DoltReader) DB() *sql.DB { return r.db }
+
 // LoadIssues reads all non-tombstone issues.
 func (r *DoltReader) LoadIssues() ([]model.Issue, error) {
 	return r.LoadIssuesFiltered(nil)

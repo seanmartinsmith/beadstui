@@ -153,6 +153,18 @@ type RepoStatus struct {
 	// InsideWorkTree reports whether RepoPath is inside a git work tree.
 	// false means git-derived data (commits, file changes) will be empty.
 	InsideWorkTree bool `json:"inside_work_tree"`
+	// JSONLTracked reports whether one of the standard beads JSONL files
+	// (.beads/issues.jsonl, .beads/beads.jsonl, .beads/beads.base.jsonl)
+	// exists on disk at RepoPath. true means the JSONL+git-diff extractor
+	// can produce current-era events; false means the repo has migrated to
+	// Dolt-only and history is sourced from the events tables via the
+	// Dolt-native extractor (bt-08sh.4).
+	//
+	// Detection uses on-disk existence, not git-log history: a JSONL that
+	// was deleted from HEAD still shows up in `git log -- <file>` and would
+	// produce a false positive on bt's own repo (deletion commit 90d8432d).
+	// See bt-ydjw phase 1 notes for the empirical verification.
+	JSONLTracked bool `json:"jsonl_tracked"`
 }
 
 // HistoryReport is the top-level output structure for --robot-history
