@@ -100,6 +100,12 @@ func (e *DoltExtractor) ExtractForBead(beadID string, opts ExtractOptions) ([]Be
 //
 // LIMIT is applied to the combined, ordered result so callers see the N
 // oldest events overall when opts.Limit > 0.
+//
+// Bare-form compound query (no parens around halves): both halves have no
+// inner ORDER BY / LIMIT, so the parenthesized and bare forms are semantically
+// identical in MySQL/Dolt while the bare form is the only one SQLite accepts.
+// Keeping it bare lets the bt-08sh.5 fixture run in-process against pure-Go
+// SQLite (modernc.org/sqlite) without a wrapper driver.
 func buildEventsQuery(opts ExtractOptions) (string, []any) {
 	where, halfArgs := buildEventsWhere(opts)
 
@@ -107,7 +113,7 @@ func buildEventsQuery(opts ExtractOptions) (string, []any) {
 	eventsHalf := base + "events" + where
 	wispHalf := base + "wisp_events" + where
 
-	query := "(" + eventsHalf + ") UNION ALL (" + wispHalf + ") ORDER BY created_at ASC"
+	query := eventsHalf + " UNION ALL " + wispHalf + " ORDER BY created_at ASC"
 	if opts.Limit > 0 {
 		query += fmt.Sprintf(" LIMIT %d", opts.Limit)
 	}

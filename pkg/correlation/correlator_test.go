@@ -1,9 +1,14 @@
 package correlation
 
 import (
+	"database/sql"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
+
+	_ "modernc.org/sqlite"
 )
 
 func TestBuildHistories_Empty(t *testing.T) {
@@ -435,4 +440,213 @@ func TestGenerateReport_RepoStatus_InsideGit(t *testing.T) {
 	if !report.RepoStatus.InsideWorkTree {
 		t.Errorf("expected InsideWorkTree=true inside a git repo, got false")
 	}
+}
+
+// initBareGitRepo bootstraps a minimal git repo in a fresh tempdir for
+// dispatch tests: init, configure identity, create one empty commit so git
+// log can run without erroring. Returns the absolute path (EvalSymlinks
+// normalized so Windows short-name forms don't trip path equality checks).
+// Skips the calling test if git is not on PATH.
+func initBareGitRepo(t *testing.T) string {
+	t.Helper()
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatalf("EvalSymlinks: %v", err)
+	}
+	for _, args := range [][]string{
+		{"init", "-q"},
+		{"config", "user.email", "test@test.com"},
+		{"config", "user.name", "Test"},
+		{"commit", "--allow-empty", "-q", "-m", "init"},
+	} {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Skipf("git not available or %v failed: %v: %s", args, err, out)
+		}
+	}
+	return dir
+}
+
+// seedJSONLOnDisk creates the .beads/ directory and a beads.jsonl file in
+// repoPath so HasJSONLOnDisk(repoPath) returns true. Content is not parsed;
+// the dispatcher only cares about the file's on-disk presence.
+func seedJSONLOnDisk(t *testing.T, repoPath string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Join(repoPath, ".beads"), 0o755); err != nil {
+		t.Fatalf("mkdir .beads: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repoPath, ".beads", "beads.jsonl"), nil, 0o644); err != nil {
+		t.Fatalf("write beads.jsonl: %v", err)
+	}
+}
+
+// newPoisonDoltDB returns a *sql.DB that has been Close()'d -- any query
+// against it errors. Used as a sentinel in TestCorrelator_Dispatch_JSONLPath:
+// if the JSONL branch in extractEvents is removed, control falls through to
+// the Dolt branch which would query this DB and surface the error. A green
+// test proves the JSONL branch was taken.
+func newPoisonDoltDB(t *testing.T) *sql.DB {
+	t.Helper()
+	db, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatalf("close sqlite: %v", err)
+	}
+	return db
+}
+
+// TestCorrelator_Dispatch_JSONLPath covers branch 1 of extractEvents:
+// jsonlTracked=true should route to the JSONL+git-diff extractor, never
+// touching the Dolt DB even when one was wired in via NewCorrelatorWithDolt.
+//
+// Mutation protection: the doltDB is closed before GenerateReport runs. If
+// dispatch removes the JSONLTracked check, control falls into the Dolt
+// branch which queries the closed DB and produces a non-nil error. This
+// test passes only when the JSONL branch fires first.
+func TestCorrelator_Dispatch_JSONLPath(t *testing.T) {
+	repo := initBareGitRepo(t)
+	seedJSONLOnDisk(t, repo)
+
+	c := NewCorrelatorWithDolt(repo, newPoisonDoltDB(t))
+	report, err := c.GenerateReport(nil, CorrelatorOptions{})
+	if err != nil {
+		t.Fatalf("GenerateReport returned error (would happen if Dolt branch ran instead of JSONL): %v", err)
+	}
+	if !report.RepoStatus.InsideWorkTree {
+		t.Errorf("InsideWorkTree = false, want true")
+	}
+	if !report.RepoStatus.JSONLTracked {
+		t.Errorf("JSONLTracked = false, want true (JSONL is on disk)")
+	}
+}
+
+// TestCorrelator_Dispatch_DoltOnlyPath covers branch 2 of extractEvents:
+// jsonlTracked=false + non-nil doltDB should route to the Dolt-native
+// extractor. The seeded events should appear in the report's histories with
+// empty CommitSHA (the Dolt extractor's signature per 592c).
+//
+// Mutation protection: removing the Dolt branch would return nil events;
+// the assertion on Histories["bt-1"].Events being non-empty fails. Replacing
+// it with the JSONL path would call git log -- .beads/*.jsonl on a repo
+// with no JSONL on disk -- the extractor returns empty, also failing the
+// non-empty assertion.
+func TestCorrelator_Dispatch_DoltOnlyPath(t *testing.T) {
+	repo := initBareGitRepo(t)
+	// Deliberately no seedJSONLOnDisk: this is the Dolt-only scenario.
+
+	db := newDoltEventsFixture(t)
+	t0 := time.Date(2026, 5, 20, 10, 0, 0, 0, time.UTC)
+	insertEvent(t, db, "events", "bt-1", "created", "sms", "", "", "", t0)
+	insertEvent(t, db, "events", "bt-1", "status_changed", "sms", "open", "in_progress", "", t0.Add(time.Hour))
+
+	c := NewCorrelatorWithDolt(repo, db)
+	beads := []BeadInfo{{ID: "bt-1", Title: "Test", Status: "in_progress"}}
+
+	report, err := c.GenerateReport(beads, CorrelatorOptions{})
+	if err != nil {
+		t.Fatalf("GenerateReport: %v", err)
+	}
+	if !report.RepoStatus.InsideWorkTree {
+		t.Errorf("InsideWorkTree = false, want true")
+	}
+	if report.RepoStatus.JSONLTracked {
+		t.Errorf("JSONLTracked = true, want false (no JSONL on disk -> Dolt-only)")
+	}
+
+	h, ok := report.Histories["bt-1"]
+	if !ok {
+		t.Fatalf("Histories missing bt-1")
+	}
+	if len(h.Events) != 2 {
+		t.Fatalf("len(Events) = %d, want 2 (Dolt extractor should populate)", len(h.Events))
+	}
+	for i, e := range h.Events {
+		if e.CommitSHA != "" {
+			t.Errorf("Events[%d].CommitSHA = %q, want empty (Dolt-extractor signature per 592c)", i, e.CommitSHA)
+		}
+	}
+}
+
+// TestCorrelator_Dispatch_DoltOnly_NoDB covers branch 3 of extractEvents:
+// jsonlTracked=false + nil doltDB (caller used plain NewCorrelator on a
+// Dolt-only repo) should return cleanly with an empty events list -- never
+// error, never construct a nil-DB DoltExtractor.
+//
+// Mutation protection: removing the c.doltDB == nil guard would fall
+// through to NewDoltExtractor(nil).Extract(...) which the bt-08sh.1
+// nil-handle guard turns into a "dolt extractor: nil database handle"
+// error. A green test confirms the guard is in place.
+func TestCorrelator_Dispatch_DoltOnly_NoDB(t *testing.T) {
+	repo := initBareGitRepo(t)
+	// No JSONL on disk, no doltDB wired in.
+
+	c := NewCorrelator(repo)
+	beads := []BeadInfo{{ID: "bt-1", Title: "Test", Status: "open"}}
+
+	report, err := c.GenerateReport(beads, CorrelatorOptions{})
+	if err != nil {
+		t.Fatalf("GenerateReport: %v", err)
+	}
+	if !report.RepoStatus.InsideWorkTree {
+		t.Errorf("InsideWorkTree = false, want true")
+	}
+	if report.RepoStatus.JSONLTracked {
+		t.Errorf("JSONLTracked = true, want false")
+	}
+
+	h, ok := report.Histories["bt-1"]
+	if !ok {
+		t.Fatalf("Histories missing bt-1")
+	}
+	if len(h.Events) != 0 {
+		t.Errorf("len(Events) = %d, want 0 (no extractor wired)", len(h.Events))
+	}
+}
+
+// TestHasJSONLOnDisk exercises the detection helper that drives dispatch.
+// On-disk presence (not git-log history) is the canonical check -- bt-ydjw
+// phase 1 verified that git-log on a repo where .beads/beads.jsonl was
+// deleted in an earlier commit still returns a hit, producing the false
+// positive this helper is designed to avoid.
+func TestHasJSONLOnDisk(t *testing.T) {
+	t.Run("empty path", func(t *testing.T) {
+		if HasJSONLOnDisk("") {
+			t.Errorf("HasJSONLOnDisk(\"\") = true, want false")
+		}
+	})
+
+	t.Run("no .beads directory", func(t *testing.T) {
+		dir := t.TempDir()
+		if HasJSONLOnDisk(dir) {
+			t.Errorf("HasJSONLOnDisk(empty dir) = true, want false")
+		}
+	})
+
+	for _, name := range []string{"beads.jsonl", "issues.jsonl", "beads.base.jsonl"} {
+		t.Run("recognizes "+name, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.MkdirAll(filepath.Join(dir, ".beads"), 0o755); err != nil {
+				t.Fatalf("mkdir: %v", err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, ".beads", name), nil, 0o644); err != nil {
+				t.Fatalf("write %s: %v", name, err)
+			}
+			if !HasJSONLOnDisk(dir) {
+				t.Errorf("HasJSONLOnDisk with %s on disk = false, want true", name)
+			}
+		})
+	}
+
+	t.Run("empty .beads directory is not enough", func(t *testing.T) {
+		dir := t.TempDir()
+		if err := os.MkdirAll(filepath.Join(dir, ".beads"), 0o755); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+		if HasJSONLOnDisk(dir) {
+			t.Errorf("HasJSONLOnDisk with empty .beads/ = true, want false")
+		}
+	})
 }
