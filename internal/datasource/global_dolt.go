@@ -103,6 +103,28 @@ func globalDSN(host string, port int) string {
 	return fmt.Sprintf("root@tcp(%s:%d)/?parseTime=true&timeout=2s", host, port)
 }
 
+// PerDBDSN converts a multi-DB DSN (as produced by globalDSN) into a DSN
+// pinned to a specific database. Used by the History view's correlator
+// dispatcher (bt-ydjw phase 2) so DoltExtractor's schema-bare queries
+// (`SELECT ... FROM events`) target the right project on a shared Dolt
+// server.
+//
+// The transform replaces the empty database segment between `/` and `?`
+// with dbName. If the input does not look like a global DSN (no `/?`
+// boundary), returns the input unchanged so callers can fall through to
+// their existing path.
+func PerDBDSN(generalDSN, dbName string) string {
+	if dbName == "" {
+		return generalDSN
+	}
+	marker := "/?"
+	idx := strings.Index(generalDSN, marker)
+	if idx < 0 {
+		return generalDSN
+	}
+	return generalDSN[:idx+1] + dbName + generalDSN[idx+1:]
+}
+
 // NewGlobalDataSource creates a DataSource configured for global mode.
 func NewGlobalDataSource(host string, port int) DataSource {
 	return DataSource{

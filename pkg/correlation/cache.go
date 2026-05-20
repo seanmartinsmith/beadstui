@@ -3,6 +3,7 @@ package correlation
 
 import (
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"os/exec"
@@ -318,6 +319,20 @@ type CachedCorrelator struct {
 func NewCachedCorrelator(repoPath string, beadsFilePath ...string) *CachedCorrelator {
 	return &CachedCorrelator{
 		correlator: NewCorrelator(repoPath, beadsFilePath...),
+		cache:      NewHistoryCache(repoPath),
+	}
+}
+
+// NewCachedCorrelatorWithDolt mirrors NewCachedCorrelator but constructs the
+// inner Correlator via NewCorrelatorWithDolt so the cached path can dispatch
+// to the Dolt-native extractor on Dolt-only repos (bt-ydjw phase 2).
+//
+// doltDB is borrowed, not owned; the caller must keep it alive for the
+// lifetime of the returned CachedCorrelator and Close it themselves. Pass
+// reader.DB() from an already-open *datasource.DoltReader.
+func NewCachedCorrelatorWithDolt(repoPath string, doltDB *sql.DB, beadsFilePath ...string) *CachedCorrelator {
+	return &CachedCorrelator{
+		correlator: NewCorrelatorWithDolt(repoPath, doltDB, beadsFilePath...),
 		cache:      NewHistoryCache(repoPath),
 	}
 }

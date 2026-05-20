@@ -7,12 +7,37 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/seanmartinsmith/beadstui/internal/datasource"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/correlation"
 	"github.com/seanmartinsmith/beadstui/pkg/loader"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/projects"
 )
+
+// historyCanLoad reports whether the history correlator has a usable data
+// source for repoPath: either .beads/*.jsonl is present (legacy extractor),
+// the active DataSource is a single-repo Dolt server (bt-08sh.4 dispatcher),
+// or it is a global Dolt source AND m.currentProjectDB names a database to
+// target (bt-ydjw phase 2). Used by enterHistoryView and Init() to keep the
+// polite empty-state from phase 1 as a defensive fallback when no path can
+// produce data (workspace mode without a usable backend, tests with ds=nil,
+// global mode without a current project).
+func (m Model) historyCanLoad(repoPath string) bool {
+	if correlation.HasJSONLOnDisk(repoPath) {
+		return true
+	}
+	if m.data.dataSource == nil {
+		return false
+	}
+	switch m.data.dataSource.Type {
+	case datasource.SourceTypeDolt:
+		return true
+	case datasource.SourceTypeDoltGlobal:
+		return m.currentProjectDB != ""
+	}
+	return false
+}
 
 // SetProjectName sets the display name for the current project (shown in footer).
 func (m *Model) SetProjectName(name string) {
@@ -112,16 +137,14 @@ func (m *Model) enterHistoryView() tea.Cmd {
 	ctx := m.historyContext()
 	repoPath := resolveHistoryPath(ctx, cwd)
 
-	// bt-ydjw phase 1: gate the JSONL+git-diff correlator on Dolt-only repos.
-	// The correlator's witness file is .beads/*.jsonl (see
-	// pkg/correlation/extractor.go) and ValidateRepository already rejects
-	// the request with "no beads file found" when none exists on disk. Mirror
-	// that on-disk test here and short-circuit to a calm empty-state instead
-	// of letting the request go through and surface as an error toast plus a
-	// stale or empty pane. Phase 2 (bt-ydjw phase 2 / bt-08sh.4) replaces this
-	// heuristic with RepoStatus.JSONLTracked once the Dolt-native extractor
-	// lands.
-	if !correlation.HasJSONLOnDisk(repoPath) {
+	// bt-ydjw phase 2: with bt-08sh.4 the correlator dispatches on
+	// RepoStatus.JSONLTracked under the hood, so we can let LoadHistoryCmd
+	// run on Dolt-only repos as long as we have a single-repo Dolt
+	// DataSource to drive the Dolt-native extractor. The phase-1 polite
+	// empty-state stays as a defensive fallback for the cases the
+	// dispatcher cannot serve (no JSONL on disk AND no Dolt DataSource:
+	// workspace mode without a backend, tests, or global Dolt sources).
+	if !m.historyCanLoad(repoPath) {
 		m.historyView = NewHistoryModel(nil, m.theme)
 		m.historyView.SetContext(ctx)
 		m.historyView.SetSize(m.width, m.height-1)
@@ -153,7 +176,7 @@ func (m *Model) enterHistoryView() tea.Cmd {
 
 	m.setStatus("Loading history...")
 
-	return LoadHistoryCmd(repoPath, m.data.beadsPath, m.issuesForAsync())
+	return LoadHistoryCmd(repoPath, m.data.beadsPath, m.issuesForAsync(), m.data.dataSource, m.currentProjectDB)
 }
 
 // resolveHistoryPath implements the cursor -> filter -> cwd priority order.

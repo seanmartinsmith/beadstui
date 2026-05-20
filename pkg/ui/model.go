@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
@@ -409,7 +410,14 @@ func resolveHistoryRepoPath(beadsPath string) string {
 // registry. Pass resolveHistoryRepoPath(beadsPath) for the default path-derivation
 // behavior, or a registry-aware path (resolveHistoryPath in model_modes.go)
 // when dispatching from a key handler that knows the cursor context.
-func LoadHistoryCmd(repoPath, beadsPath string, issues []model.Issue) tea.Cmd {
+//
+// ds is the active DataSource; when it points at a Dolt server the closure
+// opens an ephemeral connection and routes the correlator through
+// NewCachedCorrelatorWithDolt so the Dolt-native extractor (bt-08sh.4) drives
+// the report on Dolt-only repos. For SourceTypeDoltGlobal, projectDB must name
+// the database to query (typically m.currentProjectDB). Pass nil/empty for the
+// legacy JSONL path (tests, or when neither dispatcher source is usable).
+func LoadHistoryCmd(repoPath, beadsPath string, issues []model.Issue, ds *datasource.DataSource, projectDB string) tea.Cmd {
 	return func() tea.Msg {
 		if repoPath == "" {
 			return HistoryLoadedMsg{Error: fmt.Errorf("history load: empty repo path")}
@@ -425,7 +433,54 @@ func LoadHistoryCmd(repoPath, beadsPath string, issues []model.Issue) tea.Cmd {
 			}
 		}
 
-		correlator := correlation.NewCachedCorrelator(repoPath, beadsPath)
+		// bt-ydjw phase 2: when the active DataSource is a Dolt server, open
+		// an ephemeral connection and hand its *sql.DB to
+		// NewCachedCorrelatorWithDolt so GenerateReport dispatches to the
+		// Dolt-native extractor. Same pattern as doltPollOnce in
+		// background_worker.go. The connection is closed when the closure
+		// returns; the borrowed *sql.DB is alive for the duration of
+		// GenerateReport.
+		//
+		// SourceTypeDolt: ds.Path is already a per-DB DSN, use as-is.
+		// SourceTypeDoltGlobal: ds.Path is a multi-DB DSN; we inject
+		// projectDB so DoltExtractor's schema-bare queries (SELECT ... FROM
+		// events) target the right project on the shared server. When
+		// projectDB is empty (e.g. workspace mode with no current project)
+		// global dispatch is skipped and the legacy JSONL path is used.
+		var correlator *correlation.CachedCorrelator
+		if ds != nil {
+			var doltDB *sql.DB
+			var doltCloser func()
+			switch ds.Type {
+			case datasource.SourceTypeDolt:
+				if reader, rerr := datasource.NewDoltReader(*ds); rerr == nil {
+					doltDB = reader.DB()
+					doltCloser = func() { _ = reader.Close() }
+				}
+			case datasource.SourceTypeDoltGlobal:
+				if projectDB != "" {
+					dsn := datasource.PerDBDSN(ds.Path, projectDB)
+					if db, oerr := sql.Open("mysql", dsn); oerr == nil {
+						if perr := db.Ping(); perr == nil {
+							doltDB = db
+							doltCloser = func() { _ = db.Close() }
+						} else {
+							_ = db.Close()
+						}
+					}
+				}
+			}
+			if doltCloser != nil {
+				defer doltCloser()
+			}
+			if doltDB != nil {
+				correlator = correlation.NewCachedCorrelatorWithDolt(repoPath, doltDB, beadsPath)
+			}
+		}
+		if correlator == nil {
+			correlator = correlation.NewCachedCorrelator(repoPath, beadsPath)
+		}
+
 		opts := correlation.CorrelatorOptions{
 			Limit: 500, // Reasonable limit for TUI performance
 		}
@@ -1405,14 +1460,16 @@ func (m Model) Init() tea.Cmd {
 	// Start loading history in background. Path resolution happens here on
 	// the main goroutine (bt-uizm) -- the async closure must not hit os.Getwd.
 	//
-	// bt-ydjw phase 1: skip the preload on Dolt-only repos. The correlator
-	// would return "no beads file found", which then surfaces as a red
-	// status-bar error at startup. enterHistoryView's gate already handles
-	// the in-view empty state; the preload is wasted work here.
+	// bt-ydjw phase 2: dispatch the preload whenever the correlator has a
+	// usable data source -- either .beads/*.jsonl on disk (legacy path) or
+	// a single-repo Dolt DataSource (bt-08sh.4 dispatcher). The remaining
+	// gate matches enterHistoryView's defensive fallback so we don't surface
+	// a red "no beads file found" status on startup for repos the dispatcher
+	// cannot serve.
 	if len(m.data.issues) > 0 {
 		repoPath := resolveHistoryRepoPath(m.data.beadsPath)
-		if correlation.HasJSONLOnDisk(repoPath) {
-			cmds = append(cmds, LoadHistoryCmd(repoPath, m.data.beadsPath, m.issuesForAsync()))
+		if m.historyCanLoad(repoPath) {
+			cmds = append(cmds, LoadHistoryCmd(repoPath, m.data.beadsPath, m.issuesForAsync(), m.data.dataSource, m.currentProjectDB))
 		}
 	}
 	// Boot the semantic index loader if hybrid/semantic was selected as the
