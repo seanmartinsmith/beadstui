@@ -94,3 +94,6 @@ _tmp/
 
 # Superpowers brainstorming mockups (visual companion session files)
 .superpowers/
+
+# bt-kfkrb perf-tracking artifact (timing log, not version-controlled)
+bt-timing.log
