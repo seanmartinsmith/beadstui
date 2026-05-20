@@ -381,6 +381,46 @@ func TestExtractAllCoCommits_NonStatusEvents(t *testing.T) {
 	}
 }
 
+// TestExtractAllCoCommits_EmptySHA_NoGitInvocation locks in the Dolt-only
+// extraction path's contract (bt-08sh / bt-592c): when every event carries
+// an empty CommitSHA, ExtractAllCoCommits must short-circuit without
+// spawning a single git subprocess. Before the bt-08sh.2 fix, the per-event
+// fallback inside the loop invoked `git show --name-status` with an empty
+// SHA argument, which both wasted process spawns and produced parse noise.
+//
+// The assertion uses the gitCommand test seam to count invocations. We
+// also verify the function returns cleanly with an empty result so the
+// caller sees the expected events-only shape.
+func TestExtractAllCoCommits_EmptySHA_NoGitInvocation(t *testing.T) {
+	origGitCommand := gitCommand
+	var gitCalls int
+	gitCommand = func(name string, args ...string) *exec.Cmd {
+		if name == "git" {
+			gitCalls++
+		}
+		return origGitCommand(name, args...)
+	}
+	defer func() { gitCommand = origGitCommand }()
+
+	c := NewCoCommitExtractor("/tmp/test")
+	events := []BeadEvent{
+		{BeadID: "bt-1", EventType: EventClaimed, CommitSHA: ""},
+		{BeadID: "bt-2", EventType: EventClosed, CommitSHA: ""},
+		{BeadID: "bt-3", EventType: EventClaimed, CommitSHA: ""},
+	}
+
+	commits, err := c.ExtractAllCoCommits(events)
+	if err != nil {
+		t.Fatalf("ExtractAllCoCommits returned error: %v", err)
+	}
+	if len(commits) != 0 {
+		t.Errorf("len(commits) = %d, want 0 (all SHAs empty)", len(commits))
+	}
+	if gitCalls != 0 {
+		t.Errorf("git subprocess invocations = %d, want 0 (no git work on empty-SHA input)", gitCalls)
+	}
+}
+
 func TestGenerateReason_LargeCommit(t *testing.T) {
 	c := NewCoCommitExtractor("/test/repo")
 

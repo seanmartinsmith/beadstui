@@ -15,6 +15,12 @@ import (
 // renamePattern matches git's brace notation for renames: {old => new}
 var renamePattern = regexp.MustCompile(`\{[^}]* => ([^}]*)\}`)
 
+// gitCommand is the exec.Command factory used for every git subprocess
+// in this file. Tests override it to observe or block invocations
+// (see TestExtractAllCoCommits_EmptySHA_NoGitInvocation). Production
+// callers should not modify it.
+var gitCommand = exec.Command
+
 // CoCommitExtractor extracts files that were changed in the same commit as bead changes
 type CoCommitExtractor struct {
 	repoPath string
@@ -140,7 +146,7 @@ type lineStats struct {
 
 // getFilesChanged runs git show --name-status to get changed files
 func (c *CoCommitExtractor) getFilesChanged(sha string) ([]FileChange, error) {
-	cmd := exec.Command("git", "show", "--name-status", "--format=", sha)
+	cmd := gitCommand("git", "show", "--name-status", "--format=", sha)
 	cmd.Dir = c.repoPath
 
 	out, err := cmd.Output()
@@ -187,7 +193,7 @@ func (c *CoCommitExtractor) getFilesChanged(sha string) ([]FileChange, error) {
 
 // getLineStats runs git show --numstat to get insertion/deletion counts
 func (c *CoCommitExtractor) getLineStats(sha string) (map[string]lineStats, error) {
-	cmd := exec.Command("git", "show", "--numstat", "--format=", sha)
+	cmd := gitCommand("git", "show", "--numstat", "--format=", sha)
 	cmd.Dir = c.repoPath
 
 	out, err := cmd.Output()
@@ -399,6 +405,14 @@ func shortSHA(sha string) string {
 // On batch failure the function falls back to the per-event path so a single
 // invalid SHA in the input cannot tank the whole report.
 func (c *CoCommitExtractor) ExtractAllCoCommits(events []BeadEvent) ([]CorrelatedCommit, error) {
+	// Early-return when no input event carries a non-empty CommitSHA --
+	// e.g. the Dolt-only extraction path (bt-08sh) where events have no
+	// git correlation by design (bt-592c). Skipping here avoids both the
+	// batched git log call below and the per-event git show fallback.
+	if !hasAnyCommitSHA(events) {
+		return nil, nil
+	}
+
 	var commits []CorrelatedCommit
 
 	// Collect status-change SHAs up front so we can pre-fetch them all together.
@@ -425,6 +439,12 @@ func (c *CoCommitExtractor) ExtractAllCoCommits(events []BeadEvent) ([]Correlate
 		if event.EventType != EventClaimed && event.EventType != EventClosed {
 			continue
 		}
+		// Skip events with no CommitSHA -- the per-event fallback below
+		// would otherwise invoke git show with an empty SHA argument.
+		// Mirrors the skip in the statusSHAs collection loop above.
+		if event.CommitSHA == "" {
+			continue
+		}
 
 		// Use prefetched files if available, otherwise fetch from git per-SHA.
 		files, cached := fileCache[event.CommitSHA]
@@ -448,6 +468,19 @@ func (c *CoCommitExtractor) ExtractAllCoCommits(events []BeadEvent) ([]Correlate
 	}
 
 	return commits, nil
+}
+
+// hasAnyCommitSHA reports whether at least one event carries a non-empty
+// CommitSHA. Used by ExtractAllCoCommits to short-circuit on the Dolt-only
+// extraction path (bt-08sh), where every event's CommitSHA is empty by
+// design and there is nothing for git to correlate against.
+func hasAnyCommitSHA(events []BeadEvent) bool {
+	for _, e := range events {
+		if e.CommitSHA != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // batchSHAChunkSize bounds the number of SHAs passed in a single git log
@@ -523,7 +556,7 @@ func (c *CoCommitExtractor) runBatchGitLog(shas []string, mode string) ([]byte, 
 	args = append(args, "log", "--no-walk", mode, "--format=%H")
 	args = append(args, shas...)
 
-	cmd := exec.Command("git", args...)
+	cmd := gitCommand("git", args...)
 	cmd.Dir = c.repoPath
 	out, err := cmd.Output()
 	if err != nil {
