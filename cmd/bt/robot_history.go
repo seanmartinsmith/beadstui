@@ -22,24 +22,6 @@ func (rc *robotCtx) runHistory(beadHistory, historySince string, historyLimit in
 		os.Exit(1)
 	}
 
-	// Validate repository
-	if err := correlation.ValidateRepository(cwd); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Resolve beads file path (bv-history fix, respects BEADS_DIR)
-	beadsDir, err := loader.GetBeadsDir("")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting beads directory: %v\n", err)
-		os.Exit(1)
-	}
-	beadsPath, err := loader.FindJSONLPath(beadsDir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error finding beads file: %v\n", err)
-		os.Exit(1)
-	}
-
 	// Build correlator options
 	opts := correlation.CorrelatorOptions{
 		BeadID: beadHistory,
@@ -68,8 +50,16 @@ func (rc *robotCtx) runHistory(beadHistory, historySince string, historyLimit in
 		}
 	}
 
-	// Generate report with explicit beads path
-	correlator := correlation.NewCorrelator(cwd, beadsPath)
+	// bt-5s3u: dispatch via resolveCorrelator so Dolt-only repos use
+	// DoltExtractor instead of failing with "no beads file found".
+	correlator, closer, err := resolveCorrelator(cwd)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	if closer != nil {
+		defer closer()
+	}
 	report, err := correlator.GenerateReport(beadInfos, opts)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error generating history report: %v\n", err)
@@ -180,12 +170,16 @@ func (rc *robotCtx) runCorrelationAudit(explainArg, confirmArg, rejectArg string
 			fmt.Fprintf(os.Stderr, "Error getting current directory: %v\n", err)
 			os.Exit(1)
 		}
-		beadsPath, err := loader.FindJSONLPath(beadsDir)
+		// bt-5s3u: dispatch via resolveCorrelator so Dolt-only repos use
+		// DoltExtractor.
+		correlator, closer, err := resolveCorrelator(cwd)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error finding beads file: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		correlator := correlation.NewCorrelator(cwd, beadsPath)
+		if closer != nil {
+			defer closer()
+		}
 
 		beadInfos := make([]correlation.BeadInfo, len(rc.issues))
 		for i, issue := range rc.issues {
@@ -247,17 +241,22 @@ func (rc *robotCtx) runCorrelationAudit(explainArg, confirmArg, rejectArg string
 		os.Exit(0)
 	}
 
-	// Helper to resolve original confidence from history report
-	resolveOriginalConf := func(beadsDir string, commitSHA, beadID string) (float64, string) {
+	// Helper to resolve original confidence from history report.
+	// bt-5s3u: routed through resolveCorrelator so Dolt-only repos can also
+	// look up original confidence. beadsDir parameter is unused now but
+	// retained to keep the callsite signature stable for surrounding code.
+	resolveOriginalConf := func(_ string, commitSHA, beadID string) (float64, string) {
 		cwd, err := os.Getwd()
 		if err != nil {
 			return 0, commitSHA
 		}
-		beadsPath, err := loader.FindJSONLPath(beadsDir)
+		correlator, closer, err := resolveCorrelator(cwd)
 		if err != nil {
 			return 0, commitSHA
 		}
-		correlator := correlation.NewCorrelator(cwd, beadsPath)
+		if closer != nil {
+			defer closer()
+		}
 
 		beadInfos := make([]correlation.BeadInfo, len(rc.issues))
 		for i, issue := range rc.issues {
@@ -381,24 +380,6 @@ func (rc *robotCtx) runOrphans(historyLimit, orphansMinScore int) {
 		os.Exit(1)
 	}
 
-	// Validate repository
-	if err := correlation.ValidateRepository(cwd); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Get beads path
-	beadsDir, err := loader.GetBeadsDir("")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting beads directory: %v\n", err)
-		os.Exit(1)
-	}
-	beadsPath, err := loader.FindJSONLPath(beadsDir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error finding beads file: %v\n", err)
-		os.Exit(1)
-	}
-
 	// Convert issues to BeadInfo
 	beadInfos := make([]correlation.BeadInfo, len(rc.issues))
 	for i, issue := range rc.issues {
@@ -409,8 +390,16 @@ func (rc *robotCtx) runOrphans(historyLimit, orphansMinScore int) {
 		}
 	}
 
-	// Generate history report first (to get existing correlations)
-	correlator := correlation.NewCorrelator(cwd, beadsPath)
+	// bt-5s3u: dispatch via resolveCorrelator so Dolt-only repos use
+	// DoltExtractor.
+	correlator, closer, err := resolveCorrelator(cwd)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	if closer != nil {
+		defer closer()
+	}
 	correlatorOpts := correlation.CorrelatorOptions{
 		Limit: historyLimit,
 	}
@@ -479,24 +468,6 @@ func (rc *robotCtx) runFileBeads(robotFileBeadsPath string, fileHotspots bool, f
 		os.Exit(1)
 	}
 
-	// Validate repository
-	if err := correlation.ValidateRepository(cwd); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Resolve beads file path
-	beadsDir, err := loader.GetBeadsDir("")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting beads directory: %v\n", err)
-		os.Exit(1)
-	}
-	beadsPath, err := loader.FindJSONLPath(beadsDir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error finding beads file: %v\n", err)
-		os.Exit(1)
-	}
-
 	// Convert issues to BeadInfo for correlator
 	beadInfos := make([]correlation.BeadInfo, len(rc.issues))
 	for i, issue := range rc.issues {
@@ -507,8 +478,16 @@ func (rc *robotCtx) runFileBeads(robotFileBeadsPath string, fileHotspots bool, f
 		}
 	}
 
-	// Generate history report first
-	correlator := correlation.NewCorrelator(cwd, beadsPath)
+	// bt-5s3u: dispatch via resolveCorrelator so Dolt-only repos use
+	// DoltExtractor.
+	correlator, closer, err := resolveCorrelator(cwd)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	if closer != nil {
+		defer closer()
+	}
 	report, err := correlator.GenerateReport(beadInfos, correlation.CorrelatorOptions{
 		Limit: historyLimit,
 	})
@@ -582,22 +561,6 @@ func (rc *robotCtx) runImpact(robotImpactFiles string, historyLimit int) {
 		os.Exit(1)
 	}
 
-	if err := correlation.ValidateRepository(cwd); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-
-	beadsDir, err := loader.GetBeadsDir("")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting beads directory: %v\n", err)
-		os.Exit(1)
-	}
-	beadsPath, err := loader.FindJSONLPath(beadsDir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error finding beads file: %v\n", err)
-		os.Exit(1)
-	}
-
 	beadInfos := make([]correlation.BeadInfo, len(rc.issues))
 	for i, issue := range rc.issues {
 		beadInfos[i] = correlation.BeadInfo{
@@ -607,7 +570,16 @@ func (rc *robotCtx) runImpact(robotImpactFiles string, historyLimit int) {
 		}
 	}
 
-	correlator := correlation.NewCorrelator(cwd, beadsPath)
+	// bt-5s3u: dispatch via resolveCorrelator so Dolt-only repos use
+	// DoltExtractor.
+	correlator, closer, err := resolveCorrelator(cwd)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	if closer != nil {
+		defer closer()
+	}
 	report, err := correlator.GenerateReport(beadInfos, correlation.CorrelatorOptions{
 		Limit: historyLimit,
 	})
@@ -660,22 +632,6 @@ func (rc *robotCtx) runFileRelations(filePath string, threshold float64, relatio
 		os.Exit(1)
 	}
 
-	if err := correlation.ValidateRepository(cwd); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-
-	beadsDir, err := loader.GetBeadsDir("")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting beads directory: %v\n", err)
-		os.Exit(1)
-	}
-	beadsPath, err := loader.FindJSONLPath(beadsDir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error finding beads file: %v\n", err)
-		os.Exit(1)
-	}
-
 	beadInfos := make([]correlation.BeadInfo, len(rc.issues))
 	for i, issue := range rc.issues {
 		beadInfos[i] = correlation.BeadInfo{
@@ -685,7 +641,16 @@ func (rc *robotCtx) runFileRelations(filePath string, threshold float64, relatio
 		}
 	}
 
-	correlator := correlation.NewCorrelator(cwd, beadsPath)
+	// bt-5s3u: dispatch via resolveCorrelator so Dolt-only repos use
+	// DoltExtractor.
+	correlator, closer, err := resolveCorrelator(cwd)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	if closer != nil {
+		defer closer()
+	}
 	report, err := correlator.GenerateReport(beadInfos, correlation.CorrelatorOptions{
 		Limit: historyLimit,
 	})
@@ -729,22 +694,6 @@ func (rc *robotCtx) runRelatedWork(beadID string, relatedMinRelevance, relatedMa
 		os.Exit(1)
 	}
 
-	if err := correlation.ValidateRepository(cwd); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-
-	beadsDir, err := loader.GetBeadsDir("")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting beads directory: %v\n", err)
-		os.Exit(1)
-	}
-	beadsPath, err := loader.FindJSONLPath(beadsDir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error finding beads file: %v\n", err)
-		os.Exit(1)
-	}
-
 	beadInfos := make([]correlation.BeadInfo, len(rc.issues))
 	for i, issue := range rc.issues {
 		beadInfos[i] = correlation.BeadInfo{
@@ -754,7 +703,16 @@ func (rc *robotCtx) runRelatedWork(beadID string, relatedMinRelevance, relatedMa
 		}
 	}
 
-	correlatorObj := correlation.NewCorrelator(cwd, beadsPath)
+	// bt-5s3u: dispatch via resolveCorrelator so Dolt-only repos use
+	// DoltExtractor.
+	correlatorObj, closer, err := resolveCorrelator(cwd)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	if closer != nil {
+		defer closer()
+	}
 	report, err := correlatorObj.GenerateReport(beadInfos, correlation.CorrelatorOptions{
 		Limit: historyLimit,
 	})
@@ -846,18 +804,6 @@ func (rc *robotCtx) runImpactNetwork(networkArg string, networkDepth, historyLim
 		os.Exit(1)
 	}
 
-	// Find beads path
-	beadsDir, err := loader.GetBeadsDir("")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting beads directory: %v\n", err)
-		os.Exit(1)
-	}
-	beadsPath, err := loader.FindJSONLPath(beadsDir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error finding beads file: %v\n", err)
-		os.Exit(1)
-	}
-
 	// Convert to BeadInfo slice
 	beadInfos := make([]correlation.BeadInfo, len(rc.issues))
 	for i, issue := range rc.issues {
@@ -868,8 +814,16 @@ func (rc *robotCtx) runImpactNetwork(networkArg string, networkDepth, historyLim
 		}
 	}
 
-	// Generate history report
-	correlator := correlation.NewCorrelator(cwd, beadsPath)
+	// bt-5s3u: dispatch via resolveCorrelator so Dolt-only repos use
+	// DoltExtractor.
+	correlator, closer, err := resolveCorrelator(cwd)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	if closer != nil {
+		defer closer()
+	}
 	report, err := correlator.GenerateReport(beadInfos, correlation.CorrelatorOptions{
 		Limit: historyLimit,
 	})
@@ -925,22 +879,6 @@ func (rc *robotCtx) runCausality(beadID string, historyLimit int) {
 		os.Exit(1)
 	}
 
-	if err := correlation.ValidateRepository(cwd); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
-	}
-
-	beadsDir, err := loader.GetBeadsDir("")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting beads directory: %v\n", err)
-		os.Exit(1)
-	}
-	beadsPath, err := loader.FindJSONLPath(beadsDir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error finding beads file: %v\n", err)
-		os.Exit(1)
-	}
-
 	beadInfos := make([]correlation.BeadInfo, len(rc.issues))
 	for i, issue := range rc.issues {
 		beadInfos[i] = correlation.BeadInfo{
@@ -950,7 +888,16 @@ func (rc *robotCtx) runCausality(beadID string, historyLimit int) {
 		}
 	}
 
-	correlatorObj := correlation.NewCorrelator(cwd, beadsPath)
+	// bt-5s3u: dispatch via resolveCorrelator so Dolt-only repos use
+	// DoltExtractor.
+	correlatorObj, closer, err := resolveCorrelator(cwd)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+	if closer != nil {
+		defer closer()
+	}
 	report, err := correlatorObj.GenerateReport(beadInfos, correlation.CorrelatorOptions{
 		Limit: historyLimit,
 	})
