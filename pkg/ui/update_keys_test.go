@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/seanmartinsmith/beadstui/internal/datasource"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
@@ -371,6 +372,109 @@ func TestHistoryDoltOnlyShortCircuit(t *testing.T) {
 	}
 	if m.historyDoltOnly {
 		t.Errorf("h-from-dolt-only: expected historyDoltOnly cleared, still true")
+	}
+}
+
+// TestHistoryDispatchTarget_CursorDrivenGlobal covers bt-ydjw.1 Case B: in
+// global Dolt mode, the History view's dispatch target must follow the
+// cursor's bead-ID prefix when it maps to a known database, even when the
+// boot-time cwd anchor (currentProjectDB) is empty. Without this the
+// dispatcher refuses to run from non-beads cwds (e.g. ~/.obs/sms) and the
+// phase-1 polite empty-state fires by mistake.
+//
+// Uses the package-level enumerateDoltDatabasesFn injection point to stub
+// the live database list, avoiding a Dolt-server dependency.
+func TestHistoryDispatchTarget_CursorDrivenGlobal(t *testing.T) {
+	savedFn := enumerateDoltDatabasesFn
+	t.Cleanup(func() { enumerateDoltDatabasesFn = savedFn })
+
+	enumerateDoltDatabasesFn = func(dsn string) []string {
+		return []string{"bt", "bd", "tpane"}
+	}
+
+	// Issue with bt-* prefix so historyContext().CursorPrefix == "bt".
+	issues := []model.Issue{{ID: "bt-1", Title: "T", Status: model.StatusOpen}}
+	m := NewModel(issues, nil, "", &datasource.DataSource{
+		Type: datasource.SourceTypeDoltGlobal,
+		Path: "root@tcp(127.0.0.1:9999)/?parseTime=true",
+	})
+	// Force a non-beads cwd posture: clear the anchor that detectCurrentProjectDB
+	// would normally populate. This is the Case B condition: cwd is not in a
+	// beads project, so m.currentProjectDB == "".
+	m.currentProjectDB = ""
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
+	m = updated.(Model)
+
+	ctx := m.historyContext()
+	if ctx.CursorPrefix != "bt" {
+		t.Fatalf("test precondition: expected CursorPrefix=bt, got %q", ctx.CursorPrefix)
+	}
+
+	projectDB, ok := m.historyDispatchTarget(ctx, "/no/jsonl/here")
+	if !ok {
+		t.Fatalf("expected dispatch admitted via cursor prefix, got ok=false")
+	}
+	if projectDB != "bt" {
+		t.Errorf("expected projectDB=bt (cursor-derived), got %q", projectDB)
+	}
+}
+
+// TestHistoryDispatchTarget_GlobalUnknownPrefixFalls covers the safety side
+// of bt-ydjw.1 Case B: when the cursor prefix does NOT match any database in
+// the live enumeration, the resolver must reject the dispatch rather than
+// targeting a nonexistent database. Falling back to a validated anchor
+// (when available) is the intended secondary path; with no valid candidate
+// the result is ("", false) and the gate caller short-circuits.
+func TestHistoryDispatchTarget_GlobalUnknownPrefixFalls(t *testing.T) {
+	savedFn := enumerateDoltDatabasesFn
+	t.Cleanup(func() { enumerateDoltDatabasesFn = savedFn })
+
+	enumerateDoltDatabasesFn = func(dsn string) []string {
+		return []string{"bt", "bd"} // intentionally lacks "xx"
+	}
+
+	issues := []model.Issue{{ID: "xx-1", Title: "T", Status: model.StatusOpen}}
+	m := NewModel(issues, nil, "", &datasource.DataSource{
+		Type: datasource.SourceTypeDoltGlobal,
+		Path: "root@tcp(127.0.0.1:9999)/?parseTime=true",
+	})
+	m.currentProjectDB = ""
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
+	m = updated.(Model)
+
+	ctx := m.historyContext()
+	_, ok := m.historyDispatchTarget(ctx, "/no/jsonl/here")
+	if ok {
+		t.Errorf("expected dispatch rejected when cursor prefix is unknown to enumeration")
+	}
+}
+
+// TestHistoryDispatchTarget_GlobalEnumerationFailure covers the conservative
+// behavior when the live enumeration fails (server unreachable, transient
+// error): the resolver returns ("", false) and the gate falls back to the
+// polite empty-state rather than dispatching against an unverified target.
+func TestHistoryDispatchTarget_GlobalEnumerationFailure(t *testing.T) {
+	savedFn := enumerateDoltDatabasesFn
+	t.Cleanup(func() { enumerateDoltDatabasesFn = savedFn })
+
+	enumerateDoltDatabasesFn = func(dsn string) []string { return nil }
+
+	issues := []model.Issue{{ID: "bt-1", Title: "T", Status: model.StatusOpen}}
+	m := NewModel(issues, nil, "", &datasource.DataSource{
+		Type: datasource.SourceTypeDoltGlobal,
+		Path: "root@tcp(127.0.0.1:9999)/?parseTime=true",
+	})
+	m.currentProjectDB = "bt"
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
+	m = updated.(Model)
+
+	ctx := m.historyContext()
+	_, ok := m.historyDispatchTarget(ctx, "/no/jsonl/here")
+	if ok {
+		t.Errorf("expected dispatch rejected when enumeration returns no databases")
 	}
 }
 

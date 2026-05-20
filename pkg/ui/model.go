@@ -1460,16 +1460,16 @@ func (m Model) Init() tea.Cmd {
 	// Start loading history in background. Path resolution happens here on
 	// the main goroutine (bt-uizm) -- the async closure must not hit os.Getwd.
 	//
-	// bt-ydjw phase 2: dispatch the preload whenever the correlator has a
-	// usable data source -- either .beads/*.jsonl on disk (legacy path) or
-	// a single-repo Dolt DataSource (bt-08sh.4 dispatcher). The remaining
-	// gate matches enterHistoryView's defensive fallback so we don't surface
-	// a red "no beads file found" status on startup for repos the dispatcher
-	// cannot serve.
+	// bt-ydjw.1: use the same dispatch resolver as enterHistoryView so the
+	// preload only fires when the interactive path would also dispatch
+	// successfully. ctx may have a CursorPrefix already (list seeded with
+	// items in NewModel) -- the resolver validates against the live database
+	// enumeration before accepting it.
 	if len(m.data.issues) > 0 {
 		repoPath := resolveHistoryRepoPath(m.data.beadsPath)
-		if m.historyCanLoad(repoPath) {
-			cmds = append(cmds, LoadHistoryCmd(repoPath, m.data.beadsPath, m.issuesForAsync(), m.data.dataSource, m.currentProjectDB))
+		ctx := m.historyContext()
+		if projectDB, ok := m.historyDispatchTarget(ctx, repoPath); ok {
+			cmds = append(cmds, LoadHistoryCmd(repoPath, m.data.beadsPath, m.issuesForAsync(), m.data.dataSource, projectDB))
 		}
 	}
 	// Boot the semantic index loader if hybrid/semantic was selected as the

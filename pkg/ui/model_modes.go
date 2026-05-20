@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 	"strings"
@@ -15,28 +16,88 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/projects"
 )
 
-// historyCanLoad reports whether the history correlator has a usable data
-// source for repoPath: either .beads/*.jsonl is present (legacy extractor),
-// the active DataSource is a single-repo Dolt server (bt-08sh.4 dispatcher),
-// or it is a global Dolt source AND m.currentProjectDB names a database to
-// target (bt-ydjw phase 2). Used by enterHistoryView and Init() to keep the
-// polite empty-state from phase 1 as a defensive fallback when no path can
-// produce data (workspace mode without a usable backend, tests with ds=nil,
-// global mode without a current project).
-func (m Model) historyCanLoad(repoPath string) bool {
+// enumerateDoltDatabasesFn opens a connection to the shared Dolt server at
+// dsn and returns the list of project databases. Package-level so unit tests
+// in pkg/ui can swap a stub in (avoiding a live server dependency for the
+// cursor-driven-global-dispatch coverage added in bt-ydjw.1).
+//
+// Returns nil on any error so callers treat enumeration failure the same as
+// "no databases known" -- the gate caller's contract is to fall back to the
+// polite empty-state when the resolver can't produce a validated DB name.
+var enumerateDoltDatabasesFn = func(dsn string) []string {
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		return nil
+	}
+	defer db.Close()
+	dbs, err := datasource.EnumerateDatabases(db, "")
+	if err != nil {
+		return nil
+	}
+	return dbs
+}
+
+// historyDispatchTarget reports whether the History view has a usable data
+// source for repoPath under HistoryContext ctx, and (for global Dolt
+// sources) which project database to target.
+//
+// Resolution priority for SourceTypeDoltGlobal:
+//  1. ctx.CursorPrefix (validated against the live database enumeration)
+//  2. ctx.ActiveProjects[0] when exactly one project is active (validated)
+//  3. m.currentProjectDB, the boot-time cwd-derived anchor (validated)
+//
+// Validation cross-checks each candidate against the shared server's
+// enumerated database list before accepting it. This prevents silent
+// wrong-DB dispatch when a bead ID prefix doesn't map to a Dolt DB name
+// (bt-ydjw.1).
+//
+// Returns (projectDB, ok=true) when dispatch is possible. The projectDB
+// string is meaningful only for SourceTypeDoltGlobal; SourceTypeDolt and
+// the JSONL-on-disk path return ("", true) because LoadHistoryCmd already
+// knows how to reach the data without a name. All other configurations
+// return ("", false) and the caller is expected to short-circuit to the
+// polite empty-state.
+//
+// Single helper used by both enterHistoryView's gate and its dispatch
+// site so the two cannot disagree (gate admits / dispatcher targets
+// empty was the bt-ydjw.1 Case B failure mode).
+func (m Model) historyDispatchTarget(ctx HistoryContext, repoPath string) (string, bool) {
 	if correlation.HasJSONLOnDisk(repoPath) {
-		return true
+		return "", true
 	}
 	if m.data.dataSource == nil {
-		return false
+		return "", false
 	}
 	switch m.data.dataSource.Type {
 	case datasource.SourceTypeDolt:
-		return true
+		// Single-repo DSN already pins a database; LoadHistoryCmd ignores the
+		// projectDB argument in this case.
+		return "", true
 	case datasource.SourceTypeDoltGlobal:
-		return m.currentProjectDB != ""
+		knownDBs := enumerateDoltDatabasesFn(m.data.dataSource.Path)
+		if len(knownDBs) == 0 {
+			return "", false
+		}
+		candidates := make([]string, 0, 3)
+		if ctx.CursorPrefix != "" {
+			candidates = append(candidates, ctx.CursorPrefix)
+		}
+		if len(ctx.ActiveProjects) == 1 {
+			candidates = append(candidates, ctx.ActiveProjects[0])
+		}
+		if m.currentProjectDB != "" {
+			candidates = append(candidates, m.currentProjectDB)
+		}
+		for _, c := range candidates {
+			for _, db := range knownDBs {
+				if db == c {
+					return db, true
+				}
+			}
+		}
+		return "", false
 	}
-	return false
+	return "", false
 }
 
 // SetProjectName sets the display name for the current project (shown in footer).
@@ -137,14 +198,14 @@ func (m *Model) enterHistoryView() tea.Cmd {
 	ctx := m.historyContext()
 	repoPath := resolveHistoryPath(ctx, cwd)
 
-	// bt-ydjw phase 2: with bt-08sh.4 the correlator dispatches on
-	// RepoStatus.JSONLTracked under the hood, so we can let LoadHistoryCmd
-	// run on Dolt-only repos as long as we have a single-repo Dolt
-	// DataSource to drive the Dolt-native extractor. The phase-1 polite
-	// empty-state stays as a defensive fallback for the cases the
-	// dispatcher cannot serve (no JSONL on disk AND no Dolt DataSource:
-	// workspace mode without a backend, tests, or global Dolt sources).
-	if !m.historyCanLoad(repoPath) {
+	// bt-ydjw.1: single call to historyDispatchTarget computes BOTH gate and
+	// dispatch arguments, so the two paths cannot disagree. The phase-1
+	// polite empty-state stays as a defensive fallback when the resolver
+	// reports no validated path (no JSONL on disk AND no Dolt DataSource,
+	// or a global Dolt source whose enumeration doesn't contain any of the
+	// cursor / active-project / boot-anchor candidates).
+	projectDB, ok := m.historyDispatchTarget(ctx, repoPath)
+	if !ok {
 		m.historyView = NewHistoryModel(nil, m.theme)
 		m.historyView.SetContext(ctx)
 		m.historyView.SetSize(m.width, m.height-1)
@@ -176,7 +237,7 @@ func (m *Model) enterHistoryView() tea.Cmd {
 
 	m.setStatus("Loading history...")
 
-	return LoadHistoryCmd(repoPath, m.data.beadsPath, m.issuesForAsync(), m.data.dataSource, m.currentProjectDB)
+	return LoadHistoryCmd(repoPath, m.data.beadsPath, m.issuesForAsync(), m.data.dataSource, projectDB)
 }
 
 // resolveHistoryPath implements the cursor -> filter -> cwd priority order.
