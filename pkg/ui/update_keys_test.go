@@ -451,6 +451,101 @@ func TestHistoryDispatchTarget_GlobalUnknownPrefixFalls(t *testing.T) {
 	}
 }
 
+// TestHistoryDispatchTarget_CrossProjectCursor covers bt-ydjw.4: when the
+// bead-ID prefix differs from the Dolt DB name (e.g. bd-* beads live in
+// the `beads` DB; mkt-* in `marketplace`; db-* in `dev_browser`), the
+// dispatcher must use issue.SourceRepo (the authoritative DB name set by
+// GlobalDoltReader from the UNION ALL _global_source column) and NOT the
+// ID prefix as the candidate.
+//
+// Pre-fix: candidates=[bd] -> no match against [beads, bt] -> phase-1
+// polite empty-state. Post-fix: candidates=[beads, bd] -> beads matches.
+func TestHistoryDispatchTarget_CrossProjectCursor(t *testing.T) {
+	savedFn := enumerateDoltDatabasesFn
+	t.Cleanup(func() { enumerateDoltDatabasesFn = savedFn })
+
+	enumerateDoltDatabasesFn = func(dsn string) []string {
+		return []string{"beads", "bt"}
+	}
+
+	// bd-prefixed bead with SourceRepo="beads" (what GlobalDoltReader
+	// produces for any bd-* loaded from the `beads` DB).
+	issues := []model.Issue{{
+		ID:         "bd-1",
+		Title:      "T",
+		Status:     model.StatusOpen,
+		SourceRepo: "beads",
+	}}
+	m := NewModel(issues, nil, "", &datasource.DataSource{
+		Type: datasource.SourceTypeDoltGlobal,
+		Path: "root@tcp(127.0.0.1:9999)/?parseTime=true",
+	})
+	m.currentProjectDB = ""
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
+	m = updated.(Model)
+
+	ctx := m.historyContext()
+	if ctx.CursorPrefix != "bd" {
+		t.Fatalf("test precondition: expected CursorPrefix=bd, got %q", ctx.CursorPrefix)
+	}
+	if ctx.CursorSourceRepo != "beads" {
+		t.Fatalf("test precondition: expected CursorSourceRepo=beads, got %q", ctx.CursorSourceRepo)
+	}
+
+	projectDB, ok := m.historyDispatchTarget(ctx, "/no/jsonl/here")
+	if !ok {
+		t.Fatalf("expected dispatch admitted via cursor SourceRepo, got ok=false")
+	}
+	if projectDB != "beads" {
+		t.Errorf("expected projectDB=beads (SourceRepo-derived), got %q", projectDB)
+	}
+}
+
+// TestHistoryDispatchTarget_CursorPrefixFallback covers the secondary
+// candidate path: when SourceRepo is empty (single-repo Dolt, JSONL load,
+// or any code path that doesn't stamp _global_source) but the ID prefix
+// does match a known DB, the dispatcher still admits. Belt-and-suspenders
+// for bt-ydjw.4 to keep the prefix path live when SourceRepo isn't
+// available.
+func TestHistoryDispatchTarget_CursorPrefixFallback(t *testing.T) {
+	savedFn := enumerateDoltDatabasesFn
+	t.Cleanup(func() { enumerateDoltDatabasesFn = savedFn })
+
+	enumerateDoltDatabasesFn = func(dsn string) []string {
+		return []string{"bt", "bd", "tpane"}
+	}
+
+	// bt-prefixed bead with SourceRepo unset; mirrors the workspace-mode
+	// path where issues come from a non-global reader.
+	issues := []model.Issue{{
+		ID:     "bt-1",
+		Title:  "T",
+		Status: model.StatusOpen,
+	}}
+	m := NewModel(issues, nil, "", &datasource.DataSource{
+		Type: datasource.SourceTypeDoltGlobal,
+		Path: "root@tcp(127.0.0.1:9999)/?parseTime=true",
+	})
+	m.currentProjectDB = ""
+
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
+	m = updated.(Model)
+
+	ctx := m.historyContext()
+	if ctx.CursorSourceRepo != "" {
+		t.Fatalf("test precondition: expected CursorSourceRepo empty, got %q", ctx.CursorSourceRepo)
+	}
+
+	projectDB, ok := m.historyDispatchTarget(ctx, "/no/jsonl/here")
+	if !ok {
+		t.Fatalf("expected dispatch admitted via cursor prefix fallback, got ok=false")
+	}
+	if projectDB != "bt" {
+		t.Errorf("expected projectDB=bt (prefix-derived), got %q", projectDB)
+	}
+}
+
 // TestHistoryDispatchTarget_GlobalEnumerationFailure covers the conservative
 // behavior when the live enumeration fails (server unreachable, transient
 // error): the resolver returns ("", false) and the gate falls back to the

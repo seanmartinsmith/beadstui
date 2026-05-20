@@ -120,6 +120,13 @@ type HistoryContext struct {
 	// "bt", "bd"). Empty when no bead is selected: header rows, separators,
 	// empty lists, or unfocused-list states.
 	CursorPrefix string
+	// CursorSourceRepo is the Dolt database name carried by the cursored
+	// bead's issue.SourceRepo (populated by GlobalDoltReader from the
+	// UNION ALL _global_source column). Authoritative for global-mode
+	// dispatch when the ID prefix differs from the DB name (e.g. bd-* in
+	// `beads`, mkt-* in `marketplace`, db-* in `dev_browser`). Empty for
+	// single-repo Dolt and JSONL loads where SourceRepo isn't stamped.
+	CursorSourceRepo string
 }
 
 // HistoryModel represents the TUI view for bead history and code correlations

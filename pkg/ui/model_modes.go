@@ -42,14 +42,18 @@ var enumerateDoltDatabasesFn = func(dsn string) []string {
 // sources) which project database to target.
 //
 // Resolution priority for SourceTypeDoltGlobal:
-//  1. ctx.CursorPrefix (validated against the live database enumeration)
-//  2. ctx.ActiveProjects[0] when exactly one project is active (validated)
-//  3. m.currentProjectDB, the boot-time cwd-derived anchor (validated)
+//  1. ctx.CursorSourceRepo (issue.SourceRepo of the cursored bead - the
+//     authoritative DB name in global mode; bt-ydjw.4)
+//  2. ctx.CursorPrefix (bead ID prefix; matches DB name by convention only)
+//  3. ctx.ActiveProjects[0] when exactly one project is active
+//  4. m.currentProjectDB, the boot-time cwd-derived anchor
 //
-// Validation cross-checks each candidate against the shared server's
-// enumerated database list before accepting it. This prevents silent
-// wrong-DB dispatch when a bead ID prefix doesn't map to a Dolt DB name
-// (bt-ydjw.1).
+// Every candidate is validated against the shared server's enumerated
+// database list before being accepted. This prevents silent wrong-DB
+// dispatch when a bead ID prefix doesn't map to a Dolt DB name
+// (bt-ydjw.1) and is also what catches the prefix/DB-name mismatch
+// directly (bd-*/beads, mkt-*/marketplace, db-*/dev_browser) before
+// CursorSourceRepo became the primary candidate.
 //
 // Returns (projectDB, ok=true) when dispatch is possible. The projectDB
 // string is meaningful only for SourceTypeDoltGlobal; SourceTypeDolt and
@@ -78,7 +82,13 @@ func (m Model) historyDispatchTarget(ctx HistoryContext, repoPath string) (strin
 		if len(knownDBs) == 0 {
 			return "", false
 		}
-		candidates := make([]string, 0, 3)
+		candidates := make([]string, 0, 4)
+		// SourceRepo carries the authoritative DB name (e.g. "beads" for
+		// bd-* beads); try it ahead of the ID prefix which only matches the
+		// DB name by convention (bt-ydjw.4).
+		if ctx.CursorSourceRepo != "" {
+			candidates = append(candidates, ctx.CursorSourceRepo)
+		}
 		if ctx.CursorPrefix != "" {
 			candidates = append(candidates, ctx.CursorPrefix)
 		}
@@ -168,6 +178,10 @@ func (m Model) historyContext() HistoryContext {
 			if pfx, _, ok := strings.Cut(item.Issue.ID, "-"); ok {
 				ctx.CursorPrefix = pfx
 			}
+			// SourceRepo is the actual Dolt database name in global mode; the
+			// ID prefix is not (bd-* live in `beads`, mkt-* in `marketplace`).
+			// Capture it as the authoritative dispatch candidate (bt-ydjw.4).
+			ctx.CursorSourceRepo = item.Issue.SourceRepo
 		}
 	}
 	if m.workspaceMode && m.activeRepos != nil {
