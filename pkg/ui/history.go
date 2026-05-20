@@ -273,13 +273,22 @@ func (h *HistoryModel) rebuildFilteredList() {
 
 	// Filter and collect histories
 	for beadID, history := range h.report.Histories {
-		// Skip beads with no commits
-		if len(history.Commits) == 0 {
+		// Skip beads with no signal at all. Pre-Dolt this was len(Commits)==0,
+		// which made sense when every event arrived bound to a git commit. The
+		// Dolt extractor (bt-08sh.4) sources events from upstream's events /
+		// wisp_events tables with no commit-SHA, so beads with lifecycle events
+		// but no commits are first-class citizens here (bt-ydjw.1).
+		if len(history.Commits) == 0 && len(history.Events) == 0 {
 			continue
 		}
 
+		// Commit-centric filters (author / confidence / file) only apply when
+		// the bead actually has commits to filter. When Commits is empty (Dolt
+		// path) but Events is non-empty, the bead passes through these filters
+		// untouched - none of them are defined for events.
+
 		// Apply author filter
-		if h.authorFilter != "" {
+		if h.authorFilter != "" && len(history.Commits) > 0 {
 			authorMatch := false
 			for _, c := range history.Commits {
 				if strings.Contains(strings.ToLower(c.Author), strings.ToLower(h.authorFilter)) ||
@@ -294,7 +303,7 @@ func (h *HistoryModel) rebuildFilteredList() {
 		}
 
 		// Apply confidence filter - keep only commits meeting threshold
-		if h.minConfidence > 0 {
+		if h.minConfidence > 0 && len(history.Commits) > 0 {
 			var filtered []correlation.CorrelatedCommit
 			for _, c := range history.Commits {
 				if c.Confidence >= h.minConfidence {
@@ -308,7 +317,7 @@ func (h *HistoryModel) rebuildFilteredList() {
 		}
 
 		// Apply file filter (bv-190l) - keep only commits touching the filtered path
-		if h.fileFilter != "" {
+		if h.fileFilter != "" && len(history.Commits) > 0 {
 			var filtered []correlation.CorrelatedCommit
 			for _, c := range history.Commits {
 				for _, file := range c.Files {
@@ -329,10 +338,15 @@ func (h *HistoryModel) rebuildFilteredList() {
 		h.beadIDs = append(h.beadIDs, beadID)
 	}
 
-	// Sort by most commits first
+	// Sort by most commits first, then by most events (Dolt-only data has
+	// Commits=0 so the events count drives ordering), then alphabetical by ID
+	// for stable display (bt-ydjw.1).
 	sort.Slice(h.histories, func(i, j int) bool {
 		if len(h.histories[i].Commits) != len(h.histories[j].Commits) {
 			return len(h.histories[i].Commits) > len(h.histories[j].Commits)
+		}
+		if len(h.histories[i].Events) != len(h.histories[j].Events) {
+			return len(h.histories[i].Events) > len(h.histories[j].Events)
 		}
 		return h.histories[i].BeadID < h.histories[j].BeadID
 	})
@@ -1319,15 +1333,20 @@ func (h *HistoryModel) View() string {
 }
 
 // hasAnyHistoryData reports whether the loaded report has at least one bead
-// with any commit. Used to distinguish "no data" (full-screen empty state)
-// from "filtered to zero" (in-chrome empty list with "No matches"). See
-// bt-z63i.
+// with any commit OR any lifecycle event. Used to distinguish "no data"
+// (full-screen empty state) from "filtered to zero" (in-chrome empty list
+// with "No matches"). See bt-z63i.
+//
+// Events are now first-class alongside commits: the bt-08sh.4 Dolt extractor
+// produces lifecycle events with no associated commit-SHA (upstream doesn't
+// link events to commits), so a Dolt-only repo has Commits=0 across every
+// history but still has real timeline data (bt-ydjw.1).
 func (h *HistoryModel) hasAnyHistoryData() bool {
 	if h.report == nil {
 		return false
 	}
 	for _, hist := range h.report.Histories {
-		if len(hist.Commits) > 0 {
+		if len(hist.Commits) > 0 || len(hist.Events) > 0 {
 			return true
 		}
 	}
@@ -2269,7 +2288,14 @@ func (h *HistoryModel) renderHeader() string {
 	return lipgloss.JoinVertical(lipgloss.Left, titleLine, statsLine, filterLine, separator)
 }
 
-// renderStatsLine renders the statistics badges line (bv-y5sx)
+// renderStatsLine renders the statistics badges line (bv-y5sx).
+//
+// When report.RepoStatus.JSONLTracked is false (Dolt-only repo, bt-08sh.4
+// dispatcher path) the badges flip to event-centric values: "N beads with
+// events / N events / N authors" instead of "N beads with commits / N
+// commits / N authors". This avoids the misleading "0 commits" badge on a
+// populated bead list when the underlying source is the upstream events
+// table (bt-ydjw.1).
 func (h *HistoryModel) renderStatsLine() string {
 	if h.report == nil {
 		return ""
@@ -2291,15 +2317,32 @@ func (h *HistoryModel) renderStatsLine() string {
 	// Build stats badges
 	var badges []string
 
-	// Beads with commits
-	beadsBadge := badgeStyle.Render(valueStyle.Render(fmt.Sprintf("%d", stats.BeadsWithCommits)) + " beads")
-	badges = append(badges, beadsBadge)
+	if h.report.RepoStatus.JSONLTracked {
+		// Legacy JSONL-tracked repo: keep the original commit-centric badges.
+		beadsBadge := badgeStyle.Render(valueStyle.Render(fmt.Sprintf("%d", stats.BeadsWithCommits)) + " beads")
+		badges = append(badges, beadsBadge)
+		commitsBadge := badgeStyle.Render(valueStyle.Render(fmt.Sprintf("%d", stats.TotalCommits)) + " commits")
+		badges = append(badges, commitsBadge)
+	} else {
+		// Dolt-only repo: surface event-centric counts since the dispatcher
+		// returns lifecycle events with empty CommitSHA. Counts are derived
+		// from the same histories the bead list now admits.
+		beadsWithEvents := 0
+		totalEvents := 0
+		for _, hist := range h.report.Histories {
+			if len(hist.Events) > 0 {
+				beadsWithEvents++
+				totalEvents += len(hist.Events)
+			}
+		}
+		beadsBadge := badgeStyle.Render(valueStyle.Render(fmt.Sprintf("%d", beadsWithEvents)) + " beads")
+		badges = append(badges, beadsBadge)
+		eventsBadge := badgeStyle.Render(valueStyle.Render(fmt.Sprintf("%d", totalEvents)) + " events")
+		badges = append(badges, eventsBadge)
+	}
 
-	// Total commits
-	commitsBadge := badgeStyle.Render(valueStyle.Render(fmt.Sprintf("%d", stats.TotalCommits)) + " commits")
-	badges = append(badges, commitsBadge)
-
-	// Unique authors
+	// Unique authors (already counts both commit + event authors in
+	// correlator.calculateStats, so the badge works for both source types).
 	authorsBadge := badgeStyle.Render(valueStyle.Render(fmt.Sprintf("%d", stats.UniqueAuthors)) + " authors")
 	badges = append(badges, authorsBadge)
 
@@ -2310,8 +2353,8 @@ func (h *HistoryModel) renderStatsLine() string {
 		badges = append(badges, cycleBadge)
 	}
 
-	// Commits per bead
-	if stats.AvgCommitsPerBead > 0 {
+	// Commits per bead (only meaningful for commit-backed reports)
+	if h.report.RepoStatus.JSONLTracked && stats.AvgCommitsPerBead > 0 {
 		cpdBadge := badgeStyle.Render(valueStyle.Render(fmt.Sprintf("%.1f", stats.AvgCommitsPerBead)) + " commits/bead")
 		badges = append(badges, cpdBadge)
 	}
@@ -3737,6 +3780,23 @@ func (h *HistoryModel) renderCommitMiddlePanel(width, height int) string {
 	hist := h.SelectedHistory()
 	if hist == nil {
 		return RenderTitledPanel("Select a bead to view commits", PanelOpts{
+			Title:   "COMMITS",
+			Width:   width,
+			Height:  height,
+			Focused: h.focused == historyFocusMiddle,
+		})
+	}
+
+	// Events-only bead (Dolt-only source, bt-08sh.4): the timeline pane carries
+	// the lifecycle data; the commits pane has nothing to show because upstream
+	// records no event-to-commit link. Render an inline note rather than empty
+	// space so the pane explains itself instead of looking broken (bt-ydjw.1).
+	if len(hist.Commits) == 0 && len(hist.Events) > 0 {
+		msg := lipgloss.NewStyle().
+			Foreground(t.Muted).
+			Italic(true).
+			Render("Lifecycle events only - no git commits associated.")
+		return RenderTitledPanel(msg, PanelOpts{
 			Title:   "COMMITS",
 			Width:   width,
 			Height:  height,

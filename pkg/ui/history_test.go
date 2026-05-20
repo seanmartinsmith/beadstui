@@ -3245,6 +3245,135 @@ func TestHistoryView_MultiProjectFilterEmptyState(t *testing.T) {
 	}
 }
 
+// createDoltOnlyHistoryReport builds a HistoryReport shaped like the
+// bt-08sh.4 DoltExtractor produces: lifecycle events present, Commits empty
+// on every history, RepoStatus.JSONLTracked=false. Used to cover bt-ydjw.1
+// regression-fix behavior (events as first-class admission signal).
+func createDoltOnlyHistoryReport() *correlation.HistoryReport {
+	now := time.Now()
+	return &correlation.HistoryReport{
+		GeneratedAt: now,
+		Stats: correlation.HistoryStats{
+			TotalBeads:       2,
+			BeadsWithCommits: 0,
+			TotalCommits:     0,
+			UniqueAuthors:    1,
+		},
+		Histories: map[string]correlation.BeadHistory{
+			"bt-evt1": {
+				BeadID: "bt-evt1",
+				Title:  "Dolt-only bead one",
+				Status: "closed",
+				Events: []correlation.BeadEvent{
+					{
+						BeadID:    "bt-evt1",
+						EventType: correlation.EventCreated,
+						Timestamp: now.Add(-2 * time.Hour),
+						CommitSHA: "", // intentional: Dolt extractor leaves empty
+						Author:    "sms",
+					},
+					{
+						BeadID:    "bt-evt1",
+						EventType: correlation.EventClosed,
+						Timestamp: now.Add(-time.Hour),
+						CommitSHA: "",
+						Author:    "sms",
+					},
+				},
+				Commits: nil,
+			},
+			"bt-evt2": {
+				BeadID: "bt-evt2",
+				Title:  "Dolt-only bead two",
+				Status: "open",
+				Events: []correlation.BeadEvent{
+					{
+						BeadID:    "bt-evt2",
+						EventType: correlation.EventCreated,
+						Timestamp: now.Add(-30 * time.Minute),
+						CommitSHA: "",
+						Author:    "sms",
+					},
+				},
+				Commits: nil,
+			},
+		},
+		RepoStatus: correlation.RepoStatus{
+			RepoPath:       "/tmp/dolt-only",
+			InsideWorkTree: true,
+			JSONLTracked:   false,
+		},
+	}
+}
+
+// TestHistoryModel_EventsOnlyBeadsAdmitted covers bt-ydjw.1 Case A: when the
+// Dolt dispatcher (bt-08sh.4) populates Histories[*].Events but every
+// CommitSHA is empty, the HistoryModel must still admit those beads through
+// rebuildFilteredList and hasAnyHistoryData. The pre-fix behavior was to
+// skip them, producing "No beads with commit correlations found" on a repo
+// that genuinely has lifecycle history.
+func TestHistoryModel_EventsOnlyBeadsAdmitted(t *testing.T) {
+	theme := testTheme()
+	report := createDoltOnlyHistoryReport()
+	h := NewHistoryModel(report, theme)
+	h.SetSize(120, 30)
+
+	if len(h.histories) != 2 {
+		t.Errorf("histories count = %d, want 2 (both events-only beads admitted)", len(h.histories))
+	}
+	if !h.hasAnyHistoryData() {
+		t.Error("hasAnyHistoryData should return true when only events are present")
+	}
+
+	view := h.View()
+	if strings.Contains(view, "No beads with commit correlations") {
+		t.Errorf("view should not render the no-data empty state for events-only data; got:\n%s", view)
+	}
+}
+
+// TestHistoryModel_StatsLineEventsModeForDoltOnly covers the stats-line
+// polish from bt-ydjw.1: when RepoStatus.JSONLTracked is false, the stats
+// badges should surface event counts rather than the misleading "0 commits"
+// badge a Dolt-only report would otherwise display.
+func TestHistoryModel_StatsLineEventsModeForDoltOnly(t *testing.T) {
+	theme := testTheme()
+	report := createDoltOnlyHistoryReport()
+	h := NewHistoryModel(report, theme)
+	h.SetSize(120, 30)
+
+	stats := h.renderStatsLine()
+	if !strings.Contains(stats, "events") {
+		t.Errorf("Dolt-only stats line should include an events badge; got: %q", stats)
+	}
+	if strings.Contains(stats, "commits") {
+		t.Errorf("Dolt-only stats line should not include a commits badge; got: %q", stats)
+	}
+}
+
+// TestHistoryModel_StatsLineCommitsModeForJSONL keeps the legacy commit-
+// centric stats badges in place when the underlying source is JSONL-tracked
+// (RepoStatus.JSONLTracked=true). Guards against regressions from the
+// events-aware branch added in bt-ydjw.1.
+func TestHistoryModel_StatsLineCommitsModeForJSONL(t *testing.T) {
+	theme := testTheme()
+	report := createTestHistoryReport()
+	report.RepoStatus = correlation.RepoStatus{
+		RepoPath:       "/tmp/jsonl",
+		InsideWorkTree: true,
+		JSONLTracked:   true,
+	}
+	h := NewHistoryModel(report, theme)
+	h.SetSize(120, 30)
+
+	stats := h.renderStatsLine()
+	if !strings.Contains(stats, "commits") {
+		t.Errorf("JSONL stats line should include a commits badge; got: %q", stats)
+	}
+	if strings.Contains(stats, "events") {
+		t.Errorf("JSONL stats line should not include an events badge; got: %q", stats)
+	}
+}
+
 // TestHistoryView_StaleRegistryEntry verifies that resolveHistoryPath falls back
 // to cwd when the registry entry exists but its path lacks .git (stale entry),
 // and that the empty-state message still fires the cursor-prefix branch.
