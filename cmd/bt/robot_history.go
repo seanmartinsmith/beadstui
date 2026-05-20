@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -130,7 +131,9 @@ func (rc *robotCtx) runCorrelationAudit(explainArg, confirmArg, rejectArg string
 		os.Exit(1)
 	}
 
-	feedbackStore := correlation.NewFeedbackStore(beadsDir)
+	// Correlation feedback lives in <projectDir>/.bt/ per bt-08sh.3 / bt-uahv.
+	// The legacy .beads/ path is still read as a one-release fallback.
+	feedbackStore := correlation.NewFeedbackStore(filepath.Dir(beadsDir))
 	if err := feedbackStore.Load(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading feedback: %v\n", err)
 		os.Exit(1)

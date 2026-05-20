@@ -14,13 +14,21 @@ import (
 const (
 	// FeedbackFileName is the default name for the feedback storage file
 	FeedbackFileName = "correlation_feedback.jsonl"
+
+	// feedbackDir is the bt-owned subdirectory under the project root that
+	// holds correlation feedback (bt-08sh.3 / bt-uahv data-home spec).
+	feedbackDir = ".bt"
+
+	// legacyFeedbackDir is the historical .beads/ location. Kept readable as
+	// a one-release fallback per bt-v6rw; new writes always go to feedbackDir.
+	legacyFeedbackDir = ".beads"
 )
 
 // FeedbackStore manages storage and retrieval of correlation feedback
 type FeedbackStore struct {
-	beadsDir string
-	mu       sync.RWMutex
-	cache    map[feedbackKey]CorrelationFeedback
+	projectDir string
+	mu         sync.RWMutex
+	cache      map[feedbackKey]CorrelationFeedback
 }
 
 type feedbackKey struct {
@@ -28,32 +36,56 @@ type feedbackKey struct {
 	beadID    string
 }
 
-// NewFeedbackStore creates a new feedback store for the given beads directory
-func NewFeedbackStore(beadsDir string) *FeedbackStore {
+// NewFeedbackStore creates a new feedback store rooted at the given project
+// directory. The store writes to <projectDir>/.bt/correlation_feedback.jsonl
+// and reads from both .bt/ (primary) and .beads/ (legacy fallback).
+func NewFeedbackStore(projectDir string) *FeedbackStore {
 	return &FeedbackStore{
-		beadsDir: beadsDir,
-		cache:    make(map[feedbackKey]CorrelationFeedback),
+		projectDir: projectDir,
+		cache:      make(map[feedbackKey]CorrelationFeedback),
 	}
 }
 
-// feedbackPath returns the full path to the feedback file
+// feedbackPath returns the canonical path to the feedback file under .bt/.
 func (fs *FeedbackStore) feedbackPath() string {
-	return filepath.Join(fs.beadsDir, FeedbackFileName)
+	return filepath.Join(fs.projectDir, feedbackDir, FeedbackFileName)
 }
 
-// Load reads existing feedback from the JSONL file
+// legacyFeedbackPath returns the historical .beads/ path used as a read-only
+// fallback during the data-home migration window.
+func (fs *FeedbackStore) legacyFeedbackPath() string {
+	return filepath.Join(fs.projectDir, legacyFeedbackDir, FeedbackFileName)
+}
+
+// Load reads existing feedback from the JSONL file(s).
+//
+// Read order: the canonical .bt/ file first, then the legacy .beads/ file.
+// Entries already present in the cache (i.e. read from .bt/) are not
+// overwritten by legacy entries, so the new location is authoritative on key
+// collisions. The legacy file is never written to.
 func (fs *FeedbackStore) Load() error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	path := fs.feedbackPath()
+	if err := fs.loadFile(fs.feedbackPath()); err != nil {
+		return err
+	}
+	if err := fs.loadFile(fs.legacyFeedbackPath()); err != nil {
+		return err
+	}
+	return nil
+}
+
+// loadFile appends entries from a single JSONL file into the cache without
+// overwriting keys already present. Missing files are not an error.
+// Must be called with fs.mu held for writing.
+func (fs *FeedbackStore) loadFile(path string) error {
 	file, err := os.Open(path)
 	if os.IsNotExist(err) {
-		// No feedback file yet, that's fine
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("opening feedback file: %w", err)
+		return fmt.Errorf("opening feedback file %s: %w", path, err)
 	}
 	defer file.Close()
 
@@ -66,47 +98,43 @@ func (fs *FeedbackStore) Load() error {
 
 		var fb CorrelationFeedback
 		if err := json.Unmarshal(line, &fb); err != nil {
-			// Log warning but continue with other lines
 			continue
 		}
 
 		key := feedbackKey{commitSHA: fb.CommitSHA, beadID: fb.BeadID}
-		fs.cache[key] = fb
+		if _, exists := fs.cache[key]; !exists {
+			fs.cache[key] = fb
+		}
 	}
 
 	return scanner.Err()
 }
 
-// Save stores a feedback entry, appending to the JSONL file
+// Save stores a feedback entry, appending to the JSONL file under .bt/.
 func (fs *FeedbackStore) Save(fb CorrelationFeedback) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
 
-	// Ensure the beads directory exists
-	if err := os.MkdirAll(fs.beadsDir, 0755); err != nil {
-		return fmt.Errorf("creating beads directory: %w", err)
+	path := fs.feedbackPath()
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return fmt.Errorf("creating feedback directory: %w", err)
 	}
 
-	// Open file in append mode
-	path := fs.feedbackPath()
 	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("opening feedback file: %w", err)
 	}
 	defer file.Close()
 
-	// Marshal to JSON
 	data, err := json.Marshal(fb)
 	if err != nil {
 		return fmt.Errorf("marshaling feedback: %w", err)
 	}
 
-	// Write with newline
 	if _, err := file.Write(append(data, '\n')); err != nil {
 		return fmt.Errorf("writing feedback: %w", err)
 	}
 
-	// Update cache
 	key := feedbackKey{commitSHA: fb.CommitSHA, beadID: fb.BeadID}
 	fs.cache[key] = fb
 
