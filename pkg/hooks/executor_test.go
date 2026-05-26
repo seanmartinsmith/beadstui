@@ -249,6 +249,9 @@ func TestExecutorHookFailureContinue(t *testing.T) {
 }
 
 func TestExecutorHookTimeout(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires Unix shell: 'sleep' is not available under cmd /C")
+	}
 	config := &Config{
 		Hooks: HooksByPhase{
 			PreExport: []Hook{
@@ -647,6 +650,9 @@ func TestExecutorPermissionDenied(t *testing.T) {
 }
 
 func TestExecutorLargeStderrTruncatedInSummary(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("requires Unix shell: 'printf' is not available under cmd /C")
+	}
 	config := &Config{
 		Hooks: HooksByPhase{
 			PostExport: []Hook{
