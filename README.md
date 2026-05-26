@@ -12,8 +12,6 @@ A terminal UI for [beads](https://github.com/gastownhall/beads) - keyboard-drive
 
 Think lazygit, but for issue tracking.
 
-This started as a fork of Jeffrey Emanuel's [beads_viewer](https://github.com/Dicklesworthstone/beads_viewer), retargeted at upstream beads and its Dolt backend. The Dolt integration, theme system, BQL, cross-platform test suite, and ongoing UI work is the fork.
-
 ## Install
 
 Requires a working [beads](https://github.com/gastownhall/beads) installation with Dolt. For the full first-time setup walkthrough — prerequisites, init flow, common failures — see [`docs/install.md`](docs/install.md). The short version is below.
