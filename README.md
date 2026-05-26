@@ -36,11 +36,13 @@ cd beadstui
 go build ./cmd/bt/
 ```
 
-## Prerequisites: bd shared-server mode
+## Shared-server mode (for the cross-project view)
 
-bt queries a single shared Dolt server at `~/.beads/shared-server/` and enumerates projects from the `beads_global` aggregate database on that server. Projects using bd's default embedded mode store their data inside the project's own `.beads/embeddeddolt/` directory - that data is invisible to bt because it never touches the shared server.
+For single-project use you need nothing special: `cd` into any beads project and run `bt`. If no Dolt server is already running for that project, bt starts a per-session one (via `bd dolt start`) and stops it on exit. This works whether the project uses bd's default embedded mode or a shared server.
 
-**Any project you want bt to see must have shared-server mode enabled.**
+The cross-project global view is what needs shared-server mode. It enumerates projects from the `beads_global` aggregate database on a single shared Dolt server at `~/.beads/shared-server/`. Projects in bd's default embedded mode keep their data in the project's own `.beads/embeddeddolt/` directory, so it never touches the shared server - those projects work fine on their own but won't appear in the global view.
+
+**To make a project visible in the cross-project view, enable shared-server mode.**
 
 For a new project:
 
@@ -56,7 +58,7 @@ bd config set dolt.shared-server true
 
 After switching, run `bd dolt start` once to migrate the project onto the shared server. See [bd's docs/DOLT.md - Shared-Server Mode](https://github.com/gastownhall/beads/blob/main/docs/DOLT.md#shared-server-mode) for the full migration walkthrough and background on the two modes.
 
-> **Note:** If you run bt and some of your beads projects are missing, this is the most likely cause. bt will show only the projects whose databases are registered on the shared server.
+> **Note:** If you launch the cross-project view and some of your beads projects are missing, this is the most likely cause. The global view shows only projects whose databases are registered on the shared server.
 
 ## Quick start
 
