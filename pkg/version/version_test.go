@@ -9,7 +9,7 @@ import (
 // should match the latest release tag at any given time. If this test fails
 // after cutting a release, bump `fallback` to the new tag.
 func TestFallbackIsCurrentReleaseTag(t *testing.T) {
-	const expected = "v0.1.0"
+	const expected = "v0.1.2"
 	if fallback != expected {
 		t.Fatalf("fallback = %q, expected %q (bump after each release tag)", fallback, expected)
 	}
@@ -43,5 +43,29 @@ func TestDevBuildMarker(t *testing.T) {
 	}
 	if !strings.HasSuffix(Version, "-dev") {
 		t.Fatalf("local dev build should have -dev suffix; got %q", Version)
+	}
+}
+
+// TestIsDevBuild verifies dev-like prerelease suffixes are recognized and
+// clean release versions are not. The startup update check relies on this to
+// skip auto-checks on local builds (see CheckUpdateCmd).
+func TestIsDevBuild(t *testing.T) {
+	saved := Version
+	defer func() { Version = saved }()
+
+	devCases := []string{"v0.1.2-dev", "v0.1.2-dirty", "v1.0.0-snapshot", "v0.1.2-nightly", "v0.1.2-local", "v0.1.2-git.abc123"}
+	for _, v := range devCases {
+		Version = v
+		if !IsDevBuild() {
+			t.Errorf("IsDevBuild() = false for %q; want true", v)
+		}
+	}
+
+	releaseCases := []string{"v0.1.2", "v1.0.0", "v0.1.2-alpha", "v0.1.2-beta", "v0.1.2-rc1"}
+	for _, v := range releaseCases {
+		Version = v
+		if IsDevBuild() {
+			t.Errorf("IsDevBuild() = true for %q; want false", v)
+		}
 	}
 }

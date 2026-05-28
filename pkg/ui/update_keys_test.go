@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/seanmartinsmith/beadstui/internal/datasource"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/version"
 )
 
 // Cover additional branches in Model.Update for quit/help/tab handling and update notices.
@@ -67,6 +68,21 @@ func TestUpdateMsgSetsUpdateAvailable(t *testing.T) {
 	m = updated.(Model)
 	if !m.updateAvailable || m.updateTag != "v9.9.9" {
 		t.Fatalf("update flag not set")
+	}
+}
+
+// TestCheckUpdateCmdSkipsDevBuild verifies the startup update check is a no-op
+// on development builds. The test binary itself is a dev build (no ldflags,
+// ReadBuildInfo reports "(devel)"), so version.IsDevBuild() is true and
+// CheckUpdateCmd must short-circuit to nil before any network call — no
+// UpdateMsg, no footer badge, no notification. Guards against a drifted
+// `fallback` re-introducing the false "update available" nag.
+func TestCheckUpdateCmdSkipsDevBuild(t *testing.T) {
+	if !version.IsDevBuild() {
+		t.Skip("test binary is not a dev build; skip cannot be exercised")
+	}
+	if msg := CheckUpdateCmd()(); msg != nil {
+		t.Fatalf("CheckUpdateCmd on a dev build should return nil, got %#v", msg)
 	}
 }
 

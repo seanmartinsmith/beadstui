@@ -26,6 +26,7 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
 	"github.com/seanmartinsmith/beadstui/pkg/ui/keys"
 	"github.com/seanmartinsmith/beadstui/pkg/updater"
+	"github.com/seanmartinsmith/beadstui/pkg/version"
 	"github.com/seanmartinsmith/beadstui/pkg/watcher"
 
 	"charm.land/bubbles/v2/list"
@@ -326,9 +327,18 @@ func WaitForBackgroundWorkerMsgCmd(w *BackgroundWorker) tea.Cmd {
 	}
 }
 
-// CheckUpdateCmd returns a command that checks for updates
+// CheckUpdateCmd returns a command that checks for updates.
+//
+// Local development builds never auto-check: a dev build is updated by
+// rebuilding from source, not `bt update`, and skipping the check here keeps
+// a drifted `fallback` constant from surfacing a false "update available"
+// notification + footer badge. Explicit `bt --check-update` / `bt --update`
+// stay honest — only this passive startup check is gated.
 func CheckUpdateCmd() tea.Cmd {
 	return func() tea.Msg {
+		if version.IsDevBuild() {
+			return nil
+		}
 		tag, url, err := updater.CheckForUpdates()
 		if err == nil && tag != "" {
 			return UpdateMsg{TagName: tag, URL: url}
