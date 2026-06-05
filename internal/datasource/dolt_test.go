@@ -1,6 +1,7 @@
 package datasource
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -155,6 +156,76 @@ func TestReadDoltConfig_DefaultDatabase(t *testing.T) {
 	}
 	if cfg.Database != "beads" {
 		t.Errorf("Expected default database 'beads', got %s", cfg.Database)
+	}
+}
+
+func TestReadDoltConfig_EmbeddedMode(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	metadata := `{"backend":"dolt","dolt_mode":"embedded","dolt_database":"beads"}`
+	if err := os.WriteFile(filepath.Join(tmpDir, "metadata.json"), []byte(metadata), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, ok := ReadDoltConfig(tmpDir)
+	if !ok {
+		t.Fatal("Expected ReadDoltConfig to return true for embedded dolt backend")
+	}
+	if cfg.Mode != "embedded" {
+		t.Errorf("Expected Mode embedded, got %q", cfg.Mode)
+	}
+	want := filepath.Join(tmpDir, "embeddeddolt")
+	if cfg.EmbeddedDataDir != want {
+		t.Errorf("Expected EmbeddedDataDir %q, got %q", want, cfg.EmbeddedDataDir)
+	}
+	if cfg.PortFromEnv {
+		t.Error("Expected PortFromEnv false when no port env var is set")
+	}
+}
+
+func TestReadDoltConfig_PortFromEnv(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	metadata := `{"backend":"dolt","dolt_mode":"embedded","dolt_database":"beads"}`
+	if err := os.WriteFile(filepath.Join(tmpDir, "metadata.json"), []byte(metadata), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("BEADS_DOLT_SERVER_PORT", "45678")
+	cfg, ok := ReadDoltConfig(tmpDir)
+	if !ok {
+		t.Fatal("Expected ReadDoltConfig to return true")
+	}
+	if cfg.Port != 45678 {
+		t.Errorf("Expected port 45678 from env, got %d", cfg.Port)
+	}
+	if !cfg.PortFromEnv {
+		t.Error("Expected PortFromEnv true when BEADS_DOLT_SERVER_PORT is set")
+	}
+}
+
+// TestDiscoverSource_EmbeddedWithoutPortRequiresServer verifies that an
+// embedded-mode project with no exported server port reports ErrDoltRequired
+// (so the caller starts a bt-owned server) instead of attaching to whatever
+// happens to be listening on the default port.
+func TestDiscoverSource_EmbeddedWithoutPortRequiresServer(t *testing.T) {
+	tmpDir := t.TempDir()
+	beadsDir := filepath.Join(tmpDir, ".beads")
+	if err := os.MkdirAll(beadsDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	metadata := `{"backend":"dolt","dolt_mode":"embedded","dolt_database":"beads"}`
+	if err := os.WriteFile(filepath.Join(beadsDir, "metadata.json"), []byte(metadata), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Ensure no inherited env port makes this look like a started server.
+	t.Setenv("BEADS_DOLT_SERVER_PORT", "")
+	t.Setenv("BT_DOLT_PORT", "")
+
+	_, err := DiscoverSource(DiscoveryOptions{BeadsDir: beadsDir})
+	if !errors.Is(err, ErrDoltRequired) {
+		t.Fatalf("Expected ErrDoltRequired for embedded mode without port, got %v", err)
 	}
 }
 

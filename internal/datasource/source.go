@@ -117,6 +117,15 @@ func DiscoverSource(opts DiscoveryOptions) (DataSource, error) {
 	// Dolt configured? Try it. If declared but unreachable, fail loudly so
 	// we don't silently serve stale JSONL data.
 	if cfg, ok := ReadDoltConfig(beadsDir); ok {
+		// Embedded mode has no persistent server. Until bt starts its own
+		// transient sql-server and exports its port (via
+		// BEADS_DOLT_SERVER_PORT, surfaced as PortFromEnv), report
+		// ErrDoltRequired so the caller invokes doltctl.EnsureServer. This
+		// also prevents attaching to an unrelated project's server that
+		// happens to listen on the default port.
+		if cfg.Mode == "embedded" && !cfg.PortFromEnv {
+			return DataSource{}, ErrDoltRequired
+		}
 		src, ok := tryDoltSource(cfg, opts)
 		if ok {
 			if opts.ValidateAfterDiscovery {

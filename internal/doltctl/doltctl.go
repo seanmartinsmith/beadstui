@@ -5,7 +5,9 @@ package doltctl
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -16,6 +18,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	_ "github.com/go-sql-driver/mysql"
 
 	"github.com/seanmartinsmith/beadstui/internal/datasource"
 )
@@ -28,6 +32,15 @@ type ServerState struct {
 	StartedByBT bool
 	ServerPID   int
 	BeadsDir    string
+
+	// Embedded is true when bt started its own `dolt sql-server` against a
+	// beads embedded-mode data dir (no bd-managed server exists). Such a
+	// server is owned by bt directly and stopped by killing the child
+	// process rather than via `bd dolt stop`.
+	Embedded bool
+	// cmd / waitCh track the embedded child process for lifecycle control.
+	cmd    *exec.Cmd
+	waitCh chan error
 
 	// stopFunc is injectable for testing. When nil, the real bd dolt stop is used.
 	stopFunc func() error
@@ -71,15 +84,22 @@ func readPortFile(beadsDir string) (int, error) {
 // EnsureServer detects or starts a Dolt server.
 // lookPath is injected for testing (pass exec.LookPath in production).
 func EnsureServer(beadsDir string, lookPath LookPathFunc) (*ServerState, error) {
-	// 0. Check bd is available
-	if _, err := lookPath("bd"); err != nil {
-		return nil, fmt.Errorf("bd CLI not found - install beads first")
-	}
-
-	// 1. Resolve port via ReadDoltConfig (single source of truth)
+	// 1. Resolve config via ReadDoltConfig (single source of truth)
 	cfg, ok := datasource.ReadDoltConfig(beadsDir)
 	if !ok {
 		return nil, fmt.Errorf("no Dolt configuration found in %s", beadsDir)
+	}
+
+	// Embedded mode: bd runs Dolt in-process with no server, so `bd dolt
+	// start` is unavailable. bt can only read over the MySQL protocol, so
+	// it starts its own transient sql-server against the embedded data dir.
+	if cfg.Mode == "embedded" {
+		return ensureEmbeddedServer(beadsDir, cfg, lookPath)
+	}
+
+	// 0. Check bd is available (server mode delegates startup to bd)
+	if _, err := lookPath("bd"); err != nil {
+		return nil, fmt.Errorf("bd CLI not found - install beads first")
 	}
 
 	// 2. TCP dial to see if server is already running
@@ -141,6 +161,117 @@ func EnsureServer(beadsDir string, lookPath LookPathFunc) (*ServerState, error) 
 	return nil, fmt.Errorf("bd dolt start succeeded (PID %d, port %d) but server not reachable after 10s", pid, port)
 }
 
+// ensureEmbeddedServer starts a bt-owned `dolt sql-server` against a beads
+// embedded-mode data directory. beads embedded mode runs Dolt in-process per
+// command with no server; bt can only read over the MySQL protocol, so it
+// hosts its own transient server for the lifetime of the bt process.
+//
+// The chosen port is exported via BEADS_DOLT_SERVER_PORT so the subsequent
+// data-load (and any reconnect) resolves to this server. The same port is
+// reused across reconnects to keep already-resolved DSNs valid.
+//
+// Note: while this server is running it holds the Dolt repository lock, so
+// concurrent `bd` commands in the same project may fail until bt exits.
+func ensureEmbeddedServer(beadsDir string, cfg datasource.DoltConfig, lookPath LookPathFunc) (*ServerState, error) {
+	doltBin, err := lookPath("dolt")
+	if err != nil {
+		return nil, fmt.Errorf("dolt CLI not found - required to read beads embedded-mode data")
+	}
+
+	dataDir, err := filepath.Abs(cfg.EmbeddedDataDir)
+	if err != nil {
+		dataDir = cfg.EmbeddedDataDir
+	}
+	if fi, statErr := os.Stat(dataDir); statErr != nil || !fi.IsDir() {
+		return nil, fmt.Errorf("embedded Dolt data dir not found: %s", dataDir)
+	}
+
+	// Reuse the port bt already exported (reconnect path) so previously
+	// resolved DSNs stay valid; otherwise grab a free ephemeral port.
+	port := cfg.Port
+	if !cfg.PortFromEnv {
+		port, err = freePort()
+		if err != nil {
+			return nil, fmt.Errorf("could not allocate port for embedded Dolt server: %w", err)
+		}
+	}
+
+	fmt.Fprintln(os.Stderr, "Starting Dolt server for embedded beads data...")
+	fmt.Fprintln(os.Stderr, "Note: while bt is open, concurrent `bd` commands in this project may fail (Dolt repository lock).")
+
+	cmd := exec.Command(doltBin, "sql-server",
+		"--data-dir", dataDir,
+		"-H", "127.0.0.1",
+		"-P", strconv.Itoa(port),
+		"--loglevel=warning",
+	)
+	cmd.Stdout = io.Discard
+	cmd.Stderr = io.Discard
+	setDeathSignal(cmd) // kill the server if bt exits without graceful cleanup
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("failed to launch dolt sql-server: %w", err)
+	}
+
+	waitCh := make(chan error, 1)
+	go func() { waitCh <- cmd.Wait() }()
+
+	// Wait for SQL readiness (TCP can open before the DB is queryable).
+	probe := datasource.DoltConfig{
+		Host: "127.0.0.1", Port: port, Database: cfg.Database, User: cfg.User,
+	}
+	if err := waitForSQLReady(probe.DSN(), waitCh, 15*time.Second); err != nil {
+		_ = cmd.Process.Kill()
+		<-waitCh
+		return nil, fmt.Errorf("embedded Dolt server did not become ready: %w", err)
+	}
+
+	// Export the port so the data-load and any reconnect resolve here.
+	_ = os.Setenv("BEADS_DOLT_SERVER_PORT", strconv.Itoa(port))
+
+	return &ServerState{
+		Port:        port,
+		StartedByBT: true,
+		ServerPID:   cmd.Process.Pid,
+		BeadsDir:    beadsDir,
+		Embedded:    true,
+		cmd:         cmd,
+		waitCh:      waitCh,
+	}, nil
+}
+
+// freePort asks the OS for an unused TCP port on the loopback interface.
+func freePort() (int, error) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+	return l.Addr().(*net.TCPAddr).Port, nil
+}
+
+// waitForSQLReady pings the DSN until it succeeds, the server process exits,
+// or the deadline elapses.
+func waitForSQLReady(dsn string, waitCh <-chan error, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		select {
+		case err := <-waitCh:
+			return fmt.Errorf("server exited: %v", err)
+		default:
+		}
+		db, err := sql.Open("mysql", dsn)
+		if err == nil {
+			pingErr := db.Ping()
+			_ = db.Close()
+			if pingErr == nil {
+				return nil
+			}
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	return fmt.Errorf("timed out after %s", timeout)
+}
+
 // StopIfOwned stops the Dolt server only if bt started it and PID still matches.
 // Returns true if the server was actually stopped, false if skipped.
 func (s *ServerState) StopIfOwned() (bool, error) {
@@ -153,6 +284,22 @@ func (s *ServerState) StopIfOwned() (bool, error) {
 
 	if !s.StartedByBT {
 		return false, nil
+	}
+
+	// Embedded server: bt owns the child process directly. Terminate it
+	// gracefully, then force-kill if it doesn't exit promptly, and reap it.
+	if s.Embedded {
+		if s.cmd == nil || s.cmd.Process == nil {
+			return false, nil
+		}
+		_ = s.cmd.Process.Signal(os.Interrupt)
+		select {
+		case <-s.waitCh:
+		case <-time.After(3 * time.Second):
+			_ = s.cmd.Process.Kill()
+			<-s.waitCh
+		}
+		return true, nil
 	}
 
 	// Check PID file - if gone or changed, someone else took over
@@ -196,4 +343,12 @@ func (s *ServerState) UpdateAfterReconnect(newState *ServerState) {
 	s.Port = newState.Port
 	s.StartedByBT = newState.StartedByBT
 	s.ServerPID = newState.ServerPID
+	// Preserve embedded child handles so shutdown can kill the reconnected
+	// process; otherwise the new server would be orphaned.
+	s.Embedded = newState.Embedded
+	s.cmd = newState.cmd
+	s.waitCh = newState.waitCh
+	if newState.BeadsDir != "" {
+		s.BeadsDir = newState.BeadsDir
+	}
 }

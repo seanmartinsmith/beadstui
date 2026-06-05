@@ -17,6 +17,19 @@ type DoltConfig struct {
 	Port     int
 	Database string
 	User     string
+
+	// Mode mirrors metadata.json's dolt_mode: "server" (a persistent
+	// sql-server bd starts) or "embedded" (in-process, no server - the
+	// default for beads >= v1.0). Empty when unset (treated as server).
+	Mode string
+	// EmbeddedDataDir is the Dolt data directory used in embedded mode
+	// (<beadsDir>/embeddeddolt). bt starts its own transient sql-server
+	// against this dir since it can only read over the MySQL protocol.
+	EmbeddedDataDir string
+	// PortFromEnv is true when Port came from BT_DOLT_PORT or
+	// BEADS_DOLT_SERVER_PORT. In embedded mode this distinguishes "bt has
+	// already started a server and exported its port" from "no server yet".
+	PortFromEnv bool
 }
 
 // DSN returns a go-sql-driver/mysql data source name for this config.
@@ -81,10 +94,12 @@ func ReadDoltConfig(beadsDir string) (DoltConfig, bool) {
 	}
 
 	cfg := DoltConfig{
-		Host:     "127.0.0.1",
-		Port:     3307, // Dolt default
-		Database: meta.DoltDatabase,
-		User:     "root",
+		Host:            "127.0.0.1",
+		Port:            3307, // Dolt default
+		Database:        meta.DoltDatabase,
+		User:            "root",
+		Mode:            meta.DoltMode,
+		EmbeddedDataDir: filepath.Join(beadsDir, "embeddeddolt"),
 	}
 
 	if cfg.Database == "" {
@@ -116,12 +131,16 @@ func ReadDoltConfig(beadsDir string) (DoltConfig, bool) {
 	if v := os.Getenv("BT_DOLT_PORT"); v != "" {
 		if p, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && p > 0 {
 			cfg.Port = p
+			cfg.PortFromEnv = true
 		}
 	}
 	// BEADS_DOLT_SERVER_PORT is the beads-native env var. Highest priority.
+	// bt also writes this after starting its own embedded-mode server so the
+	// reload path resolves to that server (see doltctl.EnsureServer).
 	if v := os.Getenv("BEADS_DOLT_SERVER_PORT"); v != "" {
 		if p, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && p > 0 {
 			cfg.Port = p
+			cfg.PortFromEnv = true
 		}
 	}
 
