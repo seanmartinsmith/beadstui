@@ -57,6 +57,10 @@ github.com/alecthomas/chroma/v2/styles
 # github.com/atotto/clipboard v0.1.4
 ## explicit
 github.com/atotto/clipboard
+# github.com/aymanbagabas/go-udiff v0.4.1
+## explicit; go 1.24
+github.com/aymanbagabas/go-udiff
+github.com/aymanbagabas/go-udiff/lcs
 # github.com/aymerick/douceur v0.2.0
 ## explicit
 github.com/aymerick/douceur/css
@@ -75,6 +79,9 @@ github.com/charmbracelet/ultraviolet
 github.com/charmbracelet/x/ansi
 github.com/charmbracelet/x/ansi/kitty
 github.com/charmbracelet/x/ansi/parser
+# github.com/charmbracelet/x/exp/golden v0.0.0-20251109135125-8916d276318f
+## explicit; go 1.24.0
+github.com/charmbracelet/x/exp/golden
 # github.com/charmbracelet/x/exp/ordered v0.1.0
 ## explicit; go 1.21
 github.com/charmbracelet/x/exp/ordered
@@ -84,6 +91,9 @@ github.com/charmbracelet/x/exp/slice
 # github.com/charmbracelet/x/exp/strings v0.0.0-20260116010723-b770f9f0bfed
 ## explicit; go 1.24.0
 github.com/charmbracelet/x/exp/strings
+# github.com/charmbracelet/x/exp/teatest/v2 v2.0.0-20260608090822-c3ad58c6c9e5
+## explicit; go 1.24.2
+github.com/charmbracelet/x/exp/teatest/v2
 # github.com/charmbracelet/x/term v0.2.2
 ## explicit; go 1.24.0
 github.com/charmbracelet/x/term
