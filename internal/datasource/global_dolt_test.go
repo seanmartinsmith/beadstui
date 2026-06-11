@@ -224,7 +224,10 @@ func TestBuildLabelsQuery(t *testing.T) {
 }
 
 func TestBuildDependenciesQuery(t *testing.T) {
-	query, err := buildDependenciesQuery([]string{"alpha", "beta"})
+	// Schema v50: polymorphic target columns coalesce into depends_on_id.
+	newSchema := map[string]bool{"depends_on_issue_id": true, "depends_on_external": true}
+	columnsByDB := map[string]map[string]bool{"alpha": newSchema, "beta": newSchema}
+	query, err := buildDependenciesQuery([]string{"alpha", "beta"}, columnsByDB)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -233,8 +236,31 @@ func TestBuildDependenciesQuery(t *testing.T) {
 	if !strings.Contains(query, ", type,") {
 		t.Error("should use 'type' column, not 'dependency_type'")
 	}
-	if !strings.Contains(query, "depends_on_id") {
-		t.Error("should include depends_on_id column")
+	// New-schema targets must coalesce into the depends_on_id alias the scan expects.
+	if !strings.Contains(query, "COALESCE(depends_on_issue_id, depends_on_external) AS depends_on_id") {
+		t.Errorf("should coalesce polymorphic targets into depends_on_id, got: %s", query)
+	}
+}
+
+func TestDependsOnTargetExpr(t *testing.T) {
+	cases := []struct {
+		name string
+		cols map[string]bool
+		want string
+	}{
+		{"v50_both", map[string]bool{"depends_on_issue_id": true, "depends_on_external": true},
+			"COALESCE(depends_on_issue_id, depends_on_external) AS depends_on_id"},
+		{"v50_issue_only", map[string]bool{"depends_on_issue_id": true},
+			"depends_on_issue_id AS depends_on_id"},
+		{"legacy", map[string]bool{"depends_on_id": true}, "depends_on_id"},
+		{"empty", map[string]bool{}, "NULL AS depends_on_id"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := dependsOnTargetExpr(tc.cols); got != tc.want {
+				t.Errorf("dependsOnTargetExpr(%v) = %q, want %q", tc.cols, got, tc.want)
+			}
+		})
 	}
 }
 

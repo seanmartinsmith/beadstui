@@ -30,6 +30,7 @@ type DoltReader struct {
 	db            *sql.DB
 	dsn           string
 	availableCols map[string]bool // issues-table columns present on this server (bt-edi)
+	depCols       map[string]bool // dependencies-table columns present (bt-yboer)
 }
 
 // NewDoltReader opens a MySQL connection to the running Dolt server.
@@ -63,21 +64,34 @@ func NewDoltReader(source DataSource) (*DoltReader, error) {
 	// Probe issues-table columns so the scan path can NULL-substitute any
 	// missing ones (bt-edi). Mirrors the multi-DB behavior in global_dolt.go;
 	// keeps bt resilient when upstream beads drops or renames a column.
-	availableCols, err := loadIssuesColumns(db)
+	availableCols, err := loadTableColumns(db, "issues")
 	if err != nil {
 		db.Close()
 		return nil, fmt.Errorf("cannot probe issues columns: %w", err)
 	}
 
-	return &DoltReader{db: db, dsn: source.Path, availableCols: availableCols}, nil
+	// Probe dependencies-table columns so the dependency read adapts to the
+	// schema-v50 polymorphic target split (bt-yboer). A missing table yields
+	// an empty set, which loadDependencies tolerates.
+	depCols, err := loadTableColumns(db, "dependencies")
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("cannot probe dependencies columns: %w", err)
+	}
+
+	return &DoltReader{db: db, dsn: source.Path, availableCols: availableCols, depCols: depCols}, nil
 }
 
-// loadIssuesColumns returns the set of column names on the current
-// database's issues table.
-func loadIssuesColumns(db *sql.DB) (map[string]bool, error) {
-	rows, err := db.Query(
+// loadTableColumns returns the set of column names present on the named table
+// in the current database. Empty set if the table does not exist.
+//
+// Uses string interpolation, not a placeholder: parameterized queries can be
+// unreliable against Dolt's information_schema (see databasesWithTable). table
+// is an internal constant ("issues", "dependencies"), never user input.
+func loadTableColumns(db *sql.DB, table string) (map[string]bool, error) {
+	rows, err := db.Query(fmt.Sprintf(
 		`SELECT COLUMN_NAME FROM information_schema.columns
-		 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'issues'`)
+		 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = '%s'`, escapeSQLString(table)))
 	if err != nil {
 		return nil, err
 	}
@@ -374,8 +388,12 @@ func (r *DoltReader) loadLabels(issueID string) []string {
 }
 
 // loadDependencies reads dependencies (uses `type` column, not `dependency_type`).
+// The target id is resolved via dependsOnTargetExpr to absorb the schema-v50
+// depends_on_id -> {issue,external,wisp} split (bt-yboer). Wisp-only edges
+// resolve to NULL and are skipped: bt has no wisp surface.
 func (r *DoltReader) loadDependencies(issueID string) []*model.Dependency {
-	rows, err := r.db.Query("SELECT depends_on_id, type FROM dependencies WHERE issue_id = ?", issueID)
+	query := "SELECT " + dependsOnTargetExpr(r.depCols) + ", type FROM dependencies WHERE issue_id = ?"
+	rows, err := r.db.Query(query, issueID)
 	if err != nil {
 		return nil
 	}
@@ -383,14 +401,19 @@ func (r *DoltReader) loadDependencies(issueID string) []*model.Dependency {
 
 	var deps []*model.Dependency
 	for rows.Next() {
-		var dep model.Dependency
+		var dependsOnID sql.NullString
 		var depType string
-		if err := rows.Scan(&dep.DependsOnID, &depType); err != nil {
+		if err := rows.Scan(&dependsOnID, &depType); err != nil {
 			continue
 		}
-		dep.IssueID = issueID
-		dep.Type = model.DependencyType(depType)
-		deps = append(deps, &dep)
+		if !dependsOnID.Valid || dependsOnID.String == "" {
+			continue
+		}
+		deps = append(deps, &model.Dependency{
+			IssueID:     issueID,
+			DependsOnID: dependsOnID.String,
+			Type:        model.DependencyType(depType),
+		})
 	}
 	return deps
 }

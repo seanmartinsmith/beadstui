@@ -504,8 +504,42 @@ func buildLabelsQuery(databases []string) (string, error) {
 	return strings.Join(parts, " UNION ALL "), nil
 }
 
-// buildDependenciesQuery generates a UNION ALL query for dependencies across all databases.
-func buildDependenciesQuery(databases []string) (string, error) {
+// dependsOnTargetExpr returns the SQL expression that yields a single dependency
+// target id, aliased as depends_on_id, given the columns present on a database's
+// dependencies table.
+//
+// beads schema v50 (bt-yboer) split the legacy single depends_on_id column into
+// a polymorphic target triple: depends_on_issue_id, depends_on_external, and
+// depends_on_wisp_id. bt models issue-to-issue and cross-project (external)
+// edges, so it coalesces those two; wisp targets resolve to NULL and are skipped
+// by the scan loop since bt has no wisp surface. Older databases that still carry
+// the legacy depends_on_id column fall back to it, keeping mixed-version Dolt
+// servers (bt-ebzy) working. A dependencies table with none of these columns
+// emits NULL to preserve UNION ALL arity.
+func dependsOnTargetExpr(cols map[string]bool) string {
+	var targets []string
+	if cols["depends_on_issue_id"] {
+		targets = append(targets, "depends_on_issue_id")
+	}
+	if cols["depends_on_external"] {
+		targets = append(targets, "depends_on_external")
+	}
+	switch {
+	case len(targets) == 1:
+		return targets[0] + " AS depends_on_id"
+	case len(targets) > 1:
+		return "COALESCE(" + strings.Join(targets, ", ") + ") AS depends_on_id"
+	case cols["depends_on_id"]:
+		return "depends_on_id"
+	default:
+		return "NULL AS depends_on_id"
+	}
+}
+
+// buildDependenciesQuery generates a UNION ALL query for dependencies across all
+// databases. columnsByDB carries each database's dependencies-table column set so
+// the per-database target expression adapts to schema drift (bt-yboer).
+func buildDependenciesQuery(databases []string, columnsByDB map[string]map[string]bool) (string, error) {
 	if len(databases) == 0 {
 		return "", fmt.Errorf("no databases provided")
 	}
@@ -514,8 +548,8 @@ func buildDependenciesQuery(databases []string) (string, error) {
 	for _, db := range databases {
 		quoted := backtickQuote(db)
 		// Dolt uses `type`, not `dependency_type`
-		part := fmt.Sprintf("SELECT issue_id, depends_on_id, type, '%s' AS _db FROM %s.dependencies",
-			escapeSQLString(db), quoted)
+		part := fmt.Sprintf("SELECT issue_id, %s, type, '%s' AS _db FROM %s.dependencies",
+			dependsOnTargetExpr(columnsByDB[db]), escapeSQLString(db), quoted)
 		parts = append(parts, part)
 	}
 
@@ -767,7 +801,8 @@ func (r *GlobalDoltReader) loadAllDependencies(issueMap map[string]*model.Issue)
 		return nil
 	}
 
-	query, err := buildDependenciesQuery(dbs)
+	columnsByDB := columnsByDatabase(r.db, dbs, "dependencies")
+	query, err := buildDependenciesQuery(dbs, columnsByDB)
 	if err != nil {
 		return err
 	}
@@ -779,14 +814,20 @@ func (r *GlobalDoltReader) loadAllDependencies(issueMap map[string]*model.Issue)
 	defer rows.Close()
 
 	for rows.Next() {
-		var issueID, dependsOnID, depType, db string
+		var issueID, depType, db string
+		var dependsOnID sql.NullString
 		if err := rows.Scan(&issueID, &dependsOnID, &depType, &db); err != nil {
+			continue
+		}
+		// Wisp-only edges (and any empty target) resolve to NULL: bt has no
+		// wisp surface, so skip rather than create a dangling dependency.
+		if !dependsOnID.Valid || dependsOnID.String == "" {
 			continue
 		}
 		if issue, ok := issueMap[issueID]; ok {
 			issue.Dependencies = append(issue.Dependencies, &model.Dependency{
 				IssueID:     issueID,
-				DependsOnID: dependsOnID,
+				DependsOnID: dependsOnID.String,
 				Type:        model.DependencyType(depType),
 			})
 		}
