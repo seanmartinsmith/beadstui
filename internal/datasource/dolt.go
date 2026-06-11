@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -168,6 +169,11 @@ func (r *DoltReader) LoadIssuesFiltered(filter func(*model.Issue) bool) ([]model
 
 	rows, err := r.db.Query(query)
 	if err != nil {
+		// The primary query already NULL-substitutes missing columns (bt-edi),
+		// so reaching here means a non-column failure. Surface it instead of
+		// degrading silently, then fall back to the reduced column set (bt-ws2g).
+		slog.Warn("single-DB issues query failed; falling back to reduced column set",
+			"error", err)
 		return r.loadIssuesSimple(filter)
 	}
 	defer rows.Close()
@@ -376,7 +382,12 @@ func (r *DoltReader) loadIssuesSimple(filter func(*model.Issue) bool) ([]model.I
 			issue.UpdatedAt = updatedAt.Time
 		}
 
+		// Load relations even on the fallback path so a degraded read still
+		// shows edges and comments instead of a plausible-but-wrong empty graph
+		// (bt-ws2g). These readers are independently schema-drift tolerant.
 		issue.Labels = r.loadLabels(issue.ID)
+		issue.Dependencies = r.loadDependencies(issue.ID)
+		issue.Comments = r.loadComments(issue.ID)
 
 		if filter != nil && !filter(&issue) {
 			continue
