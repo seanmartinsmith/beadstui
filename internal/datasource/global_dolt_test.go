@@ -204,7 +204,9 @@ func TestSelectColumnExprs(t *testing.T) {
 }
 
 func TestBuildLabelsQuery(t *testing.T) {
-	query, err := buildLabelsQuery([]string{"proj_a", "proj-b"})
+	full := map[string]bool{"issue_id": true, "label": true}
+	columnsByDB := map[string]map[string]bool{"proj_a": full, "proj-b": full}
+	query, err := buildLabelsQuery([]string{"proj_a", "proj-b"}, columnsByDB)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -220,6 +222,17 @@ func TestBuildLabelsQuery(t *testing.T) {
 	}
 	if strings.Count(query, "UNION ALL") != 1 {
 		t.Error("two databases should produce one UNION ALL")
+	}
+
+	// Schema drift: a database missing the label column NULL-substitutes it
+	// instead of failing the UNION (bt-2qwo1).
+	drift := map[string]map[string]bool{"proj_a": full, "proj-b": {"issue_id": true}}
+	driftQuery, err := buildLabelsQuery([]string{"proj_a", "proj-b"}, drift)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(driftQuery, "NULL AS label") {
+		t.Errorf("missing label column should emit NULL AS label, got: %s", driftQuery)
 	}
 }
 
@@ -265,7 +278,9 @@ func TestDependsOnTargetExpr(t *testing.T) {
 }
 
 func TestBuildCommentsQuery(t *testing.T) {
-	query, err := buildCommentsQuery([]string{"one", "two", "three"})
+	full := map[string]bool{"id": true, "issue_id": true, "author": true, "text": true, "created_at": true}
+	columnsByDB := map[string]map[string]bool{"one": full, "two": full, "three": full}
+	query, err := buildCommentsQuery([]string{"one", "two", "three"}, columnsByDB)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -275,6 +290,21 @@ func TestBuildCommentsQuery(t *testing.T) {
 	}
 	if strings.Count(query, "UNION ALL") != 2 {
 		t.Error("three databases should produce two UNION ALL")
+	}
+
+	// Schema drift: a database missing the text column NULL-substitutes it
+	// instead of failing the UNION (bt-2qwo1).
+	drift := map[string]map[string]bool{
+		"one":   full,
+		"two":   {"id": true, "issue_id": true, "author": true, "created_at": true},
+		"three": full,
+	}
+	driftQuery, err := buildCommentsQuery([]string{"one", "two", "three"}, drift)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(driftQuery, "NULL AS text") {
+		t.Errorf("missing text column should emit NULL AS text, got: %s", driftQuery)
 	}
 }
 

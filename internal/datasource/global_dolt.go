@@ -488,7 +488,9 @@ func buildIssuesQuery(databases []string, columnsByDB map[string]map[string]bool
 }
 
 // buildLabelsQuery generates a UNION ALL query for labels across all databases.
-func buildLabelsQuery(databases []string) (string, error) {
+// columnsByDB carries each database's labels-table column set so a dropped or
+// renamed column NULL-substitutes instead of failing the UNION (bt-2qwo1).
+func buildLabelsQuery(databases []string, columnsByDB map[string]map[string]bool) (string, error) {
 	if len(databases) == 0 {
 		return "", fmt.Errorf("no databases provided")
 	}
@@ -496,8 +498,9 @@ func buildLabelsQuery(databases []string) (string, error) {
 	var parts []string
 	for _, db := range databases {
 		quoted := backtickQuote(db)
-		part := fmt.Sprintf("SELECT issue_id, label, '%s' AS _db FROM %s.labels",
-			escapeSQLString(db), quoted)
+		exprs := selectColumnExprs([]string{"issue_id", "label"}, columnsByDB[db])
+		part := fmt.Sprintf("SELECT %s, '%s' AS _db FROM %s.labels",
+			exprs, escapeSQLString(db), quoted)
 		parts = append(parts, part)
 	}
 
@@ -557,7 +560,9 @@ func buildDependenciesQuery(databases []string, columnsByDB map[string]map[strin
 }
 
 // buildCommentsQuery generates a UNION ALL query for comments across all databases.
-func buildCommentsQuery(databases []string) (string, error) {
+// columnsByDB carries each database's comments-table column set so a dropped or
+// renamed column NULL-substitutes instead of failing the UNION (bt-2qwo1).
+func buildCommentsQuery(databases []string, columnsByDB map[string]map[string]bool) (string, error) {
 	if len(databases) == 0 {
 		return "", fmt.Errorf("no databases provided")
 	}
@@ -565,8 +570,9 @@ func buildCommentsQuery(databases []string) (string, error) {
 	var parts []string
 	for _, db := range databases {
 		quoted := backtickQuote(db)
-		part := fmt.Sprintf("SELECT id, issue_id, author, text, created_at, '%s' AS _db FROM %s.comments",
-			escapeSQLString(db), quoted)
+		exprs := selectColumnExprs([]string{"id", "issue_id", "author", "text", "created_at"}, columnsByDB[db])
+		part := fmt.Sprintf("SELECT %s, '%s' AS _db FROM %s.comments",
+			exprs, escapeSQLString(db), quoted)
 		parts = append(parts, part)
 	}
 
@@ -770,7 +776,8 @@ func (r *GlobalDoltReader) loadAllLabels(issueMap map[string]*model.Issue) error
 		return nil
 	}
 
-	query, err := buildLabelsQuery(dbs)
+	columnsByDB := columnsByDatabase(r.db, dbs, "labels")
+	query, err := buildLabelsQuery(dbs, columnsByDB)
 	if err != nil {
 		return err
 	}
@@ -782,12 +789,16 @@ func (r *GlobalDoltReader) loadAllLabels(issueMap map[string]*model.Issue) error
 	defer rows.Close()
 
 	for rows.Next() {
-		var issueID, label, db string
+		var issueID, db string
+		var label sql.NullString
 		if err := rows.Scan(&issueID, &label, &db); err != nil {
 			continue
 		}
+		if !label.Valid || label.String == "" {
+			continue
+		}
 		if issue, ok := issueMap[issueID]; ok {
-			issue.Labels = append(issue.Labels, label)
+			issue.Labels = append(issue.Labels, label.String)
 		}
 	}
 	return rows.Err()
@@ -843,7 +854,8 @@ func (r *GlobalDoltReader) loadAllComments(issueMap map[string]*model.Issue) err
 		return nil // no databases have comments
 	}
 
-	query, err := buildCommentsQuery(dbs)
+	columnsByDB := columnsByDatabase(r.db, dbs, "comments")
+	query, err := buildCommentsQuery(dbs, columnsByDB)
 	if err != nil {
 		return err
 	}
@@ -856,15 +868,20 @@ func (r *GlobalDoltReader) loadAllComments(issueMap map[string]*model.Issue) err
 
 	for rows.Next() {
 		var comment model.Comment
+		var id, author, text sql.NullString
 		var createdAt sql.NullTime
-		var db string
-		if err := rows.Scan(&comment.ID, &comment.IssueID, &comment.Author, &comment.Text, &createdAt, &db); err != nil {
+		var issueID, db string
+		if err := rows.Scan(&id, &issueID, &author, &text, &createdAt, &db); err != nil {
 			continue
 		}
+		comment.ID = id.String
+		comment.IssueID = issueID
+		comment.Author = author.String
+		comment.Text = text.String
 		if createdAt.Valid {
 			comment.CreatedAt = createdAt.Time
 		}
-		if issue, ok := issueMap[comment.IssueID]; ok {
+		if issue, ok := issueMap[issueID]; ok {
 			issue.Comments = append(issue.Comments, &comment)
 		}
 	}

@@ -31,6 +31,8 @@ type DoltReader struct {
 	dsn           string
 	availableCols map[string]bool // issues-table columns present on this server (bt-edi)
 	depCols       map[string]bool // dependencies-table columns present (bt-yboer)
+	labelCols     map[string]bool // labels-table columns present (bt-2qwo1)
+	commentCols   map[string]bool // comments-table columns present (bt-2qwo1)
 }
 
 // NewDoltReader opens a MySQL connection to the running Dolt server.
@@ -79,7 +81,28 @@ func NewDoltReader(source DataSource) (*DoltReader, error) {
 		return nil, fmt.Errorf("cannot probe dependencies columns: %w", err)
 	}
 
-	return &DoltReader{db: db, dsn: source.Path, availableCols: availableCols, depCols: depCols}, nil
+	// Probe labels/comments columns so those reads NULL-substitute a dropped or
+	// renamed column instead of failing the query (bt-2qwo1), mirroring the
+	// issues and dependencies probes above.
+	labelCols, err := loadTableColumns(db, "labels")
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("cannot probe labels columns: %w", err)
+	}
+	commentCols, err := loadTableColumns(db, "comments")
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("cannot probe comments columns: %w", err)
+	}
+
+	return &DoltReader{
+		db:            db,
+		dsn:           source.Path,
+		availableCols: availableCols,
+		depCols:       depCols,
+		labelCols:     labelCols,
+		commentCols:   commentCols,
+	}, nil
 }
 
 // loadTableColumns returns the set of column names present on the named table
@@ -368,9 +391,12 @@ func (r *DoltReader) loadIssuesSimple(filter func(*model.Issue) bool) ([]model.I
 	return issues, nil
 }
 
-// loadLabels reads labels from the separate labels table.
+// loadLabels reads labels from the separate labels table. The label column is
+// selected defensively (NULL-substituted if absent) so a schema drift degrades
+// to empty labels rather than failing the query (bt-2qwo1).
 func (r *DoltReader) loadLabels(issueID string) []string {
-	rows, err := r.db.Query("SELECT label FROM labels WHERE issue_id = ?", issueID)
+	query := "SELECT " + selectColumnExprs([]string{"label"}, r.labelCols) + " FROM labels WHERE issue_id = ?"
+	rows, err := r.db.Query(query, issueID)
 	if err != nil {
 		return nil
 	}
@@ -378,11 +404,14 @@ func (r *DoltReader) loadLabels(issueID string) []string {
 
 	var labels []string
 	for rows.Next() {
-		var label string
+		var label sql.NullString
 		if err := rows.Scan(&label); err != nil {
 			continue
 		}
-		labels = append(labels, label)
+		if !label.Valid || label.String == "" {
+			continue
+		}
+		labels = append(labels, label.String)
 	}
 	return labels
 }
@@ -418,9 +447,13 @@ func (r *DoltReader) loadDependencies(issueID string) []*model.Dependency {
 	return deps
 }
 
-// loadComments reads comments for an issue.
+// loadComments reads comments for an issue. Columns are selected defensively
+// (NULL-substituted if absent) so a schema drift degrades to empty fields
+// rather than failing the query (bt-2qwo1).
 func (r *DoltReader) loadComments(issueID string) []*model.Comment {
-	rows, err := r.db.Query("SELECT id, author, text, created_at FROM comments WHERE issue_id = ? ORDER BY created_at", issueID)
+	query := "SELECT " + selectColumnExprs([]string{"id", "author", "text", "created_at"}, r.commentCols) +
+		" FROM comments WHERE issue_id = ? ORDER BY created_at"
+	rows, err := r.db.Query(query, issueID)
 	if err != nil {
 		return nil
 	}
@@ -429,10 +462,14 @@ func (r *DoltReader) loadComments(issueID string) []*model.Comment {
 	var comments []*model.Comment
 	for rows.Next() {
 		var comment model.Comment
+		var id, author, text sql.NullString
 		var createdAt sql.NullTime
-		if err := rows.Scan(&comment.ID, &comment.Author, &comment.Text, &createdAt); err != nil {
+		if err := rows.Scan(&id, &author, &text, &createdAt); err != nil {
 			continue
 		}
+		comment.ID = id.String
+		comment.Author = author.String
+		comment.Text = text.String
 		if createdAt.Valid {
 			comment.CreatedAt = createdAt.Time
 		}
