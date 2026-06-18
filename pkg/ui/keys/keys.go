@@ -20,13 +20,16 @@ package keys
 // ListSearch, not List.Normal + List.Search) per ADR-004 Decision 7. This
 // keeps reflection-based tests one-level and matches Decision 7's "~15
 // Maps total" cardinality: the .2 spine sets this convention for the
-// upcoming HistoryNormal/HistorySearch/HistoryFileTree (.6),
-// BoardNormal/BoardSearch (.3), and LabelPickerNav/LabelPickerSearch (.9).
+// HistoryNormal/HistorySearch/HistoryFileTree (.6) and
+// BoardNormal/BoardSearch (.3) sub-state Maps.
 //
 // bt-ift6.1 wired Global + Tree at minimum. bt-ift6.2 adds ListNormal +
-// ListSearch; bt-ift6.3 adds BoardNormal + BoardSearch; bt-ift6.5 adds
-// Insights; bt-ift6.6 adds HistoryNormal + HistorySearch + HistoryFileTree;
-// bt-ift6.7 adds Actionable; bt-ift6.4/.7-.9 add the rest.
+// ListSearch; bt-ift6.3 adds BoardNormal + BoardSearch; bt-ift6.4 adds
+// Graph; bt-ift6.5 adds Insights; bt-ift6.6 adds HistoryNormal +
+// HistorySearch + HistoryFileTree; bt-ift6.7 adds Actionable; bt-ift6.8
+// adds FlowMatrix. bt-ift6.9 (modal Maps: LabelPicker*, RecipePicker,
+// BQLQuery, TimeTravelInput, RepoPicker) is deferred pending a clean
+// reimplementation - see the bead.
 type AppKeys struct {
 	Global     GlobalKeys
 	Tree       TreeKeys
@@ -48,15 +51,6 @@ type AppKeys struct {
 	Actionable ActionableKeys
 	FlowMatrix FlowMatrixKeys
 	Graph      GraphKeys
-
-	// Modal Maps (bt-ift6.9). LabelPicker splits into two sub-state Maps
-	// per ADR-004 Decision 7; the others are one Map each.
-	LabelPickerNav    LabelPickerNavKeys
-	LabelPickerSearch LabelPickerSearchKeys
-	RecipePicker      RecipePickerKeys
-	BQLQuery          BQLQueryKeys
-	TimeTravelInput   TimeTravelInputKeys
-	RepoPicker        RepoPickerKeys
 }
 
 // NewAppKeys returns the default keymap for every view. Wire into NewModel.
@@ -80,13 +74,5 @@ func NewAppKeys() AppKeys {
 		Actionable: NewActionableKeys(),
 		FlowMatrix: NewFlowMatrixKeys(),
 		Graph:      NewGraphKeys(),
-
-		// Modal Maps (bt-ift6.9)
-		LabelPickerNav:    NewLabelPickerNavKeys(),
-		LabelPickerSearch: NewLabelPickerSearchKeys(),
-		RecipePicker:      NewRecipePickerKeys(),
-		BQLQuery:          NewBQLQueryKeys(),
-		TimeTravelInput:   NewTimeTravelInputKeys(),
-		RepoPicker:        NewRepoPickerKeys(),
 	}
 }
