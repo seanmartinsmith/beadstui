@@ -1,18 +1,22 @@
 package ui
 
-import tea "charm.land/bubbletea/v2"
+import (
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+)
 
 // handleActionableKeys handles keyboard input when actionable view is focused.
 //
-// Body unchanged from the pre-bt-ift6.1 model_keys.go split. Conversion to
-// dispatch via key.Matches against m.keys.Actionable lands in bt-ift6.7.
+// Dispatches via key.Matches against m.keys.Actionable per ADR-004
+// Decision 1. Converted from switch msg.String() in bt-ift6.7.
 func (m Model) handleActionableKeys(msg tea.KeyMsg) Model {
-	switch msg.String() {
-	case "j", "down":
+	k := m.keys.Actionable
+	switch {
+	case key.Matches(msg, k.Down):
 		m.actionableView.MoveDown()
-	case "k", "up":
+	case key.Matches(msg, k.Up):
 		m.actionableView.MoveUp()
-	case "enter":
+	case key.Matches(msg, k.Enter):
 		// Jump to selected issue in list view
 		selectedID := m.actionableView.SelectedIssueID()
 		if selectedID != "" {
