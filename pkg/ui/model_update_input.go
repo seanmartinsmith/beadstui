@@ -1721,7 +1721,9 @@ func (m Model) handleMouseWheel(msg tea.MouseWheelMsg) (Model, tea.Cmd) {
 // Phase 2 via a generation-counter settle tick.
 func (m Model) handleWindowSize(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
 	wsStart := time.Now()
-	defer func() { debug.LogTiming(fmt.Sprintf("handleWindowSize w=%d h=%d", msg.Width, msg.Height), time.Since(wsStart)) }()
+	defer func() {
+		debug.LogTiming(fmt.Sprintf("handleWindowSize w=%d h=%d", msg.Width, msg.Height), time.Since(wsStart))
+	}()
 	m.width = msg.Width
 	m.height = msg.Height
 	// Layout against bodyWidth so the shortcuts sidebar (when visible) gets

@@ -3,115 +3,130 @@ package ui
 import (
 	"fmt"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"github.com/atotto/clipboard"
 )
 
-// handleBoardKeys handles keyboard input when the board is focused (bv-yg39).
+// handleBoardKeys handles keyboard input when the board is focused.
 //
-// Body unchanged from the pre-bt-ift6.1 model_keys.go split. Conversion to
-// dispatch via key.Matches against m.keys.Board (split into BoardNormalKeys
-// + BoardSearchKeys per ADR-004 Decision 7) lands in bt-ift6.3.
+// Dispatches via key.Matches against m.keys.BoardNormal or
+// m.keys.BoardSearch depending on m.board.IsSearchMode(), per ADR-004
+// Decision 7. The dispatcher in model_update_input.go short-circuits here
+// before global view-switch keys when IsSearchMode() is true, so typed
+// letters reach board.AppendSearchChar without being intercepted (the
+// letter-leak bug documented in bt-ift6.3 comments).
+//
+// gg-combo (IsWaitingForG) remains a conditional inside the normal-mode
+// branch -- single keystroke, not a dwellable sub-state, per Decision 7.
 func (m Model) handleBoardKeys(msg tea.KeyMsg) Model {
-	key := msg.String()
-
-	// ═══════════════════════════════════════════════════════════════════════════
+	// ===========================================================================
 	// Search mode input handling (bv-yg39)
-	// ═══════════════════════════════════════════════════════════════════════════
+	// ===========================================================================
 	if m.board.IsSearchMode() {
-		switch key {
-		case "esc":
+		ks := m.keys.BoardSearch
+		switch {
+		case key.Matches(msg, ks.Cancel):
 			m.board.CancelSearch()
-		case "enter":
-			// Keep search results but exit search mode
+			// Disable n/N in normal mode until next search-start
+			m.keys.BoardNormal.NextMatch.SetEnabled(false)
+			m.keys.BoardNormal.PrevMatch.SetEnabled(false)
+		case key.Matches(msg, ks.Finish):
+			// Keep search results but exit search mode; n/N remain enabled
 			m.board.FinishSearch()
-		case "backspace":
+		case key.Matches(msg, ks.Backspace):
 			m.board.BackspaceSearch()
-		case "n":
+		case key.Matches(msg, ks.NextMatch):
 			m.board.NextMatch()
-		case "N":
+		case key.Matches(msg, ks.PrevMatch):
 			m.board.PrevMatch()
 		default:
 			// Append printable characters to search query
-			if len(key) == 1 {
-				m.board.AppendSearchChar(rune(key[0]))
+			k := msg.String()
+			if len(k) == 1 {
+				m.board.AppendSearchChar(rune(k[0]))
 			}
 		}
 		return m
 	}
 
-	// ═══════════════════════════════════════════════════════════════════════════
+	// ===========================================================================
 	// Vim 'gg' combo handling (bv-yg39)
-	// ═══════════════════════════════════════════════════════════════════════════
+	// ===========================================================================
+	kn := m.keys.BoardNormal
 	if m.board.IsWaitingForG() {
 		m.board.ClearWaitingForG()
-		if key == "g" {
+		if key.Matches(msg, kn.GotoTop) {
 			m.board.MoveToTop()
 			return m
 		}
 		// Not a second 'g', fall through to normal handling
 	}
 
-	// ═══════════════════════════════════════════════════════════════════════════
+	// ===========================================================================
 	// Normal key handling (bv-yg39 enhanced)
-	// ═══════════════════════════════════════════════════════════════════════════
-	switch key {
-	// Basic navigation (existing)
-	case "h", "left":
+	// ===========================================================================
+	switch {
+	// Column nav
+	case key.Matches(msg, kn.Left):
 		m.board.MoveLeft()
-	case "l", "right":
+	case key.Matches(msg, kn.Right):
 		m.board.MoveRight()
-	case "j", "down":
+
+	// Item nav
+	case key.Matches(msg, kn.Down):
 		m.board.MoveDown()
-	case "k", "up":
+	case key.Matches(msg, kn.Up):
 		m.board.MoveUp()
-	case "home":
+	case key.Matches(msg, kn.JumpTop):
 		m.board.MoveToTop()
-	case "G", "end":
+	case key.Matches(msg, kn.JumpBottom):
 		m.board.MoveToBottom()
-	case "ctrl+d":
+	case key.Matches(msg, kn.PageDown):
 		m.board.PageDown(m.height / 3)
-	case "ctrl+u":
+	case key.Matches(msg, kn.PageUp):
 		m.board.PageUp(m.height / 3)
 
-	// Column jumping (bv-yg39)
-	case "1":
-		m.board.JumpToColumn(ColOpen)
-	case "2":
-		m.board.JumpToColumn(ColInProgress)
-	case "3":
-		m.board.JumpToColumn(ColBlocked)
-	case "4":
-		m.board.JumpToColumn(ColClosed)
-	case "H":
+	// Column jumping
+	case key.Matches(msg, kn.JumpFirst):
 		m.board.JumpToFirstColumn()
-	case "L":
+	case key.Matches(msg, kn.JumpLast):
 		m.board.JumpToLastColumn()
+	case key.Matches(msg, kn.JumpCol1):
+		m.board.JumpToColumn(ColOpen)
+	case key.Matches(msg, kn.JumpCol2):
+		m.board.JumpToColumn(ColInProgress)
+	case key.Matches(msg, kn.JumpCol3):
+		m.board.JumpToColumn(ColBlocked)
+	case key.Matches(msg, kn.JumpCol4):
+		m.board.JumpToColumn(ColClosed)
 
-	// Vim-style navigation (bv-yg39)
-	case "g":
-		m.board.SetWaitingForG() // Wait for second 'g'
-	case "0":
-		m.board.MoveToTop() // First item in column
-	case "$":
-		m.board.MoveToBottom() // Last item in column
+	// Vim-style positional nav
+	case key.Matches(msg, kn.GotoTop):
+		// First 'g' -- wait for second to complete gg combo
+		m.board.SetWaitingForG()
+	case key.Matches(msg, kn.JumpColEnd):
+		m.board.MoveToBottom()
 
-	// Search (bv-yg39)
-	case "/":
+	// Search
+	case key.Matches(msg, kn.Search):
 		m.board.StartSearch()
+		// Enable n/N now that a search is active
+		m.keys.BoardNormal.NextMatch.SetEnabled(true)
+		m.keys.BoardNormal.PrevMatch.SetEnabled(true)
 
-	// Search navigation when not in search mode (bv-yg39)
-	case "n":
+	// Search navigation when not in search mode
+	case key.Matches(msg, kn.NextMatch):
 		if m.board.SearchMatchCount() > 0 {
 			m.board.NextMatch()
 		}
-	case "N":
+	case key.Matches(msg, kn.PrevMatch):
 		if m.board.SearchMatchCount() > 0 {
 			m.board.PrevMatch()
 		}
 
 	// Copy ID to clipboard (bv-yg39)
-	case "y":
+	case key.Matches(msg, kn.CopyID):
 		if selected := m.board.SelectedIssue(); selected != nil {
 			if err := clipboard.WriteAll(selected.ID); err != nil {
 				m.setStatusError(fmt.Sprintf("Clipboard error: %v", err))
@@ -120,8 +135,10 @@ func (m Model) handleBoardKeys(msg tea.KeyMsg) Model {
 			}
 		}
 
-	// Global filter keys (bv-naov) - toggle: press again to revert to all
-	case "o":
+	// Global filter keys (bv-naov) - toggle: press again to revert to all.
+	// Note: o/c/r shadow GlobalKeys candidates in board context; the
+	// board-search dispatcher guard ensures these only run in normal mode.
+	case key.Matches(msg, m.keys.ListNormal.FilterOpen):
 		m.filter.activeBQLExpr = nil
 		if m.filter.currentFilter == "open" {
 			m.filter.currentFilter = "all"
@@ -131,7 +148,7 @@ func (m Model) handleBoardKeys(msg tea.KeyMsg) Model {
 			m.setStatus("Filter: Open issues")
 		}
 		m.applyFilter()
-	case "c":
+	case key.Matches(msg, m.keys.ListNormal.FilterClosed):
 		m.filter.activeBQLExpr = nil
 		if m.filter.currentFilter == "closed" {
 			m.filter.currentFilter = "all"
@@ -141,7 +158,7 @@ func (m Model) handleBoardKeys(msg tea.KeyMsg) Model {
 			m.setStatus("Filter: Closed issues")
 		}
 		m.applyFilter()
-	case "r":
+	case key.Matches(msg, m.keys.ListNormal.FilterReady):
 		m.filter.activeBQLExpr = nil
 		if m.filter.currentFilter == "ready" {
 			m.filter.currentFilter = "all"
@@ -153,45 +170,45 @@ func (m Model) handleBoardKeys(msg tea.KeyMsg) Model {
 		m.applyFilter()
 
 	// Swimlane mode cycling (bv-wjs0)
-	case "s":
+	case key.Matches(msg, kn.CycleSwim):
 		m.board.CycleSwimLaneMode()
 		modeName := m.board.GetSwimLaneModeName()
-		m.setStatus(fmt.Sprintf("🔀 Swimlane: %s", modeName))
+		m.setStatus(fmt.Sprintf("Swimlane: %s", modeName))
 
 	// Empty column visibility toggle (bv-tf6j)
-	case "e":
+	case key.Matches(msg, kn.ToggleEmpty):
 		m.board.ToggleEmptyColumns()
 		visMode := m.board.GetEmptyColumnVisibilityMode()
 		hidden := m.board.HiddenColumnCount()
 		if hidden > 0 {
-			m.setStatus(fmt.Sprintf("👁 Empty columns: %s (%d hidden)", visMode, hidden))
+			m.setStatus(fmt.Sprintf("Empty columns: %s (%d hidden)", visMode, hidden))
 		} else {
-			m.setStatus(fmt.Sprintf("👁 Empty columns: %s", visMode))
+			m.setStatus(fmt.Sprintf("Empty columns: %s", visMode))
 		}
 
 	// Inline card expansion (bv-i3ii)
-	case "d":
+	case key.Matches(msg, kn.ToggleExpand):
 		m.board.ToggleExpand()
 		if m.board.HasExpandedCard() {
-			m.setStatus("📋 Card expanded (d=collapse, j/k=auto-collapse)")
+			m.setStatus("Card expanded (d=collapse, j/k=auto-collapse)")
 		} else {
-			m.setStatus("📋 Card collapsed")
+			m.setStatus("Card collapsed")
 		}
 
 	// Detail panel (bv-r6kh)
-	case "tab":
+	case key.Matches(msg, kn.DetailToggle):
 		m.board.ToggleDetail()
-	case "ctrl+j":
+	case key.Matches(msg, kn.DetailDown):
 		if m.board.IsDetailShown() {
 			m.board.DetailScrollDown(3)
 		}
-	case "ctrl+k":
+	case key.Matches(msg, kn.DetailUp):
 		if m.board.IsDetailShown() {
 			m.board.DetailScrollUp(3)
 		}
 
 	// Exit to detail view
-	case "enter":
+	case key.Matches(msg, kn.Enter):
 		if selected := m.board.SelectedIssue(); selected != nil {
 			for i, item := range m.list.Items() {
 				if issueItem, ok := item.(IssueItem); ok && issueItem.Issue.ID == selected.ID {
