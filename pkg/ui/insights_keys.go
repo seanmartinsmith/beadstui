@@ -1,39 +1,43 @@
 package ui
 
-import tea "charm.land/bubbletea/v2"
+import (
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+)
 
 // handleInsightsKeys handles keyboard input when insights panel is focused.
 //
-// Body unchanged from the pre-bt-ift6.1 model_keys.go split. Conversion to
-// dispatch via key.Matches against m.keys.Insights lands in bt-ift6.5.
+// Dispatches via key.Matches against m.keys.Insights per ADR-004 Decision 1
+// (bt-ift6.5). No switch msg.String() remains for keybind matching.
 func (m Model) handleInsightsKeys(msg tea.KeyMsg) Model {
-	switch msg.String() {
-	case "esc":
+	k := m.keys.Insights
+	switch {
+	case key.Matches(msg, k.Exit):
 		m.focused = focusList
-	case "j", "down":
+	case key.Matches(msg, k.Down):
 		m.insightsPanel.MoveDown()
-	case "k", "up":
+	case key.Matches(msg, k.Up):
 		m.insightsPanel.MoveUp()
-	case "ctrl+j":
+	case key.Matches(msg, k.ScrollDetailDown):
 		// Scroll detail panel down
 		m.insightsPanel.ScrollDetailDown()
-	case "ctrl+k":
+	case key.Matches(msg, k.ScrollDetailUp):
 		// Scroll detail panel up
 		m.insightsPanel.ScrollDetailUp()
-	case "h", "left":
+	case key.Matches(msg, k.PrevPanel):
 		m.insightsPanel.PrevPanel()
-	case "l", "right", "tab":
+	case key.Matches(msg, k.NextPanel):
 		m.insightsPanel.NextPanel()
-	case "e":
+	case key.Matches(msg, k.Explanations):
 		// Toggle explanations
 		m.insightsPanel.ToggleExplanations()
-	case "x":
+	case key.Matches(msg, k.Calculation):
 		// Toggle calculation details
 		m.insightsPanel.ToggleCalculation()
-	case "m":
+	case key.Matches(msg, k.Heatmap):
 		// Toggle heatmap view (bv-95) - "m" for heatMap
 		m.insightsPanel.ToggleHeatmap()
-	case "enter":
+	case key.Matches(msg, k.JumpToIssue):
 		// Jump to selected issue in list view
 		selectedID := m.insightsPanel.SelectedIssueID()
 		if selectedID != "" {
