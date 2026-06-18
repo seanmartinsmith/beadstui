@@ -3,29 +3,31 @@ package ui
 import (
 	"fmt"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // handleGraphKeys handles keyboard input when the graph view is focused.
 //
-// Body unchanged from the pre-bt-ift6.1 model_keys.go split. Conversion to
-// dispatch via key.Matches against m.keys.Graph lands in bt-ift6.4.
+// Dispatches via key.Matches against m.keys.Graph per ADR-004 Decision 1.
+// Converted from switch msg.String() in bt-ift6.4.
 func (m Model) handleGraphKeys(msg tea.KeyMsg) Model {
-	switch msg.String() {
-	case "h", "left":
+	k := m.keys.Graph
+	switch {
+	case key.Matches(msg, k.MoveLeft):
 		m.graphView.MoveLeft()
-	case "l", "right":
+	case key.Matches(msg, k.MoveRight):
 		m.graphView.MoveRight()
-	case "j", "down":
+	case key.Matches(msg, k.Down):
 		m.graphView.MoveDown()
-	case "k", "up":
+	case key.Matches(msg, k.Up):
 		m.graphView.MoveUp()
-	case "ctrl+d", "pgdown":
+	case key.Matches(msg, k.PageDown):
 		m.graphView.PageDown()
-	case "ctrl+u", "pgup":
+	case key.Matches(msg, k.PageUp):
 		m.graphView.PageUp()
-	case "enter":
+	case key.Matches(msg, k.JumpToIssue):
 		if selected := m.graphView.SelectedIssue(); selected != nil {
 			// Find and select in list
 			for i, item := range m.list.Items() {
@@ -45,7 +47,7 @@ func (m Model) handleGraphKeys(msg tea.KeyMsg) Model {
 			}
 			m.updateViewportContent()
 		}
-	case "s":
+	case key.Matches(msg, k.SwarmToggle):
 		// bt-1knw: toggle swarm wave visualization
 		g := &m.graphView
 		if g.swarmEnabled {
