@@ -3,51 +3,60 @@ package ui
 import (
 	"fmt"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"github.com/atotto/clipboard"
 )
 
 // handleHistoryKeys handles keyboard input when history view is focused.
 //
-// Body unchanged from the pre-bt-ift6.1 model_keys.go split. Conversion to
-// dispatch via key.Matches against m.keys.History (split into HistoryNormalKeys
-// + HistorySearchKeys + HistoryFileTreeKeys per ADR-004 Decision 7) lands in
-// bt-ift6.6.
+// Dispatches via key.Matches against one of three Maps per ADR-004 Decision 7:
+//   - HistorySearchKeys   when m.historyView.IsSearchActive()
+//   - HistoryFileTreeKeys when m.historyView.FileTreeHasFocus()
+//   - HistoryNormalKeys   otherwise
+//
+// The search short-circuit guard at model_update_input.go:812 already ensures
+// this handler is reached only when ViewHistory is active and ModalNone;
+// FileTreeHasFocus is a separate sub-state covered here (bt-ift6.6 comment
+// 2026-05-07 re: letter-leak bug class from bt-ift6.3).
 func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
-	// Handle search input when active (bv-nkrj)
+	// Search sub-state: letters go to search input, only Esc/Enter resolve.
 	if m.historyView.IsSearchActive() {
-		switch msg.String() {
-		case "esc":
+		ks := m.keys.HistorySearch
+		switch {
+		case key.Matches(msg, ks.Cancel):
 			m.historyView.CancelSearch()
-			m.setStatus("🔍 Search cancelled")
+			m.setStatus("Search cancelled")
 			return m
-		case "enter":
+		case key.Matches(msg, ks.Confirm):
 			// Confirm search (just blur input, keep filter active)
 			m.historyView.CancelSearch() // For now, just close search
 			return m
 		default:
-			// Forward to search input
+			// Forward printable input to the search widget
 			m.historyView.UpdateSearchInput(msg)
 			query := m.historyView.SearchQuery()
 			if query != "" {
-				m.setStatus(fmt.Sprintf("🔍 Filtering: %s", query))
+				m.setStatus(fmt.Sprintf("Filtering: %s", query))
 			} else {
-				m.setStatus("🔍 Type to search...")
+				m.setStatus("Type to search...")
 			}
 			return m
 		}
 	}
 
-	// Handle file tree navigation when file tree has focus (bv-190l)
+	// File-tree sub-state: j/k/h/l semantics for tree nav (bv-190l).
+	// Guard prevents letter leakage to global view-switch keys (bt-ift6.6).
 	if m.historyView.FileTreeHasFocus() {
-		switch msg.String() {
-		case "j", "down":
+		kf := m.keys.HistoryFileTree
+		switch {
+		case key.Matches(msg, kf.Down):
 			m.historyView.MoveDownFileTree()
 			return m
-		case "k", "up":
+		case key.Matches(msg, kf.Up):
 			m.historyView.MoveUpFileTree()
 			return m
-		case "enter", "l":
+		case key.Matches(msg, kf.ExpandOrSelect):
 			// Expand directory or select file for filtering
 			node := m.historyView.SelectedFileNode()
 			if node != nil {
@@ -56,77 +65,81 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 				} else {
 					m.historyView.SelectFile()
 					name := m.historyView.SelectedFileName()
-					m.setStatus(fmt.Sprintf("📁 Filtering by: %s", name))
+					m.setStatus(fmt.Sprintf("Filtering by: %s", name))
 				}
 			}
 			return m
-		case "h":
+		case key.Matches(msg, kf.Collapse):
 			// Collapse directory
 			m.historyView.CollapseFileNode()
 			return m
-		case "esc":
+		case key.Matches(msg, kf.ExitFileTree):
 			// If filter is active, clear it; otherwise close file tree
 			if m.historyView.GetFileFilter() != "" {
 				m.historyView.ClearFileFilter()
-				m.setStatus("📁 File filter cleared")
+				m.setStatus("File filter cleared")
 			} else {
 				m.historyView.SetFileTreeFocus(false)
-				m.setStatus("📁 File tree: press Tab to return focus")
+				m.setStatus("File tree: press Tab to return focus")
 			}
 			return m
-		case "tab":
+		case key.Matches(msg, kf.FocusBack):
 			// Switch focus away from file tree
 			m.historyView.SetFileTreeFocus(false)
 			return m
 		}
+		// Unhandled keys in file-tree sub-state are consumed (no fall-through).
+		return m
 	}
 
-	switch msg.String() {
-	case "/":
+	// Normal sub-state.
+	kn := m.keys.HistoryNormal
+	switch {
+	case key.Matches(msg, kn.Search):
 		// Start search (bv-nkrj)
 		m.historyView.StartSearch()
-		m.setStatus("🔍 Type to search commits, beads, authors...")
-	case "v":
+		m.setStatus("Type to search commits, beads, authors...")
+	case key.Matches(msg, kn.ToggleMode):
 		// Toggle between Bead mode and Git mode (bv-tl3n)
 		m.historyView.ToggleViewMode()
 		if m.historyView.IsGitMode() {
-			m.setStatus("🔀 Git Mode: commits on left, related beads on right")
+			m.setStatus("Git Mode: commits on left, related beads on right")
 		} else {
-			m.setStatus("📦 Bead Mode: beads on left, commits on right")
+			m.setStatus("Bead Mode: beads on left, commits on right")
 		}
-	case "j", "down":
+	case key.Matches(msg, kn.Down):
 		if m.historyView.IsGitMode() {
 			m.historyView.MoveDownGit()
 		} else {
 			m.historyView.MoveDown()
 		}
-	case "k", "up":
+	case key.Matches(msg, kn.Up):
 		if m.historyView.IsGitMode() {
 			m.historyView.MoveUpGit()
 		} else {
 			m.historyView.MoveUp()
 		}
-	case "J":
+	case key.Matches(msg, kn.NextRelated):
 		// In git mode: navigate to next related bead; in bead mode: next commit
 		if m.historyView.IsGitMode() {
 			m.historyView.NextRelatedBead()
 		} else {
 			m.historyView.NextCommit()
 		}
-	case "K":
+	case key.Matches(msg, kn.PrevRelated):
 		// In git mode: navigate to prev related bead; in bead mode: prev commit
 		if m.historyView.IsGitMode() {
 			m.historyView.PrevRelatedBead()
 		} else {
 			m.historyView.PrevCommit()
 		}
-	case "ctrl+d", "pgdown":
+	case key.Matches(msg, kn.ScrollDown):
 		// Half-page scroll down on the detail panel (bt-npnh)
 		m.historyView.ScrollDetailHalfPageDown()
-	case "ctrl+u", "pgup":
+	case key.Matches(msg, kn.ScrollUp):
 		// Half-page scroll up on the detail panel (bt-npnh)
 		m.historyView.ScrollDetailHalfPageUp()
-	case "tab":
+	case key.Matches(msg, kn.FocusCycle):
 		// Cycle focus: list -> detail -> file tree (if visible) -> list (bv-190l)
 		if m.historyView.IsFileTreeVisible() {
 			if m.historyView.FileTreeHasFocus() {
@@ -142,7 +155,7 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 		} else {
 			m.historyView.ToggleFocus()
 		}
-	case "enter":
+	case key.Matches(msg, kn.JumpToBead):
 		// Jump to selected bead in main list
 		var selectedID string
 		if m.historyView.IsGitMode() {
@@ -168,7 +181,7 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 			}
 			m.updateViewportContent()
 		}
-	case "y":
+	case key.Matches(msg, kn.CopySHA):
 		// Copy selected commit SHA to clipboard
 		var sha, shortSHA string
 		if m.historyView.IsGitMode() {
@@ -191,26 +204,26 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 		} else {
 			m.setStatusError("No commit selected")
 		}
-	case "c":
+	case key.Matches(msg, kn.CycleConf):
 		// Cycle confidence threshold (only in bead mode)
 		if !m.historyView.IsGitMode() {
 			m.historyView.CycleConfidence()
 			conf := m.historyView.GetMinConfidence()
 			if conf == 0 {
-				m.setStatus("🔍 Showing all commits")
+				m.setStatus("Showing all commits")
 			} else {
-				m.setStatus(fmt.Sprintf("🔍 Confidence filter: ≥%.0f%%", conf*100))
+				m.setStatus(fmt.Sprintf("Confidence filter: >=%.0f%%", conf*100))
 			}
 		}
-	case "f", "F":
+	case key.Matches(msg, kn.ToggleFileTree):
 		// Toggle file tree panel (bv-190l)
 		m.historyView.ToggleFileTree()
 		if m.historyView.IsFileTreeVisible() {
-			m.setStatus("📁 File tree: j/k navigate, Enter select, Esc close")
+			m.setStatus("File tree: j/k navigate, Enter select, Esc close")
 		} else {
-			m.setStatus("📁 File tree hidden")
+			m.setStatus("File tree hidden")
 		}
-	case "o":
+	case key.Matches(msg, kn.OpenInBrowser):
 		// Open commit in browser (bv-xf4p)
 		var sha string
 		if m.historyView.IsGitMode() {
@@ -226,22 +239,22 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 			url := m.getCommitURL(sha)
 			if url != "" {
 				if err := openBrowserURL(url); err != nil {
-					m.setStatusError(fmt.Sprintf("❌ Could not open browser: %v", err))
+					m.setStatusError(fmt.Sprintf("Could not open browser: %v", err))
 				} else {
 					// Safely truncate SHA for display (bv-xf4p fix)
 					shortSHA := sha
 					if len(sha) > 7 {
 						shortSHA = sha[:7]
 					}
-					m.setStatus(fmt.Sprintf("🌐 Opened %s in browser", shortSHA))
+					m.setStatus(fmt.Sprintf("Opened %s in browser", shortSHA))
 				}
 			} else {
-				m.setStatusError("❌ No git remote configured")
+				m.setStatusError("No git remote configured")
 			}
 		} else {
-			m.setStatusError("❌ No commit selected")
+			m.setStatusError("No commit selected")
 		}
-	case "g":
+	case key.Matches(msg, kn.JumpToGraph):
 		// Jump to graph view for selected bead (bv-xf4p)
 		var selectedID string
 		if m.historyView.IsGitMode() {
@@ -261,11 +274,11 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 			m.mode = ViewGraph
 			m.graphView.SelectByID(selectedID)
 			m.focused = focusGraph
-			m.setStatus(fmt.Sprintf("📊 Graph view: %s", selectedID))
+			m.setStatus(fmt.Sprintf("Graph view: %s", selectedID))
 		} else {
-			m.setStatusError("❌ No bead selected")
+			m.setStatusError("No bead selected")
 		}
-	case "h", "esc":
+	case key.Matches(msg, kn.ExitHistory):
 		// Exit history view
 		m.historyDoltOnly = false
 		m.mode = ViewList
