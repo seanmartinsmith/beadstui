@@ -1,40 +1,44 @@
 package ui
 
-import tea "charm.land/bubbletea/v2"
+import (
+	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
+)
 
 // handleTreeKeys handles keyboard input when tree view is focused (bv-gllx).
 //
-// Body unchanged from the pre-bt-ift6.1 model_keys.go split. Conversion to
-// dispatch via key.Matches against m.keys.Tree lands in bt-ift6.8.
+// Dispatches via key.Matches against m.keys.Tree per ADR-004 Decision 1.
+// Converted from switch msg.String() in bt-ift6.8.
 func (m Model) handleTreeKeys(msg tea.KeyMsg) Model {
-	switch msg.String() {
-	case "j", "down":
+	k := m.keys.Tree
+	switch {
+	case key.Matches(msg, k.Down):
 		m.tree.MoveDown()
-	case "k", "up":
+	case key.Matches(msg, k.Up):
 		m.tree.MoveUp()
-	case "enter", "space":
+	case key.Matches(msg, k.Toggle):
 		m.tree.ToggleExpand()
-	case "h", "left":
+	case key.Matches(msg, k.Collapse):
 		m.tree.CollapseOrJumpToParent()
-	case "l", "right":
+	case key.Matches(msg, k.Expand):
 		m.tree.ExpandOrMoveToChild()
-	case "g":
+	case key.Matches(msg, k.JumpTop):
 		// Jump to top (vim-style)
 		m.tree.JumpToTop()
-	case "G":
+	case key.Matches(msg, k.JumpBottom):
 		m.tree.JumpToBottom()
-	case "o":
+	case key.Matches(msg, k.ExpandAll):
 		m.tree.ExpandAll()
-	case "O":
+	case key.Matches(msg, k.CollapseAll):
 		m.tree.CollapseAll()
-	case "ctrl+d", "pgdown":
+	case key.Matches(msg, k.PageDown):
 		m.tree.PageDown()
-	case "ctrl+u", "pgup":
+	case key.Matches(msg, k.PageUp):
 		m.tree.PageUp()
-	case "E", "esc":
+	case key.Matches(msg, k.Back):
 		// Return to list view
 		m.focused = focusList
-	case "tab":
+	case key.Matches(msg, k.SyncDetail):
 		// Toggle detail panel (sync selection and jump to detail)
 		if m.isSplitView {
 			if selected := m.tree.SelectedIssue(); selected != nil {
