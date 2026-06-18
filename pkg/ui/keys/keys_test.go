@@ -20,6 +20,28 @@ func allMaps() map[string]help.KeyMap {
 		"Tree":       NewTreeKeys(),
 		"ListNormal": NewListNormalKeys(),
 		"ListSearch": NewListSearchKeys(),
+
+		// Board (bt-ift6.3)
+		"BoardNormal": NewBoardNormalKeys(),
+		"BoardSearch": NewBoardSearchKeys(),
+
+		// History (bt-ift6.6)
+		"HistoryNormal":   NewHistoryNormalKeys(),
+		"HistorySearch":   NewHistorySearchKeys(),
+		"HistoryFileTree": NewHistoryFileTreeKeys(),
+
+		"Insights":   NewInsightsKeys(),
+		"Actionable": NewActionableKeys(),
+		"FlowMatrix": NewFlowMatrixKeys(),
+		"Graph":      NewGraphKeys(),
+
+		// Modal Maps (bt-ift6.9)
+		"LabelPickerNav":    NewLabelPickerNavKeys(),
+		"LabelPickerSearch": NewLabelPickerSearchKeys(),
+		"RecipePicker":      NewRecipePickerKeys(),
+		"BQLQuery":          NewBQLQueryKeys(),
+		"TimeTravelInput":   NewTimeTravelInputKeys(),
+		"RepoPicker":        NewRepoPickerKeys(),
 	}
 }
 

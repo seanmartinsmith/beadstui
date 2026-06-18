@@ -24,12 +24,39 @@ package keys
 // BoardNormal/BoardSearch (.3), and LabelPickerNav/LabelPickerSearch (.9).
 //
 // bt-ift6.1 wired Global + Tree at minimum. bt-ift6.2 adds ListNormal +
-// ListSearch; bt-ift6.3-.9 add the rest.
+// ListSearch; bt-ift6.3 adds BoardNormal + BoardSearch; bt-ift6.5 adds
+// Insights; bt-ift6.6 adds HistoryNormal + HistorySearch + HistoryFileTree;
+// bt-ift6.7 adds Actionable; bt-ift6.4/.7-.9 add the rest.
 type AppKeys struct {
 	Global     GlobalKeys
 	Tree       TreeKeys
 	ListNormal ListNormalKeys
 	ListSearch ListSearchKeys
+
+	// Board sub-state Maps (bt-ift6.3). Dispatcher selects via
+	// m.board.IsSearchMode().
+	BoardNormal BoardNormalKeys
+	BoardSearch BoardSearchKeys
+
+	// History sub-state Maps (bt-ift6.6). Dispatcher selects via
+	// m.historyView.IsSearchActive() / m.historyView.FileTreeHasFocus().
+	HistoryNormal   HistoryNormalKeys
+	HistorySearch   HistorySearchKeys
+	HistoryFileTree HistoryFileTreeKeys
+
+	Insights   InsightsKeys
+	Actionable ActionableKeys
+	FlowMatrix FlowMatrixKeys
+	Graph      GraphKeys
+
+	// Modal Maps (bt-ift6.9). LabelPicker splits into two sub-state Maps
+	// per ADR-004 Decision 7; the others are one Map each.
+	LabelPickerNav    LabelPickerNavKeys
+	LabelPickerSearch LabelPickerSearchKeys
+	RecipePicker      RecipePickerKeys
+	BQLQuery          BQLQueryKeys
+	TimeTravelInput   TimeTravelInputKeys
+	RepoPicker        RepoPickerKeys
 }
 
 // NewAppKeys returns the default keymap for every view. Wire into NewModel.
@@ -39,5 +66,27 @@ func NewAppKeys() AppKeys {
 		Tree:       NewTreeKeys(),
 		ListNormal: NewListNormalKeys(),
 		ListSearch: NewListSearchKeys(),
+
+		// Board (bt-ift6.3)
+		BoardNormal: NewBoardNormalKeys(),
+		BoardSearch: NewBoardSearchKeys(),
+
+		// History (bt-ift6.6)
+		HistoryNormal:   NewHistoryNormalKeys(),
+		HistorySearch:   NewHistorySearchKeys(),
+		HistoryFileTree: NewHistoryFileTreeKeys(),
+
+		Insights:   NewInsightsKeys(),
+		Actionable: NewActionableKeys(),
+		FlowMatrix: NewFlowMatrixKeys(),
+		Graph:      NewGraphKeys(),
+
+		// Modal Maps (bt-ift6.9)
+		LabelPickerNav:    NewLabelPickerNavKeys(),
+		LabelPickerSearch: NewLabelPickerSearchKeys(),
+		RecipePicker:      NewRecipePickerKeys(),
+		BQLQuery:          NewBQLQueryKeys(),
+		TimeTravelInput:   NewTimeTravelInputKeys(),
+		RepoPicker:        NewRepoPickerKeys(),
 	}
 }
