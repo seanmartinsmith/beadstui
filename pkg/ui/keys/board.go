@@ -106,8 +106,8 @@ func NewBoardNormalKeys() BoardNormalKeys {
 			key.WithHelp("⌃u", "page up"),
 		),
 		JumpTop: key.NewBinding(
-			key.WithKeys("home"),
-			key.WithHelp("home", "first card"),
+			key.WithKeys("home", "0"),
+			key.WithHelp("home/0", "first card"),
 		),
 		JumpBottom: key.NewBinding(
 			key.WithKeys("G", "end"),
