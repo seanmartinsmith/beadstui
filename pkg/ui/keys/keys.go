@@ -27,9 +27,8 @@ package keys
 // ListSearch; bt-ift6.3 adds BoardNormal + BoardSearch; bt-ift6.4 adds
 // Graph; bt-ift6.5 adds Insights; bt-ift6.6 adds HistoryNormal +
 // HistorySearch + HistoryFileTree; bt-ift6.7 adds Actionable; bt-ift6.8
-// adds FlowMatrix. bt-ift6.9 (modal Maps: LabelPicker*, RecipePicker,
-// BQLQuery, TimeTravelInput, RepoPicker) is deferred pending a clean
-// reimplementation - see the bead.
+// adds FlowMatrix. bt-ift6.9 adds modal Maps (LabelPickerNav,
+// LabelPickerSearch, RecipePicker, BQLQuery, TimeTravelInput, RepoPicker).
 type AppKeys struct {
 	Global     GlobalKeys
 	Tree       TreeKeys
@@ -51,6 +50,16 @@ type AppKeys struct {
 	Actionable ActionableKeys
 	FlowMatrix FlowMatrixKeys
 	Graph      GraphKeys
+
+	// Modal Maps (bt-ift6.9). LabelPicker splits into Nav + Search
+	// sub-states per ADR-004 Decision 7 (same pattern as ListNormal +
+	// ListSearch). Dispatcher selects via m.labelPicker.IsSearchFocused().
+	LabelPickerNav    LabelPickerNavKeys
+	LabelPickerSearch LabelPickerSearchKeys
+	RecipePicker      RecipePickerKeys
+	BQLQuery          BQLQueryKeys
+	TimeTravelInput   TimeTravelInputKeys
+	RepoPicker        RepoPickerKeys
 }
 
 // NewAppKeys returns the default keymap for every view. Wire into NewModel.
@@ -74,5 +83,13 @@ func NewAppKeys() AppKeys {
 		Actionable: NewActionableKeys(),
 		FlowMatrix: NewFlowMatrixKeys(),
 		Graph:      NewGraphKeys(),
+
+		// Modal Maps (bt-ift6.9)
+		LabelPickerNav:    NewLabelPickerNavKeys(),
+		LabelPickerSearch: NewLabelPickerSearchKeys(),
+		RecipePicker:      NewRecipePickerKeys(),
+		BQLQuery:          NewBQLQueryKeys(),
+		TimeTravelInput:   NewTimeTravelInputKeys(),
+		RepoPicker:        NewRepoPickerKeys(),
 	}
 }

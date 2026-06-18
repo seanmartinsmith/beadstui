@@ -3,28 +3,34 @@ package ui
 import (
 	"fmt"
 
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 )
 
 // handleRepoPickerKeys handles keyboard input when repo picker is focused
 // (workspace mode).
 //
-// Body unchanged from the pre-bt-ift6.1 model_keys.go split. Conversion to
-// dispatch via key.Matches against m.keys.RepoPicker lands in bt-ift6.9.
+// Dispatches via key.Matches against m.keys.RepoPicker per bt-ift6.9.
 func (m Model) handleRepoPickerKeys(msg tea.KeyMsg) Model {
-	switch msg.String() {
-	case "j", "down":
-		m.repoPicker.MoveDown()
-	case "k", "up":
+	kk := m.keys.RepoPicker
+	switch {
+	case key.Matches(msg, kk.Up):
 		m.repoPicker.MoveUp()
-	case "space":
+
+	case key.Matches(msg, kk.Down):
+		m.repoPicker.MoveDown()
+
+	case key.Matches(msg, kk.Toggle):
 		m.repoPicker.ToggleSelected()
-	case "a":
+
+	case key.Matches(msg, kk.ToggleAll):
 		m.repoPicker.ToggleAll()
-	case "esc", "q", "w":
+
+	case key.Matches(msg, kk.Cancel), key.Matches(msg, kk.Close):
 		m.closeModal()
 		m.focused = focusList
-	case "enter":
+
+	case key.Matches(msg, kk.Apply):
 		selected := m.repoPicker.SelectedRepos()
 
 		if m.repoPicker.NoneSelected() {

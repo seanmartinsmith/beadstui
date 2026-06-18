@@ -1,19 +1,22 @@
 package ui
 
 import (
+	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"github.com/seanmartinsmith/beadstui/pkg/bql"
 )
 
 // handleBQLQueryKeys handles keyboard input when BQL query modal is focused.
-// Returns (Model, tea.Cmd) — distinct from other handlers because the modal
+// Returns (Model, tea.Cmd) -- distinct from other handlers because the modal
 // owns asynchronous filter execution.
 //
-// Body unchanged from the pre-bt-ift6.1 model_keys.go split. Conversion to
-// dispatch via key.Matches against m.keys.BQLQuery lands in bt-ift6.9.
+// Dispatches via key.Matches against m.keys.BQLQuery per bt-ift6.9.
+// Letter keys are NOT matched here; the textinput component owns them via
+// the default branch.
 func (m Model) handleBQLQueryKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
-	switch msg.String() {
-	case "enter":
+	kk := m.keys.BQLQuery
+	switch {
+	case key.Matches(msg, kk.Apply):
 		query := m.bqlQuery.Value()
 		if query == "" {
 			// Empty query = clear BQL filter, show all
@@ -44,16 +47,16 @@ func (m Model) handleBQLQueryKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		m.setStatus("BQL: " + query)
 		return m, nil
 
-	case "esc":
+	case key.Matches(msg, kk.Cancel):
 		m.closeModal()
 		m.focused = focusList
 		return m, nil
 
-	case "up":
+	case key.Matches(msg, kk.HistoryPrev):
 		m.bqlQuery.HistoryPrev()
 		return m, nil
 
-	case "down":
+	case key.Matches(msg, kk.HistoryNext):
 		m.bqlQuery.HistoryNext()
 		return m, nil
 

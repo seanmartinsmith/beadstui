@@ -34,6 +34,14 @@ func allMaps() map[string]help.KeyMap {
 		"Actionable": NewActionableKeys(),
 		"FlowMatrix": NewFlowMatrixKeys(),
 		"Graph":      NewGraphKeys(),
+
+		// Modal Maps (bt-ift6.9)
+		"LabelPickerNav":    NewLabelPickerNavKeys(),
+		"LabelPickerSearch": NewLabelPickerSearchKeys(),
+		"RecipePicker":      NewRecipePickerKeys(),
+		"BQLQuery":          NewBQLQueryKeys(),
+		"TimeTravelInput":   NewTimeTravelInputKeys(),
+		"RepoPicker":        NewRepoPickerKeys(),
 	}
 }
 

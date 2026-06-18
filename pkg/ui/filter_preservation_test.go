@@ -12,6 +12,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/ui/keys"
 )
 
 // TestNoRawListSetItems enforces that m.list.SetItems is only called from
@@ -477,6 +478,7 @@ func filterTestModel(t *testing.T) Model {
 		list:     lst,
 		theme:    DefaultTheme(),
 		renderer: NewMarkdownRendererWithTheme(80, DefaultTheme()),
+		keys:     keys.NewAppKeys(),
 	}
 	return m
 }
