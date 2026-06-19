@@ -122,7 +122,7 @@ func (m Model) renderEpicsOverview() string {
 	// Footer
 	sb.WriteString("\n")
 	sb.WriteString(mutedStyle.Italic(true).Render(
-		"E/esc: close • j/k: navigate • s: active/all/completed • ⏎: open"))
+		"j/k nav · s: active/all/completed · ⏎ open · esc back"))
 
 	boxStyle := lipgloss.NewStyle().
 		Border(lipgloss.NormalBorder()).
