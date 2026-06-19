@@ -435,6 +435,8 @@ func (m *Model) applyFilter() {
 	}
 	// Tree view consumes activeRepos through this path too (bt-dcby.2).
 	m.rebuildTreeForCurrentFilter()
+	// Epics overview is a projection over the same scope/label filter (bt-ryi5z).
+	m.refreshEpicsForCurrentFilter()
 
 	// Keep selection in bounds
 	if len(filteredItems) > 0 && m.list.Index() >= len(filteredItems) {
@@ -849,6 +851,8 @@ func (m *Model) applyRecipe(r *recipe.Recipe) {
 	m.graphView.SetIssues(filteredIssues, &recipeIns)
 	// Tree view consumes activeRepos through this path too (bt-dcby.2).
 	m.rebuildTreeForCurrentFilter()
+	// Epics overview is a projection over the same scope/label filter (bt-ryi5z).
+	m.refreshEpicsForCurrentFilter()
 
 	// Update filter indicator
 	m.filter.currentFilter = "recipe:" + r.Name

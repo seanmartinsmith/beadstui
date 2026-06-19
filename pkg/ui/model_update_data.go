@@ -360,36 +360,9 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 		cmds = append(cmds, BuildSemanticIndexCmd(m.issuesForAsync()))
 	}
 
-	// Reload sprints (bv-161). beadsPath is empty in Dolt/workspace/global
-	// mode (set only for the legacy JSONL fallback), so resolve the .beads
-	// dir directly in that case - otherwise sprints never load under Dolt.
-	beadsDir := ""
-	if m.data.beadsPath != "" {
-		beadsDir = filepath.Dir(m.data.beadsPath)
-	} else if d, derr := loader.GetBeadsDir(""); derr == nil {
-		beadsDir = d
-	}
-	if beadsDir != "" {
-		if loaded, err := loader.LoadSprintsFromFile(filepath.Join(beadsDir, loader.SprintsFileName)); err == nil {
-			m.sprints = loaded
-			// If we have a selected sprint, try to refresh it
-			if m.selectedSprint != nil {
-				found := false
-				for i := range m.sprints {
-					if m.sprints[i].ID == m.selectedSprint.ID {
-						m.selectedSprint = &m.sprints[i]
-						m.sprintViewText = m.renderSprintDashboard()
-						found = true
-						break
-					}
-				}
-				if !found {
-					m.selectedSprint = nil
-					m.sprintViewText = "Sprint not found"
-				}
-			}
-		}
-	}
+	// Keep the epics overview current on data reload, if it is the active
+	// view. Sourced from the filtered set, so no separate file load (bt-ryi5z).
+	m.refreshEpicsForCurrentFilter()
 
 	if firstSnapshot {
 		// For the initial background snapshot, avoid flashing "Reloaded" at startup.
@@ -861,36 +834,9 @@ func (m Model) handleFileChanged(msg FileChangedMsg) (Model, tea.Cmd) {
 		m.applyBQL(m.filter.activeBQLExpr, queryStr)
 	}
 
-	// Reload sprints (bv-161). beadsPath is empty in Dolt/workspace/global
-	// mode (set only for the legacy JSONL fallback), so resolve the .beads
-	// dir directly in that case - otherwise sprints never load under Dolt.
-	beadsDir := ""
-	if m.data.beadsPath != "" {
-		beadsDir = filepath.Dir(m.data.beadsPath)
-	} else if d, derr := loader.GetBeadsDir(""); derr == nil {
-		beadsDir = d
-	}
-	if beadsDir != "" {
-		if loaded, err := loader.LoadSprintsFromFile(filepath.Join(beadsDir, loader.SprintsFileName)); err == nil {
-			m.sprints = loaded
-			// If we have a selected sprint, try to refresh it
-			if m.selectedSprint != nil {
-				found := false
-				for i := range m.sprints {
-					if m.sprints[i].ID == m.selectedSprint.ID {
-						m.selectedSprint = &m.sprints[i]
-						m.sprintViewText = m.renderSprintDashboard()
-						found = true
-						break
-					}
-				}
-				if !found {
-					m.selectedSprint = nil
-					m.sprintViewText = "Sprint not found"
-				}
-			}
-		}
-	}
+	// Keep the epics overview current on data reload, if it is the active
+	// view. Sourced from the filtered set, so no separate file load (bt-ryi5z).
+	m.refreshEpicsForCurrentFilter()
 
 	// Keep semantic index current when enabled.
 	if m.semanticSearchEnabled && !m.semanticIndexBuilding {

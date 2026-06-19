@@ -1190,16 +1190,10 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				m.focused = focusList
 				return m, nil
 			}
-			if len(m.sprints) == 0 {
-				m.setStatus("No sprints loaded (.beads/sprints.jsonl)")
-				return m, nil
-			}
-			if m.selectedSprint == nil {
-				m.selectedSprint = &m.sprints[0]
-			}
 			m.mode = ViewEpics
 			m.focused = focusEpics
-			m.sprintViewText = m.renderSprintDashboard()
+			m.epicsCursor = 0
+			m.refreshEpicsForCurrentFilter()
 			return m, nil
 
 		case key.Matches(msg, m.keys.Global.Alerts):
@@ -1399,7 +1393,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m = m.handleHistoryKeys(msg)
 
 		case focusEpics:
-			m = m.handleSprintKeys(msg)
+			m = m.handleEpicsKeys(msg)
 
 		case focusFlowMatrix:
 			m = m.handleFlowMatrixKeys(msg)

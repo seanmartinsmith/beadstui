@@ -25,6 +25,40 @@ const (
 // before it counts as at-risk.
 const epicStaleThreshold = 3 * 24 * time.Hour
 
+// label is the human-readable name of the status mode, shown in the overview
+// header and cycled by the `s` key.
+func (m EpicStatusMode) label() string {
+	switch m {
+	case EpicsAll:
+		return "all"
+	case EpicsCompleted:
+		return "completed"
+	default:
+		return "active"
+	}
+}
+
+// next cycles active -> all -> completed -> active.
+func (m EpicStatusMode) next() EpicStatusMode {
+	switch m {
+	case EpicsActive:
+		return EpicsAll
+	case EpicsAll:
+		return EpicsCompleted
+	default:
+		return EpicsActive
+	}
+}
+
+// epicProgressFraction is an EpicRow's completion ratio (done/total), used as
+// the overview's default sort key. A childless epic sorts as 0%.
+func epicProgressFraction(r EpicRow) float64 {
+	if r.Total == 0 {
+		return 0
+	}
+	return float64(r.Done) / float64(r.Total)
+}
+
 // EpicRow is one epic's overview projection: the epic itself plus child counts.
 // Children are counted in full (not status-filtered) so the progress bar is
 // accurate even when the underlying list is scoped to open issues.

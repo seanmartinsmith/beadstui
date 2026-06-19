@@ -737,10 +737,13 @@ type Model struct {
 	// the scroll is applied (or when no matching comment is found).
 	pendingCommentScroll time.Time
 
-	// Sprint view (bv-161)
-	sprints        []model.Sprint
-	selectedSprint *model.Sprint
-	sprintViewText string
+	// Epics overview (bt-ryi5z). Rows are a projection over the scope+label
+	// filtered issue set (status filter reinterpreted as epicsStatusMode);
+	// see refreshEpicsForCurrentFilter and the epics-view design.
+	epicsViewText   string
+	epicsRows       []EpicRow
+	epicsCursor     int
+	epicsStatusMode EpicStatusMode
 
 	// Project identity
 	projectName string // Display name for the current project (directory basename)
@@ -1211,15 +1214,6 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 	// EnableWorkspaceMode recomputes with the correct scope.
 	alerts, alertsCritical, alertsWarning, alertsInfo := computeAlerts(issues, false)
 
-	// Load sprints from the same directory as beadsPath (bv-161)
-	var sprints []model.Sprint
-	if beadsPath != "" {
-		beadsDir := filepath.Dir(beadsPath)
-		if loaded, err := loader.LoadSprintsFromFile(filepath.Join(beadsDir, loader.SprintsFileName)); err == nil {
-			sprints = loaded
-		}
-	}
-
 	// Tree view state should persist alongside the beads directory (e.g. BEADS_DIR overrides).
 	treeModel := NewTreeModel(theme)
 	if beadsPath != "" {
@@ -1316,7 +1310,6 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		alertsInfo:      alertsInfo,
 		dismissedAlerts: make(map[string]bool),
 		// Sprint view (bv-161)
-		sprints: sprints,
 		// AGENTS.md integration (bv-i8dk) - workDir derived from beadsPath
 		workDir: func() string {
 			if beadsPath != "" {

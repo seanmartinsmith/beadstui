@@ -137,29 +137,19 @@ func TestRenderDump(t *testing.T) {
 			m.updateViewportContent()
 		}
 	}
-	sprintView := func(m *Model) {
+	epicsView := func(m *Model) {
 		now := time.Now()
-		// Inject a stale in-progress bead so the At-Risk section renders
-		// populated (in_progress with no update for > 3 days).
+		// Inject a stale in-progress child of the bt-evuf epic so the At-Risk
+		// marker renders (in_progress with no update for > 3 days).
 		m.data.issues = append(m.data.issues, model.Issue{
-			ID: "bt-stale", Title: "Refactor stalled mid-flight, no update in a week",
+			ID: "bt-evuf.2", Title: "Refactor stalled mid-flight, no update in a week",
 			Status: model.StatusInProgress, Priority: 1, IssueType: model.TypeBug,
 			CreatedAt: now.Add(-12 * 24 * time.Hour), UpdatedAt: now.Add(-6 * 24 * time.Hour),
+			Dependencies: []*model.Dependency{{IssueID: "bt-evuf.2", DependsOnID: "bt-evuf", Type: model.DepParentChild}},
 		})
-		m.sprints = []model.Sprint{{
-			ID:        "sprint-w3",
-			Name:      "TUI polish + sprint wiring",
-			StartDate: now.Add(-5 * 24 * time.Hour),
-			EndDate:   now.Add(5 * 24 * time.Hour),
-			BeadIDs: []string{
-				"bt-evuf", "bt-evuf.1", "bt-0qzp", "bt-dx7k",
-				"dotfiles-7kf2q", "bt-9kdo", "bt-h5jz", "bt-stale",
-			},
-		}}
-		m.selectedSprint = &m.sprints[0]
 		m.mode = ViewEpics
 		m.focused = focusEpics
-		m.sprintViewText = m.renderSprintDashboard()
+		m.refreshEpicsForCurrentFilter()
 	}
 
 	scenarios := []struct {
@@ -176,9 +166,9 @@ func TestRenderDump(t *testing.T) {
 		{"detail_70x20", 70, 20, openDetail("bt-0qzp")},
 		{"detail_epic_90x28", 90, 28, openDetail("bt-evuf")},
 
-		// Sprint dashboard (wired to P via bt-ryi5z).
-		{"sprint_100x32", 100, 32, sprintView},
-		{"sprint_70x20", 70, 20, sprintView}, // scrunched terminal
+		// Epics overview (wired to E via bt-ryi5z).
+		{"epics_100x32", 100, 32, epicsView},
+		{"epics_70x20", 70, 20, epicsView}, // scrunched terminal
 
 		// Modal overlays — composited by View() over the (dimmed) background via
 		// activeModal. Proves popups render in-position in the harness. The dim
