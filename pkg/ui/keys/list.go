@@ -43,10 +43,11 @@ type ListNormalKeys struct {
 	FilterReady  key.Binding
 
 	// Detail & pane
-	Enter             key.Binding
-	SplitFocusToggle  key.Binding
-	SplitShrinkLeft   key.Binding
-	SplitShrinkRight  key.Binding
+	Enter            key.Binding
+	EpicCard         key.Binding
+	SplitFocusToggle key.Binding
+	SplitShrinkLeft  key.Binding
+	SplitShrinkRight key.Binding
 
 	// Sort / triage
 	CycleSort        key.Binding
@@ -108,6 +109,10 @@ func NewListNormalKeys() ListNormalKeys {
 		Enter: key.NewBinding(
 			key.WithKeys("enter"),
 			key.WithHelp("⏎", "open detail"),
+		),
+		EpicCard: key.NewBinding(
+			key.WithKeys("e"),
+			key.WithHelp("e", "epic card"),
 		),
 		SplitFocusToggle: key.NewBinding(
 			key.WithKeys("tab"),
@@ -179,7 +184,7 @@ func (k ListNormalKeys) FullHelp() [][]key.Binding {
 		// Filter
 		{k.FilterOpen, k.FilterClosed, k.FilterReady},
 		// Detail & pane
-		{k.Enter, k.SplitFocusToggle, k.SplitShrinkLeft, k.SplitShrinkRight},
+		{k.Enter, k.EpicCard, k.SplitFocusToggle, k.SplitShrinkLeft, k.SplitShrinkRight},
 		// Sort / triage
 		{k.CycleSort, k.CycleSortReverse, k.RecipeTriage},
 		// Time travel

@@ -228,8 +228,10 @@ func (m Model) handleEpicsKeys(msg tea.KeyMsg) Model {
 		m.epicsCursor = 0
 		m.refreshEpicsForCurrentFilter()
 	case key.Matches(msg, k.Open):
-		// Tier-2 epic focus card lands in Phase 2 (bt-gfxhz.3 deliverable).
-		m.setStatus("Epic focus card coming in Phase 2")
+		// Open the tier-2 epic focus card for the highlighted epic (bt-gfxhz.3).
+		if m.epicsCursor < len(m.epicsRows) {
+			m.openEpicCard(m.epicsRows[m.epicsCursor].Epic.ID)
+		}
 	case key.Matches(msg, k.Exit):
 		m.mode = ViewList
 		m.focused = focusList

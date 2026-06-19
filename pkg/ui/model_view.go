@@ -121,6 +121,9 @@ func (m Model) View() tea.View {
 		}
 	case ModalAlerts:
 		// Handled as overlay after background renders (below)
+	case ModalEpicCard:
+		// Handled as overlay after background renders (below) so the overview/
+		// list dims behind the focus card (bt-gfxhz.3).
 	case ModalTimeTravelInput:
 		// Handled as overlay after background renders (below) — bt-rhfo /
 		// bt-vklk Phase 1: dimmed backdrop, rounded border, title-in-border.
@@ -240,6 +243,10 @@ func (m Model) View() tea.View {
 		// Dim the background behind the destructive-confirm modal so it
 		// reads as an overlay rather than a mode switch (bt-yly4).
 		body = OverlayCenterDimBackdrop(body, m.renderQuitConfirm(), m.width, m.height-1)
+	}
+	if m.activeModal == ModalEpicCard {
+		// Dim the overview/list behind the tier-2 epic focus card (bt-gfxhz.3).
+		body = OverlayCenterDimBackdrop(body, m.renderEpicCard(), m.width, m.height-1)
 	}
 
 	footer := m.renderFooter()
@@ -628,12 +635,12 @@ func (m *Model) renderHelpOverlay() string {
 	// Tomorrow Night gradient for help overlay sections.
 	// Maps to semantic theme tokens so YAML retones propagate (bt-pxbc).
 	colors := []color.Color{
-		ColorPrimary,   // Teal
-		ColorInfo,      // Blue
-		ColorSuccess,   // Green
-		ColorWarning,   // Orange
-		ColorTypeEpic,  // Purple
-		ColorTypeTask,  // Yellow
+		ColorPrimary,  // Teal
+		ColorInfo,     // Blue
+		ColorSuccess,  // Green
+		ColorWarning,  // Orange
+		ColorTypeEpic, // Purple
+		ColorTypeTask, // Yellow
 	}
 
 	// Helper to render a section panel (auto-sized to content).

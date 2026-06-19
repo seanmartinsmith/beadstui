@@ -3,9 +3,11 @@ package ui
 import (
 	"fmt"
 
-	tea "charm.land/bubbletea/v2"
 	"charm.land/bubbles/v2/key"
+	tea "charm.land/bubbletea/v2"
 	"github.com/atotto/clipboard"
+
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // handleListKeys handles keyboard input when the main list is focused and
@@ -30,6 +32,16 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 			m.focused = focusDetail
 			m.viewport.GotoTop() // Reset scroll position for new issue
 			m.updateViewportContent()
+		}
+	case key.Matches(msg, k.EpicCard):
+		// Open the tier-2 focus card when the cursor is on an epic; on a
+		// non-epic it's a no-op with a hint (bt-gfxhz.3).
+		if item, ok := m.list.SelectedItem().(IssueItem); ok {
+			if item.Issue.IssueType == model.TypeEpic {
+				m.openEpicCard(item.Issue.ID)
+			} else {
+				m.setStatus("Not an epic")
+			}
 		}
 	case key.Matches(msg, k.JumpTop):
 		m.list.Select(0)

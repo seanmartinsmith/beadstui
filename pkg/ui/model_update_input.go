@@ -107,6 +107,13 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 	}
 
+	// Handle the tier-2 epic focus card (bt-gfxhz.3). Swallows all keys while
+	// open; esc closes and restores the underlying surface (overview or list).
+	if m.activeModal == ModalEpicCard {
+		m = m.handleEpicCardKeys(msg)
+		return m, nil
+	}
+
 	// Handle self-update modal (bv-182)
 	if m.activeModal == ModalUpdate {
 		m.updateModal, cmd = m.updateModal.Update(msg)
@@ -1430,7 +1437,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			switch {
 			case key.Matches(msg,
 				ln.CopyID, ln.CopyIssue, ln.OpenInEditor, ln.RecipeTriage,
-				ln.TimeTravelInput,
+				ln.TimeTravelInput, ln.EpicCard,
 				ln.SelfUpdate, ln.CassSession,
 				ln.SplitFocusToggle, ln.SplitShrinkLeft, ln.SplitShrinkRight):
 				m = m.handleListKeys(msg)
