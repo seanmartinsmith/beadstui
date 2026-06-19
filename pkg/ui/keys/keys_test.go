@@ -35,6 +35,7 @@ func allMaps() map[string]help.KeyMap {
 		"FlowMatrix": NewFlowMatrixKeys(),
 		"Graph":      NewGraphKeys(),
 		"Epics":      NewEpicsKeys(),
+		"EpicCard":   NewEpicCardKeys(),
 
 		// Modal Maps (bt-ift6.9)
 		"LabelPickerNav":    NewLabelPickerNavKeys(),

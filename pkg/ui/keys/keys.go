@@ -51,6 +51,7 @@ type AppKeys struct {
 	FlowMatrix FlowMatrixKeys
 	Graph      GraphKeys
 	Epics      EpicsKeys
+	EpicCard   EpicCardKeys
 
 	// Modal Maps (bt-ift6.9). LabelPicker splits into Nav + Search
 	// sub-states per ADR-004 Decision 7 (same pattern as ListNormal +
@@ -85,6 +86,7 @@ func NewAppKeys() AppKeys {
 		FlowMatrix: NewFlowMatrixKeys(),
 		Graph:      NewGraphKeys(),
 		Epics:      NewEpicsKeys(),
+		EpicCard:   NewEpicCardKeys(),
 
 		// Modal Maps (bt-ift6.9)
 		LabelPickerNav:    NewLabelPickerNavKeys(),

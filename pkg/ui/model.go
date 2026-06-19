@@ -129,6 +129,7 @@ const (
 	ModalLabelHealthDetail                   // Label health detail drill-down
 	ModalLabelDrilldown                      // Label issue drill-down
 	ModalLabelGraphAnalysis                  // Label graph analysis
+	ModalEpicCard                            // Tier-2 epic focus card (bt-gfxhz.3)
 )
 
 // ModalTab identifies which tab the shared alerts/notifications modal is
@@ -174,6 +175,16 @@ func (m *Model) openModal(t ModalType) { m.activeModal = t }
 
 // closeModal dismisses the currently active modal.
 func (m *Model) closeModal() { m.activeModal = ModalNone }
+
+// openEpicCard opens the tier-2 epic focus card for the given epic ID, resetting
+// the child cursor to the top. The card composites over whatever view is active
+// (overview or list), so the underlying mode/focus is left untouched - closeModal
+// alone restores the prior surface (bt-gfxhz.3).
+func (m *Model) openEpicCard(id string) {
+	m.epicCardID = id
+	m.epicCardCursor = 0
+	m.openModal(ModalEpicCard)
+}
 
 // SortMode represents the current list sorting mode (bv-3ita)
 type SortMode int
@@ -744,6 +755,11 @@ type Model struct {
 	epicsRows       []EpicRow
 	epicsCursor     int
 	epicsStatusMode EpicStatusMode
+
+	// Epic focus card (tier 2, bt-gfxhz.3, modal visibility via activeModal).
+	// epicCardID is the focused epic; epicCardCursor selects a child to drill.
+	epicCardID     string
+	epicCardCursor int
 
 	// Project identity
 	projectName string // Display name for the current project (directory basename)
