@@ -142,6 +142,53 @@ func TestRenderEpicsOverview_NarrowWidth(t *testing.T) {
 	}
 }
 
+func TestEpicsOverview_DefaultSortProgressAscending(t *testing.T) {
+	pc := func(child, parent string) []*model.Dependency {
+		return []*model.Dependency{{IssueID: child, DependsOnID: parent, Type: model.DepParentChild}}
+	}
+	// ep-high is listed first but is 80% done; ep-low is 20%. The default sort
+	// must put the least-complete epic first regardless of input order.
+	issues := []model.Issue{
+		{ID: "ep-high", Title: "Almost done", IssueType: model.TypeEpic, Status: model.StatusOpen},
+		{ID: "ep-high.1", Status: model.StatusClosed, Dependencies: pc("ep-high.1", "ep-high")},
+		{ID: "ep-high.2", Status: model.StatusClosed, Dependencies: pc("ep-high.2", "ep-high")},
+		{ID: "ep-high.3", Status: model.StatusClosed, Dependencies: pc("ep-high.3", "ep-high")},
+		{ID: "ep-high.4", Status: model.StatusClosed, Dependencies: pc("ep-high.4", "ep-high")},
+		{ID: "ep-high.5", Status: model.StatusOpen, Dependencies: pc("ep-high.5", "ep-high")},
+		{ID: "ep-low", Title: "Just started", IssueType: model.TypeEpic, Status: model.StatusOpen},
+		{ID: "ep-low.1", Status: model.StatusClosed, Dependencies: pc("ep-low.1", "ep-low")},
+		{ID: "ep-low.2", Status: model.StatusOpen, Dependencies: pc("ep-low.2", "ep-low")},
+		{ID: "ep-low.3", Status: model.StatusOpen, Dependencies: pc("ep-low.3", "ep-low")},
+		{ID: "ep-low.4", Status: model.StatusOpen, Dependencies: pc("ep-low.4", "ep-low")},
+		{ID: "ep-low.5", Status: model.StatusOpen, Dependencies: pc("ep-low.5", "ep-low")},
+	}
+	m := epicsTestModel(issues)
+	if len(m.epicsRows) != 2 {
+		t.Fatalf("want 2 epic rows, got %d", len(m.epicsRows))
+	}
+	if m.epicsRows[0].Epic.ID != "ep-low" {
+		t.Errorf("default sort: rows[0]=%s, want ep-low (20%% before 80%%)", m.epicsRows[0].Epic.ID)
+	}
+	if m.epicsRows[1].Epic.ID != "ep-high" {
+		t.Errorf("default sort: rows[1]=%s, want ep-high", m.epicsRows[1].Epic.ID)
+	}
+}
+
+func TestEpicsOverview_StatusCycleHeader(t *testing.T) {
+	m := epicsTestModel(epicsFixture())
+	if !containsStr(m.epicsViewText, "Epics (active)") {
+		t.Error("default header should be 'Epics (active)'")
+	}
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 's', Text: "s"})
+	if !containsStr(m.epicsViewText, "Epics (all)") {
+		t.Error("after s, header should update to 'Epics (all)'")
+	}
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 's', Text: "s"})
+	if !containsStr(m.epicsViewText, "Epics (completed)") {
+		t.Error("after 2nd s, header should update to 'Epics (completed)'")
+	}
+}
+
 // =============================================================================
 // truncateString Tests
 // =============================================================================
