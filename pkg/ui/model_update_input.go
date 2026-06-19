@@ -803,18 +803,31 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// History view search is a typing context: when the user has activated
-	// `/` in history, every printable key must reach the searchInput rather
-	// than firing global mode toggles (b, g, h, i, p, a, E, ...). Without
-	// this short-circuit, typing letters silently switched views or muted
-	// search state — see bt-mc4y. Esc/Enter and forwarding are handled
-	// inside handleHistoryKeys; only ctrl+c bypasses for quit.
-	if m.mode == ViewHistory && m.historyView.IsSearchActive() && m.activeModal == ModalNone {
-		if msg.String() == "ctrl+c" {
-			return m, tea.Quit
+	// Non-modal in-view typing/dwell sub-states are input-capturing contexts:
+	// while one is active, every key must reach the active view's handler
+	// before the global view-switch dispatcher below, or letters that collide
+	// with global hotkeys (b, g, h, i, p, a, E, ...) silently switch views
+	// instead of being typed or consumed in-pane. History search is the
+	// original case (bt-mc4y); board search and history file-tree focus are
+	// the same class (bt-s2xpy). Each handler owns its own esc/enter/tab
+	// resolution (esc cancels the sub-state rather than leaving the view), so
+	// the user is never trapped; only ctrl+c bypasses for quit. Modals route
+	// earlier (activeModal != ModalNone), so this is scoped to non-modal views.
+	if m.activeModal == ModalNone {
+		switch {
+		case m.mode == ViewHistory && (m.historyView.IsSearchActive() || m.historyView.FileTreeHasFocus()):
+			if msg.String() == "ctrl+c" {
+				return m, tea.Quit
+			}
+			m = m.handleHistoryKeys(msg)
+			return m, nil
+		case m.mode == ViewBoard && m.board.IsSearchMode():
+			if msg.String() == "ctrl+c" {
+				return m, tea.Quit
+			}
+			m = m.handleBoardKeys(msg)
+			return m, nil
 		}
-		m = m.handleHistoryKeys(msg)
-		return m, nil
 	}
 
 	// Global / binding (bt-cd3x): in the split-view list layout, / from the

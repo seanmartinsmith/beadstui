@@ -12,10 +12,10 @@ import (
 //
 // Dispatches via key.Matches against m.keys.BoardNormal or
 // m.keys.BoardSearch depending on m.board.IsSearchMode(), per ADR-004
-// Decision 7. The dispatcher in model_update_input.go short-circuits here
-// before global view-switch keys when IsSearchMode() is true, so typed
-// letters reach board.AppendSearchChar without being intercepted (the
-// letter-leak bug documented in bt-ift6.3 comments).
+// Decision 7. The dispatcher in model_update_input.go short-circuits to this
+// handler before global view-switch keys when IsSearchMode() is true, so typed
+// letters reach board.AppendSearchChar instead of firing global hotkeys (the
+// letter-leak class fixed in bt-s2xpy; originally flagged in bt-ift6.3).
 //
 // gg-combo (IsWaitingForG) remains a conditional inside the normal-mode
 // branch -- single keystroke, not a dwellable sub-state, per Decision 7.

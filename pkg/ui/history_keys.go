@@ -15,10 +15,12 @@ import (
 //   - HistoryFileTreeKeys when m.historyView.FileTreeHasFocus()
 //   - HistoryNormalKeys   otherwise
 //
-// The search short-circuit guard at model_update_input.go:812 already ensures
-// this handler is reached only when ViewHistory is active and ModalNone;
-// FileTreeHasFocus is a separate sub-state covered here (bt-ift6.6 comment
-// 2026-05-07 re: letter-leak bug class from bt-ift6.3).
+// The dispatcher in model_update_input.go short-circuits to this handler
+// before global view-switch keys whenever an input-capturing sub-state is
+// active (IsSearchActive() || FileTreeHasFocus(), ModalNone), so letters reach
+// the search input / file-tree nav instead of firing global hotkeys (the
+// letter-leak class fixed in bt-s2xpy; file-tree variant flagged in bt-ift6.3
+// and bt-ift6.6). Normal mode falls through to the global dispatcher.
 func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 	// Search sub-state: letters go to search input, only Esc/Enter resolve.
 	if m.historyView.IsSearchActive() {
