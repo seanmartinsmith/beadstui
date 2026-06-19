@@ -77,9 +77,20 @@ bar:
 
 ### Sort
 
-Reuse the existing `SortMode` comparators, applied to epic rows (by progress %,
-creation date, etc.). Default sort: TBD at implementation (candidates: most
-at-risk first, or lowest progress first).
+Reuse the existing `SortMode` comparators, applied to epic rows. **Default sort:
+progress %** - it is instant (bd-native `done/total`, computed Phase-1) and
+intuitive, whereas bt's heavier scores (triage / risk / centrality / ETA) are
+Phase-2 async (500ms budget) and may be empty at first paint. Offer as alternate
+sorts: priority (bd-native), at-risk count (stale in-progress children), and the
+bt analysis scores (triage / risk / impact) once Phase-2 has resolved.
+
+Ranking signals available, by engine:
+- **bd-native (instant):** priority, status, created/updated, ready/blocked,
+  epic done/total + close-eligibility (`bd epic status`).
+- **bt-computed (analysis layer; heavy ones Phase-2 async):** PageRank,
+  betweenness, HITS, eigenvector, impact-depth, k-core, slack; triage score
+  (8-factor), risk/volatility, ETA (epics weighted 2x), attention (per-label),
+  priority-hints; at-risk = stale in-progress children.
 
 ### Cross-project nuance
 
@@ -129,14 +140,20 @@ truth, closes bt-gfxhz.3). Children come from `epicChildrenSorted()`
 **Replace:** `bt robot sprint` -> `bt robot epics` = a robot `bd epic status`
 (epics with progress, for agent consumption), if we want robot parity.
 
-## Keybindings (deferred to implementation)
+## Keybindings (decided)
 
-Working default: **`E` = Epics overview** (mnemonic), **Tree moves `E` -> `P`**
-(zero-cost: `P` frees up when Epics takes `E`; nothing shadowed). Tier-2 focus
-card opens on `enter` from the overview and a focus key from the list/detail.
-Alternative considered: Tree -> `T` (perfect "T for Tree" mnemonic) at the cost
-of list's `T` = time-travel-+HEAD~5. Final pick at implementation per the
-`bt-h97e` precedent.
+- **`E` = Epics overview** (global view-switch; takes the slot Tree vacates).
+- **`T` = Tree** (global). This was list's `T` = time-travel +HEAD~5, which is
+  retired. A global capital `T` does NOT shadow lowercase `t`, so:
+- **`t` = time-travel** - unchanged. (If the `T`=HEAD~5 quick-jump is missed,
+  relocate it to a free capital such as `Y`.)
+- Tier-2 focus card opens on `enter` from the overview, and on a focus key from
+  the list/detail when the cursor is on an epic (key TBD at implementation).
+- Globals are mixed-case: primary views are lowercase (`b g i h a f`); Epics and
+  Tree sit in the uppercase "secondary/structural" bucket where Tree and Sprint
+  already lived. Promoting Epics to lowercase `e` (matching the primary views)
+  is possible once board/insights' view-local `e` bindings are remapped in their
+  own focused TUI passes - deferred, not blocking.
 
 ## Testing
 
@@ -161,8 +178,9 @@ of list's `T` = time-travel-+HEAD~5. Final pick at implementation per the
 
 ## Open / deferred
 
-- Exact keys (above).
-- Default sort for the overview.
+- Tier-2 focus-card open key from list/detail (cursor-on-epic); relocating the
+  `T`=HEAD~5 jump if it is missed; promoting Epics to lowercase `e` after the
+  board/insights remap passes.
 - Whether the detail-pane Epic Progress embed is later replaced by the focus
   card or kept as the inline at-a-glance form (lean: keep inline, share the
   renderer).
