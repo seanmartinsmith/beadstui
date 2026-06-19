@@ -27,8 +27,8 @@ func (m Model) restoreFocusFromHelp() focus {
 		return focusInsights
 	case ViewLabelDashboard:
 		return focusLabelDashboard
-	case ViewSprint:
-		return focusSprint
+	case ViewEpics:
+		return focusEpics
 	case ViewFlowMatrix:
 		return focusFlowMatrix
 	case ViewTree:

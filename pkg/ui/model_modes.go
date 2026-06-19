@@ -405,8 +405,8 @@ func (m Model) FocusState() string {
 		return "attention"
 	case focusLabelPicker:
 		return "label_picker"
-	case focusSprint:
-		return "sprint"
+	case focusEpics:
+		return "epics"
 	case focusAgentPrompt:
 		return "agent_prompt"
 	case focusFlowMatrix:
@@ -442,9 +442,9 @@ func (m Model) IsHistoryView() bool {
 	return m.mode == ViewHistory
 }
 
-// IsSprintView returns true if the sprint view is active.
-func (m Model) IsSprintView() bool {
-	return m.mode == ViewSprint
+// IsEpicsView returns true if the epics overview is active.
+func (m Model) IsEpicsView() bool {
+	return m.mode == ViewEpics
 }
 
 // IsAttentionView returns true if the attention view is active.

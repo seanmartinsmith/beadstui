@@ -69,7 +69,7 @@ const (
 	focusHistory
 	focusAttention
 	focusLabelPicker
-	focusSprint      // Sprint dashboard view (bv-161)
+	focusEpics       // Epics overview view (bt-ryi5z)
 	focusAgentPrompt // AGENTS.md integration prompt (bv-i8dk)
 	focusFlowMatrix  // Cross-label flow matrix view
 	focusTutorial    // Interactive tutorial (bv-8y31)
@@ -90,7 +90,7 @@ const (
 	ViewTree                           // Hierarchical tree view
 	ViewActionable                     // Actionable/execution plan
 	ViewHistory                        // Git history correlation
-	ViewSprint                         // Sprint dashboard
+	ViewEpics                          // Epics overview
 	ViewInsights                       // Insights panel
 	ViewFlowMatrix                     // Cross-label flow matrix
 	ViewLabelDashboard                 // Label health dashboard

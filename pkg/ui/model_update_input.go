@@ -898,7 +898,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				m.focused = focusList
 				return m, nil
 			}
-			if m.mode == ViewSprint {
+			if m.mode == ViewEpics {
 				m.mode = ViewList
 				m.focused = focusList
 				return m, nil
@@ -946,7 +946,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				m.focused = focusList
 				return m, nil
 			}
-			if m.mode == ViewSprint {
+			if m.mode == ViewEpics {
 				m.mode = ViewList
 				m.focused = focusList
 				return m, nil
@@ -1185,7 +1185,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			// Toggle sprint dashboard. Second press returns to the list,
 			// mirroring the other view toggles (bt-ryi5z).
 			m.clearAttentionOverlay()
-			if m.mode == ViewSprint {
+			if m.mode == ViewEpics {
 				m.mode = ViewList
 				m.focused = focusList
 				return m, nil
@@ -1197,8 +1197,8 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			if m.selectedSprint == nil {
 				m.selectedSprint = &m.sprints[0]
 			}
-			m.mode = ViewSprint
-			m.focused = focusSprint
+			m.mode = ViewEpics
+			m.focused = focusEpics
 			m.sprintViewText = m.renderSprintDashboard()
 			return m, nil
 
@@ -1398,7 +1398,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		case focusHistory:
 			m = m.handleHistoryKeys(msg)
 
-		case focusSprint:
+		case focusEpics:
 			m = m.handleSprintKeys(msg)
 
 		case focusFlowMatrix:

@@ -29,7 +29,7 @@ const (
 	ContextBoard          Context = "board"
 	ContextActionable     Context = "actionable"
 	ContextHistory        Context = "history"
-	ContextSprint         Context = "sprint"
+	ContextEpics          Context = "epics"
 	ContextLabelDashboard Context = "label-dashboard"
 	ContextAttention      Context = "attention"
 
@@ -99,8 +99,8 @@ func (m Model) CurrentContext() Context {
 		return ContextActionable
 	case ViewHistory:
 		return ContextHistory
-	case ViewSprint:
-		return ContextSprint
+	case ViewEpics:
+		return ContextEpics
 	case ViewTree:
 		return ContextInsights // Tree reuses insights context for now
 	}
@@ -155,7 +155,7 @@ func (c Context) Description() string {
 		ContextBoard:              "Kanban board",
 		ContextActionable:         "Actionable view",
 		ContextHistory:            "History view",
-		ContextSprint:             "Sprint view",
+		ContextEpics:              "Epics view",
 		ContextLabelDashboard:     "Label dashboard",
 		ContextAttention:          "Attention view",
 		ContextSplit:              "Split view",
@@ -186,7 +186,7 @@ func (c Context) IsOverlay() bool {
 func (c Context) IsView() bool {
 	switch c {
 	case ContextInsights, ContextFlowMatrix, ContextGraph, ContextBoard,
-		ContextActionable, ContextHistory, ContextSprint, ContextLabelDashboard,
+		ContextActionable, ContextHistory, ContextEpics, ContextLabelDashboard,
 		ContextAttention, ContextSplit, ContextDetail, ContextTimeTravel:
 		return true
 	}
@@ -211,7 +211,7 @@ func (c Context) TutorialPages() []int {
 		ContextLabelDashboard:     {11},      // Labels
 		ContextFlowMatrix:         {11, 12},  // Labels, Advanced
 		ContextHelp:               {13},      // Keyboard Reference
-		ContextSprint:             {14},      // Sprints
+		ContextEpics:              {14},      // Epics
 		ContextAttention:          {7},       // Insights (attention is part of insights)
 		ContextAlerts:             {15},      // Alerts
 		ContextLabelPicker:        {11, 3},   // Labels, Filtering

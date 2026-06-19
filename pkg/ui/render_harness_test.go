@@ -157,8 +157,8 @@ func TestRenderDump(t *testing.T) {
 			},
 		}}
 		m.selectedSprint = &m.sprints[0]
-		m.mode = ViewSprint
-		m.focused = focusSprint
+		m.mode = ViewEpics
+		m.focused = focusEpics
 		m.sprintViewText = m.renderSprintDashboard()
 	}
 

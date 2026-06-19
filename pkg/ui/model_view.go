@@ -177,7 +177,7 @@ func (m Model) View() tea.View {
 					m.historyView.SetSize(bodyW, m.height-1)
 					body = m.historyView.View()
 				}
-			case ViewSprint:
+			case ViewEpics:
 				body = m.sprintViewText
 			case ViewLabelDashboard:
 				m.labelDashboard.SetSize(bodyW, m.height-1)

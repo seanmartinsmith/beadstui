@@ -143,9 +143,9 @@ func TestCurrentContext_Views(t *testing.T) {
 			expected: ContextHistory,
 		},
 		{
-			name:     "sprint view",
-			setup:    func(m *Model) { m.mode = ViewSprint },
-			expected: ContextSprint,
+			name:     "epics view",
+			setup:    func(m *Model) { m.mode = ViewEpics },
+			expected: ContextEpics,
 		},
 	}
 
@@ -278,7 +278,7 @@ func TestContext_IsOverlay(t *testing.T) {
 func TestContext_IsView(t *testing.T) {
 	views := []Context{
 		ContextInsights, ContextFlowMatrix, ContextGraph, ContextBoard,
-		ContextActionable, ContextHistory, ContextSprint, ContextLabelDashboard,
+		ContextActionable, ContextHistory, ContextEpics, ContextLabelDashboard,
 		ContextAttention, ContextSplit, ContextDetail, ContextTimeTravel,
 	}
 
