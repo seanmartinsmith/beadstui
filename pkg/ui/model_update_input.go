@@ -1099,8 +1099,16 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			return m, m.enterHistoryView()
 
 		case key.Matches(msg, m.keys.Global.LabelDashboard):
-			// Open label dashboard (phase 1: table view)
+			// Toggle label dashboard (phase 1: table view). Second press returns
+			// to the list (bt-yzfp2), restoring the split view that entry clears,
+			// mirroring the Esc cascade.
 			m.clearAttentionOverlay()
+			if m.mode == ViewLabelDashboard {
+				m.mode = ViewList
+				m.isSplitView = true
+				m.focused = focusList
+				return m, nil
+			}
 			m.mode = ViewLabelDashboard
 			m.isSplitView = false
 			m.focused = focusLabelDashboard
@@ -1116,6 +1124,12 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			return m, nil
 
 		case key.Matches(msg, m.keys.Global.Attention):
+			// Toggle attention view. Second press returns to the list (bt-yzfp2).
+			if m.mode == ViewAttention {
+				m.mode = ViewList
+				m.focused = focusList
+				return m, nil
+			}
 			// Attention view: compute attention scores (cached) and render as text
 			if !m.attentionCached {
 				cfg := analysis.DefaultLabelHealthConfig()
@@ -1136,8 +1150,14 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			return m, nil
 
 		case key.Matches(msg, m.keys.Global.FlowMatrix):
-			// Flow matrix view (cross-label dependencies)
+			// Toggle flow matrix view (cross-label dependencies). Second press
+			// returns to the list (bt-yzfp2).
 			m.clearAttentionOverlay()
+			if m.mode == ViewFlowMatrix {
+				m.mode = ViewList
+				m.focused = focusList
+				return m, nil
+			}
 			cfg := analysis.DefaultLabelHealthConfig()
 			flow := analysis.ComputeCrossLabelFlow(m.data.issues, cfg)
 			m.mode = ViewFlowMatrix
