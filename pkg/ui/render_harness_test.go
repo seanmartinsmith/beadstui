@@ -151,6 +151,18 @@ func TestRenderDump(t *testing.T) {
 		m.focused = focusEpics
 		m.refreshEpicsForCurrentFilter()
 	}
+	epicCard := func(m *Model) {
+		now := time.Now()
+		// Same fixture as epicsView: a stale in-progress child plus the
+		// fixture's closed/open children, so the card shows mixed pills.
+		m.data.issues = append(m.data.issues, model.Issue{
+			ID: "bt-evuf.2", Title: "Refactor stalled mid-flight, no update in a week",
+			Status: model.StatusInProgress, Priority: 1, IssueType: model.TypeBug,
+			CreatedAt: now.Add(-12 * 24 * time.Hour), UpdatedAt: now.Add(-6 * 24 * time.Hour),
+			Dependencies: []*model.Dependency{{IssueID: "bt-evuf.2", DependsOnID: "bt-evuf", Type: model.DepParentChild}},
+		})
+		m.openEpicCard("bt-evuf")
+	}
 
 	scenarios := []struct {
 		name  string
@@ -169,6 +181,10 @@ func TestRenderDump(t *testing.T) {
 		// Epics overview (wired to E via bt-ryi5z).
 		{"epics_100x32", 100, 32, epicsView},
 		{"epics_70x20", 70, 20, epicsView}, // scrunched terminal
+
+		// Epic focus card (tier 2, bt-gfxhz.3).
+		{"epic_card_100x32", 100, 32, epicCard},
+		{"epic_card_70x20", 70, 20, epicCard}, // scrunched terminal
 
 		// Modal overlays — composited by View() over the (dimmed) background via
 		// activeModal. Proves popups render in-position in the harness. The dim
