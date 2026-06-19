@@ -6,6 +6,24 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-06-19 — Epics view Phase 2: focus-card modal + shared status-pill renderer (bt-gfxhz.3)
+
+**Tier 2 of the epics stack. The Phase-1 overview's `enter` was a stub ("Epic focus card coming in Phase 2"); Phase 2 fills it with a centered focus-card modal that shows an epic's children as lipgloss status pills, and builds that pill renderer *once* so the existing detail-pane Epic Progress block shares it — closing the long-standing bt-gfxhz.3 (markdown→lipgloss migration). Executed task-by-task (TDD) on a worktree; plan at `docs/plans/2026-06-19-epics-view-phase2.md`.**
+
+### Ships (bt-gfxhz.3, area:tui + ux)
+
+- **Shared pill renderer `buildEpicProgressANSI`** — one function renders an epic's progress summary + per-child rows (status pill via `RenderStatusBadge`, priority pill via `RenderPriorityBadge`, id + title), in natural-numeric child order. Closed children render their id+title as a single `Faint` span (replacing the old markdown strikethrough) while the grey DONE pill conveys status; active children keep colored pills. It is the single source of truth for **both** the detail-pane Epic Progress block and the new focus card.
+- **Detail Epic Progress migrated off Glamour** — the block previously emitted per-status markdown (`~~`/`**`/`*`) through Glamour's chroma path. It now keeps only the `### Epic Progress` H3 on the md track and routes the styled body through the `renderSection` ANSI track (`addANSI`), the bt-x5xc4 trap-class fix already used by the property/graph/dep-graph blocks. `buildEpicProgressANSI` returns "" for a childless epic, so the heading is suppressed with it.
+- **Epic focus card (`ModalEpicCard`)** — centered modal composited via `OverlayCenterDimBackdrop` (per `docs/design/tui-modal-compositing.md`): epic id in the panel title, progress summary, children as pills with a `▸` cursor, footer hint. Box sizes down to its content (snug for small epics) and caps at ~80% height with a cursor-centered scroll window for large epics + scrunched terminals. `j/k` move, `⏎` drills into the selected child (jump + focus detail, the alerts-modal mechanism), `esc` closes and restores the underlying overview/list.
+- **Two entry points** — `enter` on an overview row (replaces the Phase-1 stub); lowercase **`e`** on an epic in the list/detail (new `ListNormalKeys.EpicCard`, gated on cursor-on-epic, forwarded from the detail pane). `e` resolves the spec's "key TBD" open item — a clean mnemonic pair with global `E` (overview) vs `e` (this epic's card). New `EpicCardKeys` map registered (bt-ift6 convention; `Exit` not `Back` to avoid the universal-nav drift check).
+
+### Notes
+
+- `statusGlyph` is now only referenced by its own test (the detail block was its sole caller). Left in place with its passing test rather than deleted (no-delete rule); a future caller (or a cleanup bead) can reclaim it.
+- Phase 2 = tier 2 of the 3-tier design (`docs/design/2026-06-19-epics-view.md`). **Phase 3** (`bt robot epics`) remains the last follow-on under tracking bead **bt-3ftfm**; **bt-h97e** (deep mermaid epic view) is unchanged.
+
+---
+
 ## 2026-06-19 — Epics view Phase 1: the dead sprint dashboard becomes an all-epics overview (bt-ryi5z)
 
 **The `ViewSprint` dashboard shipped dead-on-arrival in the fork import: no key ever set the mode, and its only data source (`.beads/sprints.jsonl`) is never written under Dolt. "Sprint" isn't a beads-native concept. Phase 1 repurposes the render skeleton onto the concept bd *does* have — the epic (parent bead + its parent-child children) — and strips the sprint scaffolding. Executed task-by-task (TDD) on a worktree; shipped to `main` at `1d04169f`.**
