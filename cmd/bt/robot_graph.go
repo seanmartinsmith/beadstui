@@ -169,26 +169,14 @@ func generateRobotDocs(topic string) map[string]interface{} {
 			Flag: "bt robot causality <id>", Description: "Causal chain analysis for a bead.",
 			NeedsIssues: true,
 		},
-		"robot-sprint-list": {
-			Flag: "bt robot sprint list", Description: "List all sprints as JSON.",
-			NeedsIssues: true,
-		},
-		"robot-sprint-show": {
-			Flag: "bt robot sprint show <id>", Description: "Show details for a specific sprint.",
-			NeedsIssues: true,
-		},
 		"robot-forecast": {
 			Flag: "bt robot forecast <id|all>", Description: "ETA predictions for bead completion.",
-			Params:      []string{"--forecast-label <label>", "--forecast-sprint <id>", "--forecast-agents <n>"},
+			Params:      []string{"--forecast-label <label>", "--forecast-agents <n>"},
 			NeedsIssues: true,
 		},
 		"robot-capacity": {
 			Flag: "bt robot capacity", Description: "Capacity simulation and completion projections.",
 			Params:      []string{"--agents <n>", "--capacity-label <label>"},
-			NeedsIssues: true,
-		},
-		"robot-burndown": {
-			Flag: "bt robot burndown <sprint|current>", Description: "Sprint burndown data.",
 			NeedsIssues: true,
 		},
 		"robot-drift": {
@@ -405,8 +393,7 @@ func generateRobotSchemas() RobotSchemas {
 		"robot-diff":     {"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "Robot Diff Output", "description": "Changes since a historical point (commit, branch, date)", "type": "object", "properties": map[string]interface{}{"generated_at": map[string]interface{}{"type": "string", "format": "date-time"}, "data_hash": map[string]interface{}{"type": "string"}, "since": map[string]interface{}{"type": "string"}, "since_commit": map[string]interface{}{"type": "string"}, "new": map[string]interface{}{"type": "array"}, "closed": map[string]interface{}{"type": "array"}, "modified": map[string]interface{}{"type": "array"}, "cycles": map[string]interface{}{"type": "object"}}},
 		"robot-alerts":   {"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "Robot Alerts Output", "description": "Stale issues, blocking cascades, priority mismatches", "type": "object", "properties": map[string]interface{}{"generated_at": map[string]interface{}{"type": "string", "format": "date-time"}, "data_hash": map[string]interface{}{"type": "string"}, "alerts": map[string]interface{}{"type": "array"}, "summary": map[string]interface{}{"type": "object"}}},
 		"robot-suggest":  {"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "Robot Suggest Output", "description": "Smart suggestions for duplicates, dependencies, labels, cycle breaks", "type": "object", "properties": map[string]interface{}{"generated_at": map[string]interface{}{"type": "string", "format": "date-time"}, "data_hash": map[string]interface{}{"type": "string"}, "suggestions": map[string]interface{}{"type": "array"}, "counts": map[string]interface{}{"type": "object"}}},
-		"robot-burndown": {"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "Robot Burndown Output", "description": "Sprint burndown data with scope changes and at-risk items", "type": "object", "properties": map[string]interface{}{"generated_at": map[string]interface{}{"type": "string", "format": "date-time"}, "data_hash": map[string]interface{}{"type": "string"}, "sprint_id": map[string]interface{}{"type": "string"}, "burndown": map[string]interface{}{"type": "array"}, "scope_changes": map[string]interface{}{"type": "array"}, "at_risk": map[string]interface{}{"type": "array"}}},
-		"robot-forecast": {"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "Robot Forecast Output", "description": "ETA predictions with dependency-aware scheduling", "type": "object", "properties": map[string]interface{}{"generated_at": map[string]interface{}{"type": "string", "format": "date-time"}, "data_hash": map[string]interface{}{"type": "string"}, "forecasts": map[string]interface{}{"type": "array"}, "methodology": map[string]interface{}{"type": "object"}}},
+		"robot-forecast":{"$schema": "https://json-schema.org/draft/2020-12/schema", "title": "Robot Forecast Output", "description": "ETA predictions with dependency-aware scheduling", "type": "object", "properties": map[string]interface{}{"generated_at": map[string]interface{}{"type": "string", "format": "date-time"}, "data_hash": map[string]interface{}{"type": "string"}, "forecasts": map[string]interface{}{"type": "array"}, "methodology": map[string]interface{}{"type": "object"}}},
 		"robot-pairs": {
 			"$schema":     "https://json-schema.org/draft/2020-12/schema",
 			"title":       "Robot Pairs Output",

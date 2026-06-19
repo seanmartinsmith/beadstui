@@ -443,111 +443,6 @@ func TestForecast_JSON(t *testing.T) {
 	// This is a Go limitation - struct types are never considered "empty" for omitempty.
 }
 
-func TestBurndownPoint_Validate(t *testing.T) {
-	d := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
-
-	tests := []struct {
-		name    string
-		point   BurndownPoint
-		wantErr bool
-	}{
-		{
-			name: "Valid",
-			point: BurndownPoint{
-				Date:      d,
-				Remaining: 10,
-				Completed: 5,
-			},
-			wantErr: false,
-		},
-		{
-			name: "Zero Date",
-			point: BurndownPoint{
-				Date:      time.Time{},
-				Remaining: 10,
-				Completed: 5,
-			},
-			wantErr: true,
-		},
-		{
-			name: "Negative Remaining",
-			point: BurndownPoint{
-				Date:      d,
-				Remaining: -1,
-				Completed: 0,
-			},
-			wantErr: true,
-		},
-		{
-			name: "Negative Completed",
-			point: BurndownPoint{
-				Date:      d,
-				Remaining: 0,
-				Completed: -1,
-			},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := tt.point.Validate()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("BurndownPoint.Validate() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestBurndownPoint_JSON(t *testing.T) {
-	p := BurndownPoint{
-		Date:      time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC),
-		Remaining: 10,
-		Completed: 5,
-	}
-
-	data, err := json.Marshal(p)
-	if err != nil {
-		t.Fatalf("json.Marshal failed: %v", err)
-	}
-
-	var roundTrip BurndownPoint
-	if err := json.Unmarshal(data, &roundTrip); err != nil {
-		t.Fatalf("json.Unmarshal failed: %v", err)
-	}
-
-	if !roundTrip.Date.Equal(p.Date) || roundTrip.Remaining != p.Remaining || roundTrip.Completed != p.Completed {
-		t.Errorf("Round-trip mismatch: got %#v, want %#v", roundTrip, p)
-	}
-}
-
-// Additional Sprint/Forecast type tests (bv-nnsc)
-
-func TestSprint_Struct(t *testing.T) {
-	now := time.Now()
-	later := now.AddDate(0, 0, 14)
-
-	sprint := Sprint{
-		ID:             "sprint-1",
-		Name:           "Test Sprint",
-		StartDate:      now,
-		EndDate:        later,
-		BeadIDs:        []string{"bv-1", "bv-2", "bv-3"},
-		VelocityTarget: 25.5,
-		CreatedAt:      now,
-		UpdatedAt:      now,
-	}
-
-	if sprint.ID != "sprint-1" {
-		t.Errorf("Sprint ID mismatch: got %s", sprint.ID)
-	}
-	if len(sprint.BeadIDs) != 3 {
-		t.Errorf("BeadIDs length mismatch: got %d, want 3", len(sprint.BeadIDs))
-	}
-	if sprint.VelocityTarget != 25.5 {
-		t.Errorf("VelocityTarget mismatch: got %f", sprint.VelocityTarget)
-	}
-}
 
 func TestForecast_Struct(t *testing.T) {
 	now := time.Now()
@@ -575,25 +470,6 @@ func TestForecast_Struct(t *testing.T) {
 	}
 }
 
-func TestBurndownPoint_Struct(t *testing.T) {
-	now := time.Now()
-
-	point := BurndownPoint{
-		Date:      now,
-		Remaining: 15,
-		Completed: 10,
-	}
-
-	if point.Remaining != 15 {
-		t.Errorf("Remaining mismatch: got %d", point.Remaining)
-	}
-	if point.Completed != 10 {
-		t.Errorf("Completed mismatch: got %d", point.Completed)
-	}
-	if !point.Date.Equal(now) {
-		t.Errorf("Date mismatch")
-	}
-}
 
 func TestIssue_CloseReason_JSON(t *testing.T) {
 	// Test parsing close_reason from JSON

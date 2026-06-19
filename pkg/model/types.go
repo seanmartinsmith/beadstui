@@ -328,40 +328,6 @@ func (c *Comment) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// Sprint represents a time-boxed period of work
-type Sprint struct {
-	ID             string    `json:"id"`
-	Name           string    `json:"name"`
-	StartDate      time.Time `json:"start_date,omitzero"`
-	EndDate        time.Time `json:"end_date,omitzero"`
-	BeadIDs        []string  `json:"bead_ids,omitempty"`
-	VelocityTarget float64   `json:"velocity_target,omitempty"`
-	CreatedAt      time.Time `json:"created_at,omitzero"`
-	UpdatedAt      time.Time `json:"updated_at,omitzero"`
-}
-
-// Validate checks if the sprint data is logically valid
-func (s *Sprint) Validate() error {
-	if s.ID == "" {
-		return fmt.Errorf("sprint ID cannot be empty")
-	}
-	if s.Name == "" {
-		return fmt.Errorf("sprint name cannot be empty")
-	}
-	if !s.EndDate.IsZero() && !s.StartDate.IsZero() && s.EndDate.Before(s.StartDate) {
-		return fmt.Errorf("end_date (%v) cannot be before start_date (%v)", s.EndDate, s.StartDate)
-	}
-	return nil
-}
-
-// IsActive returns true if the sprint is currently active (today is within the sprint dates)
-func (s *Sprint) IsActive() bool {
-	now := time.Now()
-	return !s.StartDate.IsZero() && !s.EndDate.IsZero() &&
-		(now.Equal(s.StartDate) || now.After(s.StartDate)) &&
-		(now.Equal(s.EndDate) || now.Before(s.EndDate))
-}
-
 // Forecast represents an ETA prediction for a specific bead
 type Forecast struct {
 	BeadID     string    `json:"bead_id"`
@@ -381,27 +347,6 @@ func (f *Forecast) Validate() error {
 	}
 	if f.Confidence < 0 || f.Confidence > 1 {
 		return fmt.Errorf("confidence (%v) must be between 0 and 1", f.Confidence)
-	}
-	return nil
-}
-
-// BurndownPoint represents a single point in a burndown chart
-type BurndownPoint struct {
-	Date      time.Time `json:"date"`
-	Remaining int       `json:"remaining"`
-	Completed int       `json:"completed"`
-}
-
-// Validate checks if the burndown point data is logically valid.
-func (b *BurndownPoint) Validate() error {
-	if b.Date.IsZero() {
-		return fmt.Errorf("date cannot be empty")
-	}
-	if b.Remaining < 0 {
-		return fmt.Errorf("remaining (%d) cannot be negative", b.Remaining)
-	}
-	if b.Completed < 0 {
-		return fmt.Errorf("completed (%d) cannot be negative", b.Completed)
 	}
 	return nil
 }

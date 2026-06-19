@@ -7,168 +7,17 @@ import (
 	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
-	"github.com/seanmartinsmith/beadstui/pkg/loader"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
-// runSprintListOrShow handles --robot-sprint-list and --robot-sprint-show (bv-156).
-func (rc *robotCtx) runSprintListOrShow(sprintShowID string) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting current directory: %v\n", err)
-		os.Exit(1)
-	}
-
-	sprints, err := loader.LoadSprints(cwd)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading sprints: %v\n", err)
-		os.Exit(1)
-	}
-
-	dataHash := analysis.ComputeDataHash(rc.issues)
-
-	if sprintShowID != "" {
-		// Find specific sprint
-		var found *model.Sprint
-		for i := range sprints {
-			if sprints[i].ID == sprintShowID {
-				found = &sprints[i]
-				break
-			}
-		}
-		if found == nil {
-			fmt.Fprintf(os.Stderr, "Sprint not found: %s\n", sprintShowID)
-			os.Exit(1)
-		}
-		// Wrap sprint with standard envelope
-		type SprintShowOutput struct {
-			RobotEnvelope
-			Sprint *model.Sprint `json:"sprint"`
-		}
-		output := SprintShowOutput{
-			RobotEnvelope: NewRobotEnvelope(dataHash),
-			Sprint:        found,
-		}
-		encoder := rc.newEncoder()
-		if err := encoder.Encode(output); err != nil {
-			fmt.Fprintf(os.Stderr, "Error encoding sprint: %v\n", err)
-			os.Exit(1)
-		}
-	} else {
-		// Output all sprints as JSON
-		output := struct {
-			RobotEnvelope
-			SprintCount int            `json:"sprint_count"`
-			Sprints     []model.Sprint `json:"sprints"`
-		}{
-			RobotEnvelope: NewRobotEnvelope(dataHash),
-			SprintCount:   len(sprints),
-			Sprints:       sprints,
-		}
-		encoder := rc.newEncoder()
-		if err := encoder.Encode(output); err != nil {
-			fmt.Fprintf(os.Stderr, "Error encoding sprints: %v\n", err)
-			os.Exit(1)
-		}
-	}
-	os.Exit(0)
-}
-
-// runBurndown handles --robot-burndown (bv-159).
-func (rc *robotCtx) runBurndown(sprintID string) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting current directory: %v\n", err)
-		os.Exit(1)
-	}
-
-	sprints, err := loader.LoadSprints(cwd)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading sprints: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Find the target sprint
-	var targetSprint *model.Sprint
-	if sprintID == "current" {
-		// Find active sprint
-		for i := range sprints {
-			if sprints[i].IsActive() {
-				targetSprint = &sprints[i]
-				break
-			}
-		}
-		if targetSprint == nil {
-			fmt.Fprintf(os.Stderr, "No active sprint found\n")
-			os.Exit(1)
-		}
-	} else {
-		// Find sprint by ID
-		for i := range sprints {
-			if sprints[i].ID == sprintID {
-				targetSprint = &sprints[i]
-				break
-			}
-		}
-		if targetSprint == nil {
-			fmt.Fprintf(os.Stderr, "Sprint not found: %s\n", sprintID)
-			os.Exit(1)
-		}
-	}
-
-	// Build burndown data
-	now := time.Now()
-	burndown := calculateBurndownAt(targetSprint, rc.issues, now)
-	burndown.RobotEnvelope = NewRobotEnvelope(analysis.ComputeDataHash(rc.issues))
-	issueMap := make(map[string]model.Issue, len(rc.issues))
-	for _, iss := range rc.issues {
-		issueMap[iss.ID] = iss
-	}
-	if scopeChanges, err := computeSprintScopeChanges(cwd, targetSprint, issueMap, now); err == nil && len(scopeChanges) > 0 {
-		burndown.ScopeChanges = scopeChanges
-	}
-
-	encoder := rc.newEncoder()
-	if err := encoder.Encode(burndown); err != nil {
-		fmt.Fprintf(os.Stderr, "Error encoding burndown: %v\n", err)
-		os.Exit(1)
-	}
-	os.Exit(0)
-}
-
 // runForecast handles --robot-forecast (bv-158).
-func (rc *robotCtx) runForecast(forecastTarget, forecastLabel, forecastSprint string, forecastAgents int) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting current directory: %v\n", err)
-		os.Exit(1)
-	}
-
+func (rc *robotCtx) runForecast(forecastTarget, forecastLabel string, forecastAgents int) {
 	// Build graph stats for depth calculation
 	analyzer := analysis.NewAnalyzer(rc.analysisIssues())
 	graphStats := analyzer.Analyze()
 
-	// Filter issues by label and sprint if specified
+	// Filter issues by label if specified
 	targetIssues := make([]model.Issue, 0, len(rc.issues))
-	var sprintBeadIDs map[string]bool
-	if forecastSprint != "" {
-		sprints, err := loader.LoadSprints(cwd)
-		if err == nil {
-			for _, s := range sprints {
-				if s.ID == forecastSprint {
-					sprintBeadIDs = make(map[string]bool)
-					for _, bid := range s.BeadIDs {
-						sprintBeadIDs[bid] = true
-					}
-					break
-				}
-			}
-		}
-		if sprintBeadIDs == nil {
-			fmt.Fprintf(os.Stderr, "Sprint not found: %s\n", forecastSprint)
-			os.Exit(1)
-		}
-	}
 
 	for _, iss := range rc.issues {
 		// Filter by label
@@ -183,10 +32,6 @@ func (rc *robotCtx) runForecast(forecastTarget, forecastLabel, forecastSprint st
 			if !hasLabel {
 				continue
 			}
-		}
-		// Filter by sprint
-		if sprintBeadIDs != nil && !sprintBeadIDs[iss.ID] {
-			continue
 		}
 		targetIssues = append(targetIssues, iss)
 	}
@@ -268,9 +113,6 @@ func (rc *robotCtx) runForecast(forecastTarget, forecastLabel, forecastSprint st
 	filters := make(map[string]string)
 	if forecastLabel != "" {
 		filters["label"] = forecastLabel
-	}
-	if forecastSprint != "" {
-		filters["sprint"] = forecastSprint
 	}
 
 	output := ForecastOutput{

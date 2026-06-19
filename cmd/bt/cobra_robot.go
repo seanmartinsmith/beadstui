@@ -622,46 +622,6 @@ func unknownSubcommandRunE(cmd *cobra.Command, args []string) error {
 	return fmt.Errorf("unknown subcommand %q for %q\nRun '%s --help' for usage", args[0], cmd.CommandPath(), cmd.CommandPath())
 }
 
-// --- Robot Sprint Subcommands ---
-
-var robotSprintCmd = &cobra.Command{
-	Use:           "sprint",
-	Short:         "Sprint-related robot commands",
-	SilenceUsage:  true,
-	SilenceErrors: true,
-	RunE:          unknownSubcommandRunE,
-}
-
-var robotSprintListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "Output sprints as JSON",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		rc, err := robotPreRun()
-		if err != nil {
-			return err
-		}
-		rc.runSprintListOrShow("")
-		return nil
-	},
-}
-
-var robotSprintShowCmd = &cobra.Command{
-	Use:   "show [sprint-id]",
-	Short: "Output specific sprint details as JSON",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		rc, err := robotPreRun()
-		if err != nil {
-			return err
-		}
-		sprintID := ""
-		if len(args) > 0 {
-			sprintID = args[0]
-		}
-		rc.runSprintListOrShow(sprintID)
-		return nil
-	},
-}
-
 // --- Robot Labels Subcommands ---
 
 var robotLabelsCmd = &cobra.Command{
@@ -1043,27 +1003,8 @@ var robotForecastCmd = &cobra.Command{
 			target = args[0]
 		}
 		forecastLabel, _ := cmd.Flags().GetString("forecast-label")
-		forecastSprint, _ := cmd.Flags().GetString("forecast-sprint")
 		forecastAgents, _ := cmd.Flags().GetInt("agents")
-		rc.runForecast(target, forecastLabel, forecastSprint, forecastAgents)
-		return nil
-	},
-}
-
-// bt robot burndown
-var robotBurndownCmd = &cobra.Command{
-	Use:   "burndown [sprint-id|current]",
-	Short: "Output burndown data as JSON",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		rc, err := robotPreRun()
-		if err != nil {
-			return err
-		}
-		sprintID := ""
-		if len(args) > 0 {
-			sprintID = args[0]
-		}
-		rc.runBurndown(sprintID)
+		rc.runForecast(target, forecastLabel, forecastAgents)
 		return nil
 	},
 }
@@ -1222,11 +1163,6 @@ func init() {
 	// drift
 	robotCmd.AddCommand(robotDriftCmd)
 
-	// sprint
-	robotSprintCmd.AddCommand(robotSprintListCmd)
-	robotSprintCmd.AddCommand(robotSprintShowCmd)
-	robotCmd.AddCommand(robotSprintCmd)
-
 	// labels
 	robotLabelsAttentionCmd.Flags().Int("limit", 5, "Limit number of labels")
 	robotLabelsCmd.AddCommand(robotLabelsHealthCmd)
@@ -1293,12 +1229,8 @@ func init() {
 
 	// forecast
 	robotForecastCmd.Flags().String("forecast-label", "", "Filter forecast by label")
-	robotForecastCmd.Flags().String("forecast-sprint", "", "Filter forecast by sprint ID")
 	robotForecastCmd.Flags().Int("agents", 1, "Number of parallel agents")
 	robotCmd.AddCommand(robotForecastCmd)
-
-	// burndown
-	robotCmd.AddCommand(robotBurndownCmd)
 
 	// capacity
 	robotCapacityCmd.Flags().Int("agents", 1, "Number of parallel agents")
