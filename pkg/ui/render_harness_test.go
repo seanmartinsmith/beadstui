@@ -65,9 +65,9 @@ func harnessIssues() []model.Issue {
 			Assignee: "sms", Author: "sms", Labels: []string{"area:tui", "ux"},
 			CreatedAt: ago(5 * 24 * time.Hour), UpdatedAt: ago(3 * time.Hour),
 			Description:        "ANSI SGR sequences from the lipgloss dep-graph render leak into the viewport as literal escape text instead of color.\n\nRepro: open any bead with children, scroll to the Dependency Graph section.",
-			Design:            "Route the dep-graph block through the renderSection ANSI track (placeholder + spliceSections) rather than Glamour's chroma code-fence path.",
+			Design:             "Route the dep-graph block through the renderSection ANSI track (placeholder + spliceSections) rather than Glamour's chroma code-fence path.",
 			AcceptanceCriteria: "- Dep graph renders with color\n- No literal escape sequences in the viewport\n- Snapshot test covers a 2-level tree",
-			Notes:             "Found during 2026-06-11 dogfood pass.",
+			Notes:              "Found during 2026-06-11 dogfood pass.",
 			Comments: []*model.Comment{
 				{Author: "sms", Text: "still repro'ing on 90-col terminals", CreatedAt: ago(2 * time.Hour)},
 				{Author: "claude", Text: "confirmed: spliceSections placeholder not emitted for the inverse parent_child branch", CreatedAt: ago(1 * time.Hour)},
@@ -137,6 +137,30 @@ func TestRenderDump(t *testing.T) {
 			m.updateViewportContent()
 		}
 	}
+	sprintView := func(m *Model) {
+		now := time.Now()
+		// Inject a stale in-progress bead so the At-Risk section renders
+		// populated (in_progress with no update for > 3 days).
+		m.data.issues = append(m.data.issues, model.Issue{
+			ID: "bt-stale", Title: "Refactor stalled mid-flight, no update in a week",
+			Status: model.StatusInProgress, Priority: 1, IssueType: model.TypeBug,
+			CreatedAt: now.Add(-12 * 24 * time.Hour), UpdatedAt: now.Add(-6 * 24 * time.Hour),
+		})
+		m.sprints = []model.Sprint{{
+			ID:        "sprint-w3",
+			Name:      "TUI polish + sprint wiring",
+			StartDate: now.Add(-5 * 24 * time.Hour),
+			EndDate:   now.Add(5 * 24 * time.Hour),
+			BeadIDs: []string{
+				"bt-evuf", "bt-evuf.1", "bt-0qzp", "bt-dx7k",
+				"dotfiles-7kf2q", "bt-9kdo", "bt-h5jz", "bt-stale",
+			},
+		}}
+		m.selectedSprint = &m.sprints[0]
+		m.mode = ViewSprint
+		m.focused = focusSprint
+		m.sprintViewText = m.renderSprintDashboard()
+	}
 
 	scenarios := []struct {
 		name  string
@@ -151,6 +175,10 @@ func TestRenderDump(t *testing.T) {
 		{"detail_90x28", 90, 28, openDetail("bt-0qzp")},
 		{"detail_70x20", 70, 20, openDetail("bt-0qzp")},
 		{"detail_epic_90x28", 90, 28, openDetail("bt-evuf")},
+
+		// Sprint dashboard (wired to P via bt-ryi5z).
+		{"sprint_100x32", 100, 32, sprintView},
+		{"sprint_70x20", 70, 20, sprintView}, // scrunched terminal
 
 		// Modal overlays — composited by View() over the (dimmed) background via
 		// activeModal. Proves popups render in-position in the harness. The dim

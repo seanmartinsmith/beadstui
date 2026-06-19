@@ -898,6 +898,11 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				m.focused = focusList
 				return m, nil
 			}
+			if m.mode == ViewSprint {
+				m.mode = ViewList
+				m.focused = focusList
+				return m, nil
+			}
 			return m, tea.Quit
 
 		case key.Matches(msg, m.keys.Global.Cancel):
@@ -937,6 +942,11 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				return m, nil
 			}
 			if m.mode == ViewHistory {
+				m.mode = ViewList
+				m.focused = focusList
+				return m, nil
+			}
+			if m.mode == ViewSprint {
 				m.mode = ViewList
 				m.focused = focusList
 				return m, nil
@@ -1169,6 +1179,27 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				panelHeight = 3
 			}
 			m.flowMatrix.SetSize(m.width, panelHeight)
+			return m, nil
+
+		case key.Matches(msg, m.keys.Global.Sprint):
+			// Toggle sprint dashboard. Second press returns to the list,
+			// mirroring the other view toggles (bt-ryi5z).
+			m.clearAttentionOverlay()
+			if m.mode == ViewSprint {
+				m.mode = ViewList
+				m.focused = focusList
+				return m, nil
+			}
+			if len(m.sprints) == 0 {
+				m.setStatus("No sprints loaded (.beads/sprints.jsonl)")
+				return m, nil
+			}
+			if m.selectedSprint == nil {
+				m.selectedSprint = &m.sprints[0]
+			}
+			m.mode = ViewSprint
+			m.focused = focusSprint
+			m.sprintViewText = m.renderSprintDashboard()
 			return m, nil
 
 		case key.Matches(msg, m.keys.Global.Alerts):

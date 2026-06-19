@@ -34,6 +34,7 @@ type GlobalKeys struct {
 	Tree           key.Binding // E
 	LabelDashboard key.Binding // [ / f3
 	Attention      key.Binding // ] / f4
+	Sprint         key.Binding // P
 
 	// Workspace
 	ProjectsOrWisps  key.Binding // w
@@ -41,16 +42,16 @@ type GlobalKeys struct {
 	HybridPreset     key.Binding // H (gated on focusList + hybrid mode)
 
 	// Actions
-	Refresh        key.Binding // ctrl+r / f5
-	SearchMode     key.Binding // ctrl+s
-	BQL            key.Binding // :
-	Recipes        key.Binding // '
-	Alerts         key.Binding // !
-	Notifications  key.Binding // 1 (gated on not ViewAttention)
-	SearchBounce   key.Binding // / (gated on split + non-list focus)
-	PriorityHints  key.Binding // p
-	Export         key.Binding // x
-	LabelPicker    key.Binding // l
+	Refresh       key.Binding // ctrl+r / f5
+	SearchMode    key.Binding // ctrl+s
+	BQL           key.Binding // :
+	Recipes       key.Binding // '
+	Alerts        key.Binding // !
+	Notifications key.Binding // 1 (gated on not ViewAttention)
+	SearchBounce  key.Binding // / (gated on split + non-list focus)
+	PriorityHints key.Binding // p
+	Export        key.Binding // x
+	LabelPicker   key.Binding // l
 }
 
 // NewGlobalKeys returns the default global keymap.
@@ -126,6 +127,10 @@ func NewGlobalKeys() GlobalKeys {
 		Attention: key.NewBinding(
 			key.WithKeys("]", "f4"),
 			key.WithHelp("]", "attention"),
+		),
+		Sprint: key.NewBinding(
+			key.WithKeys("P"),
+			key.WithHelp("P", "sprint"),
 		),
 
 		// Workspace
@@ -203,7 +208,7 @@ func (k GlobalKeys) FullHelp() [][]key.Binding {
 		// Help & Chrome
 		{k.Help, k.Sidebar, k.SidebarScrollDown, k.SidebarScrollUp, k.Tutorial, k.Quit, k.Back, k.Cancel},
 		// Views
-		{k.Board, k.Graph, k.Insights, k.History, k.Actionable, k.FlowMatrix, k.Tree, k.LabelDashboard, k.Attention},
+		{k.Board, k.Graph, k.Insights, k.History, k.Actionable, k.FlowMatrix, k.Tree, k.LabelDashboard, k.Attention, k.Sprint},
 		// Workspace
 		{k.ProjectsOrWisps, k.WorkspaceHomeAll, k.HybridPreset},
 		// Actions
