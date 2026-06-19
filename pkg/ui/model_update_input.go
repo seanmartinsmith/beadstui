@@ -1038,7 +1038,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				// workspace project filter (bt-dcby.2).
 				m.rebuildTreeForCurrentFilter()
 				m.tree.SetSize(m.width, m.height-2)
-				// Sync tree cursor to the issues-pane selection so pressing E
+				// Sync tree cursor to the issues-pane selection so pressing T
 				// lands on the bead the user was looking at, with its ancestor
 				// path expanded so it is immediately visible (bt-w8j8).
 				// ExpandPathTo first (rebuilds flatList), then SelectByID
@@ -1181,8 +1181,8 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.flowMatrix.SetSize(m.width, panelHeight)
 			return m, nil
 
-		case key.Matches(msg, m.keys.Global.Sprint):
-			// Toggle sprint dashboard. Second press returns to the list,
+		case key.Matches(msg, m.keys.Global.Epics):
+			// Toggle epics overview. Second press returns to the list,
 			// mirroring the other view toggles (bt-ryi5z).
 			m.clearAttentionOverlay()
 			if m.mode == ViewEpics {
@@ -1436,7 +1436,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			switch {
 			case key.Matches(msg,
 				ln.CopyID, ln.CopyIssue, ln.OpenInEditor, ln.RecipeTriage,
-				ln.TimeTravelInput, ln.TimeTravelQuick,
+				ln.TimeTravelInput,
 				ln.SelfUpdate, ln.CassSession,
 				ln.SplitFocusToggle, ln.SplitShrinkLeft, ln.SplitShrinkRight):
 				m = m.handleListKeys(msg)

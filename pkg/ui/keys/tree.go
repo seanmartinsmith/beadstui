@@ -78,8 +78,8 @@ func NewTreeKeys() TreeKeys {
 			key.WithHelp("⇥", "sync to detail pane"),
 		),
 		Back: key.NewBinding(
-			key.WithKeys("E", "esc"),
-			key.WithHelp("E/esc", "back to list"),
+			key.WithKeys("T", "esc"),
+			key.WithHelp("T/esc", "back to list"),
 		),
 	}
 }

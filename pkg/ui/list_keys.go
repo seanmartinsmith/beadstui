@@ -100,13 +100,6 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 			m.timeTravelInput.Focus()
 			m.focused = focusTimeTravelInput
 		}
-	case key.Matches(msg, k.TimeTravelQuick):
-		// Quick time-travel with default HEAD~5
-		if m.timeTravelMode {
-			m.exitTimeTravelMode()
-		} else {
-			m.enterTimeTravelMode("HEAD~5")
-		}
 	case key.Matches(msg, k.CopyIssue):
 		m.copyIssueToClipboard()
 	case key.Matches(msg, k.OpenInEditor):

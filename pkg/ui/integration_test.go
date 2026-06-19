@@ -62,20 +62,20 @@ func TestViewTransitionListToTree(t *testing.T) {
 		t.Errorf("Expected initial focus 'list', got %q", m.FocusState())
 	}
 
-	// Press 'E' to toggle tree view
-	newM, _ := m.Update(integrationKeyMsg("E"))
+	// Press 'T' to toggle tree view
+	newM, _ := m.Update(integrationKeyMsg("T"))
 	m = newM.(ui.Model)
 
 	if m.FocusState() != "tree" {
-		t.Errorf("After 'E', expected focus 'tree', got %q", m.FocusState())
+		t.Errorf("After 'T', expected focus 'tree', got %q", m.FocusState())
 	}
 
-	// Press 'E' again to toggle back to list
-	newM, _ = m.Update(integrationKeyMsg("E"))
+	// Press 'T' again to toggle back to list
+	newM, _ = m.Update(integrationKeyMsg("T"))
 	m = newM.(ui.Model)
 
 	if m.FocusState() != "list" {
-		t.Errorf("After second 'E', expected focus 'list', got %q", m.FocusState())
+		t.Errorf("After second 'T', expected focus 'list', got %q", m.FocusState())
 	}
 }
 
@@ -146,18 +146,18 @@ func TestViewTransitionFullCycle(t *testing.T) {
 	}
 
 	// Enter tree view (clears graph)
-	newM, _ = m.Update(integrationKeyMsg("E"))
+	newM, _ = m.Update(integrationKeyMsg("T"))
 	m = newM.(ui.Model)
 	if m.FocusState() != "tree" {
 		t.Errorf("Should be in tree view, got %q", m.FocusState())
 	}
 
-	// Return to list via 'E' toggle (tree specific exit key)
-	newM, _ = m.Update(integrationKeyMsg("E"))
+	// Return to list via 'T' toggle (tree specific exit key)
+	newM, _ = m.Update(integrationKeyMsg("T"))
 	m = newM.(ui.Model)
 
 	if m.FocusState() != "list" {
-		t.Errorf("After 'E' from tree, expected 'list', got %q", m.FocusState())
+		t.Errorf("After 'T' from tree, expected 'list', got %q", m.FocusState())
 	}
 }
 
@@ -190,7 +190,7 @@ func TestViewTransitionClearsOtherViews(t *testing.T) {
 	}
 
 	// Enter tree view (should clear graph)
-	newM, _ = m.Update(integrationKeyMsg("E"))
+	newM, _ = m.Update(integrationKeyMsg("T"))
 	m = newM.(ui.Model)
 
 	if m.IsGraphView() {
@@ -233,7 +233,7 @@ func TestViewTransitionEmptyIssues(t *testing.T) {
 	m := ui.NewModel([]model.Issue{}, nil, "", nil)
 
 	// Should not panic on any view transition
-	keys := []string{"E", "b", "g", "a", "i", "?"}
+	keys := []string{"T", "b", "g", "a", "i", "?"}
 	for _, k := range keys {
 		newM, _ := m.Update(integrationKeyMsg(k))
 		m = newM.(ui.Model)
@@ -249,18 +249,18 @@ func TestViewTransitionEscBehavior(t *testing.T) {
 	issues := createTestIssues(10)
 
 	// Each view has specific exit behavior
-	// Note: In tree view, 'E' is the toggle key; 'esc' may trigger quit confirm
-	t.Run("tree_E_returns_to_list", func(t *testing.T) {
+	// Note: In tree view, 'T' is the toggle key; 'esc' may trigger quit confirm
+	t.Run("tree_T_returns_to_list", func(t *testing.T) {
 		m := ui.NewModel(issues, nil, "", nil)
-		newM, _ := m.Update(integrationKeyMsg("E"))
+		newM, _ := m.Update(integrationKeyMsg("T"))
 		m = newM.(ui.Model)
 
-		// 'E' from tree should return to list (toggle behavior)
-		newM, _ = m.Update(integrationKeyMsg("E"))
+		// 'T' from tree should return to list (toggle behavior)
+		newM, _ = m.Update(integrationKeyMsg("T"))
 		m = newM.(ui.Model)
 
 		if m.FocusState() != "list" {
-			t.Errorf("'E' from tree should return to list, got %q", m.FocusState())
+			t.Errorf("'T' from tree should return to list, got %q", m.FocusState())
 		}
 	})
 
@@ -311,20 +311,20 @@ func TestViewTransitionEscBehavior(t *testing.T) {
 func TestViewToggleExitBehavior(t *testing.T) {
 	issues := createTestIssues(10)
 
-	// Tree view uses 'E' to toggle in/out (q would trigger quit confirm)
-	t.Run("tree_E_toggle", func(t *testing.T) {
+	// Tree view uses 'T' to toggle in/out (q would trigger quit confirm)
+	t.Run("tree_T_toggle", func(t *testing.T) {
 		m := ui.NewModel(issues, nil, "", nil)
 		// Enter tree
-		newM, _ := m.Update(integrationKeyMsg("E"))
+		newM, _ := m.Update(integrationKeyMsg("T"))
 		m = newM.(ui.Model)
 		if m.FocusState() != "tree" {
 			t.Errorf("Expected tree, got %q", m.FocusState())
 		}
-		// Exit with E
-		newM, _ = m.Update(integrationKeyMsg("E"))
+		// Exit with T
+		newM, _ = m.Update(integrationKeyMsg("T"))
 		m = newM.(ui.Model)
 		if m.FocusState() != "list" {
-			t.Errorf("'E' should toggle back to list, got %q", m.FocusState())
+			t.Errorf("'T' should toggle back to list, got %q", m.FocusState())
 		}
 	})
 
@@ -368,7 +368,7 @@ func TestRapidViewSwitching(t *testing.T) {
 	issues := createTestIssues(50)
 	m := ui.NewModel(issues, nil, "", nil)
 
-	keys := []string{"E", "b", "g", "a", "i", "E", "b", "g"}
+	keys := []string{"T", "b", "g", "a", "i", "T", "b", "g"}
 
 	// Perform 100 iterations of view switching
 	for i := 0; i < 100; i++ {
@@ -389,7 +389,7 @@ func TestRapidViewSwitchingWithNavigation(t *testing.T) {
 
 	// Mix view switches with navigation
 	actions := []tea.KeyPressMsg{
-		integrationKeyMsg("E"),            // Enter tree
+		integrationKeyMsg("T"),            // Enter tree
 		integrationKeyMsg("j"),            // Move down
 		integrationKeyMsg("j"),            // Move down
 		integrationKeyMsg("b"),            // Enter board (from tree)
@@ -419,7 +419,7 @@ func TestViewSwitchingPerformance(t *testing.T) {
 	issues := createTestIssues(100)
 	m := ui.NewModel(issues, nil, "", nil)
 
-	keys := []string{"E", "b", "g", "E", "b", "g"}
+	keys := []string{"T", "b", "g", "T", "b", "g"}
 
 	start := time.Now()
 
@@ -453,7 +453,7 @@ func TestHelpViewTransition(t *testing.T) {
 		enterKey string
 	}{
 		{"list", ""},
-		{"tree", "E"},
+		{"tree", "T"},
 		{"board", "b"},
 		{"graph", "g"},
 	}
@@ -500,7 +500,7 @@ func TestAllViewsRenderWithoutPanic(t *testing.T) {
 		enterKey string
 	}{
 		{"list", ""},
-		{"tree", "E"},
+		{"tree", "T"},
 		{"board", "b"},
 		{"graph", "g"},
 		{"actionable", "a"},
@@ -541,7 +541,7 @@ func TestViewRenderingAtDifferentSizes(t *testing.T) {
 		{200, 50}, // Wide
 	}
 
-	views := []string{"", "E", "b", "g"}
+	views := []string{"", "T", "b", "g"}
 
 	for _, size := range sizes {
 		for _, viewKey := range views {

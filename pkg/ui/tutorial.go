@@ -1845,8 +1845,7 @@ See how your project looked at any point in history — compare past to present.
 
 | Key | Action |
 |-----|--------|
-| **t** | Full time travel with git ref input |
-| **T** | Quick time travel to HEAD~5 |
+| **t** | Time travel with git ref input (e.g. HEAD~5) |
 | **h** | History view (visual timeline) |
 
 ### Git Reference Syntax
@@ -1863,7 +1862,7 @@ Time travel understands git references:
 ### Example: Sprint Retrospective
 
 ` + "```" + `
-1. Press T and enter "HEAD~50" (start of sprint)
+1. Press t and enter "HEAD~50" (start of sprint)
 2. See: 45 open issues, 12 blocked
 3. Press Esc to return to present
 4. Now: 22 open, 3 blocked

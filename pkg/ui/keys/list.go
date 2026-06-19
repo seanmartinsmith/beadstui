@@ -55,7 +55,6 @@ type ListNormalKeys struct {
 
 	// Time travel
 	TimeTravelInput key.Binding
-	TimeTravelQuick key.Binding
 
 	// Actions
 	CopyID       key.Binding
@@ -140,10 +139,6 @@ func NewListNormalKeys() ListNormalKeys {
 			key.WithKeys("t"),
 			key.WithHelp("t", "time travel"),
 		),
-		TimeTravelQuick: key.NewBinding(
-			key.WithKeys("T"),
-			key.WithHelp("T", "time travel HEAD~5"),
-		),
 
 		CopyID: key.NewBinding(
 			key.WithKeys("y"),
@@ -188,7 +183,7 @@ func (k ListNormalKeys) FullHelp() [][]key.Binding {
 		// Sort / triage
 		{k.CycleSort, k.CycleSortReverse, k.RecipeTriage},
 		// Time travel
-		{k.TimeTravelInput, k.TimeTravelQuick},
+		{k.TimeTravelInput},
 		// Actions
 		{k.CopyID, k.CopyIssue, k.OpenInEditor, k.CassSession, k.SelfUpdate},
 	}

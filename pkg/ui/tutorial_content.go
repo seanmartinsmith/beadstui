@@ -587,8 +587,7 @@ func structuredTutorialPages() []StructuredTutorialPage {
 				Spacer{Lines: 1},
 				Section{Title: "Accessing Time Travel"},
 				KeyTable{Bindings: []KeyBinding{
-					{Key: "t", Desc: "Full time travel with git ref input"},
-					{Key: "T", Desc: "Quick travel to HEAD~5"},
+					{Key: "t", Desc: "Time travel with git ref input (e.g. HEAD~5)"},
 					{Key: "h", Desc: "History view (visual timeline)"},
 				}},
 				Spacer{Lines: 1},

@@ -320,27 +320,27 @@ func TestFocusTransitionInsights(t *testing.T) {
 	}
 }
 
-// TestFocusTransitionTree verifies 'E' toggles tree view
+// TestFocusTransitionTree verifies 'T' toggles tree view (E now opens Epics)
 func TestFocusTransitionTree(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "1", Title: "Test Issue", Status: model.StatusOpen, Priority: 1, IssueType: model.TypeEpic},
 	}
 	m := ui.NewModel(issues, nil, "", nil)
 
-	// Press 'E' to enter tree view
-	newM, _ := m.Update(keyMsg("E"))
+	// Press 'T' to enter tree view
+	newM, _ := m.Update(keyMsg("T"))
 	m = newM.(ui.Model)
 
 	if m.FocusState() != "tree" {
-		t.Errorf("After 'E', focus = %q, want 'tree'", m.FocusState())
+		t.Errorf("After 'T', focus = %q, want 'tree'", m.FocusState())
 	}
 
-	// Press 'E' again to exit tree view
-	newM, _ = m.Update(keyMsg("E"))
+	// Press 'T' again to exit tree view
+	newM, _ = m.Update(keyMsg("T"))
 	m = newM.(ui.Model)
 
 	if m.FocusState() != "list" {
-		t.Errorf("After second 'E', focus = %q, want 'list'", m.FocusState())
+		t.Errorf("After second 'T', focus = %q, want 'list'", m.FocusState())
 	}
 }
 

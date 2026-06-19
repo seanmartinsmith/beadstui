@@ -12,7 +12,7 @@ import "charm.land/bubbles/v2/key"
 // consistency test.
 //
 // The exit binding is named Exit (not Back) to avoid triggering the
-// universal-nav consistency check; TreeKeys.Back uses "E/esc" whereas
+// universal-nav consistency check; TreeKeys.Back uses "T/esc" whereas
 // insights exit is plain "esc" only.
 type InsightsKeys struct {
 	// Panel navigation

@@ -34,6 +34,7 @@ func allMaps() map[string]help.KeyMap {
 		"Actionable": NewActionableKeys(),
 		"FlowMatrix": NewFlowMatrixKeys(),
 		"Graph":      NewGraphKeys(),
+		"Epics":      NewEpicsKeys(),
 
 		// Modal Maps (bt-ift6.9)
 		"LabelPickerNav":    NewLabelPickerNavKeys(),

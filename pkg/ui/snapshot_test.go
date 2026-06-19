@@ -832,7 +832,7 @@ func TestSnapshotSwap_RebuildsTreeWhenFocusedAndPreservesSelection(t *testing.T)
 	m.tree.SetBeadsDir(beadsDir)
 
 	// Enter tree view and select the child.
-	newM, _ := m.Update(tea.KeyPressMsg{Code: 'E', Text: "E"})
+	newM, _ := m.Update(tea.KeyPressMsg{Code: 'T', Text: "T"})
 	m = newM.(Model)
 	if m.focused != focusTree {
 		t.Fatalf("expected focusTree, got %v", m.focused)

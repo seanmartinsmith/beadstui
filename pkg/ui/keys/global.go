@@ -31,10 +31,10 @@ type GlobalKeys struct {
 	History        key.Binding // h
 	Actionable     key.Binding // a
 	FlowMatrix     key.Binding // f
-	Tree           key.Binding // E
+	Tree           key.Binding // T
 	LabelDashboard key.Binding // [ / f3
 	Attention      key.Binding // ] / f4
-	Sprint         key.Binding // P
+	Epics          key.Binding // E
 
 	// Workspace
 	ProjectsOrWisps  key.Binding // w
@@ -117,8 +117,8 @@ func NewGlobalKeys() GlobalKeys {
 			key.WithHelp("f", "flow matrix"),
 		),
 		Tree: key.NewBinding(
-			key.WithKeys("E"),
-			key.WithHelp("E", "tree view"),
+			key.WithKeys("T"),
+			key.WithHelp("T", "tree"),
 		),
 		LabelDashboard: key.NewBinding(
 			key.WithKeys("[", "f3"),
@@ -128,9 +128,9 @@ func NewGlobalKeys() GlobalKeys {
 			key.WithKeys("]", "f4"),
 			key.WithHelp("]", "attention"),
 		),
-		Sprint: key.NewBinding(
-			key.WithKeys("P"),
-			key.WithHelp("P", "sprint"),
+		Epics: key.NewBinding(
+			key.WithKeys("E"),
+			key.WithHelp("E", "epics"),
 		),
 
 		// Workspace
@@ -208,7 +208,7 @@ func (k GlobalKeys) FullHelp() [][]key.Binding {
 		// Help & Chrome
 		{k.Help, k.Sidebar, k.SidebarScrollDown, k.SidebarScrollUp, k.Tutorial, k.Quit, k.Back, k.Cancel},
 		// Views
-		{k.Board, k.Graph, k.Insights, k.History, k.Actionable, k.FlowMatrix, k.Tree, k.LabelDashboard, k.Attention, k.Sprint},
+		{k.Board, k.Graph, k.Insights, k.History, k.Actionable, k.FlowMatrix, k.Tree, k.LabelDashboard, k.Attention, k.Epics},
 		// Workspace
 		{k.ProjectsOrWisps, k.WorkspaceHomeAll, k.HybridPreset},
 		// Actions
