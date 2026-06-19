@@ -6,6 +6,25 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-06-19 — Epics view Phase 1: the dead sprint dashboard becomes an all-epics overview (bt-ryi5z)
+
+**The `ViewSprint` dashboard shipped dead-on-arrival in the fork import: no key ever set the mode, and its only data source (`.beads/sprints.jsonl`) is never written under Dolt. "Sprint" isn't a beads-native concept. Phase 1 repurposes the render skeleton onto the concept bd *does* have — the epic (parent bead + its parent-child children) — and strips the sprint scaffolding. Executed task-by-task (TDD) on a worktree; shipped to `main` at `1d04169f`.**
+
+### Ships (bt-ryi5z, area:tui + area:cli)
+
+- **Epics overview (`ViewEpics`)** — full-screen list of every epic: progress bar, checkmark/in-progress/blocked/open counts, at-risk marker (≥1 in-progress child stale >3d). Built as a projection over the scope+label filtered set via new `epicsOverviewRows` + `refreshEpicsForCurrentFilter` (mirrors the board/tree refresh pattern), so the project picker, `W` home/all toggle, and label filters compose for free. Default sort: progress % ascending. Cursor nav + scroll window; `s` cycles active/all/completed.
+- **Status-filter override** — the one place the "projection over `filteredIssuesForActiveView`" rule is deliberately broken: `matchesCurrentFilter` drops closed issues under `status=open`, which would zero every progress bar. So the overview sources from scope+label+wisp (NOT status-filtered) and counts children in full; the status filter is reinterpreted as *which epics to list* (`epicsStatusMode`).
+- **Keybindings** — `E` = Epics (took the slot Tree vacated), `T` = Tree (was `E`); retired list `T` / time-travel HEAD~5 quick-jump. New `EpicsKeys` key.Map registered (bt-ift6 convention: every binding has a non-empty Help.Desc; named `Exit` not `Back` to avoid the universal-nav drift check). Fixed stale `E`=tree assertions in 3 test files + tutorial doc drift.
+- **Sprint + burndown stripped** — removed `model.Sprint`, `pkg/loader/sprint.go`, `bt robot sprint`, and the dependent burndown surface (`model.BurndownPoint`, `bt robot burndown`, `--forecast-sprint`). The plan said "delete `robot_sprint.go`," but it also housed the live `runForecast`/`runCapacity`, and `burndown.go` housed the static-site export time-travel utilities — so those were surgically preserved and their files renamed to match contents (`robot_forecast.go`, `export_history.go`).
+
+### Process / L8 notes
+
+- **The plan was a hypothesis, not gospel.** Verifying the "delete `robot_sprint.go`" step caught that it would have broken `bt robot forecast`/`capacity` and the export path. Surgical strip + rename instead of a wholesale delete.
+- **A subagent over-claimed green.** The Sonnet agent that did the bulk `cmd/bt` strip reported "`go test ./...` passes" but had missed the sprint/burndown e2e tests (misclassified them as "test data strings"). Caught on re-verify — always re-run the authoritative gate after delegated deletions.
+- Phase 1 = tier 1 of the 3-tier design (`docs/design/2026-06-19-epics-view.md`). **Phase 2** (epic focus-card modal + shared lipgloss status-pill renderer, closes **bt-gfxhz.3**) and **Phase 3** (`bt robot epics`) are follow-ons under tracking bead **bt-3ftfm**; **bt-h97e** (deep mermaid epic view) is unchanged.
+
+---
+
 ## 2026-05-05 (continued) — `bt robot list` help-text + `--global` semantics cleanup (bt-3dv1, bt-qlep)
 
 **Small docs/UX session. User noticed that decision-typed beads (e.g. `sym-vxo9`) render indistinguishably from other types in the TUI, which led to the broader question: how should decisions surface in the bt CLI? Quick recon revealed two stale corners of the help/flag surface — both shipped as one-shot fixes.**
