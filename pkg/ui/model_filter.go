@@ -1027,44 +1027,18 @@ func (m *Model) updateViewportContent() {
 		addMD(sb.String())
 	}
 
-	// Epic progress (bt-waeh, bt-u05bo polish: natural sort + per-status
-	// markdown styling, no emoji header).
+	// Epic progress: per-child status pills via the shared lipgloss renderer
+	// (bt-gfxhz.3) - the same buildEpicProgressANSI that backs the tier-2 focus
+	// card. The "### Epic Progress" H3 stays on the Glamour (md) track so it
+	// styles like adjacent headings; the styled body goes through the ANSI track
+	// (addANSI) because lipgloss SGR cannot survive Glamour's chroma path
+	// (bt-x5xc4). buildEpicProgressANSI returns "" for a childless epic, so the
+	// heading is suppressed with it (replaces the old total>0 gate + per-status
+	// markdown styling: bt-waeh, bt-u05bo).
 	if item.IssueType == model.TypeEpic {
-		done, total := epicProgress(item.ID, m.data.issues)
-		if total > 0 {
-			pct := 0
-			if total > 0 {
-				pct = done * 100 / total
-			}
-			var sb strings.Builder
-			sb.WriteString("### Epic Progress\n")
-			sb.WriteString(fmt.Sprintf("**%d / %d** children complete (%d%%)\n\n", done, total, pct))
-
-			for _, child := range epicChildrenSorted(item.ID, m.data.issues) {
-				glyph := statusGlyph(child.Status)
-				prio := fmt.Sprintf("`P%d`", child.Priority)
-				body := fmt.Sprintf("`%s` — %s", child.ID, child.Title)
-
-				// Per-status markdown styling. Strikethrough recedes closed
-				// work; bold pops in_progress/blocked; open is plain. These
-				// hit Glamour's Strong / Strikethrough / Emph styles which
-				// pick up the theme's featureColor + bold / crossed-out /
-				// inProgressColor + italic respectively.
-				switch {
-				case child.Status.IsClosed():
-					sb.WriteString(fmt.Sprintf("- %s ~~%s %s~~\n", glyph, prio, body))
-				case child.Status == model.StatusInProgress:
-					sb.WriteString(fmt.Sprintf("- %s **%s %s**\n", glyph, prio, body))
-				case child.Status == model.StatusBlocked:
-					sb.WriteString(fmt.Sprintf("- %s **%s %s**\n", glyph, prio, body))
-				case child.Status == model.StatusDeferred:
-					sb.WriteString(fmt.Sprintf("- %s *%s %s*\n", glyph, prio, body))
-				default:
-					sb.WriteString(fmt.Sprintf("- %s %s %s\n", glyph, prio, body))
-				}
-			}
-			sb.WriteString("\n")
-			addMD(sb.String())
+		if body := buildEpicProgressANSI(item, m.data.issues, -1, m.viewport.Width()); body != "" {
+			addMD("### Epic Progress\n")
+			addANSI(body)
 		}
 	}
 
