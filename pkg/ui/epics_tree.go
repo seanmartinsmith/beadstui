@@ -37,6 +37,10 @@ type EpicsTreeModel struct {
 	height int
 	theme  Theme
 
+	// idColW is the epic-ID column width (max epic ID width, capped) computed
+	// per render so bars/pct/counts align into clean vertical columns.
+	idColW int
+
 	// Header context, set by the caller before View (Task 3).
 	scopeLabel string
 	modeLabel  string
@@ -522,6 +526,7 @@ func (e *EpicsTreeModel) moveCursor(delta int) {
 // braille bars, deep prefixes, and long titles never wrap (mirrors tree.go).
 func (e *EpicsTreeModel) View() string {
 	t := e.theme
+	e.computeIDColW()
 	muted := lipgloss.NewStyle().Foreground(t.Muted)
 	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary)
 
@@ -569,6 +574,29 @@ func (e *EpicsTreeModel) View() string {
 
 	sb.WriteString(e.footer())
 	return sb.String()
+}
+
+// epicIDColCap bounds the padded ID column so a single very long ID
+// (e.g. "sym-trust-signals") can't push the bars off-screen; longer IDs
+// overflow their slot rather than widening the whole column.
+const epicIDColCap = 14
+
+// computeIDColW sets the epic-ID column width to the widest visible epic ID
+// (capped) so the bar / pct / counts line up vertically across epic rows.
+func (e *EpicsTreeModel) computeIDColW() {
+	w := 0
+	for i := range e.flatRows {
+		r := e.flatRows[i]
+		if r.kind == rowEpic && r.issue != nil {
+			if iw := lipgloss.Width(r.issue.ID); iw > w {
+				w = iw
+			}
+		}
+	}
+	if w > epicIDColCap {
+		w = epicIDColCap
+	}
+	e.idColW = w
 }
 
 // clamp truncates a styled line to the viewport width (never wraps).
@@ -660,12 +688,25 @@ func (e *EpicsTreeModel) renderEpicRow(r epicTreeRow, selected bool) string {
 	if r.counts.Total > 0 {
 		pct = r.counts.Done * 100 / r.counts.Total
 	}
-	pctStr := fmt.Sprintf("%d%%", pct)
+	pctStr := fmt.Sprintf("%3d%%", pct) // right-aligned to width 4 (e.g. "  0%", "100%")
 	countStr := fmt.Sprintf("%d/%d", r.counts.Done, r.counts.Total)
+	const countColW = 6 // pads "0/3" .. "29/30" into a column
+	countPad := countColW - lipgloss.Width(countStr)
+	if countPad < 0 {
+		countPad = 0
+	}
 	risk := ""
 	if r.counts.AtRisk > 0 {
 		risk = fmt.Sprintf(" ⚠%d", r.counts.AtRisk)
 	}
+
+	// Pad the ID into a fixed-width column so the bars align vertically.
+	id := r.issue.ID
+	idPad := e.idColW - lipgloss.Width(id)
+	if idPad < 0 {
+		idPad = 0
+	}
+	idCol := lipgloss.Width(id) + idPad
 
 	// Top-level epics get the full status-composition bar; nested epics get the
 	// compact monochrome mini bar (composition is less central at depth).
@@ -676,11 +717,10 @@ func (e *EpicsTreeModel) renderEpicRow(r epicTreeRow, selected bool) string {
 		bar = braillePlainBar(r.counts.Done, r.counts.Total, epicsBarWidth)
 	}
 
-	id := r.issue.ID
-	// Fixed (non-title) plain width: prefix + glyph + sp + id + sp + bar + sp +
-	// pct + sp + counts + risk + 2 (gap before title).
-	fixed := prefixW + 2 + lipgloss.Width(id) + 1 + epicsBarWidth + 1 +
-		lipgloss.Width(pctStr) + 1 + lipgloss.Width(countStr) + lipgloss.Width(risk) + 2
+	// Fixed (non-title) plain width: prefix + glyph + sp + idCol + sp + bar + sp
+	// + pct(4) + sp + countCol + risk + 2 (gap before title).
+	fixed := prefixW + 2 + idCol + 1 + epicsBarWidth + 1 +
+		lipgloss.Width(pctStr) + 1 + countColW + lipgloss.Width(risk) + 2
 	titleBudget := e.width - fixed
 	if titleBudget < 0 {
 		titleBudget = 0
@@ -704,17 +744,23 @@ func (e *EpicsTreeModel) renderEpicRow(r epicTreeRow, selected bool) string {
 	sb.WriteString(glyphStyle.Render(glyph))
 	sb.WriteString(" ")
 	sb.WriteString(idStyle.Render(id))
+	if idPad > 0 {
+		sb.WriteString(strings.Repeat(" ", idPad))
+	}
 	sb.WriteString(" ")
 	sb.WriteString(bar)
 	sb.WriteString(" ")
 	sb.WriteString(pctStyle.Render(pctStr))
 	sb.WriteString(" ")
 	sb.WriteString(countStyle.Render(countStr))
+	if countPad > 0 {
+		sb.WriteString(strings.Repeat(" ", countPad))
+	}
 	if risk != "" {
 		sb.WriteString(riskStyle.Render(risk))
 	}
 	if title != "" {
-		sb.WriteString("  ")
+		sb.WriteString(" ")
 		sb.WriteString(titleStyle.Render(title))
 	}
 	return sb.String()
