@@ -1,11 +1,19 @@
 package ui
 
 import (
+	"fmt"
 	"sort"
+	"strings"
 	"time"
+
+	"charm.land/lipgloss/v2"
 
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
+
+// epicsBarWidth is the braille progress bar cell count. Fixed so the row layout
+// is stable across epics; the title column absorbs the remaining width.
+const epicsBarWidth = 10
 
 // EpicsTreeModel is the full-sheet, project-grouped epics tree (bt-3ftfm.1). It
 // does NOT reuse the global TreeModel (which builds from every issue's edges and
@@ -49,10 +57,11 @@ type epicTreeRow struct {
 	depth    int          // indent level: project=0, epic=1, child=2, ...
 	project  string       // lane key (ID prefix); set on every row
 	issue    *model.Issue // nil for rowProjectHeader
-	counts   epicCounts   // rollup: header (lane) or epic (own children)
-	lastKid  []bool       // per-level "is last child" flags -> connector glyphs
-	expanded bool         // header/epic: is it expanded?
-	hasKids  bool         // epic/header: does it have something to expand?
+	counts    epicCounts  // rollup: header (lane) or epic (own children)
+	lastKid   []bool      // per-level "is last child" flags -> connector glyphs
+	expanded  bool        // header/epic: is it expanded?
+	hasKids   bool        // epic/header: does it have something to expand?
+	laneEpics int         // rowProjectHeader: count of root epics in the lane
 }
 
 // epicLane is a project swimlane: its root epics plus a rollup of their counts.
@@ -211,12 +220,13 @@ func (e *EpicsTreeModel) flatten() {
 		lane := e.lanes[li]
 		hExp := e.headerExpanded(lane.prefix)
 		rows = append(rows, epicTreeRow{
-			kind:     rowProjectHeader,
-			depth:    0,
-			project:  lane.prefix,
-			counts:   lane.counts,
-			expanded: hExp,
-			hasKids:  len(lane.epics) > 0,
+			kind:      rowProjectHeader,
+			depth:     0,
+			project:   lane.prefix,
+			counts:    lane.counts,
+			expanded:  hExp,
+			hasKids:   len(lane.epics) > 0,
+			laneEpics: len(lane.epics),
 		})
 		if !hExp {
 			continue
@@ -313,4 +323,366 @@ func (e *EpicsTreeModel) collapse(key string) {
 func (e *EpicsTreeModel) collapseAll() {
 	e.expanded = map[string]bool{}
 	e.flatten()
+}
+
+// SetSize sets the viewport dimensions and keeps the cursor visible.
+func (e *EpicsTreeModel) SetSize(w, h int) {
+	e.width = w
+	e.height = h
+	e.ensureCursorVisible()
+}
+
+// SetTheme sets the palette used by the row renderers.
+func (e *EpicsTreeModel) SetTheme(t Theme) { e.theme = t }
+
+// SetContext sets the scope/mode labels shown in the header line.
+func (e *EpicsTreeModel) SetContext(scope, mode string) {
+	e.scopeLabel = scope
+	e.modeLabel = mode
+}
+
+// epicCount is the number of root epics across all lanes (the header's "N epics").
+func (e *EpicsTreeModel) epicCount() int {
+	n := 0
+	for i := range e.lanes {
+		n += len(e.lanes[i].epics)
+	}
+	return n
+}
+
+// bodyHeight is the rows available for the windowed tree body (header + footer
+// each take one line).
+func (e *EpicsTreeModel) bodyHeight() int {
+	h := e.height - 2
+	if h < 1 {
+		h = 1
+	}
+	return h
+}
+
+// visibleCount is the content rows shown at once. When the list overflows the
+// body, two lines are reserved for the up/down "N more" indicators so the body
+// never exceeds bodyHeight.
+func (e *EpicsTreeModel) visibleCount() int {
+	h := e.bodyHeight()
+	if len(e.flatRows) > h {
+		h -= 2
+		if h < 1 {
+			h = 1
+		}
+	}
+	return h
+}
+
+// ensureCursorVisible scrolls the viewport just enough to keep the cursor on
+// screen (cursor-at-edge scrolling, mirroring tree.go).
+func (e *EpicsTreeModel) ensureCursorVisible() {
+	n := len(e.flatRows)
+	if n == 0 {
+		e.offset = 0
+		return
+	}
+	vis := e.visibleCount()
+	if e.cursor < e.offset {
+		e.offset = e.cursor
+	}
+	if e.cursor >= e.offset+vis {
+		e.offset = e.cursor - vis + 1
+	}
+	maxOff := n - vis
+	if maxOff < 0 {
+		maxOff = 0
+	}
+	if e.offset > maxOff {
+		e.offset = maxOff
+	}
+	if e.offset < 0 {
+		e.offset = 0
+	}
+}
+
+// window returns the [start,end) slice of flatRows currently visible.
+func (e *EpicsTreeModel) window() (start, end int) {
+	n := len(e.flatRows)
+	vis := e.visibleCount()
+	start = e.offset
+	if start < 0 {
+		start = 0
+	}
+	end = start + vis
+	if end > n {
+		end = n
+		start = end - vis
+		if start < 0 {
+			start = 0
+		}
+	}
+	return start, end
+}
+
+// moveCursor moves the cursor by delta, clamps it, and follows the viewport.
+func (e *EpicsTreeModel) moveCursor(delta int) {
+	n := len(e.flatRows)
+	if n == 0 {
+		return
+	}
+	e.cursor += delta
+	if e.cursor < 0 {
+		e.cursor = 0
+	}
+	if e.cursor >= n {
+		e.cursor = n - 1
+	}
+	e.ensureCursorVisible()
+}
+
+// View renders the full-bleed epics tree: a 1-line header, the windowed tree
+// body (with up/down "N more" indicators), and a 1-line footer of key hints. It
+// never calls lipgloss.Place; every line is clamped to width via MaxWidth so
+// braille bars, deep prefixes, and long titles never wrap (mirrors tree.go).
+func (e *EpicsTreeModel) View() string {
+	t := e.theme
+	muted := lipgloss.NewStyle().Foreground(t.Muted)
+	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary)
+
+	var sb strings.Builder
+
+	// Header: EPICS · <scope> · <mode>    N epics
+	head := "EPICS"
+	if e.scopeLabel != "" {
+		head += " · " + e.scopeLabel
+	}
+	if e.modeLabel != "" {
+		head += " · " + e.modeLabel
+	}
+	header := title.Render(head) + muted.Render(fmt.Sprintf("    %d epics", e.epicCount()))
+	sb.WriteString(e.clamp(header))
+	sb.WriteString("\n")
+
+	if len(e.flatRows) == 0 {
+		sb.WriteString("\n")
+		sb.WriteString(e.clamp(muted.Render("  No epics in scope.")))
+		sb.WriteString("\n")
+		sb.WriteString(e.footer())
+		return sb.String()
+	}
+
+	start, end := e.window()
+	if start > 0 {
+		sb.WriteString(e.clamp(muted.Render(fmt.Sprintf("  ↑ %d more", start))))
+		sb.WriteString("\n")
+	}
+	for i := start; i < end; i++ {
+		sb.WriteString(e.clamp(e.renderRow(e.flatRows[i], i == e.cursor)))
+		sb.WriteString("\n")
+	}
+	if end < len(e.flatRows) {
+		sb.WriteString(e.clamp(muted.Render(fmt.Sprintf("  ↓ %d more", len(e.flatRows)-end))))
+		sb.WriteString("\n")
+	}
+
+	sb.WriteString(e.footer())
+	return sb.String()
+}
+
+// clamp truncates a styled line to the viewport width (never wraps).
+func (e *EpicsTreeModel) clamp(line string) string {
+	if e.width > 0 {
+		return lipgloss.NewStyle().MaxWidth(e.width).Render(line)
+	}
+	return line
+}
+
+// footer renders the key-hint line.
+func (e *EpicsTreeModel) footer() string {
+	return lipgloss.NewStyle().Foreground(e.theme.Muted).Italic(true).Render(
+		"j/k nav · →/⏎ expand · ← collapse · z collapse-all · s active/all/completed · v zoom · esc back")
+}
+
+// renderRow dispatches to the per-kind row renderer.
+func (e *EpicsTreeModel) renderRow(r epicTreeRow, selected bool) string {
+	switch r.kind {
+	case rowProjectHeader:
+		return e.renderHeaderRow(r)
+	case rowEpic:
+		return e.renderEpicRow(r, selected)
+	default:
+		return e.renderChildRow(r, selected)
+	}
+}
+
+// renderHeaderRow renders a swimlane header: expand glyph, lane name, a
+// width-filling rule, and the lane rollup (epic count + aggregate %).
+func (e *EpicsTreeModel) renderHeaderRow(r epicTreeRow) string {
+	t := e.theme
+	glyph := "▾"
+	if !r.expanded {
+		glyph = "▸"
+	}
+	left := fmt.Sprintf("%s %s ", glyph, strings.ToUpper(r.project))
+	pct := 0
+	if r.counts.Total > 0 {
+		pct = r.counts.Done * 100 / r.counts.Total
+	}
+	right := fmt.Sprintf(" %d epics · %d%% ", r.laneEpics, pct)
+
+	ruleW := e.width - lipgloss.Width(left) - lipgloss.Width(right)
+	if ruleW < 0 {
+		ruleW = 0
+	}
+	rule := strings.Repeat("─", ruleW)
+
+	nameStyle := lipgloss.NewStyle().Bold(true).Foreground(t.Primary)
+	ruleStyle := lipgloss.NewStyle().Foreground(t.Border)
+	rollStyle := lipgloss.NewStyle().Foreground(t.Muted)
+	return nameStyle.Render(left) + ruleStyle.Render(rule) + rollStyle.Render(right)
+}
+
+// renderEpicRow renders an epic node: connectors, expand glyph, ID, braille
+// progress bar (composition bar at top level, compact mono bar when nested),
+// pct, done/total, at-risk marker, then a title truncated to the remaining
+// width by plain width so styling never overflows.
+func (e *EpicsTreeModel) renderEpicRow(r epicTreeRow, selected bool) string {
+	t := e.theme
+	prefix := buildEpicTreePrefix(r.lastKid, t)
+	prefixW := 4 * len(r.lastKid)
+
+	glyph := " "
+	if r.hasKids {
+		if r.expanded {
+			glyph = "▾"
+		} else {
+			glyph = "▸"
+		}
+	}
+
+	pct := 0
+	if r.counts.Total > 0 {
+		pct = r.counts.Done * 100 / r.counts.Total
+	}
+	pctStr := fmt.Sprintf("%d%%", pct)
+	countStr := fmt.Sprintf("%d/%d", r.counts.Done, r.counts.Total)
+	risk := ""
+	if r.counts.AtRisk > 0 {
+		risk = fmt.Sprintf(" ⚠%d", r.counts.AtRisk)
+	}
+
+	// Top-level epics get the full status-composition bar; nested epics get the
+	// compact monochrome mini bar (composition is less central at depth).
+	var bar string
+	if r.depth <= 1 {
+		bar = brailleCompositionBar(r.counts, epicsBarWidth, t)
+	} else {
+		bar = braillePlainBar(r.counts.Done, r.counts.Total, epicsBarWidth)
+	}
+
+	id := r.issue.ID
+	// Fixed (non-title) plain width: prefix + glyph + sp + id + sp + bar + sp +
+	// pct + sp + counts + risk + 2 (gap before title).
+	fixed := prefixW + 2 + lipgloss.Width(id) + 1 + epicsBarWidth + 1 +
+		lipgloss.Width(pctStr) + 1 + lipgloss.Width(countStr) + lipgloss.Width(risk) + 2
+	titleBudget := e.width - fixed
+	if titleBudget < 0 {
+		titleBudget = 0
+	}
+	title := truncateString(r.issue.Title, titleBudget)
+
+	glyphStyle := lipgloss.NewStyle().Foreground(t.Secondary)
+	idStyle := lipgloss.NewStyle().Foreground(t.Secondary)
+	pctStyle := lipgloss.NewStyle().Foreground(t.Base.GetForeground())
+	countStyle := lipgloss.NewStyle().Foreground(t.Muted)
+	riskStyle := lipgloss.NewStyle().Foreground(t.Feature)
+	titleStyle := lipgloss.NewStyle().Foreground(t.Base.GetForeground())
+	if selected {
+		idStyle = idStyle.Bold(true)
+		titleStyle = titleStyle.Bold(true)
+		glyphStyle = lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
+	}
+
+	var sb strings.Builder
+	sb.WriteString(prefix)
+	sb.WriteString(glyphStyle.Render(glyph))
+	sb.WriteString(" ")
+	sb.WriteString(idStyle.Render(id))
+	sb.WriteString(" ")
+	sb.WriteString(bar)
+	sb.WriteString(" ")
+	sb.WriteString(pctStyle.Render(pctStr))
+	sb.WriteString(" ")
+	sb.WriteString(countStyle.Render(countStr))
+	if risk != "" {
+		sb.WriteString(riskStyle.Render(risk))
+	}
+	if title != "" {
+		sb.WriteString("  ")
+		sb.WriteString(titleStyle.Render(title))
+	}
+	return sb.String()
+}
+
+// renderChildRow renders a non-epic child: connectors, status glyph, ID, title.
+// Closed children render faint so completed work recedes.
+func (e *EpicsTreeModel) renderChildRow(r epicTreeRow, selected bool) string {
+	t := e.theme
+	prefix := buildEpicTreePrefix(r.lastKid, t)
+	prefixW := 4 * len(r.lastKid)
+
+	glyph := statusGlyph(r.issue.Status)
+	statusColor := t.GetStatusColor(string(r.issue.Status))
+
+	id := r.issue.ID
+	fixed := prefixW + lipgloss.Width(glyph) + 1 + lipgloss.Width(id) + 3 // " — "
+	titleBudget := e.width - fixed
+	if titleBudget < 0 {
+		titleBudget = 0
+	}
+	title := truncateString(r.issue.Title, titleBudget)
+
+	var sb strings.Builder
+	sb.WriteString(prefix)
+	sb.WriteString(lipgloss.NewStyle().Foreground(statusColor).Render(glyph))
+	sb.WriteString(" ")
+
+	if isClosedLikeStatus(r.issue.Status) {
+		body := id
+		if title != "" {
+			body += " — " + title
+		}
+		sb.WriteString(lipgloss.NewStyle().Faint(true).Render(body))
+	} else {
+		idStyle := lipgloss.NewStyle().Foreground(t.Secondary)
+		titleStyle := lipgloss.NewStyle().Foreground(t.Base.GetForeground())
+		if selected {
+			idStyle = idStyle.Bold(true)
+			titleStyle = titleStyle.Bold(true)
+		}
+		sb.WriteString(idStyle.Render(id))
+		if title != "" {
+			sb.WriteString(" — ")
+			sb.WriteString(titleStyle.Render(title))
+		}
+	}
+	return sb.String()
+}
+
+// buildEpicTreePrefix builds the connector prefix (├─ └─ │) from a node's
+// per-level is-last-child flags. Mirrors tree.go buildTreePrefix.
+func buildEpicTreePrefix(lastKid []bool, t Theme) string {
+	if len(lastKid) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	for i := 0; i < len(lastKid)-1; i++ {
+		if lastKid[i] {
+			sb.WriteString("    ")
+		} else {
+			sb.WriteString("│   ")
+		}
+	}
+	if lastKid[len(lastKid)-1] {
+		sb.WriteString("└── ")
+	} else {
+		sb.WriteString("├── ")
+	}
+	return lipgloss.NewStyle().Foreground(t.Muted).Render(sb.String())
 }
