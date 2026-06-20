@@ -6,6 +6,26 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-06-19 — Epics overview Tier-1 redesign: full-sheet project-grouped tree with braille progress bars (bt-3ftfm.1)
+
+**The Phase-1 overview inherited the dead sprint dashboard's render skeleton wholesale — a centered `max-80` bordered box wrapping a flat sorted epic-row list. Dogfooded against the real cross-project corpus it missed the vision: "no tree view, not organized by project, not a whole sheet, just a box in the middle." This is a Tier-1 *redesign* (render + interaction only; the Phase-1 data layer is kept): the box becomes a full-sheet, project-grouped hierarchy tree (epic → children) with inline braille progress bars. Executed task-by-task (TDD) on a worktree; spec/plan at `docs/design/2026-06-19-epics-tree-redesign.md` + `docs/plans/2026-06-19-epics-tree-redesign.md`. Dogfooded live against the real ~51-epic corpus and visually signed off before merge.**
+
+### Ships (bt-3ftfm.1, area:tui + ux)
+
+- **Full-sheet tree, no box** — `renderEpicsOverview`'s `lipgloss.Place(Center)` + `min(80)` card is gone; `EpicsTreeModel` (new `pkg/ui/epics_tree.go`) owns the whole canvas and windows/scrolls like Tree/Graph/Board (mirrors `tree.go`'s `visibleRange`/cursor-follows-viewport; no `lipgloss.Place`).
+- **Project-grouped hierarchy** — root epics group under collapsible project swimlane headers (ID prefix), each with a width-filling rule + lane rollup (N epics, aggregate %). Lanes sort by epic count desc; within a lane by progress ascending. Root-epic dedup (a child-epic nests under its parent, never double-listed) + cycle guard.
+- **Braille progress bars (new `pkg/ui/braille.go`)** — `brailleCompositionBar`: full-density `⣿` runs colored by child status (done=green, in-progress=yellow, blocked=red) then a low-density grey `⠤` track for the open remainder. The *density* difference (not color alone) survives `ansi.Strip`, so progress reads in non-color terminals + harness dumps; color layers the composition on top. `braillePlainBar` is the mono mini-bar for nested child-epics.
+- **Tree drill folds in the Tier-2 card** — `→`/`l`/`⏎` on an epic expands + focuses its subtree; `⏎` on a child drills to its detail; `←`/`h` collapses or jumps to parent; `z` collapses all; the modal focus card is demoted to a `v` zoom (card code unchanged; recorded on bt-gfxhz.3, not reopened). New `Expand`/`Collapse`/`CollapseAll`/`Card` bindings (every binding has Help.Desc; cardinality + universal-nav tests green).
+- **Aligned columns + scrunch-safe** — padded ID column (capped so one long ID can't blow the layout), right-aligned `%`, padded counts so bars/metrics form clean vertical columns; responsive footer; titles truncate by plain width. Render harness scenarios `epics_tree_{100x32, expanded_120x40, 70x20, multilane_120x40}`; braille composition colors unit-tested.
+
+### Notes
+
+- Phase-1 data layer (`epicsOverviewRows`/`EpicRow`/`EpicStatusMode`/`epic_progress.go`/`epic_card.go`) unchanged. `model.go` swaps `epicsRows`/`epicsCursor` for `epicsTree`; resize re-windows via `handleResizeSettled`.
+- Tier-1 base shipped; **round-2 visual polish** (color/contrast, density/airiness, strip redundant `[epic]` title prefix), the **burn-up sparkline `P` toggle**, and the **`viewportWindow` DRY extraction** are filed as follow-ups under **bt-3ftfm**.
+- Braille renders on Windows Terminal; the `freeze` screenshot tool tofus the glyphs (tool font limitation, not the app) — validated via text dumps + a live `bt` run.
+
+---
+
 ## 2026-06-19 — Epics view Phase 2: focus-card modal + shared status-pill renderer (bt-gfxhz.3)
 
 **Tier 2 of the epics stack. The Phase-1 overview's `enter` was a stub ("Epic focus card coming in Phase 2"); Phase 2 fills it with a centered focus-card modal that shows an epic's children as lipgloss status pills, and builds that pill renderer *once* so the existing detail-pane Epic Progress block shares it — closing the long-standing bt-gfxhz.3 (markdown→lipgloss migration). Executed task-by-task (TDD) on a worktree; plan at `docs/plans/2026-06-19-epics-view-phase2.md`.**
