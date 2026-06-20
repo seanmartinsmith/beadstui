@@ -535,7 +535,7 @@ func (e *EpicsTreeModel) View() string {
 	if e.modeLabel != "" {
 		head += " · " + e.modeLabel
 	}
-	header := title.Render(head) + muted.Render(fmt.Sprintf("    %d epics", e.epicCount()))
+	header := title.Render(head) + muted.Render("    "+pluralEpics(e.epicCount()))
 	sb.WriteString(e.clamp(header))
 	sb.WriteString("\n")
 
@@ -553,7 +553,13 @@ func (e *EpicsTreeModel) View() string {
 		sb.WriteString("\n")
 	}
 	for i := start; i < end; i++ {
-		sb.WriteString(e.clamp(e.renderRow(e.flatRows[i], i == e.cursor)))
+		line := e.clamp(e.renderRow(e.flatRows[i], i == e.cursor))
+		if i == e.cursor && e.width > 0 {
+			// Full-width highlight bar for the cursor row (clamp first so the
+			// background pads to exactly width without wrapping or shifting).
+			line = lipgloss.NewStyle().Background(t.Highlight).Width(e.width).Render(line)
+		}
+		sb.WriteString(line)
 		sb.WriteString("\n")
 	}
 	if end < len(e.flatRows) {
@@ -573,10 +579,24 @@ func (e *EpicsTreeModel) clamp(line string) string {
 	return line
 }
 
-// footer renders the key-hint line.
+// footer renders the key-hint line, compacting for narrow terminals and
+// clamping so it never wraps (the user routinely runs scrunched windows).
 func (e *EpicsTreeModel) footer() string {
-	return lipgloss.NewStyle().Foreground(e.theme.Muted).Italic(true).Render(
-		"j/k nav · →/⏎ expand · ← collapse · z collapse-all · s active/all/completed · v zoom · esc back")
+	const full = "j/k nav · →/⏎ expand · ← collapse · z collapse-all · s active/all/completed · v zoom · esc back"
+	const compact = "j/k nav · →/← expand · z all · s mode · v zoom · esc"
+	hint := full
+	if e.width > 0 && lipgloss.Width(full) > e.width {
+		hint = compact
+	}
+	return e.clamp(lipgloss.NewStyle().Foreground(e.theme.Muted).Italic(true).Render(hint))
+}
+
+// pluralEpics renders "N epic" / "N epics" with correct pluralization.
+func pluralEpics(n int) string {
+	if n == 1 {
+		return "1 epic"
+	}
+	return fmt.Sprintf("%d epics", n)
 }
 
 // renderRow dispatches to the per-kind row renderer.
@@ -604,7 +624,7 @@ func (e *EpicsTreeModel) renderHeaderRow(r epicTreeRow) string {
 	if r.counts.Total > 0 {
 		pct = r.counts.Done * 100 / r.counts.Total
 	}
-	right := fmt.Sprintf(" %d epics · %d%% ", r.laneEpics, pct)
+	right := fmt.Sprintf(" %s · %d%% ", pluralEpics(r.laneEpics), pct)
 
 	ruleW := e.width - lipgloss.Width(left) - lipgloss.Width(right)
 	if ruleW < 0 {

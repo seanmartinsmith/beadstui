@@ -137,19 +137,63 @@ func TestRenderDump(t *testing.T) {
 			m.updateViewportContent()
 		}
 	}
-	epicsView := func(m *Model) {
+	// injectEpicCorpus enriches the bt lane: a stale child on bt-evuf (At-Risk),
+	// a second epic bt-grid with a full done/in-prog/blocked/open spread, and a
+	// nested child-epic bt-dnd under it (the tree's drill + composition-bar
+	// signal, and the root-epic-dedup case).
+	injectEpicCorpus := func(m *Model) {
 		now := time.Now()
-		// Inject a stale in-progress child of the bt-evuf epic so the At-Risk
-		// marker renders (in_progress with no update for > 3 days).
-		m.data.issues = append(m.data.issues, model.Issue{
-			ID: "bt-evuf.2", Title: "Refactor stalled mid-flight, no update in a week",
-			Status: model.StatusInProgress, Priority: 1, IssueType: model.TypeBug,
-			CreatedAt: now.Add(-12 * 24 * time.Hour), UpdatedAt: now.Add(-6 * 24 * time.Hour),
-			Dependencies: []*model.Dependency{{IssueID: "bt-evuf.2", DependsOnID: "bt-evuf", Type: model.DepParentChild}},
-		})
+		pc := func(child, parent string) []*model.Dependency {
+			return []*model.Dependency{{IssueID: child, DependsOnID: parent, Type: model.DepParentChild}}
+		}
+		m.data.issues = append(m.data.issues,
+			model.Issue{ID: "bt-evuf.2", Title: "Refactor stalled mid-flight, no update in a week",
+				Status: model.StatusInProgress, Priority: 1, IssueType: model.TypeBug,
+				CreatedAt: now.Add(-12 * 24 * time.Hour), UpdatedAt: now.Add(-6 * 24 * time.Hour),
+				Dependencies: pc("bt-evuf.2", "bt-evuf")},
+			model.Issue{ID: "bt-grid", Title: "Board: column virtualization + drag-and-drop",
+				Status: model.StatusOpen, IssueType: model.TypeEpic, UpdatedAt: now},
+			model.Issue{ID: "bt-grid.1", Title: "Virtualize long columns", Status: model.StatusClosed, UpdatedAt: now, Dependencies: pc("bt-grid.1", "bt-grid")},
+			model.Issue{ID: "bt-grid.2", Title: "Drag-and-drop between columns", Status: model.StatusInProgress, UpdatedAt: now, Dependencies: pc("bt-grid.2", "bt-grid")},
+			model.Issue{ID: "bt-grid.3", Title: "Keyboard reorder fallback", Status: model.StatusBlocked, UpdatedAt: now, Dependencies: pc("bt-grid.3", "bt-grid")},
+			model.Issue{ID: "bt-grid.4", Title: "Persist column order per project", Status: model.StatusOpen, UpdatedAt: now, Dependencies: pc("bt-grid.4", "bt-grid")},
+			model.Issue{ID: "bt-dnd", Title: "Drag substrate (nested epic)", Status: model.StatusOpen, IssueType: model.TypeEpic, UpdatedAt: now, Dependencies: pc("bt-dnd", "bt-grid")},
+			model.Issue{ID: "bt-dnd.1", Title: "Pointer capture", Status: model.StatusClosed, UpdatedAt: now, Dependencies: pc("bt-dnd.1", "bt-dnd")},
+			model.Issue{ID: "bt-dnd.2", Title: "Drop-target hit testing", Status: model.StatusInProgress, UpdatedAt: now, Dependencies: pc("bt-dnd.2", "bt-dnd")},
+		)
+	}
+	injectSymLane := func(m *Model) {
+		now := time.Now()
+		pc := func(child, parent string) []*model.Dependency {
+			return []*model.Dependency{{IssueID: child, DependsOnID: parent, Type: model.DepParentChild}}
+		}
+		m.data.issues = append(m.data.issues,
+			model.Issue{ID: "sym-sync", Title: "Cross-machine session sync", Status: model.StatusOpen, IssueType: model.TypeEpic, UpdatedAt: now},
+			model.Issue{ID: "sym-sync.1", Title: "Conflict resolution", Status: model.StatusOpen, UpdatedAt: now, Dependencies: pc("sym-sync.1", "sym-sync")},
+			model.Issue{ID: "sym-sync.2", Title: "Delta transport", Status: model.StatusInProgress, UpdatedAt: now, Dependencies: pc("sym-sync.2", "sym-sync")},
+			model.Issue{ID: "sym-sync.3", Title: "Bootstrap a fresh box", Status: model.StatusClosed, UpdatedAt: now, Dependencies: pc("sym-sync.3", "sym-sync")},
+		)
+	}
+	enterEpics := func(m *Model) {
 		m.mode = ViewEpics
 		m.focused = focusEpics
 		m.refreshEpicsForCurrentFilter()
+	}
+	epicsTreeCollapsed := func(m *Model) {
+		injectEpicCorpus(m)
+		enterEpics(m)
+	}
+	epicsTreeExpanded := func(m *Model) {
+		injectEpicCorpus(m)
+		enterEpics(m)
+		m.epicsTree.expand("bt-evuf")
+		m.epicsTree.expand("bt-grid")
+		m.epicsViewText = m.epicsTree.View()
+	}
+	epicsTreeMultilane := func(m *Model) {
+		injectEpicCorpus(m)
+		injectSymLane(m)
+		enterEpics(m)
 	}
 	epicCard := func(m *Model) {
 		now := time.Now()
@@ -178,9 +222,11 @@ func TestRenderDump(t *testing.T) {
 		{"detail_70x20", 70, 20, openDetail("bt-0qzp")},
 		{"detail_epic_90x28", 90, 28, openDetail("bt-evuf")},
 
-		// Epics overview (wired to E via bt-ryi5z).
-		{"epics_100x32", 100, 32, epicsView},
-		{"epics_70x20", 70, 20, epicsView}, // scrunched terminal
+		// Epics overview, redesigned as a full-sheet project-grouped tree (bt-3ftfm.1).
+		{"epics_tree_100x32", 100, 32, epicsTreeCollapsed},
+		{"epics_tree_expanded_120x40", 120, 40, epicsTreeExpanded},
+		{"epics_tree_70x20", 70, 20, epicsTreeCollapsed}, // scrunched terminal (hard gate)
+		{"epics_tree_multilane_120x40", 120, 40, epicsTreeMultilane},
 
 		// Epic focus card (tier 2, bt-gfxhz.3).
 		{"epic_card_100x32", 100, 32, epicCard},
