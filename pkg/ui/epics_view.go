@@ -61,7 +61,11 @@ func (m Model) epicsScopeLabel() string {
 
 // handleEpicsKeys handles keyboard input when the epics tree is focused.
 // Dispatches via key.Matches against m.keys.Epics per ADR-004 Decision 1.
-// (Expand/collapse/drill/zoom bindings are added in bt-3ftfm.1 Task 5.)
+//
+// The tree drill subsumes the Tier-2 focus card as the primary epic surface
+// (bt-3ftfm.1): enter/→/l on an epic or lane expands and focuses the subtree;
+// enter on a child drills into its detail; ← /h collapses or jumps to parent;
+// z collapses every epic; v re-opens the single-epic focus card as a zoom.
 func (m Model) handleEpicsKeys(msg tea.KeyMsg) Model {
 	k := m.keys.Epics
 	switch {
@@ -71,14 +75,37 @@ func (m Model) handleEpicsKeys(msg tea.KeyMsg) Model {
 	case key.Matches(msg, k.Up):
 		m.epicsTree.moveCursor(-1)
 		m.epicsViewText = m.epicsTree.View()
+	case key.Matches(msg, k.Collapse):
+		m.epicsTree.collapseCursor()
+		m.epicsViewText = m.epicsTree.View()
+	case key.Matches(msg, k.Expand):
+		m.epicsTree.expandCursor()
+		m.epicsViewText = m.epicsTree.View()
+	case key.Matches(msg, k.CollapseAll):
+		m.epicsTree.collapseAll()
+		m.epicsViewText = m.epicsTree.View()
+	case key.Matches(msg, k.Open):
+		// Enter is context-sensitive: drill a child into its detail, otherwise
+		// expand+focus the epic/lane subtree.
+		if r, ok := m.epicsTree.cursorRow(); ok && r.kind == rowChild && r.issue != nil {
+			childID := r.issue.ID
+			if m.selectIssueByID(childID) {
+				m.focusDetailAfterJump() // switches to ViewList + focuses detail
+			} else {
+				m.setStatus("Child " + childID + " not in current view")
+			}
+		} else {
+			m.epicsTree.expandCursor()
+			m.epicsViewText = m.epicsTree.View()
+		}
 	case key.Matches(msg, k.CycleStatus):
 		m.epicsStatusMode = m.epicsStatusMode.next()
 		m.epicsTree.cursor = 0
 		m.refreshEpicsForCurrentFilter()
-	case key.Matches(msg, k.Open):
-		// Transitional: open the tier-2 epic focus card for the cursor's epic.
-		if r, ok := m.epicsTree.cursorRow(); ok && r.kind == rowEpic && r.issue != nil {
-			m.openEpicCard(r.issue.ID)
+	case key.Matches(msg, k.Card):
+		// Zoom: open the single-epic focus card for the cursor's epic.
+		if id := m.epicsTree.cursorEpicID(); id != "" {
+			m.openEpicCard(id)
 		}
 	case key.Matches(msg, k.Exit):
 		m.mode = ViewList

@@ -103,6 +103,102 @@ func TestHandleEpicsKeys_CycleStatus(t *testing.T) {
 	}
 }
 
+func TestHandleEpicsTree_ExpandRevealsChildrenAndFocusesSubtree(t *testing.T) {
+	m := epicsTestModel(epicsFixture())
+	// Move from the lane header onto the ep1 epic row.
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'j', Text: "j"})
+	if r, _ := m.epicsTree.cursorRow(); r.kind != rowEpic {
+		t.Fatalf("expected cursor on an epic row, got kind %d", r.kind)
+	}
+	// Expand (l) reveals children and focuses the subtree (cursor onto a child).
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'l', Text: "l"})
+	if i, _ := rowByIssue(m.epicsTree.rows(), "ep1.a"); i == -1 {
+		t.Errorf("expand should reveal ep1.a\n%s", dumpRows(m.epicsTree.rows()))
+	}
+	if r, _ := m.epicsTree.cursorRow(); r.kind != rowChild {
+		t.Errorf("expand should focus the subtree (cursor on a child), got kind %d", r.kind)
+	}
+}
+
+func TestHandleEpicsTree_CollapseHidesChildren(t *testing.T) {
+	m := epicsTestModel(epicsFixture())
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'j', Text: "j"}) // onto ep1
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'l', Text: "l"}) // expand -> cursor on child
+	// h on a child jumps to the parent epic; h again collapses it.
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'h', Text: "h"})
+	if r, _ := m.epicsTree.cursorRow(); r.kind != rowEpic || r.issue == nil || r.issue.ID != "ep1" {
+		t.Fatalf("h on a child should jump to parent ep1, got %+v", r)
+	}
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'h', Text: "h"})
+	if i, _ := rowByIssue(m.epicsTree.rows(), "ep1.a"); i != -1 {
+		t.Errorf("collapse should hide ep1.a (found at %d)", i)
+	}
+}
+
+func TestHandleEpicsTree_EnterDrillsChildToDetail(t *testing.T) {
+	m := epicsTestModel(epicsFixture())
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'j', Text: "j"}) // onto ep1
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'l', Text: "l"}) // expand -> cursor on ep1.a
+	r, _ := m.epicsTree.cursorRow()
+	if r.kind != rowChild {
+		t.Fatalf("setup: expected cursor on a child, got kind %d", r.kind)
+	}
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
+	if m.mode != ViewList {
+		t.Errorf("drilling a child should switch to ViewList, got mode %v", m.mode)
+	}
+	if m.focused != focusDetail {
+		t.Errorf("drilling a child should focus the detail pane, got %v", m.focused)
+	}
+}
+
+func TestHandleEpicsTree_EnterExpandsEpic(t *testing.T) {
+	m := epicsTestModel(epicsFixture())
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'j', Text: "j"}) // onto ep1 epic
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: tea.KeyEnter})   // enter on epic -> expand
+	if i, _ := rowByIssue(m.epicsTree.rows(), "ep1.a"); i == -1 {
+		t.Errorf("enter on an epic should expand it (reveal ep1.a)")
+	}
+	if m.mode != ViewEpics {
+		t.Errorf("enter on an epic should stay in ViewEpics, got %v", m.mode)
+	}
+}
+
+func TestHandleEpicsTree_CardZoom(t *testing.T) {
+	m := epicsTestModel(epicsFixture())
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'j', Text: "j"}) // onto ep1 epic
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'v', Text: "v"})
+	if m.activeModal != ModalEpicCard {
+		t.Errorf("v should open the epic focus card, activeModal=%v", m.activeModal)
+	}
+	if m.epicCardID != "ep1" {
+		t.Errorf("card should target the cursor epic ep1, got %q", m.epicCardID)
+	}
+}
+
+func TestHandleEpicsTree_CardZoomFromChildUsesParentEpic(t *testing.T) {
+	m := epicsTestModel(epicsFixture())
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'j', Text: "j"}) // onto ep1
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'l', Text: "l"}) // expand -> cursor on child
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'v', Text: "v"})
+	if m.activeModal != ModalEpicCard || m.epicCardID != "ep1" {
+		t.Errorf("v on a child should zoom its parent epic ep1, got modal=%v id=%q", m.activeModal, m.epicCardID)
+	}
+}
+
+func TestHandleEpicsTree_CollapseAllReturnsToLaneOverview(t *testing.T) {
+	m := epicsTestModel(epicsFixture())
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'j', Text: "j"}) // onto ep1
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'l', Text: "l"}) // expand
+	if len(m.epicsTree.rows()) <= 4 {
+		t.Fatalf("expand should add child rows, got %d", len(m.epicsTree.rows()))
+	}
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'z', Text: "z"})
+	if got := len(m.epicsTree.rows()); got != 4 {
+		t.Errorf("collapseAll should return to the 4-row lane overview, got %d", got)
+	}
+}
+
 func TestEpicsTree_RenderBasic(t *testing.T) {
 	m := epicsTestModel(epicsFixture())
 	result := m.epicsViewText

@@ -291,6 +291,78 @@ func (e *EpicsTreeModel) cursorRow() (epicTreeRow, bool) {
 	return e.flatRows[e.cursor], true
 }
 
+// toggleKey is the expanded-map key for a row: "proj:<prefix>" for a lane
+// header, the issue ID for an epic.
+func (r epicTreeRow) toggleKey() string {
+	if r.kind == rowProjectHeader {
+		return "proj:" + r.project
+	}
+	if r.issue != nil {
+		return r.issue.ID
+	}
+	return ""
+}
+
+// expandCursor expands the cursor's header/epic and focuses its subtree (moves
+// the cursor onto the first revealed child). No-op for leaf child rows.
+func (e *EpicsTreeModel) expandCursor() {
+	r, ok := e.cursorRow()
+	if !ok || r.kind == rowChild {
+		return
+	}
+	e.expand(r.toggleKey())
+	// Focus the subtree: step onto the first child if one was revealed.
+	if e.cursor+1 < len(e.flatRows) && e.flatRows[e.cursor+1].depth > r.depth {
+		e.cursor++
+		e.ensureCursorVisible()
+	}
+}
+
+// collapseCursor collapses the cursor's expanded header/epic; if the row is a
+// leaf (or already collapsed), it jumps the cursor to the parent row instead.
+func (e *EpicsTreeModel) collapseCursor() {
+	r, ok := e.cursorRow()
+	if !ok {
+		return
+	}
+	if r.kind != rowChild && r.hasKids && r.expanded {
+		e.collapse(r.toggleKey())
+		return
+	}
+	// Jump to the nearest shallower ancestor row.
+	for i := e.cursor - 1; i >= 0; i-- {
+		if e.flatRows[i].depth < r.depth {
+			e.cursor = i
+			e.ensureCursorVisible()
+			return
+		}
+	}
+}
+
+// cursorEpicID returns the epic ID the cursor is "on": the epic itself when the
+// cursor is on an epic row, or the owning parent epic when on a child row.
+func (e *EpicsTreeModel) cursorEpicID() string {
+	r, ok := e.cursorRow()
+	if !ok {
+		return ""
+	}
+	if r.kind == rowEpic && r.issue != nil {
+		return r.issue.ID
+	}
+	if r.kind == rowChild {
+		for i := e.cursor - 1; i >= 0; i-- {
+			anc := e.flatRows[i]
+			if anc.depth < r.depth {
+				if anc.kind == rowEpic && anc.issue != nil {
+					return anc.issue.ID
+				}
+				return ""
+			}
+		}
+	}
+	return ""
+}
+
 // headerExpanded reports whether a project lane is expanded (default: true).
 func (e *EpicsTreeModel) headerExpanded(prefix string) bool {
 	if v, ok := e.expanded["proj:"+prefix]; ok {
