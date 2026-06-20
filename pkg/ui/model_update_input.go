@@ -1199,7 +1199,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			}
 			m.mode = ViewEpics
 			m.focused = focusEpics
-			m.epicsCursor = 0
+			m.epicsTree.cursor = 0
 			m.refreshEpicsForCurrentFilter()
 			return m, nil
 
@@ -1901,7 +1901,13 @@ func (m Model) handleResizeSettled(msg resizeSettledMsg) Model {
 		// A newer resize is in flight; this settle message is stale.
 		return m
 	}
-	return m.applyWindowSizeHeavy()
+	m = m.applyWindowSizeHeavy()
+	// The epics tree caches its rendered body sized to the terminal; re-window
+	// it on resize so it tracks width/height (mirrors how Tree re-renders).
+	if m.mode == ViewEpics {
+		m.refreshEpicsForCurrentFilter()
+	}
+	return m
 }
 
 // handleNotificationsKey routes keypresses when the shared modal is on the

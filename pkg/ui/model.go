@@ -748,12 +748,13 @@ type Model struct {
 	// the scroll is applied (or when no matching comment is found).
 	pendingCommentScroll time.Time
 
-	// Epics overview (bt-ryi5z). Rows are a projection over the scope+label
-	// filtered issue set (status filter reinterpreted as epicsStatusMode);
-	// see refreshEpicsForCurrentFilter and the epics-view design.
+	// Epics overview (bt-ryi5z, redesigned as a full-sheet tree in bt-3ftfm.1).
+	// epicsTree is the project-grouped epic->children hierarchy, built over the
+	// scope+label filtered set (status filter reinterpreted as epicsStatusMode);
+	// see refreshEpicsForCurrentFilter and the epics-tree-redesign design.
+	// epicsViewText caches the rendered tree for the ViewEpics body.
 	epicsViewText   string
-	epicsRows       []EpicRow
-	epicsCursor     int
+	epicsTree       EpicsTreeModel
 	epicsStatusMode EpicStatusMode
 
 	// Epic focus card (tier 2, bt-gfxhz.3, modal visibility via activeModal).
@@ -1294,6 +1295,7 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		shortcutsSidebar:       shortcutsSidebar,
 		graphView:              graphView,
 		tree:                   treeModel,
+		epicsTree:              EpicsTreeModel{expanded: map[string]bool{}, theme: theme},
 		insightsPanel:          insightsPanel,
 		theme:                  theme,
 		keys:                   keys.NewAppKeys(),

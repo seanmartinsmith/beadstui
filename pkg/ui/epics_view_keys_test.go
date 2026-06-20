@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -10,8 +11,7 @@ import (
 )
 
 // epicsTestModel builds a fully-initialized ViewEpics model (keys, filter,
-// data all wired via NewModel) from the given issues, then refreshes the
-// overview rows.
+// data all wired via NewModel) from the given issues, then builds the tree.
 func epicsTestModel(issues []model.Issue) Model {
 	m := NewModel(issues, nil, "", nil)
 	nm, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 40})
@@ -36,6 +36,11 @@ func epicsFixture() []model.Issue {
 	}
 }
 
+// headerLine returns the first rendered line (the EPICS header).
+func headerLine(viewText string) string {
+	return strings.SplitN(viewText, "\n", 2)[0]
+}
+
 func TestHandleEpicsKeys_Exit(t *testing.T) {
 	m := epicsTestModel(epicsFixture())
 	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: tea.KeyEsc})
@@ -47,34 +52,35 @@ func TestHandleEpicsKeys_Exit(t *testing.T) {
 	}
 }
 
-func TestHandleEpicsKeys_Navigation(t *testing.T) {
+func TestHandleEpicsTree_Navigation(t *testing.T) {
 	m := epicsTestModel(epicsFixture())
-	if len(m.epicsRows) != 2 {
-		t.Fatalf("expected 2 epic rows, got %d", len(m.epicsRows))
+	// Default flatten: 2 lane headers + 2 collapsed epics = 4 rows; the cursor
+	// traverses every row (headers included).
+	rows := m.epicsTree.rows()
+	if len(rows) != 4 {
+		t.Fatalf("expected 4 tree rows (2 headers + 2 epics), got %d", len(rows))
 	}
-	if m.epicsCursor != 0 {
-		t.Fatalf("cursor should start at 0, got %d", m.epicsCursor)
+	if m.epicsTree.cursor != 0 {
+		t.Fatalf("cursor should start at 0, got %d", m.epicsTree.cursor)
 	}
 
-	// Down moves the cursor.
-	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'j', Text: "j"})
-	if m.epicsCursor != 1 {
-		t.Errorf("after j: cursor=%d, want 1", m.epicsCursor)
+	for want := 1; want <= 3; want++ {
+		m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'j', Text: "j"})
+		if m.epicsTree.cursor != want {
+			t.Errorf("after j: cursor=%d, want %d", m.epicsTree.cursor, want)
+		}
 	}
 	// Clamp at the last row.
 	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'j', Text: "j"})
-	if m.epicsCursor != 1 {
-		t.Errorf("after second j: cursor=%d, want 1 (clamped)", m.epicsCursor)
+	if m.epicsTree.cursor != 3 {
+		t.Errorf("after extra j: cursor=%d, want 3 (clamped)", m.epicsTree.cursor)
 	}
-	// Up moves back.
-	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'k', Text: "k"})
-	if m.epicsCursor != 0 {
-		t.Errorf("after k: cursor=%d, want 0", m.epicsCursor)
+	// Back to the top.
+	for i := 0; i < 5; i++ {
+		m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'k', Text: "k"})
 	}
-	// Clamp at the top.
-	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'k', Text: "k"})
-	if m.epicsCursor != 0 {
-		t.Errorf("after second k: cursor=%d, want 0 (clamped)", m.epicsCursor)
+	if m.epicsTree.cursor != 0 {
+		t.Errorf("after k*5: cursor=%d, want 0 (clamped)", m.epicsTree.cursor)
 	}
 }
 
@@ -97,12 +103,15 @@ func TestHandleEpicsKeys_CycleStatus(t *testing.T) {
 	}
 }
 
-func TestRenderEpicsOverview_Basic(t *testing.T) {
+func TestEpicsTree_RenderBasic(t *testing.T) {
 	m := epicsTestModel(epicsFixture())
 	result := m.epicsViewText
 
-	if !containsStr(result, "Epics (active)") {
-		t.Error("should contain the header 'Epics (active)'")
+	if !containsStr(result, "EPICS") {
+		t.Error("should contain the EPICS header")
+	}
+	if !containsStr(headerLine(result), "active") {
+		t.Error("header should show the 'active' mode")
 	}
 	if !containsStr(result, "ep1") {
 		t.Error("should list epic ep1")
@@ -113,19 +122,19 @@ func TestRenderEpicsOverview_Basic(t *testing.T) {
 	}
 }
 
-func TestRenderEpicsOverview_Empty(t *testing.T) {
+func TestEpicsTree_RenderEmpty(t *testing.T) {
 	m := epicsTestModel([]model.Issue{
 		{ID: "task-1", Title: "Not an epic", Status: model.StatusOpen, IssueType: model.TypeTask},
 	})
-	if len(m.epicsRows) != 0 {
-		t.Fatalf("expected 0 epic rows, got %d", len(m.epicsRows))
+	if m.epicsTree.epicCount() != 0 {
+		t.Fatalf("expected 0 epics, got %d", m.epicsTree.epicCount())
 	}
 	if !containsStr(m.epicsViewText, "No epics in scope") {
 		t.Error("empty overview should show 'No epics in scope'")
 	}
 }
 
-func TestRenderEpicsOverview_AtRisk(t *testing.T) {
+func TestEpicsTree_RenderAtRisk(t *testing.T) {
 	m := epicsTestModel(epicsFixture())
 	// ep1.b is in_progress and 5 days stale -> ep1 row carries an at-risk marker.
 	if !containsStr(m.epicsViewText, "⚠") {
@@ -133,21 +142,21 @@ func TestRenderEpicsOverview_AtRisk(t *testing.T) {
 	}
 }
 
-func TestRenderEpicsOverview_NarrowWidth(t *testing.T) {
+func TestEpicsTree_NarrowWidth(t *testing.T) {
 	m := epicsTestModel(epicsFixture())
 	m.width = 30 // very narrow
-	result := m.renderEpicsOverview()
-	if result == "" {
+	m.refreshEpicsForCurrentFilter()
+	if m.epicsViewText == "" {
 		t.Error("should produce output even with narrow width")
 	}
 }
 
-func TestEpicsOverview_DefaultSortProgressAscending(t *testing.T) {
+func TestEpicsTree_DefaultSortProgressAscending(t *testing.T) {
 	pc := func(child, parent string) []*model.Dependency {
 		return []*model.Dependency{{IssueID: child, DependsOnID: parent, Type: model.DepParentChild}}
 	}
-	// ep-high is listed first but is 80% done; ep-low is 20%. The default sort
-	// must put the least-complete epic first regardless of input order.
+	// ep-high is listed first but is 80% done; ep-low is 20%. Both share the "ep"
+	// prefix -> one lane; within the lane the least-complete epic sorts first.
 	issues := []model.Issue{
 		{ID: "ep-high", Title: "Almost done", IssueType: model.TypeEpic, Status: model.StatusOpen},
 		{ID: "ep-high.1", Status: model.StatusClosed, Dependencies: pc("ep-high.1", "ep-high")},
@@ -163,29 +172,34 @@ func TestEpicsOverview_DefaultSortProgressAscending(t *testing.T) {
 		{ID: "ep-low.5", Status: model.StatusOpen, Dependencies: pc("ep-low.5", "ep-low")},
 	}
 	m := epicsTestModel(issues)
-	if len(m.epicsRows) != 2 {
-		t.Fatalf("want 2 epic rows, got %d", len(m.epicsRows))
+	rows := m.epicsTree.rows()
+	// Find the two epic rows in flatten order.
+	var epicIDs []string
+	for _, r := range rows {
+		if r.kind == rowEpic && r.issue != nil {
+			epicIDs = append(epicIDs, r.issue.ID)
+		}
 	}
-	if m.epicsRows[0].Epic.ID != "ep-low" {
-		t.Errorf("default sort: rows[0]=%s, want ep-low (20%% before 80%%)", m.epicsRows[0].Epic.ID)
+	if len(epicIDs) != 2 {
+		t.Fatalf("want 2 epic rows, got %d (%v)", len(epicIDs), epicIDs)
 	}
-	if m.epicsRows[1].Epic.ID != "ep-high" {
-		t.Errorf("default sort: rows[1]=%s, want ep-high", m.epicsRows[1].Epic.ID)
+	if epicIDs[0] != "ep-low" || epicIDs[1] != "ep-high" {
+		t.Errorf("progress-asc order = %v, want [ep-low ep-high]", epicIDs)
 	}
 }
 
-func TestEpicsOverview_StatusCycleHeader(t *testing.T) {
+func TestEpicsTree_StatusCycleHeader(t *testing.T) {
 	m := epicsTestModel(epicsFixture())
-	if !containsStr(m.epicsViewText, "Epics (active)") {
-		t.Error("default header should be 'Epics (active)'")
+	if !containsStr(headerLine(m.epicsViewText), "active") {
+		t.Error("default header should show 'active' mode")
 	}
 	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 's', Text: "s"})
-	if !containsStr(m.epicsViewText, "Epics (all)") {
-		t.Error("after s, header should update to 'Epics (all)'")
+	if !containsStr(headerLine(m.epicsViewText), "all") {
+		t.Error("after s, header should show 'all' mode")
 	}
 	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 's', Text: "s"})
-	if !containsStr(m.epicsViewText, "Epics (completed)") {
-		t.Error("after 2nd s, header should update to 'Epics (completed)'")
+	if !containsStr(headerLine(m.epicsViewText), "completed") {
+		t.Error("after 2nd s, header should show 'completed' mode")
 	}
 }
 
@@ -224,10 +238,5 @@ func TestTruncateString(t *testing.T) {
 
 // containsStr reports whether substr occurs in s.
 func containsStr(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
+	return strings.Contains(s, substr)
 }

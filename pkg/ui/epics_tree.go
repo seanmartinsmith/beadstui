@@ -283,6 +283,14 @@ func (e *EpicsTreeModel) flattenNode(n *epicTreeNode, project string, depth int,
 // rows returns the flattened, expansion-aware row list.
 func (e *EpicsTreeModel) rows() []epicTreeRow { return e.flatRows }
 
+// cursorRow returns the row under the cursor, or (zero, false) when empty.
+func (e *EpicsTreeModel) cursorRow() (epicTreeRow, bool) {
+	if e.cursor < 0 || e.cursor >= len(e.flatRows) {
+		return epicTreeRow{}, false
+	}
+	return e.flatRows[e.cursor], true
+}
+
 // headerExpanded reports whether a project lane is expanded (default: true).
 func (e *EpicsTreeModel) headerExpanded(prefix string) bool {
 	if v, ok := e.expanded["proj:"+prefix]; ok {
