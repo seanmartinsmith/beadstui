@@ -63,9 +63,10 @@ func (m Model) epicsScopeLabel() string {
 // Dispatches via key.Matches against m.keys.Epics per ADR-004 Decision 1.
 //
 // The tree drill subsumes the Tier-2 focus card as the primary epic surface
-// (bt-3ftfm.1): enter/→/l on an epic or lane expands and focuses the subtree;
-// enter on a child drills into its detail; ← /h collapses or jumps to parent;
-// z collapses every epic; v re-opens the single-epic focus card as a zoom.
+// (bt-3ftfm.1): enter/→/l on an epic or lane expands it in place (the cursor
+// stays put, bt-3ftfm.6); enter on a child drills into its detail; ← /h
+// collapses in place or jumps to parent; z collapses every epic; v re-opens
+// the single-epic focus card as a zoom.
 func (m Model) handleEpicsKeys(msg tea.KeyMsg) Model {
 	k := m.keys.Epics
 	switch {

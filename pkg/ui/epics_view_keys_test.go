@@ -103,42 +103,47 @@ func TestHandleEpicsKeys_CycleStatus(t *testing.T) {
 	}
 }
 
-func TestHandleEpicsTree_ExpandRevealsChildrenAndFocusesSubtree(t *testing.T) {
+func TestHandleEpicsTree_ExpandRevealsChildrenKeepsCursor(t *testing.T) {
 	m := epicsTestModel(epicsFixture())
 	// Move from the lane header onto the ep1 epic row.
 	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'j', Text: "j"})
-	if r, _ := m.epicsTree.cursorRow(); r.kind != rowEpic {
-		t.Fatalf("expected cursor on an epic row, got kind %d", r.kind)
+	r0, _ := m.epicsTree.cursorRow()
+	if r0.kind != rowEpic || r0.issue == nil || r0.issue.ID != "ep1" {
+		t.Fatalf("expected cursor on epic ep1, got %+v", r0)
 	}
-	// Expand (l) reveals children and focuses the subtree (cursor onto a child).
+	// Expand (l) reveals the children but leaves the cursor on the epic row -
+	// expanding must not drop the cursor onto the first child (bt-3ftfm.6).
 	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'l', Text: "l"})
 	if i, _ := rowByIssue(m.epicsTree.rows(), "ep1.a"); i == -1 {
 		t.Errorf("expand should reveal ep1.a\n%s", dumpRows(m.epicsTree.rows()))
 	}
-	if r, _ := m.epicsTree.cursorRow(); r.kind != rowChild {
-		t.Errorf("expand should focus the subtree (cursor on a child), got kind %d", r.kind)
+	if r, _ := m.epicsTree.cursorRow(); r.kind != rowEpic || r.issue == nil || r.issue.ID != "ep1" {
+		t.Errorf("expand should keep the cursor on ep1, got %+v", r)
 	}
 }
 
 func TestHandleEpicsTree_CollapseHidesChildren(t *testing.T) {
 	m := epicsTestModel(epicsFixture())
 	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'j', Text: "j"}) // onto ep1
-	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'l', Text: "l"}) // expand -> cursor on child
-	// h on a child jumps to the parent epic; h again collapses it.
-	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'h', Text: "h"})
-	if r, _ := m.epicsTree.cursorRow(); r.kind != rowEpic || r.issue == nil || r.issue.ID != "ep1" {
-		t.Fatalf("h on a child should jump to parent ep1, got %+v", r)
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'l', Text: "l"}) // expand in place; cursor stays on ep1
+	if i, _ := rowByIssue(m.epicsTree.rows(), "ep1.a"); i == -1 {
+		t.Fatalf("setup: expand should reveal ep1.a\n%s", dumpRows(m.epicsTree.rows()))
 	}
+	// h collapses the expanded epic in place - the cursor must not move down or up.
 	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'h', Text: "h"})
 	if i, _ := rowByIssue(m.epicsTree.rows(), "ep1.a"); i != -1 {
 		t.Errorf("collapse should hide ep1.a (found at %d)", i)
+	}
+	if r, _ := m.epicsTree.cursorRow(); r.kind != rowEpic || r.issue == nil || r.issue.ID != "ep1" {
+		t.Errorf("collapse should keep the cursor on ep1, got %+v", r)
 	}
 }
 
 func TestHandleEpicsTree_EnterDrillsChildToDetail(t *testing.T) {
 	m := epicsTestModel(epicsFixture())
 	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'j', Text: "j"}) // onto ep1
-	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'l', Text: "l"}) // expand -> cursor on ep1.a
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'l', Text: "l"}) // expand in place (cursor stays on ep1)
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'j', Text: "j"}) // down onto ep1.a child
 	r, _ := m.epicsTree.cursorRow()
 	if r.kind != rowChild {
 		t.Fatalf("setup: expected cursor on a child, got kind %d", r.kind)
@@ -179,7 +184,8 @@ func TestHandleEpicsTree_CardZoom(t *testing.T) {
 func TestHandleEpicsTree_CardZoomFromChildUsesParentEpic(t *testing.T) {
 	m := epicsTestModel(epicsFixture())
 	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'j', Text: "j"}) // onto ep1
-	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'l', Text: "l"}) // expand -> cursor on child
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'l', Text: "l"}) // expand in place (cursor stays on ep1)
+	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'j', Text: "j"}) // down onto ep1.a child
 	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 'v', Text: "v"})
 	if m.activeModal != ModalEpicCard || m.epicCardID != "ep1" {
 		t.Errorf("v on a child should zoom its parent epic ep1, got modal=%v id=%q", m.activeModal, m.epicCardID)
@@ -296,6 +302,34 @@ func TestEpicsTree_StatusCycleHeader(t *testing.T) {
 	m = m.handleEpicsKeys(tea.KeyPressMsg{Code: 's', Text: "s"})
 	if !containsStr(headerLine(m.epicsViewText), "completed") {
 		t.Error("after 2nd s, header should show 'completed' mode")
+	}
+}
+
+// TestEpicsTree_ViewPinsFooterToBottom asserts View() always fills the height it
+// was given and puts the key-hint footer on the last line, across overflow (h=5),
+// roomy (h=40), and short (h=20) corpora plus the empty scope. Without this the
+// footer floats up under the content and the global status bar lands a row above
+// the terminal's true bottom (bt-3ftfm.6).
+func TestEpicsTree_ViewPinsFooterToBottom(t *testing.T) {
+	countLines := func(s string) int { return strings.Count(s, "\n") + 1 }
+	for _, h := range []int{5, 20, 40} {
+		m := epicsTestModel(epicsFixture())
+		m.epicsTree.SetSize(100, h)
+		v := m.epicsTree.View()
+		if got := countLines(v); got != h {
+			t.Errorf("height %d: View() emitted %d lines, want %d\n%s", h, got, h, v)
+		}
+		lines := strings.Split(v, "\n")
+		if last := lines[len(lines)-1]; !strings.Contains(last, "nav") {
+			t.Errorf("height %d: last line should be the key-hint footer, got %q", h, last)
+		}
+	}
+	// Empty scope holds the same height-fill invariant.
+	empty := epicsTestModel([]model.Issue{{ID: "task-1", Title: "x", Status: model.StatusOpen, IssueType: model.TypeTask}})
+	empty.epicsTree.SetSize(100, 20)
+	ev := empty.epicsTree.View()
+	if got := countLines(ev); got != 20 {
+		t.Errorf("empty scope: View() emitted %d lines, want 20\n%s", got, ev)
 	}
 }
 

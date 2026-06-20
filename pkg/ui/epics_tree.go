@@ -307,19 +307,16 @@ func (r epicTreeRow) toggleKey() string {
 	return ""
 }
 
-// expandCursor expands the cursor's header/epic and focuses its subtree (moves
-// the cursor onto the first revealed child). No-op for leaf child rows.
+// expandCursor expands the cursor's header/epic in place, leaving the cursor on
+// the same row so the revealed children appear below without the selection
+// jumping down onto the first child (bt-3ftfm.6). No-op for leaf child rows.
 func (e *EpicsTreeModel) expandCursor() {
 	r, ok := e.cursorRow()
 	if !ok || r.kind == rowChild {
 		return
 	}
 	e.expand(r.toggleKey())
-	// Focus the subtree: step onto the first child if one was revealed.
-	if e.cursor+1 < len(e.flatRows) && e.flatRows[e.cursor+1].depth > r.depth {
-		e.cursor++
-		e.ensureCursorVisible()
-	}
+	e.ensureCursorVisible()
 }
 
 // collapseCursor collapses the cursor's expanded header/epic; if the row is a
@@ -530,8 +527,6 @@ func (e *EpicsTreeModel) View() string {
 	muted := lipgloss.NewStyle().Foreground(t.Muted)
 	title := lipgloss.NewStyle().Bold(true).Foreground(t.Primary)
 
-	var sb strings.Builder
-
 	// Header: EPICS · <scope> · <mode>    N epics
 	head := "EPICS"
 	if e.scopeLabel != "" {
@@ -541,39 +536,45 @@ func (e *EpicsTreeModel) View() string {
 		head += " · " + e.modeLabel
 	}
 	header := title.Render(head) + muted.Render("    "+pluralEpics(e.epicCount()))
-	sb.WriteString(e.clamp(header))
-	sb.WriteString("\n")
 
+	// Body region: exactly bodyHeight lines so the footer pins to the bottom of
+	// the allotted height and the global status bar lands on the terminal's true
+	// last row. Blank padding fills the slack ABOVE the footer, never below it -
+	// the off-by-one that left the status bar floating one row high (bt-3ftfm.6).
+	bodyH := e.bodyHeight()
+	body := make([]string, 0, bodyH)
 	if len(e.flatRows) == 0 {
-		sb.WriteString("\n")
-		sb.WriteString(e.clamp(muted.Render("  No epics in scope.")))
-		sb.WriteString("\n")
-		sb.WriteString(e.footer())
-		return sb.String()
-	}
-
-	start, end := e.window()
-	if start > 0 {
-		sb.WriteString(e.clamp(muted.Render(fmt.Sprintf("  ↑ %d more", start))))
-		sb.WriteString("\n")
-	}
-	for i := start; i < end; i++ {
-		line := e.clamp(e.renderRow(e.flatRows[i], i == e.cursor))
-		if i == e.cursor && e.width > 0 {
-			// Full-width highlight bar for the cursor row (clamp first so the
-			// background pads to exactly width without wrapping or shifting).
-			line = lipgloss.NewStyle().Background(t.Highlight).Width(e.width).Render(line)
+		body = append(body, e.clamp(muted.Render("  No epics in scope.")))
+	} else {
+		start, end := e.window()
+		if start > 0 {
+			body = append(body, e.clamp(muted.Render(fmt.Sprintf("  ↑ %d more", start))))
 		}
-		sb.WriteString(line)
-		sb.WriteString("\n")
+		for i := start; i < end; i++ {
+			line := e.clamp(e.renderRow(e.flatRows[i], i == e.cursor))
+			if i == e.cursor && e.width > 0 {
+				// Full-width highlight bar for the cursor row (clamp first so the
+				// background pads to exactly width without wrapping or shifting).
+				line = lipgloss.NewStyle().Background(t.Highlight).Width(e.width).Render(line)
+			}
+			body = append(body, line)
+		}
+		if end < len(e.flatRows) {
+			body = append(body, e.clamp(muted.Render(fmt.Sprintf("  ↓ %d more", len(e.flatRows)-end))))
+		}
 	}
-	if end < len(e.flatRows) {
-		sb.WriteString(e.clamp(muted.Render(fmt.Sprintf("  ↓ %d more", len(e.flatRows)-end))))
-		sb.WriteString("\n")
+	for len(body) < bodyH {
+		body = append(body, "")
+	}
+	if len(body) > bodyH {
+		body = body[:bodyH]
 	}
 
-	sb.WriteString(e.footer())
-	return sb.String()
+	lines := make([]string, 0, bodyH+2)
+	lines = append(lines, e.clamp(header))
+	lines = append(lines, body...)
+	lines = append(lines, e.footer())
+	return strings.Join(lines, "\n")
 }
 
 // epicIDColCap bounds the padded ID column so a single very long ID
