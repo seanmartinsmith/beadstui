@@ -557,7 +557,13 @@ func (m Model) renderSplitView() string {
 
 	// m.list.Width() is the inner width (set in Update)
 	listInnerWidth := m.list.Width()
-	panelHeight := m.height - 2 // leave room for footer
+	// Reserve exactly 1 row for the footer, matching handleWindowSize's
+	// bodyHeight (m.height-1) which sizes the list/viewport content. Using
+	// m.height-2 here left the panel frame one row shorter than the content was
+	// sized for, so finalStyle.Height(m.height) padded the deficit *below* the
+	// footer — the bottom gap. Aligning to m.height-1 pins the footer flush to
+	// the window's bottom edge.
+	panelHeight := m.height - 1
 
 	header := m.splitViewHeader()
 
