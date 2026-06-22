@@ -6,9 +6,26 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-06-22 — Smart footer Phase 4: severity-tiered notification toasts + permanent unread bell (bt-a3zi3.1)
+
+**The deferred notifications layer completes the smart-footer redesign (bt-a3zi3). Status messages are now severity-tiered (Success / Notice / Failure / Degraded): a transient toast borrows the footer's right zone then yields it back, while a permanent unread bell (`🔔N`) sourced from the `m.events` ring buffer surfaces what the user missed. An `alertsSeenAt` timestamp draws the seen-vs-dismissed line — the bell counts unseen alerts and clears on opening the notifications view. Spec/plan at `docs/design/2026-06-22-footer-phase4-notifications.md` + `docs/plans/2026-06-22-footer-phase4-notifications.md`; commits `7a2660ae..e617e5ac`.**
+
+### Ships (bt-a3zi3.1, area:tui + ux)
+
+- **Severity-tiered toasts** — a new `StatusSeverity` (`Success`/`Notice`/`Failure`/`Degraded`) classifies status messages; the 39 `setStatusError` call sites were reclassified into the right tiers rather than all reading as hard errors. The sticky `Degraded` toast self-clears when a fresh snapshot recovers, so a transient backend wobble doesn't leave a stale warning pinned.
+- **Permanent unread bell** — `events.NewSystemEvent` + `UnseenCount` feed a `🔔N` badge in the footer's right zone; `Failure`/`Degraded` events append to the ring buffer and bump the count. `alertsSeenAt` (an `m`-level timestamp) is the seen-vs-dismissed model: opening the notifications view marks events seen and zeroes the bell, while the full feed stays in the alerts modal.
+- **Footer integration, never-wrap preserved** — the toast occupies the right-zone override and the bell is pinned as the *last* segment to drop under width pressure, so Phase 1's never-wrap degradation discipline still holds at scrunched widths.
+
+### Notes
+
+- **Tested:** footer notification render scenarios + the never-wrap width sweep extended for the toast/bell right zone (`render_harness_test.go`, `model_footer_test.go`); `go build` / `go vet` clean, `pkg/ui` green. The full `go test ./...` hung on unrelated Dolt integration contention from parallel sessions — `pkg/ui` is Dolt-free and passed.
+- **Follow-ups:** bt-vhzia (cross-session unread — persist the seen flag across runs), bt-s2duc (multi-select modal triage, linked to the bt-vavc multi-select primitive), bt-q31ye (emoji → tiered glyph system, which will re-skin the new bell/toast glyphs).
+
+---
+
 ## 2026-06-21 — Smart footer: never-wrap responsive layout, scoped counts, per-view center meaning, bottom-row pin (bt-a3zi3, bt-yyked)
 
-**Dogfooded at the maintainer's scrunched widths, the footer wrapped to two rows (eating a content line), clipped key hints mid-pill, showed wrong-view hints, and reported the global corpus instead of the active scope; at cross-project scale (4921 issues) the stat numbers crowded the hints out entirely. This is a structural redesign of `FooterData.Render()` into a three-zone composer (lens / scoped numbers / hints) with a never-wrap degradation engine, plus a `View()`-level invariant that pins the footer to the bottom row in every view. Design spec: `docs/design/2026-06-21-tui-footer-smart-redesign.md`. Phases 1-3 + the footer-pin fix shipped to `main`; Phase 4 (notifications) deferred to bt-a3zi3.1.**
+**Dogfooded at the maintainer's scrunched widths, the footer wrapped to two rows (eating a content line), clipped key hints mid-pill, showed wrong-view hints, and reported the global corpus instead of the active scope; at cross-project scale (4921 issues) the stat numbers crowded the hints out entirely. This is a structural redesign of `FooterData.Render()` into a three-zone composer (lens / scoped numbers / hints) with a never-wrap degradation engine, plus a `View()`-level invariant that pins the footer to the bottom row in every view. Design spec: `docs/design/2026-06-21-tui-footer-smart-redesign.md`. Phases 1-3 + the footer-pin fix shipped to `main` this session; Phase 4 (notifications) shipped the next session under bt-a3zi3.1 — see the 2026-06-22 entry.**
 
 ### Ships (bt-a3zi3 + bt-yyked, area:tui + ux)
 
@@ -21,7 +38,7 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 - **Supersedes the stale `bt-ugbp.1-.6`** per-view hint-reduction beads (written against the 12-branch `extractKeyHints()` string table that ADR-004 / bt-ift6.1 deleted wholesale; hints now come from `ShortHelp()`). Subsumes bt-d5wr / bt-d5wr.1 (footer visual + IA).
 - **Tested:** `TestFooterData_NeverWraps*` (width sweep + pathological badge), `TestFooterCounts_ScopedToActiveFilter`, `TestFooterData_CenterOverride*`, `TestFooterCenter_PerView`, `TestFooterPinnedToBottomRow`, `TestCountLabel_Pluralization`. Render harness gains board/graph/actionable/insights/flowmatrix scenarios at 100x32 + scrunched 70x20.
-- **Phase 4 (notifications) deferred** to **bt-a3zi3.1** — transient toast borrowing the hint slot + a permanent `🔔N` unread badge from the `m.events` ring buffer; full feed stays in the alerts modal. Blocked on the maintainer's notification brainstorm.
+- **Phase 4 (notifications) shipped** the next session (2026-06-22) under **bt-a3zi3.1** — severity-tiered toasts + a permanent `🔔N` unread bell from the `m.events` ring buffer; full feed stays in the alerts modal. See the 2026-06-22 entry.
 - Three pre-existing global count recomputes (`model.go`, `model_update_data.go`) are now redundant (overwritten by the Phase 2 chokepoint); left in place per "mention, don't delete," consolidation is a follow-up.
 
 ---
