@@ -1425,3 +1425,29 @@ func TestRenderHelpOverlay_ResponsiveLayout(t *testing.T) {
 		})
 	}
 }
+
+// TestHelpOverlay_ConsumesKeyMapBindings verifies the ? overlay renders its key
+// descriptions from the per-view key.Maps' FullHelp() rather than literal
+// section tables (bt-ift6.11). Items the old literal tables omitted appear
+// automatically once their binding is declared, and literal desc strings that
+// diverged from the binding text are gone.
+func TestHelpOverlay_ConsumesKeyMapBindings(t *testing.T) {
+	m := NewModel(harnessIssues(), nil, "", nil)
+	m.width, m.height = 180, 60
+	m.openModal(ModalHelp)
+	m.focused = focusHelp
+
+	out := m.renderHelpOverlay()
+
+	// Map-sourced descs the old literal []struct{key,desc} tables never listed.
+	for _, want := range []string{"epic card", "cass session"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("help overlay missing map-sourced binding desc %q", want)
+		}
+	}
+	// The old literal "Kanban board" desc diverged from GlobalKeys.Board's
+	// "board"; after the rewire only the binding text remains.
+	if strings.Contains(out, "Kanban board") {
+		t.Errorf("help overlay still contains the old literal 'Kanban board' desc; should read 'board' from GlobalKeys.Board")
+	}
+}

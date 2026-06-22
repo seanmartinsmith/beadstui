@@ -9,6 +9,7 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -665,9 +666,16 @@ func (m *Model) renderHelpOverlay() string {
 		ColorTypeTask, // Yellow
 	}
 
-	// Helper to render a section panel (auto-sized to content).
-	// Flipped layout: description on left, key right-aligned (bt-dx7k).
-	renderPanel := func(title string, icon string, colorIdx int, shortcuts []struct{ key, desc string }) string {
+	// helpRow is one panel line: left text (desc/meaning) + right token
+	// (key/glyph, right-aligned). Keybind panels source these from the active
+	// key.Maps' FullHelp() so the overlay cannot drift from the ; sidebar /
+	// footer (bt-ift6.11); the status legend supplies its own literal rows.
+	type helpRow struct{ left, right string }
+
+	// renderRowsPanel renders grouped rows as an auto-sized titled panel.
+	// Flipped layout: left text on the left, right token right-aligned (bt-dx7k);
+	// groups are separated by a blank line. Returns "" for an empty panel.
+	renderRowsPanel := func(title, icon string, colorIdx int, groups [][]helpRow) string {
 		panelColor := colors[colorIdx%len(colors)]
 
 		keyStyle := lipgloss.NewStyle().
@@ -677,34 +685,49 @@ func (m *Model) renderHelpOverlay() string {
 		descStyle := lipgloss.NewStyle().
 			Foreground(t.Base.GetForeground())
 
-		// Find widest key and widest desc for alignment
-		maxKeyWidth := 0
-		maxDescWidth := 0
-		for _, s := range shortcuts {
-			if w := lipgloss.Width(s.key); w > maxKeyWidth {
-				maxKeyWidth = w
-			}
-			if w := lipgloss.Width(s.desc); w > maxDescWidth {
-				maxDescWidth = w
+		// Find widest left and right token across all rows for alignment.
+		maxLeft := 0
+		maxRight := 0
+		for _, g := range groups {
+			for _, r := range g {
+				if w := lipgloss.Width(r.left); w > maxLeft {
+					maxLeft = w
+				}
+				if w := lipgloss.Width(r.right); w > maxRight {
+					maxRight = w
+				}
 			}
 		}
 
-		// Inner content width: left pad + desc + gap + key + right pad
-		innerWidth := 1 + maxDescWidth + 2 + maxKeyWidth + 1
+		// Inner content width: left pad + left + gap + right + right pad
+		innerWidth := 1 + maxLeft + 2 + maxRight + 1
 
 		var lines []string
-		for _, s := range shortcuts {
-			desc := descStyle.Render(s.desc)
-			key := keyStyle.Render(s.key)
-			descPad := maxDescWidth - lipgloss.Width(s.desc)
-			// Description left-aligned, key right-aligned
-			line := " " + desc + strings.Repeat(" ", descPad+2) + key
-			// Pad to full inner width for consistent panel sizing
-			lineWidth := lipgloss.Width(line)
-			if lineWidth < innerWidth {
-				line += strings.Repeat(" ", innerWidth-lineWidth)
+		firstGroup := true
+		for _, g := range groups {
+			if len(g) == 0 {
+				continue
 			}
-			lines = append(lines, line)
+			if !firstGroup {
+				lines = append(lines, "") // blank line between groups
+			}
+			firstGroup = false
+			for _, r := range g {
+				left := descStyle.Render(r.left)
+				right := keyStyle.Render(r.right)
+				leftPad := maxLeft - lipgloss.Width(r.left)
+				// Left text left-aligned, right token right-aligned.
+				line := " " + left + strings.Repeat(" ", leftPad+2) + right
+				// Pad to full inner width for consistent panel sizing.
+				lineWidth := lipgloss.Width(line)
+				if lineWidth < innerWidth {
+					line += strings.Repeat(" ", innerWidth-lineWidth)
+				}
+				lines = append(lines, line)
+			}
+		}
+		if len(lines) == 0 {
+			return ""
 		}
 
 		// Panel width: inner content + border (2) + right pad (1)
@@ -724,111 +747,59 @@ func (m *Model) renderHelpOverlay() string {
 		})
 	}
 
-	// Define all sections
-	navSection := []struct{ key, desc string }{
-		{"j / ↓", "Move down"},
-		{"k / ↑", "Move up"},
-		{"G/end", "Go to last"},
-		{"Ctrl+d", "Page down"},
-		{"Ctrl+u", "Page up"},
-		{"Tab", "Switch focus"},
-		{"< / >", "Resize list pane"},
-		{"Enter", "View details"},
-		{"Esc", "Back / close"},
+	// bindingGroups converts a key.Map's FullHelp() into helpRow groups: enabled
+	// bindings with non-empty help, desc on the left and key on the right. The
+	// single binding source means the ? overlay text always matches dispatch.
+	bindingGroups := func(groups [][]key.Binding) [][]helpRow {
+		out := make([][]helpRow, 0, len(groups))
+		for _, g := range groups {
+			rows := make([]helpRow, 0, len(g))
+			for _, b := range g {
+				if !b.Enabled() {
+					continue
+				}
+				h := b.Help()
+				if h.Key == "" {
+					continue
+				}
+				rows = append(rows, helpRow{left: h.Desc, right: h.Key})
+			}
+			if len(rows) > 0 {
+				out = append(out, rows)
+			}
+		}
+		return out
 	}
 
-	viewsSection := []struct{ key, desc string }{
-		{"b", "Kanban board"},
-		{"g", "Graph view"},
-		{"i", "Insights"},
-		{"h", "History view"},
-		{"a", "Actionable"},
-		{"f", "Flow matrix"},
-		{"[", "Label dashboard"},
-		{"]", "Attention view"},
-	}
-
-	globalSection := []struct{ key, desc string }{
-		{"?", "This help"},
-		{";", "Shortcuts bar"},
-		{"!", "Alerts panel"},
-		{"'", "Recipes"},
-		{"w", "Project picker"},
-		{"W", "Toggle project scope"},
-		{"q", "Back / Quit"},
-		{"Ctrl+c", "Force quit"},
-	}
-
-	filterSection := []struct{ key, desc string }{
-		{"/", "Fuzzy search"},
-		{"Ctrl+S", "Semantic search"},
-		{"H", "Hybrid ranking"},
-		{"Alt+H", "Hybrid preset"},
-		{"o", "Open issues"},
-		{"c", "Closed issues"},
-		{"r", "Ready (unblocked)"},
-		{"l", "Filter by label"},
-		{"s", "Cycle sort"},
-		{"S", "Cycle sort reverse"},
-	}
-
-	graphSection := []struct{ key, desc string }{
-		{"hjkl", "Navigate nodes"},
-		{"H/L", "Scroll left/right"},
-		{"PgUp/Dn", "Scroll up/down"},
-		{"Enter", "Jump to issue"},
-	}
-
-	insightsSection := []struct{ key, desc string }{
-		{"h/l/Tab", "Switch panels"},
-		{"j/k", "Navigate items"},
-		{"e", "Explanations"},
-		{"x", "Calc details"},
-		{"m", "Toggle heatmap"},
-		{"Enter", "Jump to issue"},
-	}
-
-	historySection := []struct{ key, desc string }{
-		{"j/k", "Navigate beads"},
-		{"J/K", "Navigate commits"},
-		{"Tab", "Toggle focus"},
-		{"y", "Copy SHA"},
-		{"c", "Confidence filter"},
-	}
-
-	actionsSection := []struct{ key, desc string }{
-		{"p", "Priority hints"},
-		{"R", "Triage recipe"},
-		{"Ctrl+R", "Force refresh"},
-		{"F5", "Force refresh"},
-		{"t", "Time-travel"},
-		{"T", "Quick time-travel"},
-		{"x", "Export markdown"},
-		{"C", "Copy to clipboard"},
-		{"O", "Open in editor"},
-	}
-
-	statusSection := []struct{ key, desc string }{
-		{"◌ metrics", "Phase 2 metrics computing"},
-		{"⚠ age", "Snapshot getting stale"},
-		{"⚠ STALE", "Snapshot is stale"},
-		{"✗ bg", "Background worker errors"},
-		{"↻ recov", "Worker self-healed"},
-		{"⚠ dead", "Worker unresponsive"},
-		{"polling", "Live reload uses polling"},
-	}
-
-	// Build shortcut panels
+	// Build one panel per view key.Map from its FullHelp(), so the ? overlay is
+	// a consumer of the same binding source as the ; sidebar (FullHelp) and the
+	// L1 footer (ShortHelp). This is the comprehensive (L2) reference: every
+	// view's Map, not only the active one. Re-thematizing into task-oriented
+	// headers is bt-xavk's scope; this child is data-source plumbing.
 	panels := []string{
-		renderPanel("Navigation", "🧭", 0, navSection),
-		renderPanel("Views", "👁", 1, viewsSection),
-		renderPanel("Filters & Sort", "🔍", 3, filterSection),
-		renderPanel("Global", "🌐", 2, globalSection),
-		renderPanel("Graph View", "📊", 4, graphSection),
-		renderPanel("Insights", "💡", 5, insightsSection),
-		renderPanel("History", "📜", 0, historySection),
-		renderPanel("Actions", "⚡", 1, actionsSection),
+		renderRowsPanel("Global", "🌐", 2, bindingGroups(m.keys.Global.FullHelp())),
+		renderRowsPanel("List", "🧭", 0, bindingGroups(m.keys.ListNormal.FullHelp())),
+		renderRowsPanel("Board", "📋", 1, bindingGroups(m.keys.BoardNormal.FullHelp())),
+		renderRowsPanel("Graph", "📊", 4, bindingGroups(m.keys.Graph.FullHelp())),
+		renderRowsPanel("Insights", "💡", 5, bindingGroups(m.keys.Insights.FullHelp())),
+		renderRowsPanel("History", "📜", 0, bindingGroups(m.keys.HistoryNormal.FullHelp())),
+		renderRowsPanel("Actionable", "⚡", 1, bindingGroups(m.keys.Actionable.FullHelp())),
+		renderRowsPanel("Tree", "🌳", 3, bindingGroups(m.keys.Tree.FullHelp())),
+		renderRowsPanel("Flow Matrix", "🔀", 5, bindingGroups(m.keys.FlowMatrix.FullHelp())),
+		renderRowsPanel("Epics", "🗺", 4, bindingGroups(m.keys.Epics.FullHelp())),
 	}
+
+	// Status-glyph legend: the one panel with no key.Map source (it explains the
+	// footer status indicators, not key bindings), so it keeps literal rows.
+	statusLegend := [][]helpRow{{
+		{left: "Phase 2 metrics computing", right: "◌ metrics"},
+		{left: "Snapshot getting stale", right: "⚠ age"},
+		{left: "Snapshot is stale", right: "⚠ STALE"},
+		{left: "Background worker errors", right: "✗ bg"},
+		{left: "Worker self-healed", right: "↻ recov"},
+		{left: "Worker unresponsive", right: "⚠ dead"},
+		{left: "Live reload uses polling", right: "polling"},
+	}}
 
 	// River/masonry layout: greedily pack panels into rows (bt-dx7k)
 	availableWidth := m.width - 4 // leave margin on sides
@@ -870,7 +841,7 @@ func (m *Model) renderHelpOverlay() string {
 	body := lipgloss.JoinVertical(lipgloss.Center, rows...)
 
 	// Status indicators panel - append to river flow if room
-	statusPanel := renderPanel("Status Indicators", "🩺", 2, statusSection)
+	statusPanel := renderRowsPanel("Status Indicators", "🩺", 2, statusLegend)
 	statusHeight := lipgloss.Height(statusPanel)
 	bodyHeight := lipgloss.Height(body)
 	// Show status panel if there's vertical room
