@@ -262,6 +262,10 @@ type FooterData struct {
 	// footerCenter(); the override carries its own count, so the count badge is
 	// suppressed when it is set.
 	CenterOverride string
+
+	// Unread bell (Phase 4): events newer than alertsSeenAt and not dismissed.
+	// Always rendered as 🔔; the count suffix appears only when > 0.
+	BellCount int
 }
 
 // FooterHint is one key-binding hint for the L1 status-bar slot. Key is the
@@ -374,6 +378,11 @@ func (m *Model) footerData() FooterData {
 
 	// Per-view center meaning (Phase 3)
 	fd.CenterOverride = m.footerCenter()
+
+	// Footer bell: unseen-since-last-look count from the ring buffer.
+	if m.events != nil {
+		fd.BellCount = m.events.UnseenCount(m.alertsSeenAt)
+	}
 
 	return fd
 }
@@ -750,13 +759,6 @@ func (fd FooterData) Render() string {
 	if fd.StatusMsg != "" && !fd.StatusIsInline {
 		return fd.renderStatusBar()
 	}
-	if fd.StatusMsg != "" && fd.StatusIsInline {
-		prefix := fd.StatusSeverity.glyph()
-		if prefix != "" {
-			prefix += " "
-		}
-		fd.HintText = prefix + fd.StatusMsg
-	}
 
 	// Filter badge
 	filterBadge := lipgloss.NewStyle().
@@ -1129,8 +1131,48 @@ func (fd FooterData) Render() string {
 
 	keysSection := renderKeys(fd.Width - nonKeyWidth())
 
+	// Toast override (Phase 4): an active inline toast borrows the right zone,
+	// replacing the key hints; it yields back when the toast clears.
+	rightZone := keysSection
+	if fd.StatusMsg != "" && fd.StatusIsInline {
+		glyph := fd.StatusSeverity.glyph()
+		text := fd.StatusMsg
+		if glyph != "" {
+			text = glyph + " " + text
+		}
+		var toastStyle lipgloss.Style
+		switch fd.StatusSeverity {
+		case SeverityFailure:
+			toastStyle = lipgloss.NewStyle().Foreground(ColorPrioCritical).Bold(true).Padding(0, 1)
+		case SeverityDegraded:
+			toastStyle = lipgloss.NewStyle().Foreground(ColorWarning).Bold(true).Padding(0, 1)
+		case SeverityNotice:
+			toastStyle = lipgloss.NewStyle().Foreground(ColorMuted).Padding(0, 1)
+		default: // Success
+			toastStyle = lipgloss.NewStyle().Foreground(ColorSuccess).Padding(0, 1)
+		}
+		avail := fd.Width - nonKeyWidth()
+		toast := toastStyle.Render(text)
+		if avail > 0 && lipgloss.Width(toast) > avail {
+			toast = ansi.Truncate(toast, avail, "")
+		}
+		rightZone = toast
+	}
+
+	// Bell badge (Phase 4): always rendered; the count appears only when > 0.
+	// Pinned (last to drop) alongside the ? hint.
+	bellText := "🔔"
+	if fd.BellCount > 0 {
+		bellText = fmt.Sprintf("🔔%d", fd.BellCount)
+	}
+	bellStyle := lipgloss.NewStyle().Foreground(ColorMuted).Padding(0, 1)
+	if fd.BellCount > 0 {
+		bellStyle = lipgloss.NewStyle().Foreground(ColorWarning).Bold(true).Padding(0, 1)
+	}
+	bellSection := bellStyle.Render(bellText)
+
 	// Filler pushes the count + key hints to the right edge.
-	remaining := fd.Width - nonKeyWidth() - lipgloss.Width(keysSection)
+	remaining := fd.Width - nonKeyWidth() - lipgloss.Width(rightZone) - lipgloss.Width(bellSection)
 	if remaining < 0 {
 		remaining = 0
 	}
@@ -1163,7 +1205,8 @@ func (fd FooterData) Render() string {
 	addIf(optional["workerSection"].content)
 	parts = append(parts, filler)
 	addIf(countBadge)
-	addIf(keysSection)
+	addIf(rightZone)
+	addIf(bellSection)
 
 	footer := lipgloss.JoinHorizontal(lipgloss.Bottom, parts...)
 

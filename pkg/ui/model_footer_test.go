@@ -56,6 +56,46 @@ func TestFooterData_ErrorStatusBar(t *testing.T) {
 	}
 }
 
+func ansiStripForTest(s string) string { return ansi.Strip(s) }
+
+func TestFooterToastRightZone(t *testing.T) {
+	fd := FooterData{
+		Width:          100,
+		StatusMsg:      "write failed: db locked",
+		StatusSeverity: SeverityFailure,
+		StatusIsInline: true,
+		FilterText:     "ALL",
+		FilterIcon:     "🌐",
+		TotalItems:     42,
+		Hints:          []FooterHint{{Key: "⏎", Desc: "open"}, {Key: "?", Desc: "help"}},
+	}
+	out := ansiStripForTest(fd.Render())
+	if !strings.Contains(out, "✗ write failed: db locked") {
+		t.Errorf("failure toast (with ✗) should appear; got %q", out)
+	}
+	if strings.Contains(out, "open") {
+		t.Errorf("key hints should yield to the toast; 'open' should be gone")
+	}
+}
+
+func TestFooterBellBadge(t *testing.T) {
+	withN := FooterData{Width: 100, FilterText: "ALL", FilterIcon: "🌐", BellCount: 3,
+		Hints: []FooterHint{{Key: "?", Desc: "help"}}}
+	out := ansiStripForTest(withN.Render())
+	if !strings.Contains(out, "🔔3") {
+		t.Errorf("bell should show 🔔3; got %q", out)
+	}
+	zero := withN
+	zero.BellCount = 0
+	out0 := ansiStripForTest(zero.Render())
+	if !strings.Contains(out0, "🔔") {
+		t.Errorf("bell glyph should always render; got %q", out0)
+	}
+	if strings.Contains(out0, "🔔0") {
+		t.Errorf("zero count should render bare 🔔, not 🔔0; got %q", out0)
+	}
+}
+
 func TestFooterData_NormalFooter(t *testing.T) {
 	fd := FooterData{
 		Width:        120,
