@@ -31,6 +31,7 @@ import (
 
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
 )
 
 func hptr[T any](v T) *T { return &v }
@@ -303,6 +304,22 @@ func TestRenderDump(t *testing.T) {
 		{"modal_labelpicker_120x36", 120, 36, func(m *Model) { m.openModal(ModalLabelPicker) }},
 		{"modal_recipepicker_120x36", 120, 36, func(m *Model) { m.openModal(ModalRecipePicker) }},
 		{"modal_alerts_120x36", 120, 36, func(m *Model) { m.openModal(ModalAlerts) }},
+
+		// Footer Phase 4 notification states: toast (success/failure/degraded) and
+		// bell badge. Proves the right-zone layout at representative widths.
+		{"footer_success_100x24", 100, 24, func(m *Model) { m.setStatus("reloaded +3 -1") }},
+		{"footer_failure_100x24", 100, 24, func(m *Model) { m.setFailure("write failed: db locked") }},
+		{"footer_degraded_80x24", 80, 24, func(m *Model) { m.setDegraded("Dolt server unreachable (retrying in 5s)") }},
+		{"footer_bell_100x24", 100, 24, func(m *Model) {
+			for i := 0; i < 3; i++ {
+				m.events.Append(events.NewSystemEvent("activity"))
+			}
+		}},
+		{"footer_bell_60x24", 60, 24, func(m *Model) {
+			for i := 0; i < 3; i++ {
+				m.events.Append(events.NewSystemEvent("activity"))
+			}
+		}},
 	}
 
 	for _, sc := range scenarios {

@@ -684,6 +684,42 @@ func TestErrorSettersBellAppend(t *testing.T) {
 	})
 }
 
+// TestFooterNotificationsNeverWrap proves that the toast + bell never break the
+// one-row / never-wrap footer invariant across a matrix of widths and
+// notification states. A failure here indicates a real rendering defect in the
+// footer's right-zone layout.
+func TestFooterNotificationsNeverWrap(t *testing.T) {
+	widths := []int{60, 70, 80, 100, 120, 160}
+	setups := map[string]func(*Model){
+		"idle": func(m *Model) {},
+		"success": func(m *Model) { m.setStatus("reloaded +3 -1") },
+		"failure": func(m *Model) { m.setFailure("write failed: db locked") },
+		"degraded": func(m *Model) { m.setDegraded("Dolt server unreachable (retrying in 5s)") },
+		"bell": func(m *Model) {
+			for i := 0; i < 4; i++ {
+				m.events.Append(events.NewSystemEvent("event"))
+			}
+		},
+	}
+	for name, setup := range setups {
+		for _, w := range widths {
+			t.Run(fmt.Sprintf("%s_%d", name, w), func(t *testing.T) {
+				m := NewModel(harnessIssues(), nil, "", nil)
+				nm, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: 24})
+				m = nm.(Model)
+				setup(&m)
+				footer := ansi.Strip(m.renderFooter())
+				if strings.Contains(footer, "\n") {
+					t.Fatalf("footer wrapped at width %d: %q", w, footer)
+				}
+				if got := lipgloss.Width(m.renderFooter()); got > w {
+					t.Errorf("footer width %d exceeds terminal %d", got, w)
+				}
+			})
+		}
+	}
+}
+
 func TestMarkNotificationsSeenClearsBell(t *testing.T) {
 	m := NewModel(harnessIssues(), nil, "", nil)
 	m.events.Append(events.NewSystemEvent("something happened"))
