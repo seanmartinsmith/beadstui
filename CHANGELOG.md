@@ -6,6 +6,26 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-06-21 — Smart footer: never-wrap responsive layout, scoped counts, per-view center meaning, bottom-row pin (bt-a3zi3, bt-yyked)
+
+**Dogfooded at the maintainer's scrunched widths, the footer wrapped to two rows (eating a content line), clipped key hints mid-pill, showed wrong-view hints, and reported the global corpus instead of the active scope; at cross-project scale (4921 issues) the stat numbers crowded the hints out entirely. This is a structural redesign of `FooterData.Render()` into a three-zone composer (lens / scoped numbers / hints) with a never-wrap degradation engine, plus a `View()`-level invariant that pins the footer to the bottom row in every view. Design spec: `docs/design/2026-06-21-tui-footer-smart-redesign.md`. Phases 1-3 + the footer-pin fix shipped to `main`; Phase 4 (notifications) deferred to bt-a3zi3.1.**
+
+### Ships (bt-a3zi3 + bt-yyked, area:tui + ux)
+
+- **Phase 1 — never-wrap degradation engine** — `Render()` rewritten so wrapping is structurally impossible: full-label pills → fewer pills (keeping first+last) → key-only glyphs → single hint; stats drop zero-count segments then collapse to the total; the filter word degrades to a scope glyph; a final ANSI-aware truncate is the backstop. Guaranteed one row at any width (unit sweep 24..220 cols at 4921-issue scale). Typed `FooterHint{Key,Desc}` lets the renderer pick the densest form that fits. Every view + modal routes to its existing `key.Map` via `viewKeyMap()`/`modalKeyMap()` with a `Global` fallback, so the hint slot is never empty or wrong-view.
+- **Phase 2 — scoped counts** — the status breakdown is computed at the `setListItems` chokepoint over the visible items, so it tracks the active scope + filter (OPEN excludes closed, etc.) and stays in lockstep with the total. Generalizes bt-gcuv.
+- **Phase 3 — per-view center meaning** — the center zone adapts what it *means*: detail = bead id + position (`bt-0qzp · 3/169`), graph = `N nodes · M edges`, board = `N cols · M cards`; other views keep the scoped counts. `FooterData.CenterOverride` + `footerCenter()` (mirrors `viewKeyMap()`, with detail handled as a `ViewList` sub-state); the override replaces the stats, suppresses the redundant `N issues` badge, and degrades the same way (time-travel keeps precedence as a corpus-wide signal). New `GraphModel.EdgeCount()` / `BoardModel.VisibleColumnCount()` accessors.
+- **Footer pinned to the bottom row (bt-yyked)** — the never-wrap guarantee covered width but not height. A render-harness audit found two opposite failure modes: detail + actionable *under-filled* (footer floated mid-screen — actionable's landed at row 8 of 32), while graph + insights *over-filled* by a row (footer clipped off entirely — no footer at all). Fixed with one structural invariant in `View()`: clamp the body to exactly `m.height-1` rows so the footer always owns the last row — the vertical analogue of the never-wrap width guarantee. No-op for views already sized right (list/board/flowmatrix/epics). This also un-occluded Phase 3's graph override.
+
+### Notes
+
+- **Supersedes the stale `bt-ugbp.1-.6`** per-view hint-reduction beads (written against the 12-branch `extractKeyHints()` string table that ADR-004 / bt-ift6.1 deleted wholesale; hints now come from `ShortHelp()`). Subsumes bt-d5wr / bt-d5wr.1 (footer visual + IA).
+- **Tested:** `TestFooterData_NeverWraps*` (width sweep + pathological badge), `TestFooterCounts_ScopedToActiveFilter`, `TestFooterData_CenterOverride*`, `TestFooterCenter_PerView`, `TestFooterPinnedToBottomRow`, `TestCountLabel_Pluralization`. Render harness gains board/graph/actionable/insights/flowmatrix scenarios at 100x32 + scrunched 70x20.
+- **Phase 4 (notifications) deferred** to **bt-a3zi3.1** — transient toast borrowing the hint slot + a permanent `🔔N` unread badge from the `m.events` ring buffer; full feed stays in the alerts modal. Blocked on the maintainer's notification brainstorm.
+- Three pre-existing global count recomputes (`model.go`, `model_update_data.go`) are now redundant (overwritten by the Phase 2 chokepoint); left in place per "mention, don't delete," consolidation is a follow-up.
+
+---
+
 ## 2026-06-19 — Epics overview Tier-1 redesign: full-sheet project-grouped tree with braille progress bars (bt-3ftfm.1)
 
 **The Phase-1 overview inherited the dead sprint dashboard's render skeleton wholesale — a centered `max-80` bordered box wrapping a flat sorted epic-row list. Dogfooded against the real cross-project corpus it missed the vision: "no tree view, not organized by project, not a whole sheet, just a box in the middle." This is a Tier-1 *redesign* (render + interaction only; the Phase-1 data layer is kept): the box becomes a full-sheet, project-grouped hierarchy tree (epic → children) with inline braille progress bars. Executed task-by-task (TDD) on a worktree; spec/plan at `docs/design/2026-06-19-epics-tree-redesign.md` + `docs/plans/2026-06-19-epics-tree-redesign.md`. Dogfooded live against the real ~51-epic corpus and visually signed off before merge.**
