@@ -644,6 +644,34 @@ func TestDegradedClearsOnSnapshot(t *testing.T) {
 	}
 }
 
+// TestDegradedClearsOnNonFirstSnapshot covers the recovery path the firstSnapshot
+// case above does not: a Degraded toast set AFTER a prior snapshot already exists
+// (the runtime "Dolt blipped mid-session" case). On that path handleSnapshotReady
+// clears the degraded toast (line 369-371) and then, because firstSnapshot is false,
+// calls setInlineTransientStatus("Reloaded N issues") which lands severity on
+// SeveritySuccess (NOT None). The contract is: the degraded toast is gone — severity
+// is no longer Degraded and the degraded message text is cleared. bt-a3zi3.1.
+func TestDegradedClearsOnNonFirstSnapshot(t *testing.T) {
+	m := NewModel(harnessIssues(), nil, "", nil)
+	// Non-first path: a prior snapshot already exists and init is no longer
+	// pending, so firstSnapshot evaluates false. ModalNone (the default) keeps
+	// shouldDeferRefresh() false so the handler does not defer.
+	m.data.snapshot = &DataSnapshot{}
+	m.data.snapshotInitPending = false
+	m.setDegraded("Dolt server unreachable (retrying)")
+	degradedMsg := m.statusMsg
+	if m.statusSeverity != SeverityDegraded || degradedMsg == "" {
+		t.Fatal("precondition: degraded toast should be set")
+	}
+	nm, _ := m.handleSnapshotReady(SnapshotReadyMsg{Snapshot: &DataSnapshot{}})
+	if nm.statusSeverity == SeverityDegraded {
+		t.Errorf("degraded toast must clear on non-first snapshot recovery; severity still Degraded")
+	}
+	if nm.statusMsg == degradedMsg {
+		t.Errorf("degraded message text should be gone after recovery; got %q", nm.statusMsg)
+	}
+}
+
 func TestErrorSettersBellAppend(t *testing.T) {
 	newM := func() *Model {
 		m := NewModel(harnessIssues(), nil, "", nil)
@@ -715,7 +743,48 @@ func TestFooterNotificationsNeverWrap(t *testing.T) {
 				if got := lipgloss.Width(m.renderFooter()); got > w {
 					t.Errorf("footer width %d exceeds terminal %d", got, w)
 				}
+				if !strings.Contains(footer, "🔔") {
+					t.Errorf("bell must always render (pinned, last to drop) at width %d state %s; got %q", w, name, footer)
+				}
 			})
+		}
+	}
+}
+
+// TestFooterToastBellCenterOverrideNeverWrap locks the center-zone x right-zone
+// coexistence the model-driven sweep omits: a FooterData carrying a CenterOverride
+// AND an active Failure toast AND a non-zero BellCount must, at every width, stay a
+// single row within the column count and still render the pinned bell (bt-a3zi3.1).
+func TestFooterToastBellCenterOverrideNeverWrap(t *testing.T) {
+	base := FooterData{
+		FilterText:     "bt",
+		FilterIcon:     "📂",
+		HintText:       "l:labels",
+		TotalItems:     169,
+		CenterOverride: "bt-0qzp · 3/169",
+		StatusMsg:      "write failed: db locked",
+		StatusSeverity: SeverityFailure,
+		StatusIsInline: true,
+		BellCount:      3,
+		Hints: []FooterHint{
+			{Key: "esc", Desc: "back"},
+			{Key: "C", Desc: "copy"},
+			{Key: "O", Desc: "edit"},
+			{Key: "?", Desc: "help"},
+		},
+	}
+	for _, w := range []int{40, 60, 70, 80, 100, 120, 160} {
+		fd := base
+		fd.Width = w
+		out := fd.Render()
+		if strings.Contains(out, "\n") {
+			t.Fatalf("width=%d: toast+bell+center-override footer wrapped to 2 rows: %q", w, out)
+		}
+		if got := lipgloss.Width(out); got > w {
+			t.Fatalf("width=%d: toast+bell+center-override footer overran width %d: %q", w, got, ansi.Strip(out))
+		}
+		if !strings.Contains(ansi.Strip(out), "🔔") {
+			t.Errorf("width=%d: bell must always render (pinned, last to drop) alongside the toast; got %q", w, ansi.Strip(out))
 		}
 	}
 }

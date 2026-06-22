@@ -1114,6 +1114,21 @@ func (fd FooterData) Render() string {
 		keyReserve = lipgloss.Width(buildKeys(fd.Hints[len(fd.Hints)-1:], true))
 	}
 
+	// Bell badge (Phase 4): always rendered; the count appears only when > 0.
+	// Pinned (last to drop) alongside the ? hint. Built BEFORE the cascade so its
+	// width can be reserved — otherwise the toast/keys consume the whole right zone
+	// and the final ansi.Truncate clips the bell (bt-a3zi3.1).
+	bellText := "🔔"
+	if fd.BellCount > 0 {
+		bellText = fmt.Sprintf("🔔%d", fd.BellCount)
+	}
+	bellStyle := lipgloss.NewStyle().Foreground(ColorMuted).Padding(0, 1)
+	if fd.BellCount > 0 {
+		bellStyle = lipgloss.NewStyle().Foreground(ColorWarning).Bold(true).Padding(0, 1)
+	}
+	bellSection := bellStyle.Render(bellText)
+	bellWidth := lipgloss.Width(bellSection)
+
 	// Ordered reductions: low-value chrome first, identity-critical content last.
 	reductions := []func(){
 		func() { dropTier(3) },
@@ -1130,13 +1145,13 @@ func (fd FooterData) Render() string {
 		func() { filterBadge = filterIcon },     // scope glyph only
 	}
 	for _, reduce := range reductions {
-		if nonKeyWidth()+keyReserve <= fd.Width {
+		if nonKeyWidth()+keyReserve+bellWidth <= fd.Width {
 			break
 		}
 		reduce()
 	}
 
-	keysSection := renderKeys(fd.Width - nonKeyWidth())
+	keysSection := renderKeys(fd.Width - nonKeyWidth() - bellWidth)
 
 	// Toast override (Phase 4): an active inline toast borrows the right zone,
 	// replacing the key hints; it yields back when the toast clears.
@@ -1158,25 +1173,13 @@ func (fd FooterData) Render() string {
 		default: // Success
 			toastStyle = lipgloss.NewStyle().Foreground(ColorSuccess).Padding(0, 1)
 		}
-		avail := fd.Width - nonKeyWidth()
+		avail := fd.Width - nonKeyWidth() - bellWidth
 		toast := toastStyle.Render(text)
 		if avail > 0 && lipgloss.Width(toast) > avail {
 			toast = ansi.Truncate(toast, avail, "")
 		}
 		rightZone = toast
 	}
-
-	// Bell badge (Phase 4): always rendered; the count appears only when > 0.
-	// Pinned (last to drop) alongside the ? hint.
-	bellText := "🔔"
-	if fd.BellCount > 0 {
-		bellText = fmt.Sprintf("🔔%d", fd.BellCount)
-	}
-	bellStyle := lipgloss.NewStyle().Foreground(ColorMuted).Padding(0, 1)
-	if fd.BellCount > 0 {
-		bellStyle = lipgloss.NewStyle().Foreground(ColorWarning).Bold(true).Padding(0, 1)
-	}
-	bellSection := bellStyle.Render(bellText)
 
 	// Filler pushes the count + key hints to the right edge.
 	remaining := fd.Width - nonKeyWidth() - lipgloss.Width(rightZone) - lipgloss.Width(bellSection)
