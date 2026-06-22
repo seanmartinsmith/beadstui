@@ -56,7 +56,7 @@ func (m Model) handleGraphKeys(msg tea.KeyMsg) Model {
 		} else {
 			selected := g.SelectedIssue()
 			if selected == nil {
-				m.setStatusError("select an issue to enable swarm view")
+				m.setNotice("select an issue to enable swarm view")
 			} else {
 				epicID := selected.ID
 				// If not an epic, look for an epic parent in dependents
@@ -69,7 +69,7 @@ func (m Model) handleGraphKeys(msg tea.KeyMsg) Model {
 					}
 				}
 				if err := g.loadSwarmData(epicID); err != nil {
-					m.setStatusError(fmt.Sprintf("swarm: %v", err))
+					m.setFailure(fmt.Sprintf("swarm: %v", err))
 				} else {
 					g.swarmEnabled = true
 					m.setStatus(fmt.Sprintf("swarm: %s (∥%d, ~%d sessions)", epicID, g.maxParallel, g.estSessions))

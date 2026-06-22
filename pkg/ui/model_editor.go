@@ -312,11 +312,11 @@ func (m *Model) openInEditor() {
 		}
 	}
 	if beadsFile == "" {
-		m.setStatusError("❌ No .beads directory or beads.jsonl found")
+		m.setFailure("❌ No .beads directory or beads.jsonl found")
 		return
 	}
 	if _, err := os.Stat(beadsFile); os.IsNotExist(err) {
-		m.setStatusError(fmt.Sprintf("❌ Beads file not found: %s", beadsFile))
+		m.setFailure(fmt.Sprintf("❌ Beads file not found: %s", beadsFile))
 		return
 	}
 
@@ -331,20 +331,20 @@ func (m *Model) openInEditor() {
 	if editor != "" {
 		editorArgs, err := parseCommandLine(editor)
 		if err != nil {
-			m.setStatusError(fmt.Sprintf("❌ Invalid $EDITOR/$VISUAL: %v", err))
+			m.setFailure(fmt.Sprintf("❌ Invalid $EDITOR/$VISUAL: %v", err))
 			return
 		}
 
 		editorBase, kind := classifyEditorCommand(editorArgs)
 		switch kind {
 		case editorCommandTerminal:
-			m.setStatusError(fmt.Sprintf("⚠️ %s is a terminal editor - set $EDITOR to a GUI editor or quit first", editorBase))
+			m.setFailure(fmt.Sprintf("⚠️ %s is a terminal editor - set $EDITOR to a GUI editor or quit first", editorBase))
 			return
 		case editorCommandForbidden:
-			m.setStatusError(fmt.Sprintf("❌ Refusing to run %s as editor (shell/interpreter). Set $EDITOR to a GUI editor", editorBase))
+			m.setFailure(fmt.Sprintf("❌ Refusing to run %s as editor (shell/interpreter). Set $EDITOR to a GUI editor", editorBase))
 			return
 		case editorCommandEmpty:
-			m.setStatusError("❌ Invalid $EDITOR/$VISUAL: empty command")
+			m.setFailure("❌ Invalid $EDITOR/$VISUAL: empty command")
 			return
 		default:
 			requestedEditorKind = allowlistedGUIEditorKindForBase(editorBase)
@@ -374,13 +374,13 @@ func (m *Model) openInEditor() {
 	}
 
 	if requestedEditorKind == allowlistedGUIEditorUnknown {
-		m.setStatusError("❌ No GUI editor found. Set $EDITOR to a GUI editor")
+		m.setFailure("❌ No GUI editor found. Set $EDITOR to a GUI editor")
 		return
 	}
 
 	actualKind, err := startAllowlistedGUIEditor(requestedEditorKind, beadsFile)
 	if err != nil {
-		m.setStatusError(fmt.Sprintf("❌ Failed to open editor: %v", err))
+		m.setFailure(fmt.Sprintf("❌ Failed to open editor: %v", err))
 		return
 	}
 	requestedEditorKind = actualKind

@@ -91,7 +91,7 @@ func (m *Model) exportToMarkdown() {
 	// Export the issues
 	err := export.SaveMarkdownToFile(m.data.issues, filename)
 	if err != nil {
-		m.setStatusError(fmt.Sprintf("❌ Export failed: %v", err))
+		m.setFailure(fmt.Sprintf("❌ Export failed: %v", err))
 		return
 	}
 
@@ -122,13 +122,13 @@ func (m *Model) generateExportFilename() string {
 func (m *Model) copyIssueToClipboard() {
 	selectedItem := m.list.SelectedItem()
 	if selectedItem == nil {
-		m.setStatusError("❌ No issue selected")
+		m.setNotice("❌ No issue selected")
 		return
 	}
 
 	issueItem, ok := selectedItem.(IssueItem)
 	if !ok {
-		m.setStatusError("❌ Invalid item type")
+		m.setNotice("❌ Invalid item type")
 		return
 	}
 	issue := issueItem.Issue
@@ -176,7 +176,7 @@ func (m *Model) copyIssueToClipboard() {
 	// Copy to clipboard
 	err := clipboard.WriteAll(sb.String())
 	if err != nil {
-		m.setStatusError(fmt.Sprintf("❌ Clipboard error: %v", err))
+		m.setNotice(fmt.Sprintf("❌ Clipboard error: %v", err))
 		return
 	}
 

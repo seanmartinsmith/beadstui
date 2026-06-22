@@ -205,7 +205,7 @@ func (m Model) historyContext() HistoryContext {
 func (m *Model) enterHistoryView() tea.Cmd {
 	cwd, err := os.Getwd()
 	if err != nil {
-		m.setStatusError("Cannot get working directory for history")
+		m.setFailure("Cannot get working directory for history")
 		return nil
 	}
 
@@ -275,7 +275,7 @@ func resolveHistoryPath(ctx HistoryContext, cwd string) string {
 func (m *Model) enterTimeTravelMode(revision string) {
 	cwd, err := os.Getwd()
 	if err != nil {
-		m.setStatusError("❌ Time-travel failed: cannot get working directory")
+		m.setFailure("❌ Time-travel failed: cannot get working directory")
 		return
 	}
 
@@ -283,21 +283,21 @@ func (m *Model) enterTimeTravelMode(revision string) {
 
 	// Check if we're in a git repo first
 	if _, err := gitLoader.ResolveRevision("HEAD"); err != nil {
-		m.setStatusError("❌ Time-travel requires a git repository")
+		m.setFailure("❌ Time-travel requires a git repository")
 		return
 	}
 
 	// Check if beads files exist at the revision
 	hasBeads, err := gitLoader.HasBeadsAtRevision(revision)
 	if err != nil || !hasBeads {
-		m.setStatusError(fmt.Sprintf("❌ No beads history at %s (try fewer commits back)", revision))
+		m.setFailure(fmt.Sprintf("❌ No beads history at %s (try fewer commits back)", revision))
 		return
 	}
 
 	// Load historical issues
 	historicalIssues, err := gitLoader.LoadAt(revision)
 	if err != nil {
-		m.setStatusError(fmt.Sprintf("❌ Time-travel failed: %v", err))
+		m.setFailure(fmt.Sprintf("❌ Time-travel failed: %v", err))
 		return
 	}
 

@@ -45,8 +45,8 @@ func TestCopyIssueToClipboardInvalidItem(t *testing.T) {
 	m.list.SetItems([]list.Item{badItem{}})
 	m.list.Select(0)
 	m.copyIssueToClipboard()
-	if m.statusSeverity < SeverityFailure || m.statusMsg == "" {
-		t.Fatalf("expected error copying invalid item, got %q", m.statusMsg)
+	if m.statusSeverity < SeverityNotice || m.statusMsg == "" {
+		t.Fatalf("expected notice status copying invalid item, got %q", m.statusMsg)
 	}
 }
 

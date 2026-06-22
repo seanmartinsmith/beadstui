@@ -129,7 +129,7 @@ func (m Model) handleBoardKeys(msg tea.KeyMsg) Model {
 	case key.Matches(msg, kn.CopyID):
 		if selected := m.board.SelectedIssue(); selected != nil {
 			if err := clipboard.WriteAll(selected.ID); err != nil {
-				m.setStatusError(fmt.Sprintf("Clipboard error: %v", err))
+				m.setNotice(fmt.Sprintf("Clipboard error: %v", err))
 			} else {
 				m.setStatus(fmt.Sprintf("Copied %s to clipboard", selected.ID))
 			}

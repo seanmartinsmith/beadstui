@@ -779,8 +779,8 @@ func TestGraphConnectorDown(t *testing.T) {
 func TestCopyIssueToClipboardNoSelection(t *testing.T) {
 	m := NewModel(nil, nil, "", nil)
 	m.copyIssueToClipboard()
-	if m.statusSeverity < SeverityFailure || !strings.Contains(m.statusMsg, "No issue selected") {
-		t.Fatalf("expected error status for missing selection")
+	if m.statusSeverity < SeverityNotice || !strings.Contains(m.statusMsg, "No issue selected") {
+		t.Fatalf("expected notice status for missing selection")
 	}
 }
 

@@ -104,7 +104,7 @@ func (m Model) handleSemanticIndexReady(msg SemanticIndexReadyMsg) (Model, tea.C
 	if msg.Error != nil {
 		m.semanticSearchEnabled = false
 		m.list.Filter = fuzzySearchFilter()
-		m.setStatusError(fmt.Sprintf("Semantic search unavailable: %v", msg.Error))
+		m.setFailure(fmt.Sprintf("Semantic search unavailable: %v", msg.Error))
 		return m, nil, false
 	}
 	if m.semanticSearch != nil {
@@ -144,7 +144,7 @@ func (m Model) handleHybridMetricsReady(msg HybridMetricsReadyMsg) (Model, tea.C
 			m.semanticSearch.SetMetricsCache(nil)
 			m.semanticSearch.SetHybridConfig(false, m.semanticHybridPreset)
 		}
-		m.setStatusError(fmt.Sprintf("Hybrid search unavailable: %v", msg.Error))
+		m.setFailure(fmt.Sprintf("Hybrid search unavailable: %v", msg.Error))
 		return m, nil
 	}
 	if m.semanticSearch != nil && msg.Cache != nil {
@@ -405,7 +405,7 @@ func (m Model) handleHistoryLoaded(msg HistoryLoadedMsg) Model {
 	m.historyLoading = false
 	if msg.Error != nil {
 		m.historyLoadFailed = true
-		m.setStatusError(fmt.Sprintf("History load failed: %v", msg.Error))
+		m.setFailure(fmt.Sprintf("History load failed: %v", msg.Error))
 	} else if msg.Report != nil {
 		m.historyView = NewHistoryModel(msg.Report, m.theme)
 		m.historyView.SetContext(m.historyContext())

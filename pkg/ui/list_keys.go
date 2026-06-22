@@ -142,10 +142,10 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 		// Copy ID to clipboard (consistent with board view - bv-yg39)
 		selectedItem := m.list.SelectedItem()
 		if selectedItem == nil {
-			m.setStatusError("No issue selected")
+			m.setNotice("No issue selected")
 		} else if issueItem, ok := selectedItem.(IssueItem); ok {
 			if err := clipboard.WriteAll(issueItem.Issue.ID); err != nil {
-				m.setStatusError(fmt.Sprintf("Clipboard error: %v", err))
+				m.setNotice(fmt.Sprintf("Clipboard error: %v", err))
 			} else {
 				m.setStatus(fmt.Sprintf("Copied %s to clipboard", issueItem.Issue.ID))
 			}

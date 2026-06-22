@@ -403,9 +403,9 @@ func (m Model) handleSnapshotError(msg SnapshotErrorMsg) (Model, tea.Cmd) {
 	}
 	if msg.Err != nil {
 		if msg.Recoverable {
-			m.setStatusError(fmt.Sprintf("Reload error (retrying): %s", shortError(msg.Err)))
+			m.setDegraded(fmt.Sprintf("Reload error (retrying): %s", shortError(msg.Err)))
 		} else {
-			m.setStatusError(fmt.Sprintf("Reload error: %s", shortError(msg.Err)))
+			m.setFailure(fmt.Sprintf("Reload error: %s", shortError(msg.Err)))
 		}
 	}
 	if m.data.backgroundWorker != nil {
@@ -420,7 +420,7 @@ func (m Model) handleDataSourceReload(msg DataSourceReloadMsg) (Model, tea.Cmd) 
 
 	// Async reload from a non-file datasource (e.g. Dolt) completed.
 	if msg.Err != nil {
-		m.setStatusError(fmt.Sprintf("Reload failed: %s", shortError(msg.Err)))
+		m.setFailure(fmt.Sprintf("Reload failed: %s", shortError(msg.Err)))
 		return m, tea.Batch(cmds...)
 	}
 
@@ -468,7 +468,7 @@ func (m Model) handleDoltConnectionStatus(msg DoltConnectionStatusMsg) (Model, t
 		m.setStatus("Dolt server reconnected")
 	} else {
 		m.doltConnected = false
-		m.setStatusError(fmt.Sprintf("Dolt server unreachable (retrying in %ds)", msg.BackoffSeconds))
+		m.setDegraded(fmt.Sprintf("Dolt server unreachable (retrying in %ds)", msg.BackoffSeconds))
 	}
 	if m.data.backgroundWorker != nil {
 		cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.data.backgroundWorker))
@@ -568,7 +568,7 @@ func (m Model) handleFileChanged(msg FileChangedMsg) (Model, tea.Cmd) {
 		recordTiming("load_issues", time.Since(loadStart))
 	}
 	if err != nil {
-		m.setStatusError(fmt.Sprintf("Reload error: %v", err))
+		m.setFailure(fmt.Sprintf("Reload error: %v", err))
 		// Re-start watch for next change
 		if m.data.watcher != nil {
 			cmds = append(cmds, WatchFileCmd(m.data.watcher))

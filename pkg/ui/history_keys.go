@@ -199,12 +199,12 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 		}
 		if sha != "" {
 			if err := clipboard.WriteAll(sha); err != nil {
-				m.setStatusError(fmt.Sprintf("Clipboard error: %v", err))
+				m.setNotice(fmt.Sprintf("Clipboard error: %v", err))
 			} else {
 				m.setStatus(fmt.Sprintf("Copied %s to clipboard", shortSHA))
 			}
 		} else {
-			m.setStatusError("No commit selected")
+			m.setNotice("No commit selected")
 		}
 	case key.Matches(msg, kn.CycleConf):
 		// Cycle confidence threshold (only in bead mode)
@@ -241,7 +241,7 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 			url := m.getCommitURL(sha)
 			if url != "" {
 				if err := openBrowserURL(url); err != nil {
-					m.setStatusError(fmt.Sprintf("Could not open browser: %v", err))
+					m.setFailure(fmt.Sprintf("Could not open browser: %v", err))
 				} else {
 					// Safely truncate SHA for display (bv-xf4p fix)
 					shortSHA := sha
@@ -251,10 +251,10 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 					m.setStatus(fmt.Sprintf("Opened %s in browser", shortSHA))
 				}
 			} else {
-				m.setStatusError("No git remote configured")
+				m.setNotice("No git remote configured")
 			}
 		} else {
-			m.setStatusError("No commit selected")
+			m.setNotice("No commit selected")
 		}
 	case key.Matches(msg, kn.JumpToGraph):
 		// Jump to graph view for selected bead (bv-xf4p)
@@ -278,7 +278,7 @@ func (m Model) handleHistoryKeys(msg tea.KeyMsg) Model {
 			m.focused = focusGraph
 			m.setStatus(fmt.Sprintf("Graph view: %s", selectedID))
 		} else {
-			m.setStatusError("No bead selected")
+			m.setNotice("No bead selected")
 		}
 	case key.Matches(msg, kn.ExitHistory):
 		// Exit history view

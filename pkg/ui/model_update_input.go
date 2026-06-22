@@ -71,7 +71,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			// User accepted - add blurb to file
 			filePath := m.agentPromptModal.FilePath()
 			if err := agents.AppendBlurbToFile(filePath); err != nil {
-				m.setStatusError("Failed to update " + filepath.Base(filePath) + ": " + err.Error())
+				m.setFailure("Failed to update " + filepath.Base(filePath) + ": " + err.Error())
 			} else {
 				m.setStatus("✓ Added beads instructions to " + filepath.Base(filePath))
 				// Record acceptance
@@ -608,7 +608,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		}
 
 		if m.data.beadsPath == "" && m.data.watcher == nil && !m.isDoltSource() {
-			m.setStatusError("Refresh unavailable")
+			m.setFailure("Refresh unavailable")
 			return m, nil
 		}
 
@@ -708,7 +708,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.semanticSearchEnabled = false
 			m.semanticHybridEnabled = false
 			m.list.Filter = fuzzySearchFilter()
-			m.setStatusError("Semantic search unavailable")
+			m.setFailure("Semantic search unavailable")
 			m.clearSemanticScores()
 			m.updateListDelegate()
 			return m, nil
