@@ -7,6 +7,7 @@ import (
 
 	"github.com/seanmartinsmith/beadstui/pkg/drift"
 	"github.com/seanmartinsmith/beadstui/pkg/search"
+	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
 	"github.com/seanmartinsmith/beadstui/pkg/watcher"
 
 	"charm.land/bubbles/v2/help"
@@ -47,6 +48,60 @@ func (m *Model) setStatusError(msg string) {
 	m.statusSeverity = SeverityFailure
 	m.statusIsInline = true
 	m.statusSetAt = time.Now()
+}
+
+// setNotice sets a Notice toast (rejection/validation; ~3s; no bell entry).
+func (m *Model) setNotice(msg string) {
+	m.statusMsg = msg
+	m.statusSeverity = SeverityNotice
+	m.statusIsInline = true
+	m.statusSetAt = time.Now()
+}
+
+// setFailure sets a Failure toast (one-shot op failure; ~8s) and records it
+// in the events ring buffer so it survives in the alerts modal.
+func (m *Model) setFailure(msg string) {
+	m.statusMsg = msg
+	m.statusSeverity = SeverityFailure
+	m.statusIsInline = true
+	m.statusSetAt = time.Now()
+	if m.events != nil {
+		m.events.Append(events.NewSystemEvent(msg))
+	}
+}
+
+// setDegraded sets a Degraded toast (live condition; sticky until the
+// recovery path clears it) and records it in the ring buffer.
+func (m *Model) setDegraded(msg string) {
+	m.statusMsg = msg
+	m.statusSeverity = SeverityDegraded
+	m.statusIsInline = true
+	m.statusSetAt = time.Now()
+	if m.events != nil {
+		m.events.Append(events.NewSystemEvent(msg))
+	}
+}
+
+// clearStatus clears any active toast (used by the recovery path to drop a
+// sticky Degraded toast once the condition resolves).
+func (m *Model) clearStatus() {
+	m.statusMsg = ""
+	m.statusSeverity = SeverityNone
+	m.statusIsInline = false
+}
+
+// statusDismissAge is how long a toast of the given severity stays before
+// the idle tick clears it. Degraded returns 0 (sticky - cleared only by the
+// recovery path; see handleSnapshotReady).
+func statusDismissAge(s StatusSeverity) time.Duration {
+	switch s {
+	case SeverityFailure:
+		return 8 * time.Second
+	case SeverityDegraded:
+		return 0
+	default: // Success, Notice
+		return 3 * time.Second
+	}
 }
 
 // statusAutoDismissAge is how long non-transient status messages persist

@@ -83,10 +83,12 @@ func (m Model) handleStatusClear(msg statusClearMsg) Model {
 // (bt-m9te, bt-y0k7).
 func (m Model) handleStatusTick(_ statusTickMsg) (Model, tea.Cmd) {
 	if m.statusMsg != "" && m.statusSeverity != SeverityDegraded {
+		age := statusDismissAge(m.statusSeverity)
 		if m.statusSetAt.IsZero() {
 			m.statusSetAt = time.Now()
-		} else if time.Since(m.statusSetAt) > statusAutoDismissAge {
+		} else if age > 0 && time.Since(m.statusSetAt) > age {
 			m.statusMsg = ""
+			m.statusSeverity = SeverityNone
 			m.statusIsInline = false
 		}
 	}

@@ -580,3 +580,43 @@ func TestFooterData_SecondaryInstance(t *testing.T) {
 		t.Errorf("secondary PID should appear in output")
 	}
 }
+
+func TestErrorSettersBellAppend(t *testing.T) {
+	newM := func() *Model {
+		m := NewModel(harnessIssues(), nil, "", nil)
+		return &m
+	}
+	t.Run("notice does not touch the bell", func(t *testing.T) {
+		m := newM()
+		before := m.events.Len()
+		m.setNotice("No issue selected")
+		if m.events.Len() != before {
+			t.Errorf("Notice appended an event; bell must stay clean")
+		}
+		if m.statusSeverity != SeverityNotice {
+			t.Errorf("severity = %d, want Notice", m.statusSeverity)
+		}
+	})
+	t.Run("failure appends one system event", func(t *testing.T) {
+		m := newM()
+		before := m.events.Len()
+		m.setFailure("Export failed: disk full")
+		if m.events.Len() != before+1 {
+			t.Fatalf("Failure appended %d events, want 1", m.events.Len()-before)
+		}
+		if m.statusSeverity != SeverityFailure {
+			t.Errorf("severity = %d, want Failure", m.statusSeverity)
+		}
+	})
+	t.Run("degraded appends one system event and is sticky", func(t *testing.T) {
+		m := newM()
+		before := m.events.Len()
+		m.setDegraded("Dolt server unreachable (retrying)")
+		if m.events.Len() != before+1 {
+			t.Fatalf("Degraded appended %d events, want 1", m.events.Len()-before)
+		}
+		if statusDismissAge(SeverityDegraded) != 0 {
+			t.Errorf("Degraded must be sticky (dismiss age 0)")
+		}
+	})
+}
