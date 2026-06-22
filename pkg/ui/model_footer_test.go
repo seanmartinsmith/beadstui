@@ -4,7 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func TestFooterData_StatusBarOverride(t *testing.T) {
@@ -50,7 +52,7 @@ func TestFooterData_NormalFooter(t *testing.T) {
 		CountBlocked: 2,
 		CountClosed:  3,
 		TotalItems:   20,
-		KeyHints:     []string{"⏎ details", "? help"},
+		Hints:        []FooterHint{{Key: "⏎", Desc: "details"}, {Key: "?", Desc: "help"}},
 	}
 	out := fd.Render()
 	if !strings.Contains(out, "OPEN") {
@@ -71,7 +73,7 @@ func TestFooterData_WorkspaceBadges(t *testing.T) {
 		WorkspaceSummary: "3 repos",
 		RepoFilterLabel:  "bt, beads",
 		TotalItems:       100,
-		KeyHints:         []string{"? help"},
+		Hints:            []FooterHint{{Key: "?", Desc: "help"}},
 	}
 	out := fd.Render()
 	if !strings.Contains(out, "3 repos") {
@@ -133,7 +135,7 @@ func TestFooterData_TimeTravelOverridesStats(t *testing.T) {
 		TimeTravelActive: true,
 		TimeTravelStats:  "⏱ 3d: +5 ✅2 ~3",
 		TotalItems:       50,
-		KeyHints:         []string{"? help"},
+		Hints:            []FooterHint{{Key: "?", Desc: "help"}},
 	}
 	out := fd.Render()
 	if !strings.Contains(out, "⏱ 3d") {
@@ -149,7 +151,7 @@ func TestFooterData_SearchBadge(t *testing.T) {
 		HintText:   "l:labels",
 		SearchMode: "semantic",
 		TotalItems: 30,
-		KeyHints:   []string{"? help"},
+		Hints:      []FooterHint{{Key: "?", Desc: "help"}},
 	}
 	out := fd.Render()
 	if !strings.Contains(out, "semantic") {
@@ -165,7 +167,7 @@ func TestFooterData_SortBadge(t *testing.T) {
 		HintText:   "l:labels",
 		SortLabel:  "priority",
 		TotalItems: 30,
-		KeyHints:   []string{"? help"},
+		Hints:      []FooterHint{{Key: "?", Desc: "help"}},
 	}
 	out := fd.Render()
 	if !strings.Contains(out, "priority") {
@@ -181,18 +183,114 @@ func TestFooterData_ProgressiveHintTruncation(t *testing.T) {
 		FilterIcon: "📋",
 		HintText:   "l:labels",
 		TotalItems: 10,
-		KeyHints: []string{
-			"⏎ details",
-			"t diff",
-			"S triage",
-			"l labels",
-			"? help",
+		Hints: []FooterHint{
+			{Key: "⏎", Desc: "details"},
+			{Key: "t", Desc: "diff"},
+			{Key: "S", Desc: "triage"},
+			{Key: "l", Desc: "labels"},
+			{Key: "?", Desc: "help"},
 		},
 	}
 	out := fd.Render()
 	// Just verify it renders without panic and produces output
 	if lipgloss.Width(out) == 0 {
 		t.Errorf("footer should produce non-empty output even when narrow")
+	}
+}
+
+// TestFooterData_NeverWrapsAcrossWidths is the core guarantee of the smart
+// footer: at every terminal width the rendered footer occupies exactly one row
+// and never exceeds the column count (which the terminal would wrap, stealing a
+// content line). Mirrors the real cross-project pain — 4921 issues, large stat
+// numbers, an active alerts badge — that the 7-issue render harness understates.
+func TestFooterData_NeverWrapsAcrossWidths(t *testing.T) {
+	base := FooterData{
+		FilterText:    "ALL",
+		FilterIcon:    "📋",
+		HintText:      "l:labels",
+		CountOpen:     1811,
+		CountReady:    1684,
+		CountBlocked:  0,
+		CountClosed:   3110,
+		TotalItems:    4921,
+		AlertCount:    1410,
+		WarningCount:  1410,
+		CriticalCount: 0,
+		Hints: []FooterHint{
+			{Key: "⏎", Desc: "open detail"},
+			{Key: "o", Desc: "open issues"},
+			{Key: "c", Desc: "copy"},
+			{Key: "t", Desc: "diff"},
+			{Key: "?", Desc: "help"},
+		},
+	}
+	for w := 24; w <= 220; w++ {
+		fd := base
+		fd.Width = w
+		out := fd.Render()
+		if strings.Contains(out, "\n") {
+			t.Fatalf("width=%d: footer contains a newline (wrapped to 2 rows): %q", w, out)
+		}
+		if got := ansi.StringWidth(out); got > w {
+			t.Fatalf("width=%d: footer display width %d exceeds terminal width (would wrap): %q",
+				w, got, ansi.Strip(out))
+		}
+	}
+}
+
+// TestFooterData_NeverWrapsPathologicalBadge ensures a single oversized badge
+// (e.g. a long BQL filter string) can't defeat the one-row guarantee — the
+// final ANSI-aware truncate is the backstop.
+func TestFooterData_NeverWrapsPathologicalBadge(t *testing.T) {
+	fd := FooterData{
+		Width:      50,
+		FilterText: "BQL: status=open AND label=area:tui AND priority<=2 AND assignee=sms",
+		FilterIcon: "🔍",
+		HintText:   "l:labels",
+		TotalItems: 4921,
+		Hints:      []FooterHint{{Key: "?", Desc: "help"}},
+	}
+	out := fd.Render()
+	if strings.Contains(out, "\n") {
+		t.Fatalf("pathological filter wrapped the footer: %q", out)
+	}
+	if got := ansi.StringWidth(out); got > fd.Width {
+		t.Fatalf("pathological filter overran width: %d > %d: %q", got, fd.Width, ansi.Strip(out))
+	}
+}
+
+// TestFooterCounts_ScopedToActiveFilter proves the footer's status breakdown
+// reflects exactly what the list shows (active scope + filter), not the global
+// corpus — the bt-gcuv generalization. The breakdown is computed at the
+// setListItems chokepoint, so applying a filter must reshape it.
+func TestFooterCounts_ScopedToActiveFilter(t *testing.T) {
+	m := NewModel(harnessIssues(), nil, "", nil)
+	nm, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m = nm.(Model)
+
+	// All: open + closed accounts for every visible item.
+	m.filter.currentFilter = "all"
+	m.applyFilter()
+	if got := m.ac.countOpen + m.ac.countClosed; got != len(m.list.Items()) {
+		t.Fatalf("all filter: open+closed=%d but %d items visible", got, len(m.list.Items()))
+	}
+
+	// Open: the scoped breakdown must contain zero closed.
+	m.filter.currentFilter = "open"
+	m.applyFilter()
+	if m.ac.countClosed != 0 {
+		t.Errorf("open filter: scoped breakdown should show 0 closed, got %d", m.ac.countClosed)
+	}
+	if m.ac.countOpen != len(m.list.Items()) {
+		t.Errorf("open filter: countOpen=%d should equal visible items %d", m.ac.countOpen, len(m.list.Items()))
+	}
+
+	// Closed: the scoped breakdown must contain zero open/ready/blocked.
+	m.filter.currentFilter = "closed"
+	m.applyFilter()
+	if m.ac.countOpen != 0 || m.ac.countReady != 0 || m.ac.countBlocked != 0 {
+		t.Errorf("closed filter: scoped breakdown should be all-closed, got open=%d ready=%d blocked=%d",
+			m.ac.countOpen, m.ac.countReady, m.ac.countBlocked)
 	}
 }
 
@@ -204,7 +302,7 @@ func TestFooterData_UpdateBadge(t *testing.T) {
 		HintText:   "l:labels",
 		UpdateTag:  "v0.2.0",
 		TotalItems: 10,
-		KeyHints:   []string{"? help"},
+		Hints:      []FooterHint{{Key: "?", Desc: "help"}},
 	}
 	out := fd.Render()
 	if !strings.Contains(out, "v0.2.0") {
@@ -220,7 +318,7 @@ func TestFooterData_SecondaryInstance(t *testing.T) {
 		HintText:     "l:labels",
 		SecondaryPID: 12345,
 		TotalItems:   10,
-		KeyHints:     []string{"? help"},
+		Hints:        []FooterHint{{Key: "?", Desc: "help"}},
 	}
 	out := fd.Render()
 	if !strings.Contains(out, "12345") {

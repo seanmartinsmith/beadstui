@@ -13,6 +13,7 @@ import (
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // setInlineTransientStatus sets a subtle status that renders in the footer hint slot
@@ -163,11 +164,21 @@ type FooterData struct {
 	// Repo filter
 	RepoFilterLabel string // "" = no repo filter
 
-	// Key hints (pre-computed list)
-	KeyHints []string
+	// Key hints (pre-computed, structured so the renderer can degrade them
+	// from full "key desc" pills down to key-only glyphs as width tightens).
+	Hints []FooterHint
 
 	// Total visible items in list
 	TotalItems int
+}
+
+// FooterHint is one key-binding hint for the L1 status-bar slot. Key is the
+// glyph(s) ("⏎", "Ctrl+R", "?"); Desc is the human label ("open detail").
+// Styling and full-vs-key-only rendering are decided in Render(), not here,
+// so the degradation engine can choose the densest form that fits.
+type FooterHint struct {
+	Key  string
+	Desc string
 }
 
 // footerData extracts all data needed for footer rendering from the Model.
@@ -267,7 +278,7 @@ func (m *Model) footerData() FooterData {
 	}
 
 	// Key hints
-	fd.KeyHints = m.extractKeyHints()
+	fd.Hints = m.extractKeyHints()
 
 	return fd
 }
@@ -477,12 +488,7 @@ func (m *Model) extractAlertCounts() (total, critical, warning int) {
 // views/modals whose Maps haven't been populated yet — bt-ift6.2-.9
 // fill them in. setInlineTransientStatus pre-empts ShortHelp() during
 // its display window unchanged (bt-y0k7).
-func (m *Model) extractKeyHints() []string {
-	keyStyle := lipgloss.NewStyle().
-		Foreground(ColorSecondary).
-		Background(ColorBgSubtle).
-		Padding(0, 0)
-
+func (m *Model) extractKeyHints() []FooterHint {
 	km := m.l1KeyMap()
 	if km == nil {
 		return nil
@@ -491,13 +497,16 @@ func (m *Model) extractKeyHints() []string {
 	if len(bindings) == 0 {
 		return nil
 	}
-	hints := make([]string, 0, len(bindings))
+	hints := make([]FooterHint, 0, len(bindings))
 	for _, b := range bindings {
 		if !b.Enabled() {
 			continue
 		}
 		h := b.Help()
-		hints = append(hints, keyStyle.Render(h.Key)+" "+h.Desc)
+		if h.Key == "" {
+			continue
+		}
+		hints = append(hints, FooterHint{Key: h.Key, Desc: h.Desc})
 	}
 	return hints
 }
@@ -523,15 +532,43 @@ func (m Model) l1KeyMap() help.KeyMap {
 // result-nav), otherwise ListNormalKeys (the full action set).
 func (m Model) viewKeyMap() help.KeyMap {
 	switch m.mode {
-	case ViewTree:
-		return m.keys.Tree
 	case ViewList:
 		if m.list.FilterState() == list.Filtering {
 			return m.keys.ListSearch
 		}
 		return m.keys.ListNormal
+	case ViewTree:
+		return m.keys.Tree
+	case ViewBoard:
+		if m.board.IsSearchMode() {
+			return m.keys.BoardSearch
+		}
+		return m.keys.BoardNormal
+	case ViewGraph:
+		return m.keys.Graph
+	case ViewInsights:
+		return m.keys.Insights
+	case ViewActionable:
+		return m.keys.Actionable
+	case ViewFlowMatrix:
+		return m.keys.FlowMatrix
+	case ViewHistory:
+		switch {
+		case m.historyView.IsSearchActive():
+			return m.keys.HistorySearch
+		case m.historyView.FileTreeHasFocus():
+			return m.keys.HistoryFileTree
+		default:
+			return m.keys.HistoryNormal
+		}
+	case ViewEpics:
+		return m.keys.Epics
 	}
-	return nil
+	// Unmapped views (Attention, LabelDashboard) fall back to global nav so the
+	// L1 slot is never empty — a few global keys beat a blank footer. Their
+	// view-specific nav still lives in the body/filter slot until dedicated
+	// Maps land.
+	return m.keys.Global
 }
 
 // modalKeyMap maps m.activeModal to the matching modal map. bt-ift6.9
@@ -539,6 +576,25 @@ func (m Model) viewKeyMap() help.KeyMap {
 // etc.). Until then, modals return nil and L1 shows nothing while a
 // modal is open.
 func (m Model) modalKeyMap() help.KeyMap {
+	switch m.activeModal {
+	case ModalLabelPicker:
+		if m.labelPicker.IsSearchFocused() {
+			return m.keys.LabelPickerSearch
+		}
+		return m.keys.LabelPickerNav
+	case ModalRecipePicker:
+		return m.keys.RecipePicker
+	case ModalBQLQuery:
+		return m.keys.BQLQuery
+	case ModalTimeTravelInput:
+		return m.keys.TimeTravelInput
+	case ModalRepoPicker:
+		return m.keys.RepoPicker
+	case ModalEpicCard:
+		return m.keys.EpicCard
+	}
+	// Other modals (help, alerts, tutorial, quit-confirm, agent prompt, …)
+	// carry their own internal footers; the L1 slot stays empty for them.
 	return nil
 }
 
@@ -616,30 +672,43 @@ func (fd FooterData) Render() string {
 		Padding(0, 1).
 		Render(fd.HintText)
 
-	// Stats section
-	var statsSection string
-	if fd.TimeTravelActive {
-		timeTravelStyle := lipgloss.NewStyle().
-			Background(ColorPrioHighBg).
-			Foreground(ColorWarning).
-			Padding(0, 1)
-		statsSection = timeTravelStyle.Render(fd.TimeTravelStats)
-	} else {
+	// Stats section — built via a closure so the degradation engine can rebuild
+	// it at a denser tier (skip zero-count segments) before dropping it whole.
+	buildStats := func(skipZeros bool) string {
+		if fd.TimeTravelActive {
+			return lipgloss.NewStyle().
+				Background(ColorPrioHighBg).
+				Foreground(ColorWarning).
+				Padding(0, 1).
+				Render(fd.TimeTravelStats)
+		}
 		statsStyle := lipgloss.NewStyle().
 			Background(ColorBgHighlight).
 			Foreground(ColorText).
 			Padding(0, 1)
-		openStyle := lipgloss.NewStyle().Foreground(ColorStatusOpen)
-		readyStyle := lipgloss.NewStyle().Foreground(ColorSuccess)
-		blockedStyle := lipgloss.NewStyle().Foreground(ColorWarning)
-		closedStyle := lipgloss.NewStyle().Foreground(ColorMuted)
-		statsContent := fmt.Sprintf("%s%d %s%d %s%d %s%d",
-			openStyle.Render("○"), fd.CountOpen,
-			readyStyle.Render("◉"), fd.CountReady,
-			blockedStyle.Render("◈"), fd.CountBlocked,
-			closedStyle.Render("●"), fd.CountClosed)
-		statsSection = statsStyle.Render(statsContent)
+		seg := func(style lipgloss.Style, glyph string, n int) string {
+			if skipZeros && n == 0 {
+				return ""
+			}
+			return fmt.Sprintf("%s%d", style.Render(glyph), n)
+		}
+		var segs []string
+		for _, s := range []string{
+			seg(lipgloss.NewStyle().Foreground(ColorStatusOpen), "○", fd.CountOpen),
+			seg(lipgloss.NewStyle().Foreground(ColorSuccess), "◉", fd.CountReady),
+			seg(lipgloss.NewStyle().Foreground(ColorWarning), "◈", fd.CountBlocked),
+			seg(lipgloss.NewStyle().Foreground(ColorMuted), "●", fd.CountClosed),
+		} {
+			if s != "" {
+				segs = append(segs, s)
+			}
+		}
+		if len(segs) == 0 {
+			return ""
+		}
+		return statsStyle.Render(strings.Join(segs, " "))
 	}
+	statsSection := buildStats(false)
 
 	// Worker badge
 	workerSection := fd.renderWorkerBadge()
@@ -751,42 +820,84 @@ func (fd FooterData) Render() string {
 		repoFilterSection = repoStyle.Render(fmt.Sprintf("🗂 %s", fd.RepoFilterLabel))
 	}
 
-	// Key hints
-	sepStyle := lipgloss.NewStyle().Foreground(ColorMuted)
-	sep := sepStyle.Render(" │ ")
-	keysStyle := lipgloss.NewStyle().
-		Foreground(ColorSubtext).
-		Padding(0, 1)
+	// --- Right zone: key hints --------------------------------------------
+	// Rendered from structured FooterHint values so the degradation engine can
+	// pick the densest form that fits: full "key desc" pills, then key-only
+	// glyphs, then fewer pills, then none. The first and last hint (last is
+	// usually "?") survive longest. Styling lives here, not in extractKeyHints.
+	sep := lipgloss.NewStyle().Foreground(ColorMuted).Render(" │ ")
+	keysStyle := lipgloss.NewStyle().Foreground(ColorSubtext).Padding(0, 1)
+	keyGlyph := lipgloss.NewStyle().Foreground(ColorSecondary).Background(ColorBgSubtle)
 
-	countBadge := lipgloss.NewStyle().
-		Foreground(ColorSecondary).
-		Padding(0, 1).
-		Render(fmt.Sprintf("%d issues", fd.TotalItems))
-
-	keyHints := make([]string, len(fd.KeyHints))
-	copy(keyHints, fd.KeyHints)
-	keysSection := keysStyle.Render(strings.Join(keyHints, sep))
-
-	// Progressive truncation: drop middle hints until they fit
-	if len(keyHints) > 2 {
-		availableWidth := fd.Width - lipgloss.Width(countBadge) - 2
-		for len(keyHints) > 2 && lipgloss.Width(keysSection) > availableWidth {
-			keyHints = append(keyHints[:len(keyHints)-2], keyHints[len(keyHints)-1])
-			keysSection = keysStyle.Render(strings.Join(keyHints, sep))
+	pill := func(h FooterHint, keysOnly bool) string {
+		if keysOnly || h.Desc == "" {
+			return keyGlyph.Render(h.Key)
 		}
+		return keyGlyph.Render(h.Key) + " " + h.Desc
+	}
+	buildKeys := func(hs []FooterHint, keysOnly bool) string {
+		parts := make([]string, len(hs))
+		for i, h := range hs {
+			parts[i] = pill(h, keysOnly)
+		}
+		return keysStyle.Render(strings.Join(parts, sep))
+	}
+	// renderKeys returns the styled key section that best fills avail columns:
+	// full labels with as many pills as fit (down to 2, keeping first+last),
+	// then the same key-only, then a single key-only hint, then nothing.
+	renderKeys := func(avail int) string {
+		if avail <= 0 || len(fd.Hints) == 0 {
+			return ""
+		}
+		// Candidate lists from full down to 2 pills, dropping interior hints
+		// while keeping the first and the last.
+		var seqs [][]FooterHint
+		hs := append([]FooterHint(nil), fd.Hints...)
+		seqs = append(seqs, hs)
+		for len(hs) > 2 {
+			next := append([]FooterHint{}, hs[:len(hs)-2]...)
+			hs = append(next, hs[len(hs)-1])
+			seqs = append(seqs, hs)
+		}
+		for _, keysOnly := range []bool{false, true} {
+			for _, cand := range seqs {
+				if s := buildKeys(cand, keysOnly); lipgloss.Width(s) <= avail {
+					return s
+				}
+			}
+		}
+		// Last resort: just the final hint (usually "?"), key-only.
+		if s := buildKeys(fd.Hints[len(fd.Hints)-1:], true); lipgloss.Width(s) <= avail {
+			return s
+		}
+		return ""
 	}
 
-	// Width-aware compression (bt-m9te): assign each optional badge a priority
-	// tier (0 = always keep, 1/2/3 = drop progressively as width narrows). When
-	// total width exceeds available space, drop highest-tier badges first. This
-	// prevents line-wrapping at narrow widths.
+	countStyle := lipgloss.NewStyle().Foreground(ColorSecondary).Padding(0, 1)
+	countBadge := countStyle.Render(fmt.Sprintf("%d issues", fd.TotalItems))
+	countBadgeShort := countStyle.Render(fmt.Sprintf("%d", fd.TotalItems))
+
+	// Scope-icon-only fallback for the filter badge (last-ditch left-zone shrink).
+	filterIcon := filterBadge
+	if fd.FilterIcon != "" {
+		filterIcon = lipgloss.NewStyle().
+			Background(ColorPrimary).
+			Foreground(ColorBgContrast).
+			Bold(true).
+			Padding(0, 1).
+			Render(fd.FilterIcon)
+	}
+
+	// Width-aware compression (bt-m9te + smart-footer redesign): optional badges
+	// carry a priority tier (0 = always keep, 1/2/3 = drop progressively). The
+	// degradation engine reduces non-key content in priority order until the
+	// always-present core plus a minimal key reserve fits, then fills the
+	// remaining width with as many key hints as fit. A final ansi truncate makes
+	// wrapping structurally impossible.
 	type footerBadge struct {
 		content string
 		tier    int
 	}
-	// Tier 1 (drop first): least critical, rarely-changing info.
-	// Tier 2 (drop second): useful but secondary info.
-	// Tier 3 (drop third): contextual chrome that duplicates info in keysSection.
 	optional := map[string]*footerBadge{
 		"projectBadge":       {projectBadge, 3},
 		"searchBadge":        {searchBadge, 3},
@@ -800,44 +911,60 @@ func (fd FooterData) Render() string {
 		"datasetSection":     {datasetSection, 1},
 		"watcherSection":     {watcherSection, 1},
 		"phase2Section":      {phase2Section, 1},
-		// Tier 0 (always keep): alerts, instance, worker status, stats.
+		// Tier 0 (always keep): alerts, instance, worker status.
 		"alertsSection":   {alertsSection, 0},
 		"instanceSection": {instanceSection, 0},
 		"workerSection":   {workerSection, 0},
 	}
 
-	measure := func() int {
-		w := lipgloss.Width(filterBadge) + lipgloss.Width(labelHint) + lipgloss.Width(statsSection)
+	// nonKeyWidth sums everything except the key hints (which fill the remainder).
+	nonKeyWidth := func() int {
+		w := lipgloss.Width(filterBadge) + lipgloss.Width(labelHint) +
+			lipgloss.Width(statsSection) + lipgloss.Width(countBadge)
 		for _, b := range optional {
 			if b.content != "" {
-				w += lipgloss.Width(b.content) + 1
+				w += lipgloss.Width(b.content)
 			}
 		}
-		w += lipgloss.Width(countBadge) + lipgloss.Width(keysSection) + 1
 		return w
 	}
-
-	for tier := 3; tier >= 1; tier-- {
-		if measure() <= fd.Width {
-			break
-		}
+	dropTier := func(t int) {
 		for _, b := range optional {
-			if b.tier == tier {
+			if b.tier == t {
 				b.content = ""
 			}
 		}
 	}
 
-	// Recompute assembled widths after any drops.
-	leftWidth := lipgloss.Width(filterBadge) + lipgloss.Width(labelHint) + lipgloss.Width(statsSection)
-	for _, b := range optional {
-		if b.content != "" {
-			leftWidth += lipgloss.Width(b.content) + 1
-		}
+	// Reserve a minimal sliver for the most important hint when hints exist, so
+	// the cascade frees space for it rather than dropping it last.
+	keyReserve := 0
+	if len(fd.Hints) > 0 {
+		keyReserve = lipgloss.Width(buildKeys(fd.Hints[len(fd.Hints)-1:], true))
 	}
-	rightWidth := lipgloss.Width(countBadge) + lipgloss.Width(keysSection)
 
-	remaining := fd.Width - leftWidth - rightWidth - 1
+	// Ordered reductions: low-value chrome first, identity-critical content last.
+	reductions := []func(){
+		func() { dropTier(3) },
+		func() { dropTier(2) },
+		func() { statsSection = buildStats(true) }, // drop zero-count stat segments
+		func() { dropTier(1) },
+		func() { statsSection = "" },            // drop per-status stats; total survives
+		func() { countBadge = countBadgeShort }, // "4921 issues" -> "4921"
+		func() { labelHint = "" },               // "l:labels" duplicates the l key hint
+		func() { filterBadge = filterIcon },     // scope glyph only
+	}
+	for _, reduce := range reductions {
+		if nonKeyWidth()+keyReserve <= fd.Width {
+			break
+		}
+		reduce()
+	}
+
+	keysSection := renderKeys(fd.Width - nonKeyWidth())
+
+	// Filler pushes the count + key hints to the right edge.
+	remaining := fd.Width - nonKeyWidth() - lipgloss.Width(keysSection)
 	if remaining < 0 {
 		remaining = 0
 	}
@@ -845,18 +972,18 @@ func (fd FooterData) Render() string {
 
 	// Build the footer in display order (content may be empty after compression).
 	var parts []string
-	parts = append(parts, filterBadge)
 	addIf := func(s string) {
 		if s != "" {
 			parts = append(parts, s)
 		}
 	}
+	addIf(filterBadge)
 	addIf(optional["projectBadge"].content)
 	addIf(optional["searchBadge"].content)
 	addIf(optional["sortBadge"].content)
 	addIf(optional["wispBadge"].content)
 	addIf(optional["labelFilterSection"].content)
-	parts = append(parts, labelHint)
+	addIf(labelHint)
 	addIf(optional["alertsSection"].content)
 	addIf(optional["instanceSection"].content)
 	addIf(optional["sessionSection"].content)
@@ -864,13 +991,23 @@ func (fd FooterData) Render() string {
 	addIf(optional["repoFilterSection"].content)
 	addIf(optional["updateSection"].content)
 	addIf(optional["datasetSection"].content)
-	parts = append(parts, statsSection)
+	addIf(statsSection)
 	addIf(optional["phase2Section"].content)
 	addIf(optional["watcherSection"].content)
 	addIf(optional["workerSection"].content)
-	parts = append(parts, filler, countBadge, keysSection)
+	parts = append(parts, filler)
+	addIf(countBadge)
+	addIf(keysSection)
 
-	return lipgloss.JoinHorizontal(lipgloss.Bottom, parts...)
+	footer := lipgloss.JoinHorizontal(lipgloss.Bottom, parts...)
+
+	// Final safety net: a single pathological badge (long BQL filter, long worker
+	// error) can still overrun. Hard-truncate ANSI-aware so the footer can never
+	// wrap to a second row and steal a content line.
+	if ansi.StringWidth(footer) > fd.Width {
+		footer = ansi.Truncate(footer, fd.Width, "")
+	}
+	return footer
 }
 
 func (fd FooterData) renderStatusBar() string {

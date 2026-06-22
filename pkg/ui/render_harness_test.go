@@ -216,6 +216,17 @@ func TestRenderDump(t *testing.T) {
 		{"list_80x24", 80, 24, nil},
 		{"list_70x20", 70, 20, nil}, // user's scrunched terminal
 		{"list_160x40", 160, 40, nil},
+		// Footer status breakdown must scope to the active filter (Phase 2,
+		// bt-gcuv generalization): the OPEN filter excludes closed, so the
+		// footer's ●closed count and total drop accordingly.
+		{"list_openfilter_100x29", 100, 29, func(m *Model) {
+			m.filter.currentFilter = "open"
+			m.applyFilter()
+		}},
+		{"list_closedfilter_100x29", 100, 29, func(m *Model) {
+			m.filter.currentFilter = "closed"
+			m.applyFilter()
+		}},
 		{"split_120x32", 120, 32, splitOn("bt-0qzp")},
 		{"split_160x40", 160, 40, splitOn("bt-0qzp")},
 		{"detail_90x28", 90, 28, openDetail("bt-0qzp")},

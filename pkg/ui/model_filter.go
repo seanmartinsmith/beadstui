@@ -57,6 +57,14 @@ func (m *Model) setListItems(items []list.Item) {
 		items = filtered
 	}
 
+	// The footer's status breakdown is scoped to exactly what the list shows.
+	// setListItems is the single chokepoint for list contents, so computing the
+	// counts here keeps them in lockstep with TotalItems (= len(list items)) and
+	// reflective of the active scope + filters rather than the global corpus —
+	// the generalization of bt-gcuv the user asked for. The footer is the only
+	// reader of m.ac.count*, so this is their single source of truth.
+	m.ac.countOpen, m.ac.countReady, m.ac.countBlocked, m.ac.countClosed = m.classifyItemCounts(items)
+
 	prevState := m.list.FilterState()
 	prevValue := m.list.FilterValue()
 	m.list.SetItems(items)
@@ -64,6 +72,45 @@ func (m *Model) setListItems(items []list.Item) {
 		m.list.SetFilterText(prevValue)
 		m.list.SetFilterState(prevState)
 	}
+}
+
+// classifyItemCounts tallies the status breakdown (open / ready / blocked /
+// closed) over a set of list items, matching the global recompute's logic but
+// scoped to whatever the list currently holds. "ready" means open, not blocked,
+// and with no open blockers — resolved against the global issueMap so a
+// blocker outside the filtered view still counts. Non-IssueItem entries (none
+// today) are skipped.
+func (m *Model) classifyItemCounts(items []list.Item) (open, ready, blocked, closed int) {
+	for _, it := range items {
+		issueItem, ok := it.(IssueItem)
+		if !ok {
+			continue
+		}
+		issue := issueItem.Issue
+		if isClosedLikeStatus(issue.Status) {
+			closed++
+			continue
+		}
+		open++
+		if issue.Status == model.StatusBlocked {
+			blocked++
+			continue
+		}
+		isBlocked := false
+		for _, dep := range issue.Dependencies {
+			if dep == nil || !dep.Type.IsBlocking() {
+				continue
+			}
+			if blocker, exists := m.data.issueMap[dep.DependsOnID]; exists && !isClosedLikeStatus(blocker.Status) {
+				isBlocked = true
+				break
+			}
+		}
+		if !isBlocked {
+			ready++
+		}
+	}
+	return
 }
 
 // getDiffStatus returns the diff status for an issue if time-travel mode is active
