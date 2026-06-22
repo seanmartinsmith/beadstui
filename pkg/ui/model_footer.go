@@ -11,6 +11,7 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/watcher"
 
 	"charm.land/bubbles/v2/help"
+	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -680,14 +681,27 @@ func (m Model) l1KeyMap() help.KeyMap {
 	return m.viewKeyMap()
 }
 
-// viewKeyMap maps m.mode to the matching pkg/ui/keys map. Only views
-// whose Maps are wired return non-nil; the rest fall through to nil
-// until their conversion child lands.
-//
-// ViewList has a sub-state branch per ADR-004 Decision 7 — when filter
-// typing is active, the truthful help is ListSearchKeys (apply / cancel /
-// result-nav), otherwise ListNormalKeys (the full action set).
+// viewKeyMap maps m.mode to the matching pkg/ui/keys map for the L1 footer
+// slot, falling back to the Global map for views with no dedicated Map yet
+// (Attention, LabelDashboard) so the L1 slot is never empty — a few global
+// keys beat a blank footer.
 func (m Model) viewKeyMap() help.KeyMap {
+	if km := m.viewSpecificKeyMap(); km != nil {
+		return km
+	}
+	return m.keys.Global
+}
+
+// viewSpecificKeyMap returns the per-view key.Map for m.mode, or nil for views
+// with no dedicated Map yet (Attention, LabelDashboard). The L1 footer adds the
+// Global fallback (viewKeyMap); the ; sidebar composes Global ++ this map
+// (sidebarHelpGroups), so this must return nil rather than the Global map to
+// avoid a doubled Global section in the sidebar.
+//
+// ViewList has a sub-state branch per ADR-004 Decision 7 — when filter typing is
+// active, the truthful help is ListSearchKeys (apply / cancel / result-nav),
+// otherwise ListNormalKeys (the full action set).
+func (m Model) viewSpecificKeyMap() help.KeyMap {
 	switch m.mode {
 	case ViewList:
 		if m.list.FilterState() == list.Filtering {
@@ -721,11 +735,7 @@ func (m Model) viewKeyMap() help.KeyMap {
 	case ViewEpics:
 		return m.keys.Epics
 	}
-	// Unmapped views (Attention, LabelDashboard) fall back to global nav so the
-	// L1 slot is never empty — a few global keys beat a blank footer. Their
-	// view-specific nav still lives in the body/filter slot until dedicated
-	// Maps land.
-	return m.keys.Global
+	return nil
 }
 
 // modalKeyMap maps m.activeModal to the matching modal map. bt-ift6.9
@@ -753,6 +763,27 @@ func (m Model) modalKeyMap() help.KeyMap {
 	// Other modals (help, alerts, tutorial, quit-confirm, agent prompt, …)
 	// carry their own internal footers; the L1 slot stays empty for them.
 	return nil
+}
+
+// sidebarHelpGroups returns the FullHelp() binding groups the ; shortcuts
+// sidebar renders for the current state (bt-ift6.10). When a modal owns the
+// sidebar (ADR-004 Decision 4) it shows that modal's FullHelp() alone;
+// otherwise it composes the Global map's groups with the active view's, so both
+// global chrome/nav and view-specific actions stay discoverable. Reads from the
+// same key.Map source as the L1 footer (ShortHelp) and ? overlay (FullHelp), so
+// the three surfaces cannot drift.
+func (m Model) sidebarHelpGroups() [][]key.Binding {
+	if m.activeModal != ModalNone {
+		if km := m.modalKeyMap(); km != nil {
+			return km.FullHelp()
+		}
+		return nil
+	}
+	groups := m.keys.Global.FullHelp()
+	if km := m.viewSpecificKeyMap(); km != nil {
+		groups = append(groups, km.FullHelp()...)
+	}
+	return groups
 }
 
 // ---------------------------------------------------------------------------

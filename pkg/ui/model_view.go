@@ -199,8 +199,10 @@ func (m Model) View() tea.View {
 
 	// Add shortcuts sidebar if enabled (bv-3qi5)
 	if m.showShortcutsSidebar {
-		// Update sidebar context based on current focus
-		m.shortcutsSidebar.SetContext(ContextFromFocus(m.focused))
+		// Feed the sidebar the active view's / modal's FullHelp() groups so it
+		// consumes the same key.Map source as the L1 footer and ? overlay
+		// (bt-ift6.10).
+		m.shortcutsSidebar.SetBindings(m.sidebarHelpGroups())
 		m.shortcutsSidebar.SetSize(m.shortcutsSidebar.Width(), m.height-2)
 		sidebar := m.shortcutsSidebar.View()
 		body = lipgloss.JoinHorizontal(lipgloss.Top, body, sidebar)
