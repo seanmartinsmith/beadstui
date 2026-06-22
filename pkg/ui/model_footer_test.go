@@ -581,6 +581,28 @@ func TestFooterData_SecondaryInstance(t *testing.T) {
 	}
 }
 
+func TestDegradedClearsOnSnapshot(t *testing.T) {
+	m := NewModel(harnessIssues(), nil, "", nil)
+	// Simulate the scenario: Dolt was unreachable during initial load, so a
+	// degraded toast was set before any snapshot arrived. snapshotInitPending
+	// must be true so handleSnapshotReady takes the firstSnapshot branch
+	// (which sets statusMsg="" without overwriting severity via
+	// setInlineTransientStatus), letting clearStatus be the last status write.
+	m.data.snapshotInitPending = true
+	m.setDegraded("Dolt server unreachable (retrying)")
+	if m.statusMsg == "" {
+		t.Fatal("precondition: degraded toast should be set")
+	}
+	// SnapshotReadyMsg{} has a nil Snapshot, causing an early return before
+	// the recovery path. Provide a minimal non-nil snapshot so the handler
+	// accepts it as a genuine successful load. bt-a3zi3.1.
+	nm, _ := m.handleSnapshotReady(SnapshotReadyMsg{Snapshot: &DataSnapshot{}})
+	if nm.statusSeverity != SeverityNone || nm.statusMsg != "" {
+		t.Errorf("degraded toast should clear on snapshot; got severity=%d msg=%q",
+			nm.statusSeverity, nm.statusMsg)
+	}
+}
+
 func TestErrorSettersBellAppend(t *testing.T) {
 	newM := func() *Model {
 		m := NewModel(harnessIssues(), nil, "", nil)

@@ -364,6 +364,12 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 	// view. Sourced from the filtered set, so no separate file load (bt-ryi5z).
 	m.refreshEpicsForCurrentFilter()
 
+	// A successful snapshot means the data layer recovered; drop any sticky
+	// Degraded toast (e.g. "Dolt unreachable, retrying"). bt-a3zi3.1.
+	if m.statusSeverity == SeverityDegraded {
+		m.clearStatus()
+	}
+
 	if firstSnapshot {
 		// For the initial background snapshot, avoid flashing "Reloaded" at startup.
 		if msg.Snapshot.LoadWarningCount > 0 {
