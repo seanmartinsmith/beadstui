@@ -48,7 +48,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 	// window. Without this, renderFooter's auto-dismiss sees the stale timestamp
 	// from a previous message and clears the new one immediately (bt-6k0f).
 	m.statusMsg = ""
-	m.statusIsError = false
+	m.statusSeverity = SeverityNone
 	m.statusSetAt = time.Time{}
 
 	// Safety net: if focus is anywhere but the list while the Bubbles filter

@@ -691,16 +691,21 @@ type Model struct {
 
 	// Status message (for temporary feedback)
 	statusMsg      string
-	statusIsError  bool
-	statusIsInline bool      // true = render subtly in footer hint slot; false = full-width banner (bt-y0k7)
-	statusSeq      uint64    // incremented on each status set; used for auto-clear
-	statusSetAt    time.Time // when statusMsg was last set; used for auto-dismiss (bt-zdae)
+	statusSeverity StatusSeverity // severity of the active toast (bt-a3zi3.1)
+	statusIsInline bool           // true = render subtly in footer hint slot; false = full-width banner (bt-y0k7)
+	statusSeq      uint64         // incremented on each status set; used for auto-clear
+	statusSetAt    time.Time      // when statusMsg was last set; used for auto-dismiss (bt-zdae)
 
 	// Activity event ring buffer (bt-d5wr). Populated by handleSnapshotReady
 	// via events.Diff; consumed by the footer ticker + count badge and the
 	// notification center modal (both implemented in later beads). Session-
 	// scoped; not persisted across bt restarts.
 	events *events.RingBuffer
+
+	// alertsSeenAt is the session high-water-mark for the footer bell. Events
+	// newer than this and not dismissed count toward 🔔N; opening the
+	// notifications view advances it to now, clearing the badge (bt-a3zi3.1).
+	alertsSeenAt time.Time
 
 	// Dolt connection state (bt-3ynd). Embedded to keep m.doltConnected access pattern.
 	DoltState
@@ -1193,16 +1198,16 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 
 	// Build initial status message if watcher failed
 	var initialStatus string
-	var initialStatusErr bool
+	var initialStatusSeverity StatusSeverity
 	if backgroundWorker != nil {
 		initialStatus = "Background mode enabled"
-		initialStatusErr = false
+		initialStatusSeverity = SeveritySuccess
 	} else if backgroundModeRequested && backgroundModeErr != nil {
 		initialStatus = fmt.Sprintf("Background mode unavailable: %v (using sync reload)", backgroundModeErr)
-		initialStatusErr = true
+		initialStatusSeverity = SeverityFailure
 	} else if watcherErr != nil {
 		initialStatus = fmt.Sprintf("Live reload unavailable: %v", watcherErr)
-		initialStatusErr = true
+		initialStatusSeverity = SeverityFailure
 	}
 
 	// Decide initial Ctrl+S cycle position from persisted-index presence
@@ -1318,8 +1323,8 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		labelPicker:         labelPicker,
 		labelDrilldownCache: make(map[string][]model.Issue),
 		timeTravelInput:     ti,
-		statusMsg:           initialStatus,
-		statusIsError:       initialStatusErr,
+		statusMsg:      initialStatus,
+		statusSeverity: initialStatusSeverity,
 		historyLoading:      len(issues) > 0, // Will be loaded in Init()
 		// Alerts panel (bv-168)
 		alerts:          alerts,

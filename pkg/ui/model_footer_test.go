@@ -10,14 +10,28 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
+func TestStatusSeverityGlyph(t *testing.T) {
+	cases := map[StatusSeverity]string{
+		SeveritySuccess:  "✓",
+		SeverityNotice:   "",
+		SeverityFailure:  "✗",
+		SeverityDegraded: "⚠",
+	}
+	for sev, want := range cases {
+		if got := sev.glyph(); got != want {
+			t.Errorf("severity %d glyph = %q, want %q", sev, got, want)
+		}
+	}
+}
+
 func TestFooterData_StatusBarOverride(t *testing.T) {
 	fd := FooterData{
-		Width:       80,
-		StatusMsg:   "Copied bt-abc1 to clipboard",
-		StatusIsErr: false,
-		FilterText:  "OPEN",
-		FilterIcon:  "📂",
-		TotalItems:  42,
+		Width:          80,
+		StatusMsg:      "Copied bt-abc1 to clipboard",
+		StatusSeverity: SeveritySuccess,
+		FilterText:     "OPEN",
+		FilterIcon:     "📂",
+		TotalItems:     42,
 	}
 	out := fd.Render()
 	if !strings.Contains(out, "Copied bt-abc1 to clipboard") {
@@ -31,10 +45,10 @@ func TestFooterData_StatusBarOverride(t *testing.T) {
 
 func TestFooterData_ErrorStatusBar(t *testing.T) {
 	fd := FooterData{
-		Width:       80,
-		StatusMsg:   "No issue selected",
-		StatusIsErr: true,
-		TotalItems:  10,
+		Width:          80,
+		StatusMsg:      "No issue selected",
+		StatusSeverity: SeverityFailure,
+		TotalItems:     10,
 	}
 	out := fd.Render()
 	if !strings.Contains(out, "No issue selected") {

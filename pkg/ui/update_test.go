@@ -45,7 +45,7 @@ func TestCopyIssueToClipboardInvalidItem(t *testing.T) {
 	m.list.SetItems([]list.Item{badItem{}})
 	m.list.Select(0)
 	m.copyIssueToClipboard()
-	if !m.statusIsError || m.statusMsg == "" {
+	if m.statusSeverity < SeverityFailure || m.statusMsg == "" {
 		t.Fatalf("expected error copying invalid item, got %q", m.statusMsg)
 	}
 }
@@ -58,7 +58,7 @@ func TestEnterTimeTravelModeGracefulFailure(t *testing.T) {
 
 	m := NewModel(nil, nil, "", nil)
 	m.enterTimeTravelMode("HEAD")
-	if !m.statusIsError {
+	if m.statusSeverity < SeverityFailure {
 		t.Fatalf("expected error when not in git repo")
 	}
 }
@@ -105,7 +105,7 @@ func TestUpdateFileChangedReloadsSelection(t *testing.T) {
 	updated, cmd := m.Update(FileChangedMsg{})
 	_ = cmd
 	m2 := updated.(Model)
-	if m2.statusIsError {
+	if m2.statusSeverity >= SeverityFailure {
 		t.Fatalf("expected successful reload, got error %q", m2.statusMsg)
 	}
 }

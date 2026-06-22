@@ -72,7 +72,7 @@ func (m Model) handleUpdateProgressMsg(msg UpdateProgressMsg) (Model, tea.Cmd) {
 func (m Model) handleStatusClear(msg statusClearMsg) Model {
 	if msg.seq == m.statusSeq {
 		m.statusMsg = ""
-		m.statusIsError = false
+		m.statusSeverity = SeverityNone
 		m.statusIsInline = false
 	}
 	return m
@@ -82,7 +82,7 @@ func (m Model) handleStatusClear(msg statusClearMsg) Model {
 // the tick. Runs on a 1s cadence so idle sessions still clear expired status
 // (bt-m9te, bt-y0k7).
 func (m Model) handleStatusTick(_ statusTickMsg) (Model, tea.Cmd) {
-	if m.statusMsg != "" && !m.statusIsError {
+	if m.statusMsg != "" && m.statusSeverity != SeverityDegraded {
 		if m.statusSetAt.IsZero() {
 			m.statusSetAt = time.Now()
 		} else if time.Since(m.statusSetAt) > statusAutoDismissAge {

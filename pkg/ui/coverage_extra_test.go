@@ -562,7 +562,7 @@ func TestRenderFooterStatusAndBadges(t *testing.T) {
 
 	// status message branch
 	m.statusMsg = "Saved"
-	m.statusIsError = false
+	m.statusSeverity = SeverityNone
 	footer := m.renderFooter()
 	if !strings.Contains(footer, "Saved") {
 		t.Fatalf("footer should include status message")
@@ -756,7 +756,7 @@ func TestExportToMarkdownSmoke(t *testing.T) {
 	if len(files) == 0 {
 		t.Fatalf("expected export file to be written")
 	}
-	if m.statusIsError {
+	if m.statusSeverity >= SeverityFailure {
 		t.Fatalf("exportToMarkdown should succeed, got error status")
 	}
 }
@@ -779,7 +779,7 @@ func TestGraphConnectorDown(t *testing.T) {
 func TestCopyIssueToClipboardNoSelection(t *testing.T) {
 	m := NewModel(nil, nil, "", nil)
 	m.copyIssueToClipboard()
-	if !m.statusIsError || !strings.Contains(m.statusMsg, "No issue selected") {
+	if m.statusSeverity < SeverityFailure || !strings.Contains(m.statusMsg, "No issue selected") {
 		t.Fatalf("expected error status for missing selection")
 	}
 }
@@ -798,7 +798,7 @@ func TestOpenInEditorTerminalEditorGuard(t *testing.T) {
 
 	m := NewModel(nil, nil, "", nil)
 	m.openInEditor()
-	if !m.statusIsError || !strings.Contains(m.statusMsg, "terminal editor") {
+	if m.statusSeverity < SeverityFailure || !strings.Contains(m.statusMsg, "terminal editor") {
 		t.Fatalf("expected terminal editor warning, got %q", m.statusMsg)
 	}
 }
@@ -826,7 +826,7 @@ func TestOpenInEditorWithArguments(t *testing.T) {
 	m := NewModel(nil, nil, "", nil)
 	m.openInEditor()
 	// Should succeed - the shell should parse "true --" correctly
-	if m.statusIsError {
+	if m.statusSeverity >= SeverityFailure {
 		t.Fatalf("expected success with EDITOR containing arguments, got error: %q", m.statusMsg)
 	}
 	if !strings.Contains(m.statusMsg, "Opened in") {
@@ -837,7 +837,7 @@ func TestOpenInEditorWithArguments(t *testing.T) {
 	_ = os.Setenv("EDITOR", "vim -u NONE")
 	m2 := NewModel(nil, nil, "", nil)
 	m2.openInEditor()
-	if !m2.statusIsError || !strings.Contains(m2.statusMsg, "terminal editor") {
+	if m2.statusSeverity < SeverityFailure || !strings.Contains(m2.statusMsg, "terminal editor") {
 		t.Fatalf("expected terminal editor warning for 'vim -u NONE', got %q", m2.statusMsg)
 	}
 }
@@ -851,7 +851,7 @@ func TestRenderFooterErrorStatus(t *testing.T) {
 	m := NewModel(nil, nil, "", nil)
 	m.width = 40
 	m.statusMsg = "boom"
-	m.statusIsError = true
+	m.statusSeverity = SeverityFailure
 	out := m.renderFooter()
 	if !strings.Contains(out, "boom") {
 		t.Fatalf("footer should show error status")
@@ -993,7 +993,7 @@ func TestBoardAndInsightsExtraKeys(t *testing.T) {
 	m.focused = focusTimeTravelInput
 	m.timeTravelInput.SetValue("HEAD~1")
 	m = m.handleTimeTravelInputKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
-	if !m.statusIsError && m.statusMsg == "" {
+	if m.statusSeverity < SeverityFailure && m.statusMsg == "" {
 		t.Fatalf("expected status message after attempting time-travel without git")
 	}
 }
@@ -1010,7 +1010,7 @@ func TestOpenInEditorMissingAndGUI(t *testing.T) {
 
 	m := NewModel([]model.Issue{{ID: "1", Title: "x", Status: model.StatusOpen}}, nil, "", nil)
 	m.openInEditor()
-	if !m.statusIsError || !strings.Contains(m.statusMsg, "No .beads") {
+	if m.statusSeverity < SeverityFailure || !strings.Contains(m.statusMsg, "No .beads") {
 		t.Fatalf("expected missing beads error, got %q", m.statusMsg)
 	}
 
@@ -1024,7 +1024,7 @@ func TestOpenInEditorMissingAndGUI(t *testing.T) {
 	_ = os.Setenv("EDITOR", "true") // present on POSIX; not in terminal editor block
 
 	m.openInEditor()
-	if m.statusIsError || !strings.Contains(m.statusMsg, "Opened in") {
+	if m.statusSeverity >= SeverityFailure || !strings.Contains(m.statusMsg, "Opened in") {
 		t.Fatalf("expected success opening editor, got %q", m.statusMsg)
 	}
 }
@@ -1044,7 +1044,7 @@ func TestExportToMarkdownCreatesFile(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(tmp, filename)); err != nil {
 		t.Fatalf("expected export file to exist: %v", err)
 	}
-	if m.statusIsError {
+	if m.statusSeverity >= SeverityFailure {
 		t.Fatalf("export should succeed, got error %q", m.statusMsg)
 	}
 }
@@ -1092,7 +1092,7 @@ func TestRenderFooterVariantsAndDiffStatus(t *testing.T) {
 
 	// Status message branch
 	m.statusMsg = "All good"
-	m.statusIsError = false
+	m.statusSeverity = SeverityNone
 	out := m.renderFooter()
 	if !strings.Contains(out, "All good") {
 		t.Fatalf("status footer missing message: %s", out)

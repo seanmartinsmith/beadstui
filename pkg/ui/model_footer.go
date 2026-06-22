@@ -21,7 +21,7 @@ import (
 // notifications that should not clobber key hints (bt-y0k7).
 func (m *Model) setInlineTransientStatus(msg string, d time.Duration) tea.Cmd {
 	m.statusMsg = msg
-	m.statusIsError = false
+	m.statusSeverity = SeveritySuccess
 	m.statusIsInline = true
 	m.statusSetAt = time.Now()
 	m.statusSeq++
@@ -31,19 +31,21 @@ func (m *Model) setInlineTransientStatus(msg string, d time.Duration) tea.Cmd {
 	})
 }
 
-// setStatus sets a status message with auto-dismiss tracking (bt-zdae).
+// setStatus sets a success/info confirmation toast (✓, ~3s auto-fade, no bell).
 func (m *Model) setStatus(msg string) {
 	m.statusMsg = msg
-	m.statusIsError = false
-	m.statusIsInline = false
+	m.statusSeverity = SeveritySuccess
+	m.statusIsInline = true
 	m.statusSetAt = time.Now()
 }
 
-// setStatusError sets an error status message (not auto-dismissed).
+// setStatusError sets a failure toast. TEMPORARY: Task 4 reclassifies callers
+// to setNotice/setFailure/setDegraded; until then this maps to Failure to
+// preserve "error" behavior.
 func (m *Model) setStatusError(msg string) {
 	m.statusMsg = msg
-	m.statusIsError = true
-	m.statusIsInline = false
+	m.statusSeverity = SeverityFailure
+	m.statusIsInline = true
 	m.statusSetAt = time.Now()
 }
 
@@ -66,6 +68,33 @@ func statusTickCmd() tea.Cmd {
 // FooterData — value struct decoupling footer rendering from Model internals.
 // Populated by Model.footerData(), rendered by FooterData.Render().
 // ---------------------------------------------------------------------------
+
+// StatusSeverity classifies a footer toast (bt-a3zi3.1). It drives the
+// glyph, the auto-dismiss lifetime (see statusDismissAge), and whether the
+// toast is also recorded in the events ring buffer (Failure/Degraded are).
+type StatusSeverity int
+
+const (
+	SeverityNone     StatusSeverity = iota // no status message
+	SeveritySuccess                        // ✓ confirmation; ~3s; no bell
+	SeverityNotice                         // rejection/validation; ~3s; no bell
+	SeverityFailure                        // ✗ one-shot failure; ~8s; bell
+	SeverityDegraded                       // ⚠ live condition; sticky; bell
+)
+
+// glyph is the leading symbol for a toast of this severity ("" = none).
+func (s StatusSeverity) glyph() string {
+	switch s {
+	case SeveritySuccess:
+		return "✓"
+	case SeverityFailure:
+		return "✗"
+	case SeverityDegraded:
+		return "⚠"
+	default:
+		return ""
+	}
+}
 
 // WorkerLevel indicates the severity of the background worker badge.
 type WorkerLevel int
@@ -94,7 +123,7 @@ type FooterData struct {
 	// (full-width banner) unless StatusIsInline is true, in which case it
 	// renders subtly in the hint slot (bt-y0k7).
 	StatusMsg      string
-	StatusIsErr    bool
+	StatusSeverity StatusSeverity
 	StatusIsInline bool
 
 	// Filter badge
@@ -196,7 +225,7 @@ func (m *Model) footerData() FooterData {
 	fd := FooterData{
 		Width:          m.width,
 		StatusMsg:      m.statusMsg,
-		StatusIsErr:    m.statusIsError,
+		StatusSeverity: m.statusSeverity,
 		StatusIsInline: m.statusIsInline,
 		ShowWisps:      m.showWisps,
 		TotalItems:     len(m.list.Items()),
@@ -667,9 +696,9 @@ func (fd FooterData) Render() string {
 		return fd.renderStatusBar()
 	}
 	if fd.StatusMsg != "" && fd.StatusIsInline {
-		prefix := "✓ "
-		if fd.StatusIsErr {
-			prefix = "✗ "
+		prefix := fd.StatusSeverity.glyph()
+		if prefix != "" {
+			prefix += " "
 		}
 		fd.HintText = prefix + fd.StatusMsg
 	}
@@ -1094,7 +1123,7 @@ func (fd FooterData) Render() string {
 
 func (fd FooterData) renderStatusBar() string {
 	var msgStyle lipgloss.Style
-	if fd.StatusIsErr {
+	if fd.StatusSeverity >= SeverityFailure {
 		msgStyle = lipgloss.NewStyle().
 			Background(ColorPrioCriticalBg).
 			Foreground(ColorPrioCritical).
@@ -1107,9 +1136,9 @@ func (fd FooterData) renderStatusBar() string {
 			Bold(true).
 			Padding(0, 2)
 	}
-	prefix := "✓ "
-	if fd.StatusIsErr {
-		prefix = "✗ "
+	prefix := fd.StatusSeverity.glyph()
+	if prefix != "" {
+		prefix += " "
 	}
 	displayMsg := prefix + fd.StatusMsg
 	if maxMsgWidth := fd.Width - 4; lipgloss.Width(displayMsg) > maxMsgWidth {
