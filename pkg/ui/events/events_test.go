@@ -1,7 +1,9 @@
 // pkg/ui/events/events_test.go
 package events
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestEventKindString(t *testing.T) {
 	cases := []struct {
@@ -26,5 +28,24 @@ func TestEventSourceString(t *testing.T) {
 	}
 	if SourceCass.String() != "cass" {
 		t.Errorf("SourceCass.String() = %q, want %q", SourceCass.String(), "cass")
+	}
+}
+
+func TestNewSystemEvent(t *testing.T) {
+	e := NewSystemEvent("write failed: db locked")
+	if e.Kind != EventSystem {
+		t.Errorf("Kind = %v, want EventSystem", e.Kind)
+	}
+	if e.Summary != "write failed: db locked" {
+		t.Errorf("Summary = %q, want the message", e.Summary)
+	}
+	if e.ID == "" {
+		t.Error("ID must be non-empty for dedup/dismissal")
+	}
+	if e.BeadID != "" {
+		t.Errorf("BeadID = %q, want empty for a system event", e.BeadID)
+	}
+	if e.At.IsZero() {
+		t.Error("At must be set")
 	}
 }

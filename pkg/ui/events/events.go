@@ -94,3 +94,17 @@ func computeID(beadID string, kind EventKind, at time.Time) string {
 	fmt.Fprintf(h, "%s|%d|%d", beadID, kind, at.UnixNano())
 	return fmt.Sprintf("%08x", h.Sum32())
 }
+
+// NewSystemEvent builds an ambient, non-bead EventSystem (e.g. a write
+// failure or a degraded-service notice surfaced by the footer). BeadID and
+// Repo are empty; consumers that key off bead identity must guard for that.
+func NewSystemEvent(summary string) Event {
+	at := time.Now()
+	return Event{
+		ID:      computeID("", EventSystem, at),
+		Kind:    EventSystem,
+		Summary: summary,
+		At:      at,
+		Source:  SourceDolt,
+	}
+}

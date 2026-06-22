@@ -3,6 +3,7 @@ package events
 
 import (
 	"sync"
+	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/debug"
 )
@@ -129,6 +130,22 @@ func (r *RingBuffer) UnreadCount() int {
 	n := 0
 	for i := range r.events {
 		if !r.events[i].Dismissed {
+			n++
+		}
+	}
+	return n
+}
+
+// UnseenCount returns the number of non-dismissed events whose timestamp is
+// strictly after `since`. The footer bell uses this with a session
+// high-water-mark so opening the notifications view (which advances the
+// mark) clears the badge without dismissing anything.
+func (r *RingBuffer) UnseenCount(since time.Time) int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	n := 0
+	for i := range r.events {
+		if !r.events[i].Dismissed && r.events[i].At.After(since) {
 			n++
 		}
 	}

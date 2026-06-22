@@ -93,3 +93,25 @@ func TestRingBuffer_DismissAll(t *testing.T) {
 		t.Fatalf("events should still exist after DismissAll (retention)")
 	}
 }
+
+func TestUnseenCount(t *testing.T) {
+	r := NewRingBuffer(10)
+	base := time.Now()
+	r.Append(Event{ID: "a", Kind: EventCreated, At: base.Add(-2 * time.Minute)})
+	r.Append(Event{ID: "b", Kind: EventCreated, At: base.Add(-1 * time.Minute)})
+	r.Append(Event{ID: "c", Kind: EventSystem, At: base})
+
+	// Everything is newer than the zero time.
+	if got := r.UnseenCount(time.Time{}); got != 3 {
+		t.Errorf("UnseenCount(zero) = %d, want 3", got)
+	}
+	// Only events strictly after the cutoff count.
+	if got := r.UnseenCount(base.Add(-90 * time.Second)); got != 2 {
+		t.Errorf("UnseenCount(cutoff) = %d, want 2", got)
+	}
+	// Dismissed events never count, even when newer than the cutoff.
+	r.Dismiss("c")
+	if got := r.UnseenCount(base.Add(-90 * time.Second)); got != 1 {
+		t.Errorf("UnseenCount after dismiss = %d, want 1", got)
+	}
+}
