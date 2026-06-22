@@ -288,6 +288,18 @@ func (g *GraphModel) TotalCount() int {
 	return len(g.sortedIDs)
 }
 
+// EdgeCount returns the number of directed graph-edge dependencies (each
+// blocker relationship counted once). Mirrors rebuildGraph's edge population:
+// blockers[A] holds one entry per dependency A has, so summing their lengths
+// counts every graph edge exactly once.
+func (g *GraphModel) EdgeCount() int {
+	n := 0
+	for _, deps := range g.blockers {
+		n += len(deps)
+	}
+	return n
+}
+
 // View renders the visual graph view
 func (g *GraphModel) View(width, height int) string {
 	g.width = width

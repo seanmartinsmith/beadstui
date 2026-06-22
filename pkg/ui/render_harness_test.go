@@ -195,6 +195,23 @@ func TestRenderDump(t *testing.T) {
 		injectSymLane(m)
 		enterEpics(m)
 	}
+	// enterBoard / enterGraph mirror the real toggle handlers (refresh from the
+	// current filter) so the Phase 3 footer center zone shows live counts
+	// ("4 cols · N cards", "N nodes · M edges").
+	enterBoard := func(m *Model) {
+		m.mode = ViewBoard
+		m.focused = focusBoard
+		m.refreshBoardAndGraphForCurrentFilter()
+	}
+	enterGraph := func(id string) func(*Model) {
+		return func(m *Model) {
+			harnessSelect(m, id)
+			m.mode = ViewGraph
+			m.focused = focusGraph
+			m.refreshBoardAndGraphForCurrentFilter()
+			m.graphView.SelectByID(id)
+		}
+	}
 	epicCard := func(m *Model) {
 		now := time.Now()
 		// Same fixture as epicsView: a stale in-progress child plus the
@@ -232,6 +249,14 @@ func TestRenderDump(t *testing.T) {
 		{"detail_90x28", 90, 28, openDetail("bt-0qzp")},
 		{"detail_70x20", 70, 20, openDetail("bt-0qzp")},
 		{"detail_epic_90x28", 90, 28, openDetail("bt-evuf")},
+
+		// Phase 3 per-view center meaning: detail = bead id + position (above),
+		// board = cols/cards, graph = nodes/edges. 70-col proves the override
+		// degrades without wrapping at the user's scrunched width.
+		{"board_100x32", 100, 32, enterBoard},
+		{"board_70x20", 70, 20, enterBoard},
+		{"graph_100x32", 100, 32, enterGraph("bt-0qzp")},
+		{"graph_70x20", 70, 20, enterGraph("bt-0qzp")},
 
 		// Epics overview, redesigned as a full-sheet project-grouped tree (bt-3ftfm.1).
 		{"epics_tree_100x32", 100, 32, epicsTreeCollapsed},

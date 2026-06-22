@@ -870,6 +870,13 @@ func (b *BoardModel) TotalCount() int {
 	return total
 }
 
+// VisibleColumnCount returns the number of columns currently shown (non-empty
+// columns, plus empties when empty-column display is on). Tracks activeColIdx,
+// the same set the board navigates.
+func (b *BoardModel) VisibleColumnCount() int {
+	return len(b.activeColIdx)
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Inline card expansion (bv-i3ii)
 // ═══════════════════════════════════════════════════════════════════════════

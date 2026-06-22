@@ -170,6 +170,14 @@ type FooterData struct {
 
 	// Total visible items in list
 	TotalItems int
+
+	// Per-view center-zone override (Phase 3). When non-empty, it replaces the
+	// scoped status stats + "N issues" count with view-specific "what am I
+	// looking at" meaning (detail = bead id + position, graph = nodes/edges,
+	// board = columns/cards). "" = default scoped counts. Supplied by
+	// footerCenter(); the override carries its own count, so the count badge is
+	// suppressed when it is set.
+	CenterOverride string
 }
 
 // FooterHint is one key-binding hint for the L1 status-bar slot. Key is the
@@ -280,7 +288,56 @@ func (m *Model) footerData() FooterData {
 	// Key hints
 	fd.Hints = m.extractKeyHints()
 
+	// Per-view center meaning (Phase 3)
+	fd.CenterOverride = m.footerCenter()
+
 	return fd
+}
+
+// footerCenter supplies the center-zone string for views whose "what am I
+// looking at" summary is more useful than the default scoped status counts
+// (Phase 3). Detail = bead id + position, graph = nodes/edges, board = visible
+// columns + cards. Returns "" for views (list, tree, insights, …) that keep the
+// scoped counts. Mirrors viewKeyMap(); detail is a sub-state of ViewList rather
+// than its own mode, so it is handled before the mode switch.
+func (m *Model) footerCenter() string {
+	// A modal overlays the underlying view; keep that view's default counts.
+	if m.activeModal != ModalNone {
+		return ""
+	}
+
+	// Detail: full-screen detail or split-view with the detail pane focused.
+	if m.mode == ViewList && ((m.showDetails && !m.isSplitView) || (m.isSplitView && m.focused == focusDetail)) {
+		sel, ok := m.list.SelectedItem().(IssueItem)
+		if !ok {
+			return ""
+		}
+		if total := len(m.list.VisibleItems()); total > 0 {
+			return fmt.Sprintf("%s · %d/%d", sel.Issue.ID, m.list.Index()+1, total)
+		}
+		return sel.Issue.ID
+	}
+
+	switch m.mode {
+	case ViewGraph:
+		return fmt.Sprintf("%s · %s",
+			countLabel(m.graphView.TotalCount(), "node"),
+			countLabel(m.graphView.EdgeCount(), "edge"))
+	case ViewBoard:
+		return fmt.Sprintf("%s · %s",
+			countLabel(m.board.VisibleColumnCount(), "col"),
+			countLabel(m.board.TotalCount(), "card"))
+	}
+	return ""
+}
+
+// countLabel formats "N word" with a plural "s" suffix when N != 1
+// (1 node / 47 nodes, 1 col / 4 cols).
+func countLabel(n int, word string) string {
+	if n == 1 {
+		return fmt.Sprintf("1 %s", word)
+	}
+	return fmt.Sprintf("%d %ss", n, word)
 }
 
 // --- Extract helpers (Model methods that compute FooterData fields) ---
@@ -710,6 +767,21 @@ func (fd FooterData) Render() string {
 	}
 	statsSection := buildStats(false)
 
+	// Per-view center override (Phase 3): detail/graph/board replace the scoped
+	// status stats with view-specific meaning ("bt-0qzp · 3/169",
+	// "47 nodes · 61 edges", "4 cols · 169 cards"). It occupies the same center
+	// slot as the stats and degrades the same way (dropped wholesale under
+	// extreme width pressure). Time travel keeps precedence — its diff is a
+	// corpus-wide signal that out-ranks per-view counts.
+	hasCenterOverride := fd.CenterOverride != "" && !fd.TimeTravelActive
+	if hasCenterOverride {
+		statsSection = lipgloss.NewStyle().
+			Background(ColorBgHighlight).
+			Foreground(ColorText).
+			Padding(0, 1).
+			Render(fd.CenterOverride)
+	}
+
 	// Worker badge
 	workerSection := fd.renderWorkerBadge()
 
@@ -876,6 +948,12 @@ func (fd FooterData) Render() string {
 	countStyle := lipgloss.NewStyle().Foreground(ColorSecondary).Padding(0, 1)
 	countBadge := countStyle.Render(fmt.Sprintf("%d issues", fd.TotalItems))
 	countBadgeShort := countStyle.Render(fmt.Sprintf("%d", fd.TotalItems))
+	if hasCenterOverride {
+		// The override carries its own count semantics (position/edges/cards);
+		// the global "N issues" badge would be redundant or wrong here.
+		countBadge = ""
+		countBadgeShort = ""
+	}
 
 	// Scope-icon-only fallback for the filter badge (last-ditch left-zone shrink).
 	filterIcon := filterBadge
@@ -947,9 +1025,13 @@ func (fd FooterData) Render() string {
 	reductions := []func(){
 		func() { dropTier(3) },
 		func() { dropTier(2) },
-		func() { statsSection = buildStats(true) }, // drop zero-count stat segments
+		func() {
+			if !hasCenterOverride { // override has no zero-count segments to drop
+				statsSection = buildStats(true)
+			}
+		},
 		func() { dropTier(1) },
-		func() { statsSection = "" },            // drop per-status stats; total survives
+		func() { statsSection = "" },            // drop per-status stats / center override; total survives
 		func() { countBadge = countBadgeShort }, // "4921 issues" -> "4921"
 		func() { labelHint = "" },               // "l:labels" duplicates the l key hint
 		func() { filterBadge = filterIcon },     // scope glyph only

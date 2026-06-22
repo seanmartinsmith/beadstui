@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -291,6 +292,185 @@ func TestFooterCounts_ScopedToActiveFilter(t *testing.T) {
 	if m.ac.countOpen != 0 || m.ac.countReady != 0 || m.ac.countBlocked != 0 {
 		t.Errorf("closed filter: scoped breakdown should be all-closed, got open=%d ready=%d blocked=%d",
 			m.ac.countOpen, m.ac.countReady, m.ac.countBlocked)
+	}
+}
+
+// TestFooterData_CenterOverride proves the Phase 3 per-view center override
+// replaces the scoped status stats + count: the override string appears and the
+// "N issues" count badge is suppressed (the override carries its own count).
+func TestFooterData_CenterOverride(t *testing.T) {
+	fd := FooterData{
+		Width:          120,
+		FilterText:     "bt",
+		FilterIcon:     "📂",
+		HintText:       "l:labels",
+		CountOpen:      163,
+		CountReady:     2,
+		CountClosed:    4,
+		TotalItems:     169,
+		CenterOverride: "bt-0qzp · 3/169",
+		Hints:          []FooterHint{{Key: "esc", Desc: "back"}, {Key: "?", Desc: "help"}},
+	}
+	out := ansi.Strip(fd.Render())
+	if !strings.Contains(out, "bt-0qzp · 3/169") {
+		t.Errorf("center override should appear in footer: %q", out)
+	}
+	if strings.Contains(out, "169 issues") {
+		t.Errorf("count badge should be suppressed when a center override is set: %q", out)
+	}
+	// The scoped status glyphs belong to the default center; the override takes
+	// their place, so the open-count number should not surface as a stat segment.
+	if strings.Contains(out, "○163") {
+		t.Errorf("scoped status stats should not render alongside a center override: %q", out)
+	}
+}
+
+// TestFooterData_CenterOverrideTimeTravelPrecedence ensures the corpus-wide time
+// travel diff out-ranks a per-view center override (the diff is the more
+// important signal while time-travelling).
+func TestFooterData_CenterOverrideTimeTravelPrecedence(t *testing.T) {
+	fd := FooterData{
+		Width:            120,
+		FilterText:       "bt",
+		FilterIcon:       "📂",
+		HintText:         "l:labels",
+		TimeTravelActive: true,
+		TimeTravelStats:  "⏱ 3d: +5 ✅2 ~3",
+		CenterOverride:   "47 nodes · 61 edges",
+		TotalItems:       169,
+		Hints:            []FooterHint{{Key: "?", Desc: "help"}},
+	}
+	out := ansi.Strip(fd.Render())
+	if !strings.Contains(out, "⏱ 3d") {
+		t.Errorf("time travel diff should win over center override: %q", out)
+	}
+	if strings.Contains(out, "47 nodes") {
+		t.Errorf("center override should yield to active time travel: %q", out)
+	}
+}
+
+// TestFooterData_CenterOverrideNeverWraps extends the one-row guarantee to the
+// override center zone: at every width the footer stays a single row within the
+// column count, and the override drops cleanly under extreme pressure.
+func TestFooterData_CenterOverrideNeverWraps(t *testing.T) {
+	base := FooterData{
+		FilterText:     "bt",
+		FilterIcon:     "📂",
+		HintText:       "l:labels",
+		TotalItems:     169,
+		CenterOverride: "bt-0qzp · 3/169",
+		Hints: []FooterHint{
+			{Key: "esc", Desc: "back"},
+			{Key: "C", Desc: "copy"},
+			{Key: "O", Desc: "edit"},
+			{Key: "?", Desc: "help"},
+		},
+	}
+	for w := 24; w <= 220; w++ {
+		fd := base
+		fd.Width = w
+		out := fd.Render()
+		if strings.Contains(out, "\n") {
+			t.Fatalf("width=%d: footer with center override wrapped to 2 rows: %q", w, out)
+		}
+		if got := ansi.StringWidth(out); got > w {
+			t.Fatalf("width=%d: footer with center override overran width %d: %q", w, got, ansi.Strip(out))
+		}
+	}
+}
+
+// TestFooterCenter_PerView proves footerCenter() returns view-appropriate
+// meaning: detail = bead id + position, graph = nodes/edges, board =
+// columns/cards, and plain list = "" (keeps the default scoped counts).
+func TestFooterCenter_PerView(t *testing.T) {
+	newModel := func() Model {
+		m := NewModel(harnessIssues(), nil, "", nil)
+		nm, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+		return nm.(Model)
+	}
+
+	// Plain list keeps the default (no override).
+	t.Run("list", func(t *testing.T) {
+		m := newModel()
+		if got := m.footerCenter(); got != "" {
+			t.Errorf("list view should have no center override, got %q", got)
+		}
+	})
+
+	// Detail (full-screen) = selected bead id + 1-based position / visible total.
+	t.Run("detail", func(t *testing.T) {
+		m := newModel()
+		harnessSelect(&m, "bt-0qzp")
+		m.showDetails = true
+		m.focused = focusDetail
+		got := m.footerCenter()
+		if !strings.HasPrefix(got, "bt-0qzp · ") {
+			t.Errorf("detail center should lead with the selected bead id, got %q", got)
+		}
+		total := len(m.list.VisibleItems())
+		if want := fmt.Sprintf("bt-0qzp · %d/%d", m.list.Index()+1, total); got != want {
+			t.Errorf("detail center = %q, want %q", got, want)
+		}
+	})
+
+	// Graph = nodes/edges.
+	t.Run("graph", func(t *testing.T) {
+		m := newModel()
+		m.mode = ViewGraph
+		m.focused = focusGraph
+		m.refreshBoardAndGraphForCurrentFilter()
+		want := fmt.Sprintf("%s · %s",
+			countLabel(m.graphView.TotalCount(), "node"),
+			countLabel(m.graphView.EdgeCount(), "edge"))
+		if got := m.footerCenter(); got != want {
+			t.Errorf("graph center = %q, want %q", got, want)
+		}
+	})
+
+	// Board = visible columns / cards.
+	t.Run("board", func(t *testing.T) {
+		m := newModel()
+		m.mode = ViewBoard
+		m.focused = focusBoard
+		m.refreshBoardAndGraphForCurrentFilter()
+		want := fmt.Sprintf("%s · %s",
+			countLabel(m.board.VisibleColumnCount(), "col"),
+			countLabel(m.board.TotalCount(), "card"))
+		if got := m.footerCenter(); got != want {
+			t.Errorf("board center = %q, want %q", got, want)
+		}
+	})
+
+	// A modal over any view suppresses the override (keep underlying counts).
+	t.Run("modal_suppresses", func(t *testing.T) {
+		m := newModel()
+		m.mode = ViewGraph
+		m.focused = focusGraph
+		m.refreshBoardAndGraphForCurrentFilter()
+		m.activeModal = ModalHelp
+		if got := m.footerCenter(); got != "" {
+			t.Errorf("modal should suppress center override, got %q", got)
+		}
+	})
+}
+
+// TestCountLabel_Pluralization covers the singular/plural boundary.
+func TestCountLabel_Pluralization(t *testing.T) {
+	cases := []struct {
+		n    int
+		word string
+		want string
+	}{
+		{0, "node", "0 nodes"},
+		{1, "node", "1 node"},
+		{2, "edge", "2 edges"},
+		{4, "col", "4 cols"},
+		{1, "card", "1 card"},
+	}
+	for _, c := range cases {
+		if got := countLabel(c.n, c.word); got != c.want {
+			t.Errorf("countLabel(%d, %q) = %q, want %q", c.n, c.word, got, c.want)
+		}
 	}
 }
 
