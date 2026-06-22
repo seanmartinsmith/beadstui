@@ -1,5 +1,10 @@
 # Help System Redesign Plan (bt-xavk)
 
+> **Superseded (2026-06-22)** for the `?` / `??` shape: see
+> `docs/design/2026-06-22-bt-dx7k-help-surface-split.md` (`?` = global-only, `;` =
+> active-view-only, no `??` layer). This plan predates the `;` sidebar and the
+> bt-ift6 per-view-Map / FullHelp() architecture; kept for historical context.
+
 ## Context
 
 bt has ~50 keyboard shortcuts spread across 7+ view-specific handlers. Session 11 audit found 22 undocumented shortcuts. The current help overlay (single `?` press) dumps everything into a static 4x2 grid - overwhelming for new users, insufficient for power users.
