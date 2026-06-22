@@ -562,7 +562,7 @@ func TestRenderFooterStatusAndBadges(t *testing.T) {
 
 	// status message branch
 	m.statusMsg = "Saved"
-	m.statusSeverity = SeverityNone
+	m.statusSeverity = SeveritySuccess
 	footer := m.renderFooter()
 	if !strings.Contains(footer, "Saved") {
 		t.Fatalf("footer should include status message")
@@ -1092,7 +1092,7 @@ func TestRenderFooterVariantsAndDiffStatus(t *testing.T) {
 
 	// Status message branch
 	m.statusMsg = "All good"
-	m.statusSeverity = SeverityNone
+	m.statusSeverity = SeveritySuccess
 	out := m.renderFooter()
 	if !strings.Contains(out, "All good") {
 		t.Fatalf("status footer missing message: %s", out)
