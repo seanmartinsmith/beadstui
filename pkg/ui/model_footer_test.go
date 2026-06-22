@@ -474,6 +474,67 @@ func TestCountLabel_Pluralization(t *testing.T) {
 	}
 }
 
+// TestFooterPinnedToBottomRow asserts the View()-level invariant that the
+// footer is always the final terminal row, across every view mode. It guards
+// the bt-yyked fix: under-filling views (detail/actionable) used to leave the
+// footer floating mid-screen, and over-filling views (graph/insights) used to
+// push it past the bottom where it was clipped away entirely.
+func TestFooterPinnedToBottomRow(t *testing.T) {
+	cases := []struct {
+		name  string
+		h     int
+		setup func(*Model)
+	}{
+		{"list", 24, nil},
+		{"detail", 28, func(m *Model) {
+			harnessSelect(m, "bt-0qzp")
+			m.showDetails = true
+			m.focused = focusDetail
+			m.updateViewportContent()
+		}},
+		{"graph", 32, func(m *Model) {
+			m.mode = ViewGraph
+			m.focused = focusGraph
+			m.refreshBoardAndGraphForCurrentFilter()
+		}},
+		{"graph_scrunched", 20, func(m *Model) {
+			m.mode = ViewGraph
+			m.focused = focusGraph
+			m.refreshBoardAndGraphForCurrentFilter()
+		}},
+		{"board", 32, func(m *Model) {
+			m.mode = ViewBoard
+			m.focused = focusBoard
+			m.refreshBoardAndGraphForCurrentFilter()
+		}},
+		{"actionable", 32, func(m *Model) {
+			m.mode = ViewActionable
+			m.focused = focusActionable
+		}},
+		{"insights", 32, func(m *Model) { m.openInsightsView() }},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			m := NewModel(harnessIssues(), nil, "", nil)
+			nm, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: c.h})
+			m = nm.(Model)
+			if c.setup != nil {
+				c.setup(&m)
+			}
+			content := ansi.Strip(m.View().Content)
+			lines := strings.Split(content, "\n")
+			if len(lines) != c.h {
+				t.Fatalf("rendered %d rows, want exactly terminal height %d", len(lines), c.h)
+			}
+			gotLast := strings.TrimRight(lines[len(lines)-1], " ")
+			wantFooter := strings.TrimRight(ansi.Strip(m.renderFooter()), " ")
+			if gotLast != wantFooter {
+				t.Errorf("footer is not the final row.\n last row: %q\n footer:   %q", gotLast, wantFooter)
+			}
+		})
+	}
+}
+
 func TestFooterData_UpdateBadge(t *testing.T) {
 	fd := FooterData{
 		Width:      120,

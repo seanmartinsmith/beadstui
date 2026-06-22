@@ -29,6 +29,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
@@ -212,6 +213,24 @@ func TestRenderDump(t *testing.T) {
 			m.graphView.SelectByID(id)
 		}
 	}
+	// enterActionable / enterFlowMatrix / enterInsights mirror the real toggle
+	// handlers so the footer-pin audit (bt-yyked follow-up) has ground-truth
+	// dumps for the views the resume note flagged as m.height-2 suspects.
+	enterActionable := func(m *Model) {
+		m.mode = ViewActionable
+		m.focused = focusActionable
+	}
+	enterFlowMatrix := func(m *Model) {
+		cfg := analysis.DefaultLabelHealthConfig()
+		flow := analysis.ComputeCrossLabelFlow(m.data.issues, cfg)
+		m.mode = ViewFlowMatrix
+		m.focused = focusFlowMatrix
+		m.flowMatrix = NewFlowMatrixModel(m.theme)
+		m.flowMatrix.SetData(&flow, m.data.issues)
+	}
+	enterInsights := func(m *Model) {
+		m.openInsightsView()
+	}
 	epicCard := func(m *Model) {
 		now := time.Now()
 		// Same fixture as epicsView: a stale in-progress child plus the
@@ -257,6 +276,14 @@ func TestRenderDump(t *testing.T) {
 		{"board_70x20", 70, 20, enterBoard},
 		{"graph_100x32", 100, 32, enterGraph("bt-0qzp")},
 		{"graph_70x20", 70, 20, enterGraph("bt-0qzp")},
+
+		// Footer-pin audit (bt-yyked follow-up): views suspected of a
+		// bottom-gap / footer-clip so the dump shows whether the footer lands
+		// on the final row at the user's scrunched height.
+		{"actionable_100x32", 100, 32, enterActionable},
+		{"actionable_70x20", 70, 20, enterActionable},
+		{"flowmatrix_100x32", 100, 32, enterFlowMatrix},
+		{"insights_100x32", 100, 32, enterInsights},
 
 		// Epics overview, redesigned as a full-sheet project-grouped tree (bt-3ftfm.1).
 		{"epics_tree_100x32", 100, 32, epicsTreeCollapsed},

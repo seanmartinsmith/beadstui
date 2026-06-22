@@ -251,6 +251,20 @@ func (m Model) View() tea.View {
 
 	footer := m.renderFooter()
 
+	// Pin the footer to the final row at every height. The body region owns
+	// exactly m.height-1 rows and the footer owns the last. Without this,
+	// under-filling views (detail viewport, actionable plan) leave their footer
+	// floating mid-screen with blank rows below it, and views that over-fill by
+	// a row (graph / insights panels) push the footer past the bottom where the
+	// MaxHeight below clips it away entirely. Clamping makes the footer's
+	// bottom-row guarantee structural — the vertical analogue of the never-wrap
+	// width guarantee (bt-yyked).
+	bodyRows := m.height - 1
+	if bodyRows < 1 {
+		bodyRows = 1
+	}
+	body = lipgloss.NewStyle().Height(bodyRows).MaxHeight(bodyRows).Render(body)
+
 	// Ensure the final output fits exactly in the terminal height
 	// This prevents the header from being pushed off the top
 	finalStyle := lipgloss.NewStyle().
