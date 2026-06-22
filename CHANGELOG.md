@@ -6,6 +6,23 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-06-22 — Help surfaces consume the key.Map: `;` sidebar + `?` overlay as FullHelp() consumers (bt-ift6.10, bt-ift6.11)
+
+**The surface layer of the bubbles/v2/key epic (bt-ift6). The `;` shortcuts sidebar and `?` help overlay now render from per-view `key.Map.FullHelp()` instead of hand-maintained string tables, so all three help surfaces — L1 footer (`ShortHelp`), L1.5 sidebar (`FullHelp`), L2 overlay (`FullHelp`) — consume the single binding source and the keybindings audit's drift table is zero by construction. (.12, the L1 footer hint, was already done by the bt-a3zi3 footer redesign.) Shipped as a net upgrade with two known follow-up bugs the dogfood surfaced — see Notes.**
+
+### Ships (bt-ift6.10 + bt-ift6.11, area:tui + help-system)
+
+- **`;` sidebar → FullHelp() consumer (bt-ift6.10)** — `allSections()` (9 titled string-table sections), `shortcutSection`/`shortcutItem`, and `ContextFromFocus()` deleted. The sidebar renders `Model.sidebarHelpGroups()`: `GlobalKeys.FullHelp()` ++ the active view's `FullHelp()`, or the active modal's `FullHelp()` alone (modals own the sidebar). New `viewSpecificKeyMap()` split out of `viewKeyMap()` so the sidebar composes Global without doubling it. Section titles are gone (FullHelp carries no headers — blank-line grouping instead).
+- **`?` overlay → FullHelp() consumer (bt-ift6.11)** — the eight literal `[]struct{key,desc}` section tables deleted. `renderHelpOverlay` builds one river/masonry panel per view `key.Map` from `FullHelp()` (Global/List/Board/Graph/Insights/History/Actionable/Tree/Flow Matrix/Epics) via new `renderRowsPanel` + `bindingGroups` helpers; the status-glyph legend is kept (no `key.Map` source). Same flipped desc-left/key-right alignment + RenderTitledPanel chrome.
+
+### Notes
+
+- **Two known bugs filed front-of-line from the dogfood pass.** The `?` overlay is comprehensive-by-design (every view at once), which overflows at scrunched widths — **bt-dx7k bumped to P1**, fixed by bt-xavk's context-aware scoping (scope `?` to the active view + Global, "recognition over recall"); the `renderRowsPanel`/`bindingGroups` helpers already expose the API the redesign needs. The `;` sidebar can surface per-view `key.Map` gaps where a Map diverges from live dispatch — **bt-yvr4g** (map-content accuracy, pre-existing, made visible by .10; not a render bug).
+- Drift across footer/sidebar/overlay is now structurally impossible. **bt-ift6.13** (audit-doc refresh + epic close) remains; its legacy-table deletion already landed here.
+- **Tested:** `go build` / `go vet` clean, `go test ./pkg/ui/...` green. New: `TestShortcutsSidebar_RendersBindingGroups`, `_SkipsDisabledAndEmptyBindings`, `TestSidebarHelpGroups_NonModalComposesGlobalAndView`, `_ModalShowsModalOnly`, `TestHelpOverlay_ConsumesKeyMapBindings`. Both surfaces eyeballed via render dumps.
+
+---
+
 ## 2026-06-22 — Smart footer Phase 4: severity-tiered notification toasts + permanent unread bell (bt-a3zi3.1)
 
 **The deferred notifications layer completes the smart-footer redesign (bt-a3zi3). Status messages are now severity-tiered (Success / Notice / Failure / Degraded): a transient toast borrows the footer's right zone then yields it back, while a permanent unread bell (`🔔N`) sourced from the `m.events` ring buffer surfaces what the user missed. An `alertsSeenAt` timestamp draws the seen-vs-dismissed line — the bell counts unseen alerts and clears on opening the notifications view. Spec/plan at `docs/design/2026-06-22-footer-phase4-notifications.md` + `docs/plans/2026-06-22-footer-phase4-notifications.md`; commits `7a2660ae..e617e5ac`.**
