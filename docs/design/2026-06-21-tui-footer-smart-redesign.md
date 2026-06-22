@@ -154,11 +154,21 @@ simplest and matches the existing `viewKeyMap()` pattern.
 
 ### 5. Notifications
 
-- **Transient toast**: keep `setInlineTransientStatus` as the trigger, but render it as a dedicated
-  center/right override (`✓ ... +N −M` / `✗ ...`) that yields back to hints after the timer.
-  Errors are sticky until acknowledged (no auto-fade).
-- **Permanent badge**: `🔔N` from `m.events.UnreadCount()`, pinned in the right zone, opens the
-  alerts modal (existing binding).
+> Refined by the 2026-06-22 brainstorm into a full Phase 4 spec:
+> [2026-06-22-footer-phase4-notifications.md](2026-06-22-footer-phase4-notifications.md).
+> That doc supersedes the sketch below (notably: errors are severity-tiered and
+> recoverable in the bell, and "sticky" means *until the condition resolves*, not
+> until the user acknowledges).
+
+- **Transient toast**: severity-driven (Success / Notice / Failure / Degraded). Renders as a
+  glyphed center override (`✓ ... +N −M` / `✗ ...` / `⚠ ...`) that yields back to hints. Success
+  and Notice auto-fade and never touch the bell; Failure auto-fades (longer) and Degraded is sticky
+  until the live condition self-resolves - both append an `EventSystem` so they are recoverable in
+  the alerts modal.
+- **Permanent badge**: `🔔N` = ring-buffer events since `alertsSeenAt` (a session high-water-mark),
+  pinned in the right zone, opens the alerts modal. Opening clears the footer (sets `alertsSeenAt`)
+  without dismissing the modal inbox - "seen" and "dismissed" are separate states. Cross-session
+  durability is deferred to `bt-vhzia`.
 
 ---
 
