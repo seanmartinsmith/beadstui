@@ -251,6 +251,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		case "tab":
 			if m.activeTab == TabAlerts {
 				m.activeTab = TabNotifications
+				m.markNotificationsSeen()
 			} else {
 				m.activeTab = TabAlerts
 			}
@@ -268,6 +269,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				m.closeModal()
 			} else {
 				m.activeTab = TabNotifications
+				m.markNotificationsSeen()
 			}
 			return m, nil
 		}
@@ -1224,6 +1226,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				break
 			}
 			m.activeTab = TabNotifications
+			m.markNotificationsSeen()
 			m.openModal(ModalAlerts)
 			m.notificationsCursor = 0
 			return m, nil

@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
 )
 
 func TestStatusSeverityGlyph(t *testing.T) {
@@ -681,4 +682,16 @@ func TestErrorSettersBellAppend(t *testing.T) {
 			t.Errorf("Degraded must be sticky (dismiss age 0)")
 		}
 	})
+}
+
+func TestMarkNotificationsSeenClearsBell(t *testing.T) {
+	m := NewModel(harnessIssues(), nil, "", nil)
+	m.events.Append(events.NewSystemEvent("something happened"))
+	if m.footerData().BellCount == 0 {
+		t.Fatal("precondition: an unseen event should bump the bell")
+	}
+	m.markNotificationsSeen()
+	if got := m.footerData().BellCount; got != 0 {
+		t.Errorf("BellCount after mark-seen = %d, want 0", got)
+	}
 }

@@ -90,6 +90,13 @@ func (m *Model) clearStatus() {
 	m.statusIsInline = false
 }
 
+// markNotificationsSeen advances the footer bell's high-water-mark so the
+// badge clears, without dismissing any modal items (seen != dismissed,
+// bt-a3zi3.1).
+func (m *Model) markNotificationsSeen() {
+	m.alertsSeenAt = time.Now()
+}
+
 // statusDismissAge is how long a toast of the given severity stays before
 // the idle tick clears it. Degraded returns 0 (sticky - cleared only by the
 // recovery path; see handleSnapshotReady).
