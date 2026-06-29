@@ -154,7 +154,7 @@ func NewGlobalKeys() GlobalKeys {
 		),
 		SearchMode: key.NewBinding(
 			key.WithKeys("ctrl+s"),
-			key.WithHelp("⌃s", "search mode"),
+			key.WithHelp("⌃s", "cycle search ranker"),
 		),
 		BQL: key.NewBinding(
 			key.WithKeys(":"),

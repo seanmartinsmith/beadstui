@@ -154,6 +154,17 @@ func TestUniversalNav_ConsistentAcrossViews(t *testing.T) {
 	}
 }
 
+// TestGlobalKeys_SearchModeDesc verifies the SearchMode binding carries the
+// corrected help desc "cycle search ranker" (bt-dx7k.1 Task 4). The old desc
+// "search mode" was misleading: ctrl+s cycles the ranker, it does not open search.
+func TestGlobalKeys_SearchModeDesc(t *testing.T) {
+	want := "cycle search ranker"
+	got := NewGlobalKeys().SearchMode.Help().Desc
+	if got != want {
+		t.Errorf("SearchMode.Help().Desc = %q, want %q", got, want)
+	}
+}
+
 func contains(haystack []string, needle string) bool {
 	for _, h := range haystack {
 		if h == needle {
