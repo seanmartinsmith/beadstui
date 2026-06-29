@@ -75,18 +75,25 @@ A curated, navigation-first projection of GlobalKeys, ~7 entries + 1 conditional
 ```
 ╭───────── shortcuts ─────────╮
 │ b board     g graph         │
-│ i insights  ^s search       │
+│ i insights  / search        │
 │ l labels    w projects*     │
-│ ? help      ^c quit         │
+│ ? help      q quit          │
 │   ↓ expand   ·   ; per-view │
 ╰── esc ── q ── close ────────╯
         * w only when multi-project
 ```
 
 - **Bindings (by GlobalKeys field, descs sourced from the Map):** `Board`,
-  `Graph`, `Insights`, `SearchMode`, `LabelPicker`, `Help`, `Quit`, and
+  `Graph`, `Insights`, `SearchBounce` (`/` "search" -- the real search-entry key;
+  in list view `/` opens the Bubbles list filter, and the binding is always shown
+  as "search"), `LabelPicker`, `Help`, `Back` (`q` "back / quit"), and
   `ProjectsOrWisps` **only when the scope is multi-project / cross-project**
   (bt already knows scope mode; in a single-project setup the slot is dropped).
+- **NOT `SearchMode` (`^s`).** `^s` cycles the search *ranker*
+  (fuzzy/hybrid/semantic; `model_update_input.go:704`), gated to list focus -- it
+  does NOT open the search bar and is a no-op in other views. Its help desc
+  "search mode" is misleading; it must not be the mini's "search" pointer. See
+  the related-fix note below.
 - **Dropped from earlier drafts:** BQL (`:`) -- low/zero observed usage; the
   broader "is BQL worth keeping" question is parked (separate bead, not this work).
 - **Per-view actions (sort, etc.) are intentionally NOT here** -- they are
@@ -95,10 +102,9 @@ A curated, navigation-first projection of GlobalKeys, ~7 entries + 1 conditional
   global `?` would re-break the `bt-y8uku` split.
 - **Nudge line:** `↓ expand   ·   ; per-view` (prose, not Map rows). The bottom
   border weaves `esc ── q ── close`.
-- Exact field choices for "search" (`SearchMode` `^s`, the always-enabled global
-  search) and "quit" (`Quit` `^c`) are finalizable in the plan; disabled
-  bindings are skipped (the projection runs through the same enabled/has-help
-  filter as the full sheet, so the mini stays truthful to context).
+- The projection runs through the same enabled/has-help filter as the full sheet,
+  so the mini stays truthful to context (a binding disabled in the current state
+  is skipped).
 
 ## Full sheet (carried forward + restyled)
 
@@ -153,6 +159,20 @@ line instead (acceptable).
   short heights with no clip; full sheet non-clipping; single border, no rainbow.
 - Single-source-of-truth: no literal key/desc tables (mini is field projection).
 - Live dogfood at scrunched sizes before push (held).
+
+## Related finding: `^s` "search mode" mislabel
+
+Surfaced during this design. `GlobalKeys.SearchMode` (`^s`, help desc "search
+mode") does NOT open search; it cycles the search ranker (fuzzy -> hybrid ->
+semantic, `model_update_input.go:704`), gated to list focus, and is a no-op
+elsewhere. The desc reads as search-entry and misled the design. Proposed fix: a
+one-line desc rename so the help is truthful (e.g. "cycle search ranker" or
+"ranker: fuzzy/hybrid/semantic"). Because accurate help IS the point of this
+work, folding the one-line `keys/global.go` desc change into bt-dx7k.1 is the
+recommendation; pending the maintainer's call on (a) fold vs separate bead and
+(b) the exact replacement wording. (Whether `/` search and a ranker key should
+both live in the global Actions group is a separate, larger question -- not in
+scope here.)
 
 ## Out of scope
 
