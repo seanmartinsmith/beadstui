@@ -1191,8 +1191,13 @@ func (m *Model) renderHelpOverlay() string {
 	}
 	boxWidth := innerWidth + 2 // +2 for left/right border characters
 
-	// Interior: windowed body + footer as the last line, joined for RenderTitledPanel.
-	allLines := append(window, footer)
+	// Interior: windowed body + a centered footer line, joined for RenderTitledPanel.
+	// Centering matches the mini's footer/nudge so the close hint sits mid-box,
+	// not flush-left (bt-dx7k.1 dogfood). Build a fresh slice so appending the
+	// footer never aliases the bodyLines backing array.
+	allLines := make([]string, 0, len(window)+1)
+	allLines = append(allLines, window...)
+	allLines = append(allLines, centerLine(footer, innerWidth))
 	interior := strings.Join(allLines, "\n")
 
 	boxed := RenderTitledPanel(interior, PanelOpts{
