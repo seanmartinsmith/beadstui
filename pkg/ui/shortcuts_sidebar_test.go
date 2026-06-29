@@ -62,10 +62,11 @@ func TestShortcutsSidebar_SkipsDisabledAndEmptyBindings(t *testing.T) {
 	}
 }
 
-// TestSidebarHelpGroups_NonModalComposesGlobalAndView verifies the ; sidebar
-// composes the global bindings plus the active view's bindings when no modal is
-// open, so the single key.Map source feeds the surface (bt-ift6.10).
-func TestSidebarHelpGroups_NonModalComposesGlobalAndView(t *testing.T) {
+// TestSidebarHelpGroups_NonModalShowsViewOnly verifies the ; sidebar shows the
+// active view's bindings ONLY (bt-dx7k) - the Global prefix is dropped (it now
+// lives on the ? overlay). In List view, "cycle sort" (ListNormal) is present
+// and "board" (Global) is absent.
+func TestSidebarHelpGroups_NonModalShowsViewOnly(t *testing.T) {
 	m := NewModel(harnessIssues(), nil, "", nil)
 	m.mode = ViewList
 	m.activeModal = ModalNone
@@ -76,11 +77,11 @@ func TestSidebarHelpGroups_NonModalComposesGlobalAndView(t *testing.T) {
 			descs[b.Help().Desc] = true
 		}
 	}
-	if !descs["board"] {
-		t.Errorf("expected a global binding (board) in non-modal sidebar groups")
+	if descs["board"] {
+		t.Errorf("global binding (board) must NOT appear in the view-only ; sidebar")
 	}
 	if !descs["cycle sort"] {
-		t.Errorf("expected a list binding (cycle sort) in non-modal sidebar groups")
+		t.Errorf("expected a list binding (cycle sort) in the ; sidebar")
 	}
 }
 
@@ -103,6 +104,37 @@ func TestSidebarHelpGroups_ModalShowsModalOnly(t *testing.T) {
 	}
 	if !descs["apply recipe"] {
 		t.Errorf("expected a recipe-picker binding (apply recipe) in modal sidebar groups")
+	}
+}
+
+// TestShortcutsSidebar_EmptyViewFallback verifies the ; sidebar shows a fallback
+// directing to ? when the active view has no view-specific bindings (bt-dx7k).
+func TestShortcutsSidebar_EmptyViewFallback(t *testing.T) {
+	sidebar := NewShortcutsSidebar(sidebarTestTheme())
+	sidebar.SetSize(34, 20)
+	sidebar.SetBindings(nil) // empty-view (e.g. Attention / LabelDashboard)
+
+	view := sidebar.View()
+	if !strings.Contains(view, "?") {
+		t.Errorf("empty-view sidebar should direct to ? for global\n%s", view)
+	}
+	if !strings.Contains(strings.ToLower(view), "no actions") {
+		t.Errorf("empty-view sidebar should state there are no view actions\n%s", view)
+	}
+}
+
+// TestShortcutsSidebar_CrossRefFooter verifies the ; sidebar footer cross-
+// references the ? overlay (bt-dx7k), symmetric with the ? footer.
+func TestShortcutsSidebar_CrossRefFooter(t *testing.T) {
+	sidebar := NewShortcutsSidebar(sidebarTestTheme())
+	sidebar.SetSize(34, 20)
+	sidebar.SetBindings([][]key.Binding{
+		{key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "open detail"))},
+	})
+
+	view := sidebar.View()
+	if !strings.Contains(view, "?") {
+		t.Errorf("; sidebar footer should cross-reference ? for global\n%s", view)
 	}
 }
 

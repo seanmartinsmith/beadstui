@@ -768,10 +768,10 @@ func (m Model) modalKeyMap() help.KeyMap {
 // sidebarHelpGroups returns the FullHelp() binding groups the ; shortcuts
 // sidebar renders for the current state (bt-ift6.10). When a modal owns the
 // sidebar (ADR-004 Decision 4) it shows that modal's FullHelp() alone;
-// otherwise it composes the Global map's groups with the active view's, so both
-// global chrome/nav and view-specific actions stay discoverable. Reads from the
-// same key.Map source as the L1 footer (ShortHelp) and ? overlay (FullHelp), so
-// the three surfaces cannot drift.
+// otherwise it shows the active view's bindings only (bt-dx7k) - the Global
+// map now lives on the ? overlay so the two surfaces carry complementary
+// content. Reads from the same key.Map source as the L1 footer (ShortHelp)
+// and ? overlay (FullHelp), so the three surfaces cannot drift.
 func (m Model) sidebarHelpGroups() [][]key.Binding {
 	if m.activeModal != ModalNone {
 		if km := m.modalKeyMap(); km != nil {
@@ -779,11 +779,13 @@ func (m Model) sidebarHelpGroups() [][]key.Binding {
 		}
 		return nil
 	}
-	groups := m.keys.Global.FullHelp()
+	// View-only (bt-dx7k): the Global map now lives on the ? overlay; ; shows
+	// just the active view's actions. nil view map -> empty (the sidebar renders
+	// an empty-view fallback; see ShortcutsSidebar.View).
 	if km := m.viewSpecificKeyMap(); km != nil {
-		groups = append(groups, km.FullHelp()...)
+		return km.FullHelp()
 	}
-	return groups
+	return nil
 }
 
 // ---------------------------------------------------------------------------

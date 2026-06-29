@@ -131,6 +131,12 @@ func (s *ShortcutsSidebar) View() string {
 	}
 
 	fullContent := strings.TrimRight(sb.String(), "\n")
+	if strings.TrimSpace(fullContent) == "" {
+		// Empty view (e.g. Attention / LabelDashboard): no view-specific bindings.
+		// Show a fallback directing to ? for global shortcuts (bt-dx7k).
+		fullContent = dimStyle.Render("no actions here") + "\n" +
+			dimStyle.Render("press ? for global")
+	}
 	lines := strings.Split(fullContent, "\n")
 	totalLines := len(lines)
 
@@ -162,9 +168,9 @@ func (s *ShortcutsSidebar) View() string {
 		if maxScroll > 0 {
 			scrollPercent = s.scrollOffset * 100 / maxScroll
 		}
-		footer = dimStyle.Render(fmt.Sprintf("ctrl+j/k scroll %d%%", scrollPercent))
+		footer = dimStyle.Render(fmt.Sprintf("ctrl+j/k %d%%  -  ? global", scrollPercent))
 	} else {
-		footer = dimStyle.Render("; hide")
+		footer = dimStyle.Render("? global  -  ; hide")
 	}
 
 	content := visibleContent + "\n" + footer
