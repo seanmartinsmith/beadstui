@@ -137,7 +137,9 @@ func (m Model) View() tea.View {
 	case ModalLabelPicker:
 		// Handled as overlay after background renders (below)
 	case ModalHelp:
-		body = m.renderHelpOverlay()
+		// Handled as overlay after background renders (below) so the help card
+		// floats over the dimmed current view like the other modals, instead of
+		// replacing it with its own full-screen page (bt-dx7k.1 dogfood).
 	case ModalTutorial:
 		body = m.tutorialModel.View()
 	case ModalNone:
@@ -213,6 +215,12 @@ func (m Model) View() tea.View {
 	// matching the alerts/notifications pop-up aesthetic introduced by bt-v8he
 	// and unified across all modals by bt-o1hs. The non-dim OverlayCenter is
 	// reserved for non-modal overlays (debug, transient hints).
+	if m.activeModal == ModalHelp {
+		// The ? help card floats over the dimmed current view (bt-dx7k.1 dogfood),
+		// matching the pop-up aesthetic of every other modal. renderHelpOverlay
+		// returns the bare card (mini or full sheet); this centers + dims.
+		body = OverlayCenterDimBackdrop(body, m.renderHelpOverlay(), m.width, m.height-1)
+	}
 	if m.activeModal == ModalRepoPicker {
 		body = OverlayCenterDimBackdrop(body, m.repoPicker.View(), m.width, m.height-1)
 	}
@@ -1124,11 +1132,12 @@ func (m Model) renderHelpMini() string {
 	return boxed
 }
 
-// renderHelpOverlay renders the ? help overlay as a single rounded modal box
-// (bt-dx7k.1). The box interior holds the windowed body lines (from
-// helpOverlayBodyLines, panned by helpScroll) plus a dim footer line as the
-// last interior row. The outer border carries the "shortcuts" title. ONE
-// RenderTitledPanel wraps the whole modal; lipgloss.Place centers it.
+// renderHelpOverlay renders the ? help card (mini or full sheet) as a single
+// rounded box (bt-dx7k.1). The box interior holds the windowed body lines (from
+// helpOverlayBodyLines, panned by helpScroll) plus a centered dim footer line as
+// the last interior row. The outer border carries the "shortcuts" title. ONE
+// RenderTitledPanel wraps the modal; View() composites the returned card centered
+// over the dimmed background via OverlayCenterDimBackdrop (it does not Place here).
 func (m *Model) renderHelpOverlay() string {
 	t := m.theme
 	bodyLines := m.helpOverlayBodyLines()
@@ -1137,7 +1146,7 @@ func (m *Model) renderHelpOverlay() string {
 	// compact non-scrolling mini card instead. Mirrors yazi's (area.h-2) < POPUP_H
 	// selector — size-driven, no new keypress or toggle.
 	if len(bodyLines) > m.helpOverlayAvailBody() {
-		return lipgloss.Place(m.width, m.height-1, lipgloss.Center, lipgloss.Center, m.renderHelpMini())
+		return m.renderHelpMini()
 	}
 
 	avail := m.helpOverlayAvailBody()
@@ -1208,11 +1217,10 @@ func (m *Model) renderHelpOverlay() string {
 		TitleColor:  t.Secondary,
 	})
 
-	// Center vertically: the full sheet only renders when it fits the available
-	// body (the tier selector shows the mini otherwise), so the bt-dx7k clipping
-	// risk is gone and the box floats centered rather than pinned to the top
-	// (bt-dx7k.1 dogfood).
-	return lipgloss.Place(m.width, m.height-1, lipgloss.Center, lipgloss.Center, boxed)
+	// Return the bare card; View() composites it centered over the dimmed
+	// background via OverlayCenterDimBackdrop so the help floats over the current
+	// view like the other modals rather than replacing it (bt-dx7k.1 dogfood).
+	return boxed
 }
 
 func (m Model) renderLabelHealthDetail(lh analysis.LabelHealth) string {

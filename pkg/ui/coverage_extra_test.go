@@ -1580,33 +1580,49 @@ func TestHelpOverlayMini_HiddenWhenTall(t *testing.T) {
 	}
 }
 
-// TestHelpOverlay_FullSheetVerticallyCentered verifies the full sheet floats
-// vertically centered (not pinned to the top) when there is spare height
-// (bt-dx7k.1 dogfood). The tier selector guarantees the full sheet only renders
-// when it fits, so centering cannot clip.
-func TestHelpOverlay_FullSheetVerticallyCentered(t *testing.T) {
+// TestHelpOverlay_FloatsOverDimmedBackground verifies the ? overlay composites as
+// a modal floating (centered) over the dimmed current view, rather than replacing
+// it with its own full-screen page (bt-dx7k.1 dogfood). Driven through View() so
+// the OverlayCenterDimBackdrop compositing path is exercised.
+func TestHelpOverlay_FloatsOverDimmedBackground(t *testing.T) {
 	m := NewModel(harnessIssues(), nil, "", nil)
-	m.width, m.height = 120, 44
+	nm, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 44})
+	m = nm.(Model)
 	m.openModal(ModalHelp)
 	m.focused = focusHelp
-	out := m.renderHelpOverlay()
+	out := m.View().Content
 
-	// Sanity: this is the full sheet, not the mini.
-	if strings.Contains(out, "↓ expand") {
-		t.Fatalf("expected full sheet at 120x44, got mini")
+	// The full help card renders (not the mini at this size).
+	if !strings.Contains(out, "shortcuts") || !strings.Contains(out, "SWITCH VIEWS") {
+		t.Fatalf("expected the full help card to render")
 	}
-	// The box top border must NOT be on the first row -- there should be leading
-	// blank rows above it (vertical centering). Top-pinned would put it at row 0.
+	if strings.Contains(out, "↓ expand") {
+		t.Fatalf("expected the full sheet at 120x44, got the mini")
+	}
+	// Locate the card (its title row) and the underlying view (the column header
+	// "TYPE", which the help card has no copy of). Both must be present, and the
+	// background header must sit ABOVE the card -- proving the card floats
+	// centered over a still-visible background, not replacing the page (an
+	// own-page render would drop the list entirely; a top-pinned card would put
+	// its title on row 0).
 	lines := strings.Split(out, "\n")
-	firstBox := -1
+	cardRow, bgRow := -1, -1
 	for i, l := range lines {
-		if strings.Contains(l, "╭") {
-			firstBox = i
-			break
+		if cardRow < 0 && strings.Contains(l, "shortcuts") {
+			cardRow = i
+		}
+		if bgRow < 0 && strings.Contains(l, "TYPE") {
+			bgRow = i
 		}
 	}
-	if firstBox <= 0 {
-		t.Fatalf("expected leading blank rows above a vertically-centered box, box top at line %d", firstBox)
+	if bgRow < 0 {
+		t.Fatalf("expected the underlying view (column header 'TYPE') visible behind the floating help modal")
+	}
+	if cardRow <= 0 {
+		t.Fatalf("expected the help card title floated below the top row, got line %d", cardRow)
+	}
+	if bgRow >= cardRow {
+		t.Fatalf("expected the background header (line %d) above the centered card (line %d)", bgRow, cardRow)
 	}
 }
 
