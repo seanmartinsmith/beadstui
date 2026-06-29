@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"image/color"
 	"sort"
 	"strings"
 
@@ -650,6 +649,18 @@ func (m Model) renderSplitView() string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, listView, detailView)
 }
 
+// helpRow is one display row in the ? overlay: key token on the left,
+// description on the right. Sourced from the Global key.Map's FullHelp() via
+// helpGlobalGroups so the overlay text cannot drift from the ; sidebar / footer
+// (bt-ift6.11). The status legend supplies its own literal rows.
+type helpRow struct{ left, right string }
+
+// helpGroup is a titled section of helpRows rendered in the ? overlay.
+type helpGroup struct {
+	title string
+	rows  []helpRow
+}
+
 // helpOverlayColumns returns the task-panel column count for the ? overlay at the
 // given width (bt-dx7k responsive levers): 4 wide, 2 medium, 1 narrow.
 func helpOverlayColumns(width int) int {
@@ -663,111 +674,21 @@ func helpOverlayColumns(width int) int {
 	}
 }
 
-// helpOverlayPanels builds the global task-group panels (essentials-first) plus
-// the status-glyph legend, in display order, for the ? overlay (bt-dx7k).
-func (m Model) helpOverlayPanels() []string {
-	t := m.theme
+// helpGlobalGroups projects m.keys.Global.FullHelp() into task-headed helpGroup
+// slices for the single-box ? overlay renderer (bt-dx7k.1). Key on the left,
+// desc on the right (yazi render_col orientation). FullHelp() returns 4 fixed
+// groups: [0]Help&Chrome [1]Views [2]Workspace [3]Actions. Display order puts
+// the most-used (view switching) first; the STATUS glyph legend is appended as
+// a literal group (no key.Map source).
+func (m Model) helpGlobalGroups() []helpGroup {
+	g := m.keys.Global.FullHelp()
 
-	// Tomorrow Night gradient for help overlay sections.
-	// Maps to semantic theme tokens so YAML retones propagate (bt-pxbc).
-	colors := []color.Color{
-		ColorPrimary,  // Teal
-		ColorInfo,     // Blue
-		ColorSuccess,  // Green
-		ColorWarning,  // Orange
-		ColorTypeEpic, // Purple
-		ColorTypeTask, // Yellow
-	}
-
-	// helpRow is one panel line: left text (desc/meaning) + right token
-	// (key/glyph, right-aligned). Keybind panels source these from the active
-	// key.Maps' FullHelp() so the overlay cannot drift from the ; sidebar /
-	// footer (bt-ift6.11); the status legend supplies its own literal rows.
-	type helpRow struct{ left, right string }
-
-	// renderRowsPanel renders grouped rows as an auto-sized titled panel.
-	// Flipped layout: left text on the left, right token right-aligned (bt-dx7k);
-	// groups are separated by a blank line. Returns "" for an empty panel.
-	renderRowsPanel := func(title, icon string, colorIdx int, groups [][]helpRow) string {
-		panelColor := colors[colorIdx%len(colors)]
-
-		keyStyle := lipgloss.NewStyle().
-			Foreground(panelColor).
-			Bold(true)
-
-		descStyle := lipgloss.NewStyle().
-			Foreground(t.Base.GetForeground())
-
-		// Find widest left and right token across all rows for alignment.
-		maxLeft := 0
-		maxRight := 0
-		for _, g := range groups {
-			for _, r := range g {
-				if w := lipgloss.Width(r.left); w > maxLeft {
-					maxLeft = w
-				}
-				if w := lipgloss.Width(r.right); w > maxRight {
-					maxRight = w
-				}
-			}
-		}
-
-		// Inner content width: left pad + left + gap + right + right pad
-		innerWidth := 1 + maxLeft + 2 + maxRight + 1
-
-		var lines []string
-		firstGroup := true
-		for _, g := range groups {
-			if len(g) == 0 {
-				continue
-			}
-			if !firstGroup {
-				lines = append(lines, "") // blank line between groups
-			}
-			firstGroup = false
-			for _, r := range g {
-				left := descStyle.Render(r.left)
-				right := keyStyle.Render(r.right)
-				leftPad := maxLeft - lipgloss.Width(r.left)
-				// Left text left-aligned, right token right-aligned.
-				line := " " + left + strings.Repeat(" ", leftPad+2) + right
-				// Pad to full inner width for consistent panel sizing.
-				lineWidth := lipgloss.Width(line)
-				if lineWidth < innerWidth {
-					line += strings.Repeat(" ", innerWidth-lineWidth)
-				}
-				lines = append(lines, line)
-			}
-		}
-		if len(lines) == 0 {
-			return ""
-		}
-
-		// Panel width: inner content + border (2) + right pad (1)
-		panelWidth := innerWidth + 3
-		titleWidth := lipgloss.Width(icon+" "+title) + 6 // title + border decorations
-		if titleWidth > panelWidth {
-			panelWidth = titleWidth
-		}
-
-		content := lipgloss.JoinVertical(lipgloss.Left, lines...)
-		return RenderTitledPanel(content, PanelOpts{
-			Title:       icon + " " + title,
-			Width:       panelWidth,
-			CenterTitle: true,
-			BorderColor: panelColor,
-			TitleColor:  panelColor,
-		})
-	}
-
-	// bindingGroups converts a key.Map's FullHelp() into helpRow groups: enabled
-	// bindings with non-empty help, desc on the left and key on the right. The
-	// single binding source means the ? overlay text always matches dispatch.
-	bindingGroups := func(groups [][]key.Binding) [][]helpRow {
-		out := make([][]helpRow, 0, len(groups))
-		for _, g := range groups {
-			rows := make([]helpRow, 0, len(g))
-			for _, b := range g {
+	// project converts a binding slice-of-slices into flat helpRows: enabled
+	// bindings with non-empty help only. Key on left, desc on right.
+	project := func(bindings [][]key.Binding) []helpRow {
+		var rows []helpRow
+		for _, group := range bindings {
+			for _, b := range group {
 				if !b.Enabled() {
 					continue
 				}
@@ -775,83 +696,237 @@ func (m Model) helpOverlayPanels() []string {
 				if h.Key == "" {
 					continue
 				}
-				rows = append(rows, helpRow{left: h.Desc, right: h.Key})
-			}
-			if len(rows) > 0 {
-				out = append(out, rows)
+				rows = append(rows, helpRow{left: h.Key, right: h.Desc})
 			}
 		}
-		return out
+		return rows
 	}
 
-	// Global map -> essentials-first, task-headed panels (bt-dx7k). FullHelp()
-	// returns 4 fixed groups: [0]Help&Chrome [1]Views [2]Workspace [3]Actions.
-	// Display order puts the most-used (view switching) first so the top of the
-	// overlay is useful before any scroll. Headers label the existing groups;
-	// the grouping is not restructured. Header strings are a dogfood tuning point.
-	g := m.keys.Global.FullHelp()
 	taskOrder := []struct {
 		title    string
-		colorIdx int
 		bindings [][]key.Binding
 	}{
-		{"SWITCH VIEWS", 0, [][]key.Binding{g[1]}},
-		{"DO THINGS", 1, [][]key.Binding{g[3]}},
-		{"WORKSPACE", 2, [][]key.Binding{g[2]}},
-		{"CHROME", 3, [][]key.Binding{g[0]}},
+		{"SWITCH VIEWS", [][]key.Binding{g[1]}},
+		{"DO THINGS", [][]key.Binding{g[3]}},
+		{"WORKSPACE", [][]key.Binding{g[2]}},
+		{"CHROME", [][]key.Binding{g[0]}},
 	}
-	var panels []string
+
+	var groups []helpGroup
 	for _, tg := range taskOrder {
-		if p := renderRowsPanel(tg.title, "", tg.colorIdx, bindingGroups(tg.bindings)); p != "" {
-			panels = append(panels, p)
+		rows := project(tg.bindings)
+		if len(rows) > 0 {
+			groups = append(groups, helpGroup{title: tg.title, rows: rows})
 		}
 	}
 
-	// Status-glyph legend: the one panel with no key.Map source (it explains the
-	// footer status indicators, not key bindings), so it keeps literal rows.
-	statusLegend := [][]helpRow{{
-		{left: "Phase 2 metrics computing", right: "◌ metrics"},
-		{left: "Snapshot getting stale", right: "⚠ age"},
-		{left: "Snapshot is stale", right: "⚠ STALE"},
-		{left: "Background worker errors", right: "✗ bg"},
-		{left: "Worker self-healed", right: "↻ recov"},
-		{left: "Worker unresponsive", right: "⚠ dead"},
-		{left: "Live reload uses polling", right: "polling"},
-	}}
-	if p := renderRowsPanel("Status Indicators", "🩺", 2, statusLegend); p != "" {
-		panels = append(panels, p)
-	}
+	// STATUS legend: explains footer status glyphs; no key.Map source.
+	// Orientation matches the keybind rows: glyph/phrase on left, meaning on right.
+	groups = append(groups, helpGroup{
+		title: "STATUS",
+		rows: []helpRow{
+			{left: "◌ metrics", right: "Phase 2 metrics computing"},
+			{left: "⚠ age", right: "Snapshot getting stale"},
+			{left: "⚠ STALE", right: "Snapshot is stale"},
+			{left: "✗ bg", right: "Background worker errors"},
+			{left: "↻ recov", right: "Worker self-healed"},
+			{left: "⚠ dead", right: "Worker unresponsive"},
+			{left: "polling", right: "Live reload uses polling"},
+		},
+	})
 
-	return panels
+	return groups
 }
 
-// helpOverlayBodyLines lays the task panels into the responsive grid and returns
-// the flat terminal lines (pre-scroll), so the caller can window them (bt-dx7k).
+// renderHelpGroupColumn renders a stack of helpGroups as terminal lines for one
+// column of the ? overlay (bt-dx7k.1). Models yazi's render_col: each group
+// opens with an inline-divider header (─── TITLE ───) that fills colWidth visible
+// cells, followed by right-justified key + muted desc rows. Groups are separated
+// by a blank line. keyW is the right-justify width for the key token column.
+func renderHelpGroupColumn(groups []helpGroup, colWidth, keyW int, t Theme) []string {
+	headerStyle := lipgloss.NewStyle().Foreground(t.Secondary)
+	keyStyle := lipgloss.NewStyle().Foreground(t.Base.GetForeground()).Bold(true)
+	descStyle := lipgloss.NewStyle().Foreground(t.Muted)
+
+	var lines []string
+	for i, g := range groups {
+		if i > 0 {
+			lines = append(lines, "") // blank line between groups
+		}
+
+		// Inline divider: ─── TITLE ──────────────────
+		label := " " + g.title + " "
+		labelW := lipgloss.Width(label)
+		lpad := 3
+		rpad := colWidth - lpad - labelW
+		if rpad < 0 {
+			rpad = 0
+		}
+		div := strings.Repeat("─", lpad) + label + strings.Repeat("─", rpad)
+		lines = append(lines, headerStyle.Render(div))
+
+		// Rows: rjust(key, keyW) + "  " + desc (yazi row shape)
+		for _, r := range g.rows {
+			kw := lipgloss.Width(r.left)
+			pad := keyW - kw
+			if pad < 0 {
+				pad = 0
+			}
+			row := keyStyle.Render(strings.Repeat(" ", pad)+r.left) +
+				descStyle.Render("  "+r.right)
+			lines = append(lines, row)
+		}
+	}
+	return lines
+}
+
+// helpOverlayBodyLines distributes the global task groups across the responsive
+// column grid and returns flat terminal lines (pre-scroll) for the single-box
+// ? overlay (bt-dx7k.1). Column widths are sized to fit within the terminal.
+// The same flat-lines contract the scroll window consumes.
 func (m Model) helpOverlayBodyLines() []string {
-	panels := m.helpOverlayPanels()
-	if len(panels) == 0 {
+	groups := m.helpGlobalGroups()
+	if len(groups) == 0 {
 		return nil
 	}
-	cols := helpOverlayColumns(m.width)
-	gap := strings.Repeat(" ", 3)
-	var rows []string
-	for i := 0; i < len(panels); i += cols {
-		end := i + cols
-		if end > len(panels) {
-			end = len(panels)
-		}
-		row := panels[i]
-		for _, p := range panels[i+1 : end] {
-			row = lipgloss.JoinHorizontal(lipgloss.Top, row, gap, p)
-		}
-		rows = append(rows, row)
+	t := m.theme
+
+	n := helpOverlayColumns(m.width)
+	if n > len(groups) {
+		n = len(groups)
 	}
-	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
-	return strings.Split(body, "\n")
+
+	// Contiguous integer-partitioned chunks: i-th chunk = groups[i*total/n : (i+1)*total/n].
+	total := len(groups)
+	chunks := make([][]helpGroup, 0, n)
+	for i := 0; i < n; i++ {
+		start := i * total / n
+		end := (i + 1) * total / n
+		if end > start {
+			chunks = append(chunks, groups[start:end])
+		}
+	}
+	n = len(chunks) // actual non-empty column count
+
+	// Global keyW: max key visible width across all groups (uniform across cols).
+	keyW := 3
+	for _, g := range groups {
+		for _, r := range g.rows {
+			if w := lipgloss.Width(r.left); w > keyW {
+				keyW = w
+			}
+		}
+	}
+
+	// Natural per-chunk colWidth: max of content width and header minimum.
+	naturalColWidths := make([]int, n)
+	for i, chunk := range chunks {
+		maxDescW := 0
+		maxTitleW := 0
+		for _, g := range chunk {
+			if w := lipgloss.Width(g.title); w > maxTitleW {
+				maxTitleW = w
+			}
+			for _, r := range g.rows {
+				if w := lipgloss.Width(r.right); w > maxDescW {
+					maxDescW = w
+				}
+			}
+		}
+		contentW := keyW + 2 + maxDescW
+		headerMinW := 3 + 1 + maxTitleW + 1 + 1 // "─── TITLE ─" minimum
+		if headerMinW > contentW {
+			contentW = headerMinW
+		}
+		naturalColWidths[i] = contentW
+	}
+
+	// Fit columns to the available terminal inner width (terminal - 2 for box borders).
+	// sepW is the visible width of each column separator " │ " (3 cells).
+	const sepW = 3
+	availInner := m.width - 2
+	if availInner < 10 {
+		availInner = 10
+	}
+	totalNatural := 0
+	for _, w := range naturalColWidths {
+		totalNatural += w
+	}
+	totalNatural += (n - 1) * sepW
+	colWidths := naturalColWidths
+	if totalNatural > availInner && n > 0 {
+		// Distribute available space evenly, capped at each column's natural width.
+		colContent := availInner - (n-1)*sepW
+		if colContent < n {
+			colContent = n
+		}
+		colWidths = make([]int, n)
+		for i := range colWidths {
+			cw := colContent / n
+			if cw > naturalColWidths[i] {
+				cw = naturalColWidths[i]
+			}
+			if cw < 1 {
+				cw = 1
+			}
+			colWidths[i] = cw
+		}
+	}
+
+	// Render each column at its computed colWidth.
+	cols := make([][]string, n)
+	for i, chunk := range chunks {
+		cols[i] = renderHelpGroupColumn(chunk, colWidths[i], keyW, t)
+	}
+
+	// Measure each column's actual max visible width (post-ANSI rendering).
+	colActualWidths := make([]int, n)
+	for i, col := range cols {
+		for _, line := range col {
+			if w := lipgloss.Width(line); w > colActualWidths[i] {
+				colActualWidths[i] = w
+			}
+		}
+	}
+
+	// Max column height.
+	maxH := 0
+	for _, col := range cols {
+		if len(col) > maxH {
+			maxH = len(col)
+		}
+	}
+
+	// Styled column separator (dim, secondary color).
+	sepStyle := lipgloss.NewStyle().Foreground(t.Secondary)
+	sep := sepStyle.Render(" │ ")
+
+	// Build body lines: pad each column's line to its actual width, join with sep.
+	var bodyLines []string
+	for row := 0; row < maxH; row++ {
+		var parts []string
+		for i, col := range cols {
+			var line string
+			if row < len(col) {
+				line = col[row]
+			}
+			w := lipgloss.Width(line)
+			if w < colActualWidths[i] {
+				line += strings.Repeat(" ", colActualWidths[i]-w)
+			}
+			parts = append(parts, line)
+		}
+		if n > 1 {
+			bodyLines = append(bodyLines, strings.Join(parts, sep))
+		} else {
+			bodyLines = append(bodyLines, parts[0])
+		}
+	}
+	return bodyLines
 }
 
 // helpOverlayChrome is the fixed rows the ? overlay reserves outside the
-// scrollable body: title (1), a blank spacer (1), the footer (1).
+// scrollable body: top border (1), interior footer line (1), bottom border (1).
 const helpOverlayChrome = 3
 
 // helpOverlayAvailBody returns the scrollable body height for the ? overlay.
@@ -872,6 +947,11 @@ func (m Model) helpScrollMax() int {
 	return max
 }
 
+// renderHelpOverlay renders the ? help overlay as a single rounded modal box
+// (bt-dx7k.1). The box interior holds the windowed body lines (from
+// helpOverlayBodyLines, panned by helpScroll) plus a dim footer line as the
+// last interior row. The outer border carries the "shortcuts" title. ONE
+// RenderTitledPanel wraps the whole modal; lipgloss.Place centers it.
 func (m *Model) renderHelpOverlay() string {
 	t := m.theme
 	bodyLines := m.helpOverlayBodyLines()
@@ -892,26 +972,55 @@ func (m *Model) renderHelpOverlay() string {
 	if end > len(bodyLines) {
 		end = len(bodyLines)
 	}
-	window := bodyLines
+	var window []string
 	if len(bodyLines) > 0 {
 		window = bodyLines[scroll:end]
 	}
-	body := strings.Join(window, "\n")
 
-	titleStyle := lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
-	subtitleStyle := lipgloss.NewStyle().Foreground(t.Secondary).Italic(true)
-	header := titleStyle.Render("Global Shortcuts")
-
-	hint := "; for this screen  -  ? or Esc to close"
+	// Footer: cross-ref + close hint. Must contain ";" and "Esc"; must NOT
+	// contain "shortcuts" (FOOTER WORDING CAVEAT, bt-dx7k.1).
+	footerStyle := lipgloss.NewStyle().Foreground(t.Secondary).Italic(true)
+	footerText := "; per-view  -  Esc / q to close"
 	if maxScroll > 0 {
 		pct := scroll * 100 / maxScroll
-		hint = fmt.Sprintf("%s  -  j/k scroll %d%%", hint, pct)
+		footerText = fmt.Sprintf("; per-view  -  j/k scroll %d%%  -  Esc / q close", pct)
 	}
-	footer := subtitleStyle.Render(hint)
+	footer := footerStyle.Render(footerText)
 
-	fullContent := lipgloss.JoinVertical(lipgloss.Center, header, "", body, footer)
-	// Top-align vertically: centering clipped oversized content (the bt-dx7k bug).
-	return lipgloss.Place(m.width, m.height-1, lipgloss.Center, lipgloss.Top, fullContent)
+	// Box inner width: max visible width across windowed body lines and footer,
+	// capped at m.width - 2 so the box never overflows the terminal.
+	innerWidth := lipgloss.Width(footer)
+	for _, line := range window {
+		if w := lipgloss.Width(line); w > innerWidth {
+			innerWidth = w
+		}
+	}
+	if innerWidth < 10 {
+		innerWidth = 10
+	}
+	maxInner := m.width - 2
+	if maxInner < 10 {
+		maxInner = 10
+	}
+	if innerWidth > maxInner {
+		innerWidth = maxInner
+	}
+	boxWidth := innerWidth + 2 // +2 for left/right border characters
+
+	// Interior: windowed body + footer as the last line, joined for RenderTitledPanel.
+	allLines := append(window, footer)
+	interior := strings.Join(allLines, "\n")
+
+	boxed := RenderTitledPanel(interior, PanelOpts{
+		Title:       "shortcuts",
+		Width:       boxWidth,
+		CenterTitle: true,
+		BorderColor: t.Secondary,
+		TitleColor:  t.Secondary,
+	})
+
+	// Top-align vertically: prevents clipping oversized content (the bt-dx7k bug).
+	return lipgloss.Place(m.width, m.height-1, lipgloss.Center, lipgloss.Top, boxed)
 }
 
 func (m Model) renderLabelHealthDetail(lh analysis.LabelHealth) string {

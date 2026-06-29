@@ -1268,7 +1268,7 @@ func TestOverlaysAndWorkspaceHelpers(t *testing.T) {
 
 	// Help overlay
 	m.openModal(ModalHelp)
-	if !strings.Contains(m.View().Content, "Global") {
+	if !strings.Contains(m.View().Content, "shortcuts") {
 		t.Fatalf("help overlay should render")
 	}
 	m.closeModal()
@@ -1379,7 +1379,7 @@ func TestHelpOverlayScroll(t *testing.T) {
 	m.focused = focusHelp
 	m.helpScroll = 0
 	out := m.renderHelpOverlay()
-	if !strings.Contains(out, "Global Shortcuts") {
+	if !strings.Contains(out, "shortcuts") {
 		t.Fatalf("help overlay should render the global title")
 	}
 	// Should show close + cross-reference hints.
@@ -1420,7 +1420,7 @@ func TestRenderHelpOverlay_ResponsiveLayout(t *testing.T) {
 			m.openModal(ModalHelp)
 			m.focused = focusHelp
 			out := m.renderHelpOverlay()
-			if !strings.Contains(out, "Global Shortcuts") {
+			if !strings.Contains(out, "shortcuts") {
 				t.Fatalf("help overlay should contain title at width=%d", tc.width)
 			}
 		})
@@ -1513,5 +1513,41 @@ func TestHelpOverlay_CrossRefFooter(t *testing.T) {
 	}
 	if !strings.Contains(out, "Esc") {
 		t.Errorf("? footer should show a close hint")
+	}
+}
+
+// TestHelpOverlay_SingleBoxAesthetic verifies the ? overlay renders in a single
+// rounded modal box with inline-divider group headers and dim-mono theme tokens
+// (bt-dx7k.1). The four global task group headers must appear, global binding
+// descs must be present, and the box title "shortcuts" must appear exactly once
+// (proving one box, not four).
+func TestHelpOverlay_SingleBoxAesthetic(t *testing.T) {
+	m := NewModel(harnessIssues(), nil, "", nil)
+	m.width, m.height = 120, 40
+	m.openModal(ModalHelp)
+	m.focused = focusHelp
+
+	out := m.renderHelpOverlay()
+
+	// (a) All four global task group headers present as inline dividers.
+	for _, header := range []string{"SWITCH VIEWS", "DO THINGS", "WORKSPACE", "CHROME"} {
+		if !strings.Contains(out, header) {
+			t.Errorf("? overlay missing group header %q", header)
+		}
+	}
+
+	// (b) Global binding descs present (sourced from the key.Map, not literals).
+	for _, desc := range []string{"board", "refresh"} {
+		if !strings.Contains(out, desc) {
+			t.Errorf("? overlay missing global binding desc %q", desc)
+		}
+	}
+
+	// (c) Exactly two occurrences of "shortcuts" proves a single box (one in the
+	// title border, one from the Sidebar binding desc in the CHROME group body).
+	// Old code had count==1 (no box title, only the Sidebar desc body row).
+	// Four-box code would also have count==1 (Sidebar desc in one panel body, no "shortcuts" in panel titles).
+	if n := strings.Count(out, "shortcuts"); n != 2 {
+		t.Errorf("? overlay contains %d occurrences of %q, want exactly 2 (title border + Sidebar desc)", n, "shortcuts")
 	}
 }
