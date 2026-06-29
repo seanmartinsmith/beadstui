@@ -1268,7 +1268,7 @@ func TestOverlaysAndWorkspaceHelpers(t *testing.T) {
 
 	// Help overlay
 	m.openModal(ModalHelp)
-	if !strings.Contains(m.View().Content, "Keyboard") {
+	if !strings.Contains(m.View().Content, "Global") {
 		t.Fatalf("help overlay should render")
 	}
 	m.closeModal()
@@ -1419,35 +1419,36 @@ func TestRenderHelpOverlay_ResponsiveLayout(t *testing.T) {
 			m.openModal(ModalHelp)
 			m.focused = focusHelp
 			out := m.renderHelpOverlay()
-			if !strings.Contains(out, "Keyboard Shortcuts") {
+			if !strings.Contains(out, "Global Shortcuts") {
 				t.Fatalf("help overlay should contain title at width=%d", tc.width)
 			}
 		})
 	}
 }
 
-// TestHelpOverlay_ConsumesKeyMapBindings verifies the ? overlay renders its key
-// descriptions from the per-view key.Maps' FullHelp() rather than literal
-// section tables (bt-ift6.11). Items the old literal tables omitted appear
-// automatically once their binding is declared, and literal desc strings that
-// diverged from the binding text are gone.
+// TestHelpOverlay_ConsumesKeyMapBindings verifies the ? overlay is scoped to the
+// Global map only (bt-dx7k): global binding descs appear; view-specific descs
+// (ListNormal's "epic card" / "cycle sort") do not. Source is still the key.Map
+// FullHelp(), never literal tables.
 func TestHelpOverlay_ConsumesKeyMapBindings(t *testing.T) {
 	m := NewModel(harnessIssues(), nil, "", nil)
+	m.mode = ViewList // a populated view, to prove its keys are still excluded
 	m.width, m.height = 180, 60
 	m.openModal(ModalHelp)
 	m.focused = focusHelp
 
 	out := m.renderHelpOverlay()
 
-	// Map-sourced descs the old literal []struct{key,desc} tables never listed.
-	for _, want := range []string{"epic card", "cass session"} {
+	// Global descs must be present.
+	for _, want := range []string{"board", "graph", "refresh", "label picker"} {
 		if !strings.Contains(out, want) {
-			t.Errorf("help overlay missing map-sourced binding desc %q", want)
+			t.Errorf("? overlay missing global binding desc %q", want)
 		}
 	}
-	// The old literal "Kanban board" desc diverged from GlobalKeys.Board's
-	// "board"; after the rewire only the binding text remains.
-	if strings.Contains(out, "Kanban board") {
-		t.Errorf("help overlay still contains the old literal 'Kanban board' desc; should read 'board' from GlobalKeys.Board")
+	// View-specific descs (ListNormal) must NOT be present -- ? is global-only.
+	for _, absent := range []string{"epic card", "cycle sort"} {
+		if strings.Contains(out, absent) {
+			t.Errorf("? overlay leaked view-specific desc %q (should be global-only)", absent)
+		}
 	}
 }

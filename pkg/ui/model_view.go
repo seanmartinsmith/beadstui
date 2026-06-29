@@ -771,22 +771,27 @@ func (m *Model) renderHelpOverlay() string {
 		return out
 	}
 
-	// Build one panel per view key.Map from its FullHelp(), so the ? overlay is
-	// a consumer of the same binding source as the ; sidebar (FullHelp) and the
-	// L1 footer (ShortHelp). This is the comprehensive (L2) reference: every
-	// view's Map, not only the active one. Re-thematizing into task-oriented
-	// headers is bt-xavk's scope; this child is data-source plumbing.
-	panels := []string{
-		renderRowsPanel("Global", "🌐", 2, bindingGroups(m.keys.Global.FullHelp())),
-		renderRowsPanel("List", "🧭", 0, bindingGroups(m.keys.ListNormal.FullHelp())),
-		renderRowsPanel("Board", "📋", 1, bindingGroups(m.keys.BoardNormal.FullHelp())),
-		renderRowsPanel("Graph", "📊", 4, bindingGroups(m.keys.Graph.FullHelp())),
-		renderRowsPanel("Insights", "💡", 5, bindingGroups(m.keys.Insights.FullHelp())),
-		renderRowsPanel("History", "📜", 0, bindingGroups(m.keys.HistoryNormal.FullHelp())),
-		renderRowsPanel("Actionable", "⚡", 1, bindingGroups(m.keys.Actionable.FullHelp())),
-		renderRowsPanel("Tree", "🌳", 3, bindingGroups(m.keys.Tree.FullHelp())),
-		renderRowsPanel("Flow Matrix", "🔀", 5, bindingGroups(m.keys.FlowMatrix.FullHelp())),
-		renderRowsPanel("Epics", "🗺", 4, bindingGroups(m.keys.Epics.FullHelp())),
+	// Global map -> essentials-first, task-headed panels (bt-dx7k). FullHelp()
+	// returns 4 fixed groups: [0]Help&Chrome [1]Views [2]Workspace [3]Actions.
+	// Display order puts the most-used (view switching) first so the top of the
+	// overlay is useful before any scroll. Headers label the existing groups;
+	// the grouping is not restructured. Header strings are a dogfood tuning point.
+	g := m.keys.Global.FullHelp()
+	taskOrder := []struct {
+		title    string
+		colorIdx int
+		bindings [][]key.Binding
+	}{
+		{"SWITCH VIEWS", 0, [][]key.Binding{g[1]}},
+		{"DO THINGS", 1, [][]key.Binding{g[3]}},
+		{"WORKSPACE", 2, [][]key.Binding{g[2]}},
+		{"CHROME", 3, [][]key.Binding{g[0]}},
+	}
+	var panels []string
+	for _, tg := range taskOrder {
+		if p := renderRowsPanel(tg.title, "", tg.colorIdx, bindingGroups(tg.bindings)); p != "" {
+			panels = append(panels, p)
+		}
 	}
 
 	// Status-glyph legend: the one panel with no key.Map source (it explains the
@@ -858,8 +863,8 @@ func (m *Model) renderHelpOverlay() string {
 		Italic(true)
 
 	header := lipgloss.JoinVertical(lipgloss.Center,
-		titleStyle.Render("Keyboard Shortcuts"),
-		subtitleStyle.Render("Space: Tutorial  |  ? or Esc to close"),
+		titleStyle.Render("Global Shortcuts"),
+		subtitleStyle.Render("; for this screen  -  ? or Esc to close"),
 	)
 
 	fullContent := lipgloss.JoinVertical(lipgloss.Center, header, "", body)
