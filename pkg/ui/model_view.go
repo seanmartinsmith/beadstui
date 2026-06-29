@@ -650,10 +650,23 @@ func (m Model) renderSplitView() string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, listView, detailView)
 }
 
-func (m *Model) renderHelpOverlay() string {
-	t := m.theme
+// helpOverlayColumns returns the task-panel column count for the ? overlay at the
+// given width (bt-dx7k responsive levers): 4 wide, 2 medium, 1 narrow.
+func helpOverlayColumns(width int) int {
+	switch {
+	case width >= 120:
+		return 4
+	case width >= 80:
+		return 2
+	default:
+		return 1
+	}
+}
 
-	gapWidth := 3 // gap between panels in river layout
+// helpOverlayPanels builds the global task-group panels (essentials-first) plus
+// the status-glyph legend, in display order, for the ? overlay (bt-dx7k).
+func (m Model) helpOverlayPanels() []string {
+	t := m.theme
 
 	// Tomorrow Night gradient for help overlay sections.
 	// Maps to semantic theme tokens so YAML retones propagate (bt-pxbc).
@@ -805,54 +818,43 @@ func (m *Model) renderHelpOverlay() string {
 		{left: "Worker unresponsive", right: "⚠ dead"},
 		{left: "Live reload uses polling", right: "polling"},
 	}}
+	if p := renderRowsPanel("Status Indicators", "🩺", 2, statusLegend); p != "" {
+		panels = append(panels, p)
+	}
 
-	// River/masonry layout: greedily pack panels into rows (bt-dx7k)
-	availableWidth := m.width - 4 // leave margin on sides
-	gap := strings.Repeat(" ", gapWidth)
+	return panels
+}
 
+// helpOverlayBodyLines lays the task panels into the responsive grid and returns
+// the flat terminal lines (pre-scroll), so the caller can window them (bt-dx7k).
+func (m Model) helpOverlayBodyLines() []string {
+	panels := m.helpOverlayPanels()
+	if len(panels) == 0 {
+		return nil
+	}
+	cols := helpOverlayColumns(m.width)
+	gap := strings.Repeat(" ", 3)
 	var rows []string
-	var currentRow []string
-	currentRowWidth := 0
-
-	for _, panel := range panels {
-		panelWidth := lipgloss.Width(panel)
-		needed := panelWidth
-		if len(currentRow) > 0 {
-			needed += gapWidth // account for gap before this panel
+	for i := 0; i < len(panels); i += cols {
+		end := i + cols
+		if end > len(panels) {
+			end = len(panels)
 		}
-
-		if currentRowWidth+needed > availableWidth && len(currentRow) > 0 {
-			// Current row is full, flush it
-			joined := currentRow[0]
-			for _, p := range currentRow[1:] {
-				joined = lipgloss.JoinHorizontal(lipgloss.Top, joined, gap, p)
-			}
-			rows = append(rows, joined)
-			currentRow = []string{panel}
-			currentRowWidth = panelWidth
-		} else {
-			currentRow = append(currentRow, panel)
-			currentRowWidth += needed
+		row := panels[i]
+		for _, p := range panels[i+1 : end] {
+			row = lipgloss.JoinHorizontal(lipgloss.Top, row, gap, p)
 		}
+		rows = append(rows, row)
 	}
-	if len(currentRow) > 0 {
-		joined := currentRow[0]
-		for _, p := range currentRow[1:] {
-			joined = lipgloss.JoinHorizontal(lipgloss.Top, joined, gap, p)
-		}
-		rows = append(rows, joined)
-	}
+	body := lipgloss.JoinVertical(lipgloss.Left, rows...)
+	return strings.Split(body, "\n")
+}
 
-	body := lipgloss.JoinVertical(lipgloss.Center, rows...)
+func (m *Model) renderHelpOverlay() string {
+	t := m.theme
 
-	// Status indicators panel - append to river flow if room
-	statusPanel := renderRowsPanel("Status Indicators", "🩺", 2, statusLegend)
-	statusHeight := lipgloss.Height(statusPanel)
-	bodyHeight := lipgloss.Height(body)
-	// Show status panel if there's vertical room
-	if bodyHeight+statusHeight+4 < m.height {
-		body = lipgloss.JoinVertical(lipgloss.Center, body, statusPanel)
-	}
+	bodyLines := m.helpOverlayBodyLines()
+	body := strings.Join(bodyLines, "\n")
 
 	// Title and subtitle as plain centered text (no outer border)
 	titleStyle := lipgloss.NewStyle().

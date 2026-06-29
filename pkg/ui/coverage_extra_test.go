@@ -1452,3 +1452,18 @@ func TestHelpOverlay_ConsumesKeyMapBindings(t *testing.T) {
 		}
 	}
 }
+
+func TestHelpOverlayColumns(t *testing.T) {
+	cases := []struct {
+		width, want int
+	}{
+		{130, 4}, {120, 4},
+		{119, 2}, {100, 2}, {80, 2},
+		{79, 1}, {50, 1}, {30, 1},
+	}
+	for _, c := range cases {
+		if got := helpOverlayColumns(c.width); got != c.want {
+			t.Errorf("helpOverlayColumns(%d) = %d, want %d", c.width, got, c.want)
+		}
+	}
+}
