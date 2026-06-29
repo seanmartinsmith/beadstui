@@ -1580,6 +1580,55 @@ func TestHelpOverlayMini_HiddenWhenTall(t *testing.T) {
 	}
 }
 
+// TestHelpOverlay_FullSheetVerticallyCentered verifies the full sheet floats
+// vertically centered (not pinned to the top) when there is spare height
+// (bt-dx7k.1 dogfood). The tier selector guarantees the full sheet only renders
+// when it fits, so centering cannot clip.
+func TestHelpOverlay_FullSheetVerticallyCentered(t *testing.T) {
+	m := NewModel(harnessIssues(), nil, "", nil)
+	m.width, m.height = 120, 44
+	m.openModal(ModalHelp)
+	m.focused = focusHelp
+	out := m.renderHelpOverlay()
+
+	// Sanity: this is the full sheet, not the mini.
+	if strings.Contains(out, "↓ expand") {
+		t.Fatalf("expected full sheet at 120x44, got mini")
+	}
+	// The box top border must NOT be on the first row -- there should be leading
+	// blank rows above it (vertical centering). Top-pinned would put it at row 0.
+	lines := strings.Split(out, "\n")
+	firstBox := -1
+	for i, l := range lines {
+		if strings.Contains(l, "╭") {
+			firstBox = i
+			break
+		}
+	}
+	if firstBox <= 0 {
+		t.Fatalf("expected leading blank rows above a vertically-centered box, box top at line %d", firstBox)
+	}
+}
+
+// TestHelpOverlay_FewerColumnsWhenTall verifies that with spare vertical room the
+// full sheet uses fewer, wider columns so long descriptions are not truncated
+// (bt-dx7k.1 dogfood). At 120x44 the longest desc renders in full.
+func TestHelpOverlay_FewerColumnsWhenTall(t *testing.T) {
+	m := NewModel(harnessIssues(), nil, "", nil)
+	m.width, m.height = 120, 44
+	m.openModal(ModalHelp)
+	m.focused = focusHelp
+	out := m.renderHelpOverlay()
+
+	// The full Back desc is a long one; with the old always-4-column layout at
+	// 120 wide it was clipped to "back / quit (con...". Sourced from the Map so
+	// the assertion tracks the binding, not a literal.
+	want := m.keys.Global.Back.Help().Desc
+	if !strings.Contains(out, want) {
+		t.Errorf("full sheet at 120x44 should show the full desc %q (fewer/wider columns), but it was truncated", want)
+	}
+}
+
 // TestHelpMini_ProjectsGate verifies ProjectsOrWisps appears in helpMiniRows
 // only when m.workspaceMode is true (bt-dx7k.1 Task 3).
 func TestHelpMini_ProjectsGate(t *testing.T) {

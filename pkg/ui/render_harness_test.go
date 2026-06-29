@@ -307,6 +307,8 @@ func TestRenderDump(t *testing.T) {
 		{"modal_help_mini_80x12", 80, 12, func(m *Model) { m.openModal(ModalHelp) }},   // 2-col mini at the maintainer's scrunched size
 		{"modal_help_mini_160x14", 160, 14, func(m *Model) { m.openModal(ModalHelp) }}, // wide but short -> still mini
 		{"modal_help_full_120x44", 120, 44, func(m *Model) { m.openModal(ModalHelp) }}, // tall -> full grouped sheet
+		{"modal_help_full_160x48", 160, 48, func(m *Model) { m.openModal(ModalHelp) }}, // large window -> column count vs vertical fill
+		{"modal_help_full_220x56", 220, 56, func(m *Model) { m.openModal(ModalHelp) }}, // very large (approx the maximized window)
 
 		// ; sidebar scoping (bt-dx7k): view-only bindings in List (no Global
 		// prefix) and the empty-view fallback in Attention (no view-specific map).

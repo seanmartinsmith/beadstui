@@ -782,18 +782,50 @@ func renderHelpGroupColumn(groups []helpGroup, colWidth, keyW int, t Theme) []st
 
 // helpOverlayBodyLines distributes the global task groups across the responsive
 // column grid and returns flat terminal lines (pre-scroll) for the single-box
-// ? overlay (bt-dx7k.1). Column widths are sized to fit within the terminal.
+// ? overlay (bt-dx7k.1). It picks the FEWEST columns whose rendered height fits
+// the available body: fewer columns means a taller, wider layout that fills the
+// vertical space we have and stops truncating long descriptions (bt-dx7k.1
+// dogfood). helpOverlayColumns(width) is the width-imposed upper bound; if no
+// column count fits, it returns the widest (shortest) layout so the tier
+// selector in renderHelpOverlay falls back to the mini.
 // The same flat-lines contract the scroll window consumes.
 func (m Model) helpOverlayBodyLines() []string {
 	groups := m.helpGlobalGroups()
 	if len(groups) == 0 {
 		return nil
 	}
-	t := m.theme
 
-	n := helpOverlayColumns(m.width)
-	if n > len(groups) {
-		n = len(groups)
+	maxCols := helpOverlayColumns(m.width)
+	if maxCols > len(groups) {
+		maxCols = len(groups)
+	}
+	// Floor at 2 columns when the width supports them: a single column reads fine
+	// but leaves a wide (e.g. maximized) window looking sparse. 2 columns are
+	// always shorter than 1, so they fit whenever 1 would -- this floor never
+	// forces the mini, it only rebalances wide-and-tall windows (bt-dx7k.1 dogfood).
+	minCols := 1
+	if maxCols >= 2 {
+		minCols = 2
+	}
+	avail := m.helpOverlayAvailBody()
+	var lines []string
+	for c := minCols; c <= maxCols; c++ {
+		lines = m.helpOverlayBodyLinesForCols(groups, c)
+		if len(lines) <= avail {
+			return lines
+		}
+	}
+	return lines
+}
+
+// helpOverlayBodyLinesForCols renders the global task groups into exactly n
+// columns and returns the flat terminal lines (pre-scroll). Column widths are
+// sized to fit within the terminal. helpOverlayBodyLines selects n by trying the
+// fewest columns that fit the height (bt-dx7k.1).
+func (m Model) helpOverlayBodyLinesForCols(groups []helpGroup, n int) []string {
+	t := m.theme
+	if n < 1 {
+		n = 1
 	}
 
 	// Contiguous integer-partitioned chunks: i-th chunk = groups[i*total/n : (i+1)*total/n].
@@ -1171,8 +1203,11 @@ func (m *Model) renderHelpOverlay() string {
 		TitleColor:  t.Secondary,
 	})
 
-	// Top-align vertically: prevents clipping oversized content (the bt-dx7k bug).
-	return lipgloss.Place(m.width, m.height-1, lipgloss.Center, lipgloss.Top, boxed)
+	// Center vertically: the full sheet only renders when it fits the available
+	// body (the tier selector shows the mini otherwise), so the bt-dx7k clipping
+	// risk is gone and the box floats centered rather than pinned to the top
+	// (bt-dx7k.1 dogfood).
+	return lipgloss.Place(m.width, m.height-1, lipgloss.Center, lipgloss.Center, boxed)
 }
 
 func (m Model) renderLabelHealthDetail(lh analysis.LabelHealth) string {
