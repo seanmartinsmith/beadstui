@@ -947,6 +947,149 @@ func (m Model) helpScrollMax() int {
 	return max
 }
 
+// helpMiniRows returns the curated mini-card projection of GlobalKeys for the
+// compact help tier (bt-dx7k.1 Task 2). Key and desc are sourced from each
+// binding's Help() — no literal strings, so the mini cannot drift from the Map.
+// Disabled bindings are skipped. Order is chosen so a 2-col layout reads
+// board/graph, insights/search, labels/<projects>, help/quit.
+//
+// Task 3 will insert ProjectsOrWisps between LabelPicker and Help when the
+// scope is multi-project, completing the labels/<projects> display row.
+func (m Model) helpMiniRows() []helpRow {
+	g := m.keys.Global
+	var rows []helpRow
+	add := func(b key.Binding) {
+		if !b.Enabled() {
+			return
+		}
+		h := b.Help()
+		if h.Key == "" {
+			return
+		}
+		rows = append(rows, helpRow{left: h.Key, right: h.Desc})
+	}
+	add(g.Board)
+	add(g.Graph)
+	add(g.Insights)
+	add(g.SearchBounce)
+	add(g.LabelPicker)
+	// Task 3: if multi-project scope is active, add(g.ProjectsOrWisps) here.
+	add(g.Help)
+	add(g.Back)
+	return rows
+}
+
+// renderHelpMini renders the compact non-scrolling mini help card for short
+// terminals (bt-dx7k.1 Task 2). Lays helpMiniRows into a fixed 2-column grid
+// using the Task-1 key/desc styles (bold key, muted desc). A centered nudge
+// line communicates the tier relationship; the footer close hint matches the
+// full sheet. Wrapped in ONE RenderTitledPanel.
+func (m Model) renderHelpMini() string {
+	t := m.theme
+	rows := m.helpMiniRows()
+	if len(rows) == 0 {
+		return ""
+	}
+
+	// Reuse Task-1 row styles: bold bright key, muted desc, dim secondary for chrome.
+	keyStyle := lipgloss.NewStyle().Foreground(t.Base.GetForeground()).Bold(true)
+	descStyle := lipgloss.NewStyle().Foreground(t.Muted)
+	dimStyle := lipgloss.NewStyle().Foreground(t.Secondary)
+
+	// keyW: max visible width of any key token (uniform right-justification, yazi rjust).
+	keyW := 1
+	for _, r := range rows {
+		if w := lipgloss.Width(r.left); w > keyW {
+			keyW = w
+		}
+	}
+
+	// leftColW: content width of the left column, sized to the widest left-side desc
+	// (even-indexed rows) so right-column cells always start at the same offset.
+	leftDescW := 0
+	for i, r := range rows {
+		if i%2 == 0 {
+			if w := lipgloss.Width(r.right); w > leftDescW {
+				leftDescW = w
+			}
+		}
+	}
+	leftColW := keyW + 2 + leftDescW // key + "  " + desc
+
+	const colGap = "  " // 2-space gap between columns
+
+	// Build display rows: pair rows[2i] (left) with rows[2i+1] (right, optional).
+	numDisplay := (len(rows) + 1) / 2
+	var lines []string
+	for i := 0; i < numDisplay; i++ {
+		lr := rows[2*i]
+		kpad := keyW - lipgloss.Width(lr.left)
+		if kpad < 0 {
+			kpad = 0
+		}
+		leftCell := keyStyle.Render(strings.Repeat(" ", kpad)+lr.left) +
+			descStyle.Render("  "+lr.right)
+		// Pad left cell to leftColW so the right column aligns vertically.
+		if w := lipgloss.Width(leftCell); w < leftColW {
+			leftCell += strings.Repeat(" ", leftColW-w)
+		}
+
+		if 2*i+1 < len(rows) {
+			rr := rows[2*i+1]
+			kpad2 := keyW - lipgloss.Width(rr.left)
+			if kpad2 < 0 {
+				kpad2 = 0
+			}
+			rightCell := keyStyle.Render(strings.Repeat(" ", kpad2)+rr.left) +
+				descStyle.Render("  "+rr.right)
+			lines = append(lines, leftCell+colGap+rightCell)
+		} else {
+			lines = append(lines, leftCell)
+		}
+	}
+
+	// Nudge line: communicates the tier relationship (grow terminal → full sheet).
+	nudge := dimStyle.Render("↓ expand   ·   ; per-view")
+
+	// Footer: last interior line, centered. CAPITAL "Esc" matches the full sheet
+	// footer and the existing TestHelpOverlayScroll smoke-string expectation.
+	footer := dimStyle.Render("Esc ── q ── close")
+
+	// Box inner width: driven by widest grid line, nudge, or footer.
+	innerWidth := lipgloss.Width(nudge)
+	for _, l := range lines {
+		if w := lipgloss.Width(l); w > innerWidth {
+			innerWidth = w
+		}
+	}
+	if fw := lipgloss.Width(footer); fw > innerWidth {
+		innerWidth = fw
+	}
+	if innerWidth < 10 {
+		innerWidth = 10
+	}
+	if cap := m.width - 2; cap > 10 && innerWidth > cap {
+		innerWidth = cap
+	}
+
+	// Assemble interior: grid lines + centered nudge + centered footer.
+	allLines := make([]string, 0, len(lines)+2)
+	allLines = append(allLines, lines...)
+	allLines = append(allLines, centerLine(nudge, innerWidth))
+	allLines = append(allLines, centerLine(footer, innerWidth))
+	interior := strings.Join(allLines, "\n")
+
+	boxed := RenderTitledPanel(interior, PanelOpts{
+		Title:       "shortcuts",
+		Width:       innerWidth + 2,
+		CenterTitle: true,
+		BorderColor: t.Secondary,
+		TitleColor:  t.Secondary,
+	})
+
+	return boxed
+}
+
 // renderHelpOverlay renders the ? help overlay as a single rounded modal box
 // (bt-dx7k.1). The box interior holds the windowed body lines (from
 // helpOverlayBodyLines, panned by helpScroll) plus a dim footer line as the
@@ -955,6 +1098,13 @@ func (m Model) helpScrollMax() int {
 func (m *Model) renderHelpOverlay() string {
 	t := m.theme
 	bodyLines := m.helpOverlayBodyLines()
+
+	// Mini tier: when the full body overflows the available height, render the
+	// compact non-scrolling mini card instead. Mirrors yazi's (area.h-2) < POPUP_H
+	// selector — size-driven, no new keypress or toggle.
+	if len(bodyLines) > m.helpOverlayAvailBody() {
+		return lipgloss.Place(m.width, m.height-1, lipgloss.Center, lipgloss.Center, m.renderHelpMini())
+	}
 
 	avail := m.helpOverlayAvailBody()
 	maxScroll := len(bodyLines) - avail

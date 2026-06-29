@@ -1469,33 +1469,43 @@ func TestHelpOverlayColumns(t *testing.T) {
 	}
 }
 
-// TestHelpOverlayScroll_WindowsContent verifies helpScroll actually pans the ?
-// overlay body (the dead-scroll fix, bt-dx7k): at a height that forces overflow,
-// scrolling changes which lines render, and helpScrollMax clamps the bottom.
+// TestHelpOverlayScroll_WindowsContent verifies help overlay behaviour at a
+// narrow short height (bt-dx7k.1 tier-flip adaptation). At 60x16 the full body
+// overflows so renderHelpOverlay returns the non-scrolling mini card. The scroll
+// handler math (helpScrollMax) still holds — the overflow count is valid — but
+// the render surface is now the mini, not the full sheet. The "scrolling changes
+// the render" premise no longer applies to this size class.
 func TestHelpOverlayScroll_WindowsContent(t *testing.T) {
 	m := NewModel(harnessIssues(), nil, "", nil)
-	m.width, m.height = 60, 16 // narrow + short -> 1 column, overflows
+	m.width, m.height = 60, 16 // narrow + short -> 1 column, overflows -> mini tier
 	m.openModal(ModalHelp)
 	m.focused = focusHelp
 
+	// The overflow math is still valid: bodyLines > avail at this size.
 	max := m.helpScrollMax()
 	if max <= 0 {
 		t.Fatalf("expected content to overflow at 60x16 (helpScrollMax>0), got %d", max)
 	}
 
+	// At overflow size, renderHelpOverlay returns the mini card (non-scrolling).
 	m.helpScroll = 0
-	top := m.renderHelpOverlay()
-	m.helpScroll = max
-	bottom := m.renderHelpOverlay()
-	if top == bottom {
-		t.Fatalf("scrolling to bottom did not change the rendered window")
+	out := m.renderHelpOverlay()
+	if !strings.Contains(out, "↓ expand") {
+		t.Fatalf("expected mini card at 60x16 (missing '↓ expand' nudge): %s", out)
+	}
+	// Full-sheet group headers must NOT appear in the mini.
+	for _, absent := range []string{"SWITCH VIEWS", "WORKSPACE", "CHROME"} {
+		if strings.Contains(out, absent) {
+			t.Fatalf("mini at 60x16 unexpectedly shows full-sheet header %q", absent)
+		}
 	}
 
-	// Over-scroll is clamped (display): scroll past max renders same as max.
+	// The mini renders the same card regardless of helpScroll (non-scrolling).
+	// Verify over-scroll doesn't panic and still returns the mini.
 	m.helpScroll = max + 50
 	over := m.renderHelpOverlay()
-	if over != bottom {
-		t.Fatalf("over-scroll should clamp to the bottom window")
+	if !strings.Contains(over, "↓ expand") {
+		t.Fatalf("over-scroll should still show mini card at 60x16: %s", over)
 	}
 }
 
@@ -1513,6 +1523,60 @@ func TestHelpOverlay_CrossRefFooter(t *testing.T) {
 	}
 	if !strings.Contains(out, "Esc") {
 		t.Errorf("? footer should show a close hint")
+	}
+}
+
+// TestHelpOverlayMini_ShownWhenShort verifies the mini card renders (not the
+// full sheet) when the terminal is too short for the full body (bt-dx7k.1 Task 2).
+// Descs are sourced from GlobalKeys.Board.Help() etc. (single-source, no literals).
+// "label" matches the LabelPicker desc "label picker"; the task spec used "labels"
+// as a shorthand for the label-entry slot.
+func TestHelpOverlayMini_ShownWhenShort(t *testing.T) {
+	m := NewModel(harnessIssues(), nil, "", nil)
+	m.width, m.height = 80, 12
+	m.openModal(ModalHelp)
+	m.focused = focusHelp
+	out := m.renderHelpOverlay()
+
+	// Mini descs must be present (sourced from GlobalKeys bindings).
+	for _, want := range []string{"board", "search", "label", "help"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("mini card at 80x12 missing desc %q: %s", want, out)
+		}
+	}
+	// Nudge and per-view pointer.
+	if !strings.Contains(out, "↓ expand") {
+		t.Errorf("mini card at 80x12 missing '↓ expand' nudge: %s", out)
+	}
+	if !strings.Contains(out, "; per-view") {
+		t.Errorf("mini card at 80x12 missing '; per-view' hint: %s", out)
+	}
+	// Full-sheet-only group headers must NOT appear.
+	for _, absent := range []string{"WORKSPACE", "CHROME"} {
+		if strings.Contains(out, absent) {
+			t.Errorf("mini card at 80x12 leaked full-sheet header %q", absent)
+		}
+	}
+}
+
+// TestHelpOverlayMini_HiddenWhenTall verifies the full sheet renders (not the
+// mini) when the terminal is tall enough for the full body (bt-dx7k.1 Task 2).
+func TestHelpOverlayMini_HiddenWhenTall(t *testing.T) {
+	m := NewModel(harnessIssues(), nil, "", nil)
+	m.width, m.height = 120, 40
+	m.openModal(ModalHelp)
+	m.focused = focusHelp
+	out := m.renderHelpOverlay()
+
+	// At 120x40 the full sheet fits; the mini nudge must NOT appear.
+	if strings.Contains(out, "↓ expand") {
+		t.Errorf("full-sheet at 120x40 should NOT contain '↓ expand' mini nudge")
+	}
+	// Full-sheet group headers must be present.
+	for _, want := range []string{"SWITCH VIEWS", "CHROME"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("full-sheet at 120x40 missing group header %q", want)
+		}
 	}
 }
 
