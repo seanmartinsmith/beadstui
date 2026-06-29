@@ -1498,3 +1498,20 @@ func TestHelpOverlayScroll_WindowsContent(t *testing.T) {
 		t.Fatalf("over-scroll should clamp to the bottom window")
 	}
 }
+
+// TestHelpOverlay_CrossRefFooter verifies the ? overlay footer carries the
+// one-line cross-reference to the ; sidebar plus a close hint (bt-dx7k).
+func TestHelpOverlay_CrossRefFooter(t *testing.T) {
+	m := NewModel(harnessIssues(), nil, "", nil)
+	m.width, m.height = 120, 40
+	m.openModal(ModalHelp)
+	m.focused = focusHelp
+
+	out := m.renderHelpOverlay()
+	if !strings.Contains(out, ";") {
+		t.Errorf("? footer should cross-reference the ; sidebar")
+	}
+	if !strings.Contains(out, "Esc") {
+		t.Errorf("? footer should show a close hint")
+	}
+}

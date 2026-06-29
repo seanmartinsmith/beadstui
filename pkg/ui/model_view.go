@@ -851,8 +851,8 @@ func (m Model) helpOverlayBodyLines() []string {
 }
 
 // helpOverlayChrome is the fixed rows the ? overlay reserves outside the
-// scrollable body: title + subtitle (2), a blank spacer (1), the footer (1).
-const helpOverlayChrome = 4
+// scrollable body: title (1), a blank spacer (1), the footer (1).
+const helpOverlayChrome = 3
 
 // helpOverlayAvailBody returns the scrollable body height for the ? overlay.
 func (m Model) helpOverlayAvailBody() int {
@@ -900,17 +900,14 @@ func (m *Model) renderHelpOverlay() string {
 
 	titleStyle := lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
 	subtitleStyle := lipgloss.NewStyle().Foreground(t.Secondary).Italic(true)
-	header := lipgloss.JoinVertical(lipgloss.Center,
-		titleStyle.Render("Global Shortcuts"),
-		subtitleStyle.Render("; for this screen  -  ? or Esc to close"),
-	)
+	header := titleStyle.Render("Global Shortcuts")
 
-	// Footer scroll indicator when content overflows (Task 4 enriches the footer).
-	footer := ""
+	hint := "; for this screen  -  ? or Esc to close"
 	if maxScroll > 0 {
 		pct := scroll * 100 / maxScroll
-		footer = subtitleStyle.Render(fmt.Sprintf("j/k scroll  %d%%", pct))
+		hint = fmt.Sprintf("%s  -  j/k scroll %d%%", hint, pct)
 	}
+	footer := subtitleStyle.Render(hint)
 
 	fullContent := lipgloss.JoinVertical(lipgloss.Center, header, "", body, footer)
 	// Top-align vertically: centering clipped oversized content (the bt-dx7k bug).
