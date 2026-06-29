@@ -299,10 +299,14 @@ func TestRenderDump(t *testing.T) {
 		// Modal overlays — composited by View() over the (dimmed) background via
 		// activeModal. Proves popups render in-position in the harness. The dim
 		// backdrop is a brightness effect lost to ansi.Strip; judge that in a PNG.
-		{"modal_help_70x20", 70, 20, func(m *Model) { m.openModal(ModalHelp) }}, // bt-dx7k repro
+		{"modal_help_70x20", 70, 20, func(m *Model) { m.openModal(ModalHelp) }}, // bt-dx7k repro -> now mini
 		{"modal_help_120x40", 120, 40, func(m *Model) { m.openModal(ModalHelp) }},
-		{"modal_help_50x14", 50, 14, func(m *Model) { m.openModal(ModalHelp) }}, // bt-dx7k hard gate
-		{"modal_help_30x20", 30, 20, func(m *Model) { m.openModal(ModalHelp) }}, // bt-dx7k 1-col scroll
+		{"modal_help_50x14", 50, 14, func(m *Model) { m.openModal(ModalHelp) }}, // bt-dx7k hard gate -> mini
+		{"modal_help_30x20", 30, 20, func(m *Model) { m.openModal(ModalHelp) }}, // bt-dx7k 1-col -> mini
+		// bt-dx7k.1 mini/full tiers: explicit short cases (mini) + a clearly-tall case (full sheet).
+		{"modal_help_mini_80x12", 80, 12, func(m *Model) { m.openModal(ModalHelp) }},   // 2-col mini at the maintainer's scrunched size
+		{"modal_help_mini_160x14", 160, 14, func(m *Model) { m.openModal(ModalHelp) }}, // wide but short -> still mini
+		{"modal_help_full_120x44", 120, 44, func(m *Model) { m.openModal(ModalHelp) }}, // tall -> full grouped sheet
 
 		// ; sidebar scoping (bt-dx7k): view-only bindings in List (no Global
 		// prefix) and the empty-view fallback in Attention (no view-specific map).
