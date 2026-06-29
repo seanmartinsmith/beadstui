@@ -146,6 +146,8 @@ line instead (acceptable).
 - Add: a mini renderer + the curated mini projection (a list of GlobalKeys field
   selectors) + the height-driven mini/full selector in `renderHelpOverlay`, plus
   the multi-project gate for the conditional `w` entry.
+- Rename `GlobalKeys.SearchMode` help desc `"search mode"` -> `"cycle search
+  ranker"` (`keys/global.go`); update any test asserting the old desc.
 - The `;` sidebar (model_footer.go / shortcuts_sidebar.go) is unchanged by this
   spec (its view-only scoping + fallback + cross-ref from bt-dx7k stay).
 
@@ -165,14 +167,14 @@ line instead (acceptable).
 Surfaced during this design. `GlobalKeys.SearchMode` (`^s`, help desc "search
 mode") does NOT open search; it cycles the search ranker (fuzzy -> hybrid ->
 semantic, `model_update_input.go:704`), gated to list focus, and is a no-op
-elsewhere. The desc reads as search-entry and misled the design. Proposed fix: a
-one-line desc rename so the help is truthful (e.g. "cycle search ranker" or
-"ranker: fuzzy/hybrid/semantic"). Because accurate help IS the point of this
-work, folding the one-line `keys/global.go` desc change into bt-dx7k.1 is the
-recommendation; pending the maintainer's call on (a) fold vs separate bead and
-(b) the exact replacement wording. (Whether `/` search and a ranker key should
-both live in the global Actions group is a separate, larger question -- not in
-scope here.)
+elsewhere. The desc reads as search-entry and misled the design.
+
+**Decision (maintainer, 2026-06-29):** folded into bt-dx7k.1 -- rename the
+`GlobalKeys.SearchMode` help desc from `"search mode"` to **`"cycle search
+ranker"`** (one-line change in `keys/global.go`). This propagates to every help
+surface (L1 footer, `;` sidebar, `?` overlay) via the single key.Map source.
+(Whether `/` search and a ranker key should both live in the global Actions
+group is a separate, larger question -- not in scope here.)
 
 ## Out of scope
 
