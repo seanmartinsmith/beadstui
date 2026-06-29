@@ -303,6 +303,15 @@ func TestRenderDump(t *testing.T) {
 		{"modal_help_120x40", 120, 40, func(m *Model) { m.openModal(ModalHelp) }},
 		{"modal_help_50x14", 50, 14, func(m *Model) { m.openModal(ModalHelp) }}, // bt-dx7k hard gate
 		{"modal_help_30x20", 30, 20, func(m *Model) { m.openModal(ModalHelp) }}, // bt-dx7k 1-col scroll
+
+		// ; sidebar scoping (bt-dx7k): view-only bindings in List (no Global
+		// prefix) and the empty-view fallback in Attention (no view-specific map).
+		{"sidebar_list_100x32", 100, 32, func(m *Model) { m.showShortcutsSidebar = true }},
+		{"sidebar_attention_100x32", 100, 32, func(m *Model) {
+			m.mode = ViewAttention
+			m.focused = focusInsights
+			m.showShortcutsSidebar = true
+		}},
 		{"modal_labelpicker_120x36", 120, 36, func(m *Model) { m.openModal(ModalLabelPicker) }},
 		{"modal_recipepicker_120x36", 120, 36, func(m *Model) { m.openModal(ModalRecipePicker) }},
 		{"modal_alerts_120x36", 120, 36, func(m *Model) { m.openModal(ModalAlerts) }},
