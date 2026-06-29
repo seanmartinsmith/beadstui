@@ -850,34 +850,71 @@ func (m Model) helpOverlayBodyLines() []string {
 	return strings.Split(body, "\n")
 }
 
+// helpOverlayChrome is the fixed rows the ? overlay reserves outside the
+// scrollable body: title + subtitle (2), a blank spacer (1), the footer (1).
+const helpOverlayChrome = 4
+
+// helpOverlayAvailBody returns the scrollable body height for the ? overlay.
+func (m Model) helpOverlayAvailBody() int {
+	avail := m.height - 1 - helpOverlayChrome
+	if avail < 1 {
+		avail = 1
+	}
+	return avail
+}
+
+// helpScrollMax is the maximum helpScroll offset for the current dimensions.
+func (m Model) helpScrollMax() int {
+	max := len(m.helpOverlayBodyLines()) - m.helpOverlayAvailBody()
+	if max < 0 {
+		max = 0
+	}
+	return max
+}
+
 func (m *Model) renderHelpOverlay() string {
 	t := m.theme
-
 	bodyLines := m.helpOverlayBodyLines()
-	body := strings.Join(bodyLines, "\n")
 
-	// Title and subtitle as plain centered text (no outer border)
-	titleStyle := lipgloss.NewStyle().
-		Foreground(t.Primary).
-		Bold(true)
-	subtitleStyle := lipgloss.NewStyle().
-		Foreground(t.Secondary).
-		Italic(true)
+	avail := m.helpOverlayAvailBody()
+	maxScroll := len(bodyLines) - avail
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	scroll := m.helpScroll
+	if scroll > maxScroll {
+		scroll = maxScroll
+	}
+	if scroll < 0 {
+		scroll = 0
+	}
+	end := scroll + avail
+	if end > len(bodyLines) {
+		end = len(bodyLines)
+	}
+	window := bodyLines
+	if len(bodyLines) > 0 {
+		window = bodyLines[scroll:end]
+	}
+	body := strings.Join(window, "\n")
 
+	titleStyle := lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
+	subtitleStyle := lipgloss.NewStyle().Foreground(t.Secondary).Italic(true)
 	header := lipgloss.JoinVertical(lipgloss.Center,
 		titleStyle.Render("Global Shortcuts"),
 		subtitleStyle.Render("; for this screen  -  ? or Esc to close"),
 	)
 
-	fullContent := lipgloss.JoinVertical(lipgloss.Center, header, "", body)
+	// Footer scroll indicator when content overflows (Task 4 enriches the footer).
+	footer := ""
+	if maxScroll > 0 {
+		pct := scroll * 100 / maxScroll
+		footer = subtitleStyle.Render(fmt.Sprintf("j/k scroll  %d%%", pct))
+	}
 
-	return lipgloss.Place(
-		m.width,
-		m.height-1,
-		lipgloss.Center,
-		lipgloss.Center,
-		fullContent,
-	)
+	fullContent := lipgloss.JoinVertical(lipgloss.Center, header, "", body, footer)
+	// Top-align vertically: centering clipped oversized content (the bt-dx7k bug).
+	return lipgloss.Place(m.width, m.height-1, lipgloss.Center, lipgloss.Top, fullContent)
 }
 
 func (m Model) renderLabelHealthDetail(lh analysis.LabelHealth) string {

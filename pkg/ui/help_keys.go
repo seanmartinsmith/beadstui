@@ -54,12 +54,18 @@ func (m Model) handleHelpKeys(msg tea.KeyMsg) Model {
 	switch msg.String() {
 	case "j", "down":
 		m.helpScroll++
+		if max := m.helpScrollMax(); m.helpScroll > max {
+			m.helpScroll = max
+		}
 	case "k", "up":
 		if m.helpScroll > 0 {
 			m.helpScroll--
 		}
 	case "ctrl+d":
 		m.helpScroll += 10
+		if max := m.helpScrollMax(); m.helpScroll > max {
+			m.helpScroll = max
+		}
 	case "ctrl+u":
 		m.helpScroll -= 10
 		if m.helpScroll < 0 {
@@ -68,8 +74,7 @@ func (m Model) handleHelpKeys(msg tea.KeyMsg) Model {
 	case "home", "g":
 		m.helpScroll = 0
 	case "G", "end":
-		// Will be clamped in render
-		m.helpScroll = 999
+		m.helpScroll = m.helpScrollMax()
 	case "q", "esc", "?", "f1":
 		// Close help overlay and restore previous focus
 		m.closeModal()

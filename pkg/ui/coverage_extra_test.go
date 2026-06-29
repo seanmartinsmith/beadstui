@@ -1326,10 +1326,15 @@ func TestHelpOverlayScroll(t *testing.T) {
 		t.Fatalf("expected helpScroll=0 at top, got %d", m.helpScroll)
 	}
 
-	// Test page down
+	// Test page down (clamped to content)
+	m.helpScroll = 0
 	m = m.handleHelpKeys(tea.KeyPressMsg{Code: 'd', Mod: tea.ModCtrl})
-	if m.helpScroll != 10 {
-		t.Fatalf("expected helpScroll=10 after ctrl+d, got %d", m.helpScroll)
+	wantDown := 10
+	if max := m.helpScrollMax(); wantDown > max {
+		wantDown = max
+	}
+	if m.helpScroll != wantDown {
+		t.Fatalf("expected helpScroll=%d after ctrl+d, got %d", wantDown, m.helpScroll)
 	}
 
 	// Test page up
@@ -1345,10 +1350,10 @@ func TestHelpOverlayScroll(t *testing.T) {
 		t.Fatalf("expected helpScroll=0 after g, got %d", m.helpScroll)
 	}
 
-	// Test end
+	// Test end -> bottom (clamped to content, not a 999 sentinel)
 	m = m.handleHelpKeys(tea.KeyPressMsg{Code: 'G', Text: "G"})
-	if m.helpScroll < 10 {
-		t.Fatalf("expected helpScroll>10 after G, got %d", m.helpScroll)
+	if m.helpScroll != m.helpScrollMax() {
+		t.Fatalf("expected helpScroll=helpScrollMax after G, got %d (max %d)", m.helpScroll, m.helpScrollMax())
 	}
 
 	// Test q closes help
@@ -1374,16 +1379,12 @@ func TestHelpOverlayScroll(t *testing.T) {
 	m.focused = focusHelp
 	m.helpScroll = 0
 	out := m.renderHelpOverlay()
-	if !strings.Contains(out, "Keyboard Shortcuts") {
-		t.Fatalf("help overlay should render shortcuts")
+	if !strings.Contains(out, "Global Shortcuts") {
+		t.Fatalf("help overlay should render the global title")
 	}
-	// Should show close hint
-	if !strings.Contains(out, "close") && !strings.Contains(out, "Esc") {
-		t.Fatalf("help overlay should show close hint")
-	}
-	// Should show tutorial hint (bv-0trk)
-	if !strings.Contains(out, "Tutorial") {
-		t.Fatalf("help overlay should show Tutorial hint")
+	// Should show close + cross-reference hints.
+	if !strings.Contains(out, "Esc") || !strings.Contains(out, ";") {
+		t.Fatalf("help overlay should show close hint and ; cross-reference")
 	}
 
 	// Test Space key closes help for tutorial entry (bv-0trk)
@@ -1465,5 +1466,35 @@ func TestHelpOverlayColumns(t *testing.T) {
 		if got := helpOverlayColumns(c.width); got != c.want {
 			t.Errorf("helpOverlayColumns(%d) = %d, want %d", c.width, got, c.want)
 		}
+	}
+}
+
+// TestHelpOverlayScroll_WindowsContent verifies helpScroll actually pans the ?
+// overlay body (the dead-scroll fix, bt-dx7k): at a height that forces overflow,
+// scrolling changes which lines render, and helpScrollMax clamps the bottom.
+func TestHelpOverlayScroll_WindowsContent(t *testing.T) {
+	m := NewModel(harnessIssues(), nil, "", nil)
+	m.width, m.height = 60, 16 // narrow + short -> 1 column, overflows
+	m.openModal(ModalHelp)
+	m.focused = focusHelp
+
+	max := m.helpScrollMax()
+	if max <= 0 {
+		t.Fatalf("expected content to overflow at 60x16 (helpScrollMax>0), got %d", max)
+	}
+
+	m.helpScroll = 0
+	top := m.renderHelpOverlay()
+	m.helpScroll = max
+	bottom := m.renderHelpOverlay()
+	if top == bottom {
+		t.Fatalf("scrolling to bottom did not change the rendered window")
+	}
+
+	// Over-scroll is clamped (display): scroll past max renders same as max.
+	m.helpScroll = max + 50
+	over := m.renderHelpOverlay()
+	if over != bottom {
+		t.Fatalf("over-scroll should clamp to the bottom window")
 	}
 }
