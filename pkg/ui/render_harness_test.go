@@ -301,6 +301,8 @@ func TestRenderDump(t *testing.T) {
 		// backdrop is a brightness effect lost to ansi.Strip; judge that in a PNG.
 		{"modal_help_70x20", 70, 20, func(m *Model) { m.openModal(ModalHelp) }}, // bt-dx7k repro
 		{"modal_help_120x40", 120, 40, func(m *Model) { m.openModal(ModalHelp) }},
+		{"modal_help_50x14", 50, 14, func(m *Model) { m.openModal(ModalHelp) }}, // bt-dx7k hard gate
+		{"modal_help_30x20", 30, 20, func(m *Model) { m.openModal(ModalHelp) }}, // bt-dx7k 1-col scroll
 		{"modal_labelpicker_120x36", 120, 36, func(m *Model) { m.openModal(ModalLabelPicker) }},
 		{"modal_recipepicker_120x36", 120, 36, func(m *Model) { m.openModal(ModalRecipePicker) }},
 		{"modal_alerts_120x36", 120, 36, func(m *Model) { m.openModal(ModalAlerts) }},
