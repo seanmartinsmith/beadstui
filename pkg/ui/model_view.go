@@ -973,7 +973,9 @@ func (m Model) helpMiniRows() []helpRow {
 	add(g.Insights)
 	add(g.SearchBounce)
 	add(g.LabelPicker)
-	// Task 3: if multi-project scope is active, add(g.ProjectsOrWisps) here.
+	if m.workspaceMode {
+		add(g.ProjectsOrWisps)
+	}
 	add(g.Help)
 	add(g.Back)
 	return rows

@@ -1580,6 +1580,36 @@ func TestHelpOverlayMini_HiddenWhenTall(t *testing.T) {
 	}
 }
 
+// TestHelpMini_ProjectsGate verifies ProjectsOrWisps appears in helpMiniRows
+// only when m.workspaceMode is true (bt-dx7k.1 Task 3).
+func TestHelpMini_ProjectsGate(t *testing.T) {
+	m := NewModel(harnessIssues(), nil, "", nil)
+	m.width, m.height = 80, 30
+
+	// Single-project: workspaceMode off — "projects / wisps" must be absent.
+	m.workspaceMode = false
+	rows := m.helpMiniRows()
+	for _, r := range rows {
+		if r.right == "projects / wisps" {
+			t.Errorf("single-project: helpMiniRows() should NOT contain 'projects / wisps', but it does")
+		}
+	}
+
+	// Multi-project: workspaceMode on — "projects / wisps" must be present.
+	m.workspaceMode = true
+	rows = m.helpMiniRows()
+	found := false
+	for _, r := range rows {
+		if r.right == "projects / wisps" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("multi-project: helpMiniRows() should contain 'projects / wisps', but it does not")
+	}
+}
+
 // TestHelpOverlay_SingleBoxAesthetic verifies the ? overlay renders in a single
 // rounded modal box with inline-divider group headers and dim-mono theme tokens
 // (bt-dx7k.1). The four global task group headers must appear, global binding
