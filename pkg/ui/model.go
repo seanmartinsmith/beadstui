@@ -746,6 +746,19 @@ type Model struct {
 	lastModalClickX  int
 	lastModalClickY  int
 
+	// Double-click detection for the main issue list (bt-f3zbz). A second click
+	// on the same row within listDoubleClickWindow opens it (Enter equivalent).
+	// Keyed on row index rather than (X,Y): any X within a row selects that row.
+	lastListClickAt  time.Time
+	lastListClickRow int
+
+	// Mouse-wheel speed ramp for the issue list (bt-citoc). Consecutive wheel
+	// ticks in the same direction within wheelRampWindow accelerate the
+	// rows-per-tick; a direction change or a pause resets to one row.
+	lastWheelAt  time.Time
+	lastWheelDir int
+	wheelStreak  int
+
 	// pendingCommentScroll is a one-shot signal from the notifications-tab
 	// deep-link path (bt-46p6.16). When non-zero, the next call to
 	// updateViewportContent locates the comment with this CreatedAt in the

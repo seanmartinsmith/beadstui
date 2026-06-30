@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
@@ -828,5 +829,113 @@ func TestHandleMouseClick_SinglePaneSidebarClickIgnored(t *testing.T) {
 	got, _ := m.handleMouseClick(tea.MouseClickMsg{X: m.bodyWidth(), Y: firstItemY + 1, Button: tea.MouseLeft})
 	if got.list.Index() != 0 {
 		t.Fatalf("click in sidebar columns should not select a list row, got index %d", got.list.Index())
+	}
+}
+
+// --- Double-click to open (bt-f3zbz) ---
+
+// TestHandleMouseClick_SinglePaneDoubleClickOpensDetail verifies a second click
+// on the same row within listDoubleClickWindow opens the full-screen detail in
+// single-pane (Enter equivalent); the first click only selects (bt-f3zbz).
+func TestHandleMouseClick_SinglePaneDoubleClickOpensDetail(t *testing.T) {
+	m := NewModel(singlePaneTestIssues(), nil, "", nil)
+	m.width = 80
+	m.height = 30
+	m.mode = ViewList
+	m.isSplitView = false
+	m.showDetails = false
+	m.list.SetSize(m.bodyWidth(), 24)
+	m.focused = focusList
+
+	firstItemY := m.singlePaneListChromeHeight()
+	click := tea.MouseClickMsg{X: 5, Y: firstItemY, Button: tea.MouseLeft}
+
+	m, _ = m.handleMouseClick(click)
+	if m.showDetails {
+		t.Fatalf("first click should select only, not open detail")
+	}
+	if m.list.Index() != 0 {
+		t.Fatalf("first click should select index 0, got %d", m.list.Index())
+	}
+
+	m, _ = m.handleMouseClick(click)
+	if !m.showDetails {
+		t.Fatalf("double-click on same row should open detail (showDetails=true)")
+	}
+	if m.focused != focusDetail {
+		t.Fatalf("double-click should focus detail, got %v", m.focused)
+	}
+}
+
+// TestHandleMouseClick_DoubleClickDifferentRowDoesNotOpen: two clicks on
+// different rows within the window select but do not open (bt-f3zbz).
+func TestHandleMouseClick_DoubleClickDifferentRowDoesNotOpen(t *testing.T) {
+	m := NewModel(singlePaneTestIssues(), nil, "", nil)
+	m.width = 80
+	m.height = 30
+	m.mode = ViewList
+	m.isSplitView = false
+	m.list.SetSize(m.bodyWidth(), 24)
+	m.focused = focusList
+
+	firstItemY := m.singlePaneListChromeHeight()
+	m, _ = m.handleMouseClick(tea.MouseClickMsg{X: 5, Y: firstItemY, Button: tea.MouseLeft})
+	m, _ = m.handleMouseClick(tea.MouseClickMsg{X: 5, Y: firstItemY + 1, Button: tea.MouseLeft})
+	if m.showDetails {
+		t.Fatalf("clicks on different rows should not open detail")
+	}
+	if m.list.Index() != 1 {
+		t.Fatalf("second click should select index 1, got %d", m.list.Index())
+	}
+}
+
+// TestHandleMouseClick_DoubleClickExpiredWindowDoesNotOpen: a second click on
+// the same row after the window has elapsed re-selects but does not open
+// (bt-f3zbz).
+func TestHandleMouseClick_DoubleClickExpiredWindowDoesNotOpen(t *testing.T) {
+	m := NewModel(singlePaneTestIssues(), nil, "", nil)
+	m.width = 80
+	m.height = 30
+	m.mode = ViewList
+	m.isSplitView = false
+	m.list.SetSize(m.bodyWidth(), 24)
+	m.focused = focusList
+
+	firstItemY := m.singlePaneListChromeHeight()
+	click := tea.MouseClickMsg{X: 5, Y: firstItemY, Button: tea.MouseLeft}
+	m, _ = m.handleMouseClick(click)
+	// Simulate the double-click window expiring before the second click.
+	m.lastListClickAt = time.Now().Add(-2 * listDoubleClickWindow)
+	m, _ = m.handleMouseClick(click)
+	if m.showDetails {
+		t.Fatalf("second click after window expiry should not open detail")
+	}
+}
+
+// TestHandleMouseClick_SplitViewDoubleClickFocusesDetail: in split view the
+// detail pane is already visible, so double-click focuses it rather than
+// toggling showDetails (bt-f3zbz).
+func TestHandleMouseClick_SplitViewDoubleClickFocusesDetail(t *testing.T) {
+	m := NewModel(singlePaneTestIssues(), nil, "", nil)
+	m.width = 200
+	m.height = 40
+	m.mode = ViewList
+	m.isSplitView = true
+	m.list.SetSize(60, 30)
+	m.focused = focusList
+
+	firstItemY := m.splitViewListChromeHeight()
+	click := tea.MouseClickMsg{X: 5, Y: firstItemY, Button: tea.MouseLeft}
+
+	m, _ = m.handleMouseClick(click)
+	if m.focused != focusList {
+		t.Fatalf("first click in split list pane should focus list, got %v", m.focused)
+	}
+	m, _ = m.handleMouseClick(click)
+	if m.focused != focusDetail {
+		t.Fatalf("double-click in split view should focus detail, got %v", m.focused)
+	}
+	if m.showDetails {
+		t.Fatalf("split view double-click should not set showDetails (detail already visible)")
 	}
 }

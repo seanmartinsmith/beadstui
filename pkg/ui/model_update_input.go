@@ -1680,11 +1680,26 @@ func (m Model) clickListPane(mouse tea.Mouse, searchRowY, rowOffset int) (Model,
 			// in Filtering (bt-r2ev Bug B).
 			m.commitFilterIfTyping()
 			row := mouseRow + pageStart
+			// Double-click opens the row (Enter equivalent, bt-f3zbz): a second
+			// click on the same row within listDoubleClickWindow. Reuses the
+			// alerts-modal double-click pattern (bt-46p6.14), keyed on row index
+			// so any X within the row counts as the same target.
+			now := time.Now()
+			isDouble := !m.lastListClickAt.IsZero() &&
+				now.Sub(m.lastListClickAt) <= listDoubleClickWindow &&
+				m.lastListClickRow == row
+			m.lastListClickAt = now
+			m.lastListClickRow = row
 			m.list.Select(row)
 			// Sync the detail viewport only when it is actually visible (split
 			// view). Single-pane has no detail pane to update.
 			if m.isSplitView {
 				m.updateViewportContent()
+			}
+			if isDouble {
+				// Reset so an immediate third click doesn't re-trigger open.
+				m.lastListClickAt = time.Time{}
+				m = m.openSelectedRow()
 			}
 		} else {
 			// Click landed in the gap between the last rendered row and the
@@ -1695,6 +1710,44 @@ func (m Model) clickListPane(mouse tea.Mouse, searchRowY, rowOffset int) (Model,
 		}
 	}
 	return m, nil
+}
+
+// openSelectedRow opens the currently-selected list row, matching the Enter key
+// in handleListKeys (bt-f3zbz, double-click target). In single-pane it shows
+// the full-screen detail viewport; in split view the detail is already visible,
+// so it focuses that pane (drill in, so the wheel/keys scroll the detail).
+func (m Model) openSelectedRow() Model {
+	if m.isSplitView {
+		m.focused = focusDetail
+		return m
+	}
+	m.showDetails = true
+	m.focused = focusDetail
+	m.viewport.GotoTop() // reset scroll position for the newly opened issue
+	m.updateViewportContent()
+	return m
+}
+
+// rampedWheelStep advances the issue-list mouse-wheel speed ramp and returns
+// how many rows the current tick should move (bt-citoc). Consecutive ticks in
+// the same direction within wheelRampWindow accelerate (rows = 1 +
+// streak/wheelRampDivisor, capped at wheelStepMax); a direction change or a
+// pause longer than the window resets to one row, preserving precise single-row
+// control on a slow scroll. dir is -1 (up) or +1 (down).
+func (m Model) rampedWheelStep(dir int) (Model, int) {
+	now := time.Now()
+	if !m.lastWheelAt.IsZero() && now.Sub(m.lastWheelAt) <= wheelRampWindow && m.lastWheelDir == dir {
+		m.wheelStreak++
+	} else {
+		m.wheelStreak = 0
+	}
+	m.lastWheelAt = now
+	m.lastWheelDir = dir
+	step := 1 + m.wheelStreak/wheelRampDivisor
+	if step > wheelStepMax {
+		step = wheelStepMax
+	}
+	return m, step
 }
 
 // handleMouseWheel processes mouse wheel events.
@@ -1762,8 +1815,16 @@ func (m Model) handleMouseWheel(msg tea.MouseWheelMsg) (Model, tea.Cmd) {
 		// Scroll up based on current focus
 		switch m.focused {
 		case focusList:
-			if m.list.Index() > 0 {
-				m.list.Select(m.list.Index() - 1)
+			// Speed ramp: a fast burst of up-ticks moves multiple rows per tick
+			// (bt-citoc); an isolated tick still moves exactly one row.
+			var step int
+			m, step = m.rampedWheelStep(-1)
+			if idx := m.list.Index(); idx > 0 {
+				target := idx - step
+				if target < 0 {
+					target = 0
+				}
+				m.list.Select(target)
 				// Sync detail panel in split view mode
 				if m.isSplitView {
 					m.updateViewportContent()
@@ -1799,8 +1860,16 @@ func (m Model) handleMouseWheel(msg tea.MouseWheelMsg) (Model, tea.Cmd) {
 		// Scroll down based on current focus
 		switch m.focused {
 		case focusList:
-			if m.list.Index() < len(m.list.Items())-1 {
-				m.list.Select(m.list.Index() + 1)
+			// Speed ramp: a fast burst of down-ticks moves multiple rows per
+			// tick (bt-citoc); an isolated tick still moves exactly one row.
+			var step int
+			m, step = m.rampedWheelStep(+1)
+			if last := len(m.list.Items()) - 1; m.list.Index() < last {
+				target := m.list.Index() + step
+				if target > last {
+					target = last
+				}
+				m.list.Select(target)
 				// Sync detail panel in split view mode
 				if m.isSplitView {
 					m.updateViewportContent()
@@ -2027,6 +2096,21 @@ func (m Model) handleNotificationsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 // OS-default across Windows/macOS/GNOME and was validated by hand on a
 // range of trackpads during bt-46p6.14 dogfooding.
 const modalDoubleClickWindow = 500 * time.Millisecond
+
+// listDoubleClickWindow reuses the modal double-click interval for the main
+// issue list: a second click on the same row within this window opens it,
+// matching the Enter key (bt-f3zbz).
+const listDoubleClickWindow = modalDoubleClickWindow
+
+// Mouse-wheel speed-ramp tuning for the issue list (bt-citoc). Consecutive
+// wheel ticks in the same direction within wheelRampWindow accelerate; the
+// rows advanced per tick is 1 + streak/wheelRampDivisor, capped at
+// wheelStepMax. A direction change or a pause resets to a single row.
+const (
+	wheelRampWindow  = 120 * time.Millisecond
+	wheelStepMax     = 10
+	wheelRampDivisor = 2
+)
 
 // modalChromeAboveItems is the number of terminal rows above the first
 // item inside the shared alerts/notifications modal. Layered top-to-bottom:
