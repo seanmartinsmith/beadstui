@@ -1480,14 +1480,33 @@ func (m Model) splitViewListChromeHeight() int {
 	return offset
 }
 
+// singlePaneListChromeHeight returns the Y coordinate of the first list item in
+// the single-pane list layout (renderListWithHeader, bt-bxu6u). Chrome above
+// the first item, top to bottom:
+//  1. renderSearchRow (always 1 row — bt-fxbl fixed-height across FilterStates;
+//     measured via lipgloss.Height for defense against future wrapping, and fed
+//     the same bodyWidth()-2 width renderListWithHeader renders it at).
+//  2. The column header strip ("TYPE PRI STATUS…"), clipped to width in
+//     renderListWithHeader so it never wraps — always 1 row.
+//
+// Unlike splitViewListChromeHeight there is NO panel top border: single-pane
+// renderListWithHeader joins the parts directly, without a titled panel frame.
+func (m Model) singlePaneListChromeHeight() int {
+	const columnHeader = 1
+	offset := lipgloss.Height(m.renderSearchRow(m.bodyWidth() - 2))
+	offset += columnHeader
+	return offset
+}
+
 // handleMouseClick processes mouse button press events. Scoped to:
-//   - split-view pane focus switching and list-row selection (bt-d8d1)
+//   - list-row selection + filter reopen in both layouts: split view (left
+//     pane) and single-pane (whole body) — bt-d8d1, bt-bxu6u
+//   - split-view pane focus switching (bt-d8d1)
 //   - alerts + notifications tabs inside the shared modal (bt-46p6.14)
 //   - labels and project picker modals (bt-wnda, bt-hpsq)
 //
 // Other modals (BQL query, agent prompt, etc.) consume the click as a no-op
-// so it doesn't bleed through to the background. Single-pane views pass
-// through to preserve existing behavior.
+// so it doesn't bleed through to the background.
 func (m Model) handleMouseClick(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 	mouse := msg.Mouse()
 	if mouse.Button != tea.MouseLeft {
@@ -1546,101 +1565,133 @@ func (m Model) handleMouseClick(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 	if m.mode != ViewList {
 		return m, nil
 	}
+
 	if !m.isSplitView {
-		return m, nil
+		// Single-pane list layout (bt-bxu6u): the whole body is the list, with
+		// no detail pane to the right. This branch fires both when the terminal
+		// is narrower than SplitViewThreshold (auto-collapsed) and when the
+		// user hid the details pane at full width — either way isSplitView is
+		// false and clicks used to be a dead no-op here. The showDetails
+		// sub-case renders a full-screen detail viewport instead of the list
+		// (model_view ViewList branch), so there is no row to hit-test there.
+		if m.showDetails {
+			return m, nil
+		}
+		// Clicks past the body (into the shortcuts sidebar, when shown) are not
+		// list rows; bodyWidth already excludes the sidebar's reserved columns.
+		if mouse.X >= m.bodyWidth() {
+			return m, nil
+		}
+		// Single-pane chrome has no panel top border, so the search row sits at
+		// Y=0 (vs Y=1 in split view) and the first list item below the column
+		// header (singlePaneListChromeHeight).
+		const singlePaneSearchRowY = 0
+		return m.clickListPane(mouse, singlePaneSearchRowY, m.singlePaneListChromeHeight())
 	}
+
 	// Split-view layout: listInnerWidth on the left, detail on the right.
 	// The panel has Border(2)+Padding(2) = 4-cell outer chrome per side. The
 	// left boundary of the detail pane is roughly listInnerWidth + 4.
 	listBoundary := m.list.Width() + 4
-	switch {
-	case mouse.X < listBoundary:
-		if m.focused != focusList {
-			m.focused = focusList
-		}
-		// Click on the search row reopens the filter input for editing
-		// (bt-49nn). Chrome layers above the first list item are: panel
-		// top border (Y=0), search row (Y=1), column header (Y=2). A
-		// click at Y=1 anywhere in the list pane should route to filter
-		// reopen instead of selecting a row. Mirrors the detail-pane "/"
-		// shortcut at the focusDetail handler above (bt-jwo3): preserves
-		// any existing FilterValue and just flips state to Filtering.
-		//
-		// We forward a synthetic "/" keypress to the Bubbles list rather
-		// than calling SetFilterState directly. SetFilterState alone
-		// flips the state flag but skips Bubbles' filter-begin setup
-		// (populating filteredItems with all items when buffer is empty,
-		// GoToStart, FilterInput.Focus/CursorEnd, updateKeybindings) —
-		// without that, an empty buffer in Filtering state renders as
-		// "no matches" instead of "all visible". The keyboard `/` path
-		// goes through Update naturally; the click path now matches it
-		// (bt-r2ev Bug A).
+	if mouse.X < listBoundary {
+		// Split view renders a panel top border at Y=0, so the search row is at
+		// Y=1 and the first list item below the column header.
 		const searchRowY = 1
-		if mouse.Y == searchRowY {
-			if m.list.FilterState() != list.Filtering {
-				// Capture cursor before filter-begin runs (bt-qka1); mirrors the
-				// keyboard "/" restore path in model.go Update. Bubbles' filter-
-				// begin calls GoToStart, which resets the visible cursor to 0.
-				// After the synthetic keypress with an empty buffer, VisibleItems
-				// contains all items, so the captured index is still valid.
-				savedIdx := m.list.Index()
-				m.list, _ = m.list.Update(tea.KeyPressMsg{Code: '/'})
-				// Restore cursor; clamp in case list somehow shrank.
-				if m.list.FilterState() == list.Filtering {
-					visible := m.list.VisibleItems()
-					restoreIdx := savedIdx
-					if restoreIdx >= len(visible) {
-						restoreIdx = len(visible) - 1
-					}
-					if restoreIdx >= 0 {
-						m.list.Select(restoreIdx)
-					}
+		return m.clickListPane(mouse, searchRowY, m.splitViewListChromeHeight())
+	}
+	// Detail pane click: focus it.
+	if m.focused != focusDetail {
+		// Commit any in-progress filter so the search input releases and
+		// global hotkeys/Tab work from the detail pane (bt-ocmw).
+		m.commitFilterIfTyping()
+		m.focused = focusDetail
+		m.updateViewportContent()
+	}
+	return m, nil
+}
+
+// clickListPane handles a left-click that landed inside the list pane: the only
+// pane in single-pane layout, or the left pane in split view. The layouts
+// differ only in vertical geometry — split view renders a panel top border
+// above the search row that single-pane omits — so the caller passes searchRowY
+// (the filter row) and rowOffset (the first list item). Sharing this keeps the
+// row-selection and filter-reopen gestures byte-identical across both layouts
+// (bt-bxu6u; the geometry was split-view-only under bt-d8d1).
+func (m Model) clickListPane(mouse tea.Mouse, searchRowY, rowOffset int) (Model, tea.Cmd) {
+	if m.focused != focusList {
+		m.focused = focusList
+	}
+	// Click on the search row reopens the filter input for editing (bt-49nn).
+	// A click at searchRowY anywhere in the list pane routes to filter reopen
+	// instead of selecting a row. Mirrors the detail-pane "/" shortcut
+	// (bt-jwo3): preserves any existing FilterValue and just flips state to
+	// Filtering.
+	//
+	// We forward a synthetic "/" keypress to the Bubbles list rather than
+	// calling SetFilterState directly. SetFilterState alone flips the state
+	// flag but skips Bubbles' filter-begin setup (populating filteredItems with
+	// all items when buffer is empty, GoToStart, FilterInput.Focus/CursorEnd,
+	// updateKeybindings) — without that, an empty buffer in Filtering state
+	// renders as "no matches" instead of "all visible". The keyboard `/` path
+	// goes through Update naturally; the click path now matches it (bt-r2ev
+	// Bug A).
+	if mouse.Y == searchRowY {
+		if m.list.FilterState() != list.Filtering {
+			// Capture cursor before filter-begin runs (bt-qka1); mirrors the
+			// keyboard "/" restore path in model.go Update. Bubbles' filter-
+			// begin calls GoToStart, which resets the visible cursor to 0.
+			// After the synthetic keypress with an empty buffer, VisibleItems
+			// contains all items, so the captured index is still valid.
+			savedIdx := m.list.Index()
+			m.list, _ = m.list.Update(tea.KeyPressMsg{Code: '/'})
+			// Restore cursor; clamp in case list somehow shrank.
+			if m.list.FilterState() == list.Filtering {
+				visible := m.list.VisibleItems()
+				restoreIdx := savedIdx
+				if restoreIdx >= len(visible) {
+					restoreIdx = len(visible) - 1
+				}
+				if restoreIdx >= 0 {
+					m.list.Select(restoreIdx)
 				}
 			}
-			return m, nil
 		}
-		rowOffset := m.splitViewListChromeHeight()
-		if mouse.Y >= rowOffset {
-			mouseRow := mouse.Y - rowOffset
-			// Bound mouseRow against the rows actually rendered on the current
-			// page, not against len(visible). At large unfiltered lists, a
-			// click in the gap between the last rendered row and the footer
-			// otherwise computes a `row` index that's still < len(visible) and
-			// triggers Select() into a later page (bt-9kj7, sister of bt-0lsm).
-			visible := m.list.VisibleItems()
-			perPage := m.list.Paginator.PerPage
-			pageStart := m.list.Paginator.Page * perPage
-			remainingOnPage := len(visible) - pageStart
-			if remainingOnPage > perPage {
-				remainingOnPage = perPage
-			}
-			if mouseRow >= 0 && mouseRow < remainingOnPage {
-				// Commit any in-progress filter before selecting the row, so
-				// the click commits + selects in one gesture. Without this,
-				// a click on a row while in Filtering state keeps focus on
-				// focusList and bypasses commitFilterIfTyping (bt-ocmw),
-				// leaving the user stuck in Filtering (bt-r2ev Bug B).
-				m.commitFilterIfTyping()
-				row := mouseRow + pageStart
-				m.list.Select(row)
-				if m.isSplitView {
-					m.updateViewportContent()
-				}
-			} else {
-				// Click landed in the gap between the last rendered row and
-				// the footer. Same fix-shape as a row click: commit any
-				// in-progress filter so the gesture isn't a dead-zone for
-				// users in Filtering state (bt-r2ev Bug B).
-				m.commitFilterIfTyping()
-			}
+		return m, nil
+	}
+	if mouse.Y >= rowOffset {
+		mouseRow := mouse.Y - rowOffset
+		// Bound mouseRow against the rows actually rendered on the current
+		// page, not against len(visible). At large unfiltered lists, a click
+		// in the gap between the last rendered row and the footer otherwise
+		// computes a `row` index that's still < len(visible) and triggers
+		// Select() into a later page (bt-9kj7, sister of bt-0lsm).
+		visible := m.list.VisibleItems()
+		perPage := m.list.Paginator.PerPage
+		pageStart := m.list.Paginator.Page * perPage
+		remainingOnPage := len(visible) - pageStart
+		if remainingOnPage > perPage {
+			remainingOnPage = perPage
 		}
-	default:
-		if m.focused != focusDetail {
-			// Commit any in-progress filter so the search input releases and
-			// global hotkeys/Tab work from the detail pane (bt-ocmw).
+		if mouseRow >= 0 && mouseRow < remainingOnPage {
+			// Commit any in-progress filter before selecting the row, so the
+			// click commits + selects in one gesture. Without this, a click on
+			// a row while in Filtering state keeps focus on focusList and
+			// bypasses commitFilterIfTyping (bt-ocmw), leaving the user stuck
+			// in Filtering (bt-r2ev Bug B).
 			m.commitFilterIfTyping()
-			m.focused = focusDetail
-			m.updateViewportContent()
+			row := mouseRow + pageStart
+			m.list.Select(row)
+			// Sync the detail viewport only when it is actually visible (split
+			// view). Single-pane has no detail pane to update.
+			if m.isSplitView {
+				m.updateViewportContent()
+			}
+		} else {
+			// Click landed in the gap between the last rendered row and the
+			// footer. Same fix-shape as a row click: commit any in-progress
+			// filter so the gesture isn't a dead-zone for users in Filtering
+			// state (bt-r2ev Bug B).
+			m.commitFilterIfTyping()
 		}
 	}
 	return m, nil

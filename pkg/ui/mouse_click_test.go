@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 
 	"charm.land/bubbles/v2/list"
@@ -657,5 +658,175 @@ func TestHandleMouseClick_ListPaneClick_CommitsActiveFilter(t *testing.T) {
 				t.Fatalf("filter value after click = %q, want %q", val, tc.wantValue)
 			}
 		})
+	}
+}
+
+// singlePaneTestIssues is a tiny fixture shared by the single-pane click tests.
+func singlePaneTestIssues() []model.Issue {
+	return []model.Issue{
+		{ID: "bd-cc0", Title: "first", Status: model.StatusOpen},
+		{ID: "bd-cgh", Title: "second", Status: model.StatusOpen},
+		{ID: "cass-z95i", Title: "third", Status: model.StatusOpen},
+	}
+}
+
+// TestHandleMouseClick_SinglePaneChromeHeight pins the single-pane list chrome
+// to 2 rows (search row at Y=0 + column header at Y=1, no panel top border),
+// so the first list item is at Y=2 (bt-bxu6u). This is the single-pane analogue
+// of splitViewListChromeHeight's 3 rows.
+func TestHandleMouseClick_SinglePaneChromeHeight(t *testing.T) {
+	m := NewModel(singlePaneTestIssues(), nil, "", nil)
+	m.width = 80
+	m.height = 30
+	m.list.SetSize(m.bodyWidth(), 24)
+	if got := m.singlePaneListChromeHeight(); got != 2 {
+		t.Fatalf("singlePaneListChromeHeight = %d, want 2 (search row + column header)", got)
+	}
+}
+
+// TestSinglePaneListRenderGeometry pins singlePaneListChromeHeight to the
+// actual renderListWithHeader output: search row on line 0, column header on
+// line 1, first list item on line 2. If renderListWithHeader's chrome ever
+// shifts, this fails alongside the click math that depends on it (bt-bxu6u).
+func TestSinglePaneListRenderGeometry(t *testing.T) {
+	m := NewModel(singlePaneTestIssues(), nil, "", nil)
+	m.width = 90 // single-pane (< SplitViewThreshold)
+	m.height = 24
+	m.mode = ViewList
+	m.isSplitView = false
+	m.list.SetSize(m.bodyWidth(), m.height-3)
+	m.updateListDelegate()
+
+	lines := strings.Split(m.renderListWithHeader(), "\n")
+	chrome := m.singlePaneListChromeHeight()
+	if len(lines) <= chrome {
+		t.Fatalf("rendered %d lines, need at least %d", len(lines), chrome+1)
+	}
+	if !strings.Contains(lines[0], "Search:") {
+		t.Fatalf("line 0 should be the search row, got %q", lines[0])
+	}
+	if !strings.Contains(lines[1], "TYPE") {
+		t.Fatalf("line 1 should be the column header, got %q", lines[1])
+	}
+	if !strings.Contains(lines[chrome], "bd-cc0") {
+		t.Fatalf("first list item (bd-cc0) should render on line %d (singlePaneListChromeHeight), got %q",
+			chrome, lines[chrome])
+	}
+}
+
+// TestHandleMouseClick_SinglePaneNarrowSelectsRow is the core bt-bxu6u
+// regression: in the narrow single-pane layout (width < SplitViewThreshold, no
+// detail pane), clicking a list row used to be a dead no-op. It must now select
+// the clicked row, matching split-view behavior.
+func TestHandleMouseClick_SinglePaneNarrowSelectsRow(t *testing.T) {
+	m := NewModel(singlePaneTestIssues(), nil, "", nil)
+	m.width = 80 // below SplitViewThreshold (100): single-pane
+	m.height = 30
+	m.mode = ViewList
+	m.isSplitView = false
+	m.showDetails = false
+	m.list.SetSize(m.bodyWidth(), 24)
+	m.focused = focusList
+
+	firstItemY := m.singlePaneListChromeHeight()
+
+	got, _ := m.handleMouseClick(tea.MouseClickMsg{X: 5, Y: firstItemY, Button: tea.MouseLeft})
+	if got.list.Index() != 0 {
+		t.Fatalf("click on first row Y=%d should select index 0, got %d", firstItemY, got.list.Index())
+	}
+
+	got2, _ := got.handleMouseClick(tea.MouseClickMsg{X: 5, Y: firstItemY + 2, Button: tea.MouseLeft})
+	if got2.list.Index() != 2 {
+		t.Fatalf("click on third row Y=%d should select index 2, got %d", firstItemY+2, got2.list.Index())
+	}
+}
+
+// TestHandleMouseClick_SinglePaneWideMaximizedSelectsRow covers bt-bxu6u's
+// scope-widening note: the dead gate also fired for the WIDE single-pane list
+// (full terminal width, details pane intentionally hidden, so isSplitView is
+// false even with room to spare). Clicks must select there too.
+func TestHandleMouseClick_SinglePaneWideMaximizedSelectsRow(t *testing.T) {
+	m := NewModel(singlePaneTestIssues(), nil, "", nil)
+	m.width = 200 // well above SplitViewThreshold, but details hidden
+	m.height = 50
+	m.mode = ViewList
+	m.isSplitView = false
+	m.showDetails = false
+	m.list.SetSize(m.bodyWidth(), 44)
+	m.focused = focusList
+
+	firstItemY := m.singlePaneListChromeHeight()
+
+	got, _ := m.handleMouseClick(tea.MouseClickMsg{X: 5, Y: firstItemY + 1, Button: tea.MouseLeft})
+	if got.list.Index() != 1 {
+		t.Fatalf("wide single-pane click on second row Y=%d should select index 1, got %d",
+			firstItemY+1, got.list.Index())
+	}
+}
+
+// TestHandleMouseClick_SinglePaneSearchRowReopensFilter verifies a click on the
+// single-pane search row (Y=0, no panel top border) reopens the filter input,
+// mirroring the split-view search-row click (which lives at Y=1) (bt-bxu6u).
+func TestHandleMouseClick_SinglePaneSearchRowReopensFilter(t *testing.T) {
+	m := NewModel(singlePaneTestIssues(), nil, "", nil)
+	m.width = 80
+	m.height = 30
+	m.mode = ViewList
+	m.isSplitView = false
+	m.showDetails = false
+	m.list.SetSize(m.bodyWidth(), 24)
+	m.focused = focusList
+
+	if m.list.FilterState() == list.Filtering {
+		t.Fatalf("precondition: list should not start in Filtering state")
+	}
+
+	got, _ := m.handleMouseClick(tea.MouseClickMsg{X: 5, Y: 0, Button: tea.MouseLeft})
+	if got.list.FilterState() != list.Filtering {
+		t.Fatalf("click on single-pane search row (Y=0) should reopen filter, got state %v",
+			got.list.FilterState())
+	}
+}
+
+// TestHandleMouseClick_SinglePaneShowDetailsNoOp verifies that when the
+// single-pane layout is showing the full-screen detail viewport (showDetails,
+// no list rendered), a click does not select a list row (bt-bxu6u).
+func TestHandleMouseClick_SinglePaneShowDetailsNoOp(t *testing.T) {
+	m := NewModel(singlePaneTestIssues(), nil, "", nil)
+	m.width = 80
+	m.height = 30
+	m.mode = ViewList
+	m.isSplitView = false
+	m.showDetails = true // full-screen detail viewport, list not visible
+	m.list.SetSize(m.bodyWidth(), 24)
+	m.list.Select(0)
+
+	got, _ := m.handleMouseClick(tea.MouseClickMsg{X: 5, Y: 4, Button: tea.MouseLeft})
+	if got.list.Index() != 0 {
+		t.Fatalf("showDetails viewport has no list rows; click should not change selection, got %d",
+			got.list.Index())
+	}
+}
+
+// TestHandleMouseClick_SinglePaneSidebarClickIgnored verifies clicks landing in
+// the shortcuts-sidebar columns (X past bodyWidth) do not select a list row in
+// single-pane layout (bt-bxu6u).
+func TestHandleMouseClick_SinglePaneSidebarClickIgnored(t *testing.T) {
+	m := NewModel(singlePaneTestIssues(), nil, "", nil)
+	m.width = 120
+	m.height = 30
+	m.mode = ViewList
+	m.isSplitView = false
+	m.showDetails = false
+	m.showShortcutsSidebar = true
+	m.shortcutsSidebar.SetSize(24, 28) // bodyWidth shrinks to 120-24 = 96
+	m.list.SetSize(m.bodyWidth(), 24)
+	m.list.Select(0)
+
+	firstItemY := m.singlePaneListChromeHeight()
+	// X at the first sidebar column (== bodyWidth) is past the list body.
+	got, _ := m.handleMouseClick(tea.MouseClickMsg{X: m.bodyWidth(), Y: firstItemY + 1, Button: tea.MouseLeft})
+	if got.list.Index() != 0 {
+		t.Fatalf("click in sidebar columns should not select a list row, got index %d", got.list.Index())
 	}
 }
