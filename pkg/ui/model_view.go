@@ -273,7 +273,15 @@ func (m Model) View() tea.View {
 	if bodyRows < 1 {
 		bodyRows = 1
 	}
-	body = lipgloss.NewStyle().Height(bodyRows).MaxHeight(bodyRows).Render(body)
+	// MaxWidth enforces the horizontal half of the same guarantee. A body line
+	// wider than the terminal — e.g. a panel that overshoots its width budget
+	// by a cell (bt-2f9ff: the insights 2-column layout emits a 121-cell line at
+	// width 120) — would otherwise WRAP under finalStyle.Width below, adding a
+	// row that shoves the JoinVertical past MaxHeight(m.height) and clips the
+	// footer off the bottom entirely. Truncating here keeps the body at exactly
+	// bodyRows rows so the footer's last-row guarantee survives an over-wide
+	// view. This is the never-wrap width guarantee the comment above names.
+	body = lipgloss.NewStyle().Height(bodyRows).MaxHeight(bodyRows).MaxWidth(m.width).Render(body)
 
 	// Ensure the final output fits exactly in the terminal height
 	// This prevents the header from being pushed off the top
