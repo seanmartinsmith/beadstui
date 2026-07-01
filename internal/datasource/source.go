@@ -1,13 +1,17 @@
 // Package datasource resolves the data source for a beadstui project.
 //
-// Architecture (ADR-003): there are exactly three source types: a
+// Architecture (ADR-003, extended by bt-qrt2u): the source types are a
 // per-project Dolt server (the upstream system of record since beads
 // v1.0.1), a shared global Dolt server enumerated across multiple
-// project databases, and a JSONL fallback for legacy projects that
-// haven't migrated to Dolt yet. Discovery is a simple decision: try
-// Dolt-resolution first; if Dolt is configured but unreachable, return
-// ErrDoltRequired; otherwise fall back to JSONL if a file is present;
-// else error.
+// project databases, an embedded (in-process) Dolt project read via the
+// bd CLI, and a JSONL fallback for legacy projects that haven't migrated
+// to Dolt yet. Discovery is a simple decision: an embedded project (the
+// beads v1.0 default; dolt_mode:embedded, no server) is detected first
+// and read by shelling `bd export` (never attaching to a server, which
+// would deadlock the concurrent `bd` CLI - see bt-qrt2u); otherwise try
+// Dolt-server resolution; if a server is configured but unreachable,
+// return ErrDoltRequired; otherwise fall back to JSONL if a file is
+// present; else error.
 //
 // The pre-ADR-003 multi-source discovery + priority + selection pipeline
 // was collapsed because it had outlived its purpose: with Dolt as the
@@ -37,8 +41,9 @@ var ErrDoltRequired = errors.New("Dolt server required but not reachable")
 // can be resolved in the beads directory.
 var ErrNoSource = errors.New("no data source found")
 
-// SourceType identifies the type of data source. Per ADR-003 there are
-// exactly three values; do not add more without revisiting that decision.
+// SourceType identifies the type of data source. ADR-003 fixed three
+// values; bt-qrt2u added the embedded-Dolt read path. Do not add more
+// without revisiting those decisions.
 type SourceType string
 
 const (
@@ -46,6 +51,11 @@ const (
 	SourceTypeDolt SourceType = "dolt"
 	// SourceTypeDoltGlobal is a shared Dolt server hosting multiple databases.
 	SourceTypeDoltGlobal SourceType = "dolt_global"
+	// SourceTypeEmbeddedDolt is an embedded (in-process) Dolt project - the
+	// beads v1.0 default (dolt_mode:embedded, no server). bt reads it by
+	// shelling `bd export` into memory rather than attaching to a server,
+	// which would deadlock the concurrent `bd` CLI (bt-qrt2u / bt-ij71a).
+	SourceTypeEmbeddedDolt SourceType = "embedded_dolt"
 	// SourceTypeJSONLFallback is a legacy JSONL file used when Dolt is not
 	// configured for the project.
 	SourceTypeJSONLFallback SourceType = "jsonl_fallback"
@@ -112,6 +122,26 @@ func DiscoverSource(opts DiscoveryOptions) (DataSource, error) {
 
 	if opts.Verbose {
 		opts.Logger(fmt.Sprintf("Discovering source in: %s", beadsDir))
+	}
+
+	// Embedded (in-process) Dolt project? Read it via the bd CLI. This is
+	// detected BEFORE the server-config branch so an embedded project never
+	// pings a port or falls through to ErrDoltRequired -> `bd dolt start`.
+	// Attaching a server to the embedded data dir would deadlock the
+	// concurrent bd CLI (bt-qrt2u), so there is deliberately no server here.
+	if dbName, ok := ReadEmbeddedConfig(beadsDir); ok {
+		repoRoot := filepath.Dir(beadsDir)
+		if opts.Verbose {
+			opts.Logger(fmt.Sprintf("Embedded Dolt project (db=%s): reading via `bd export` from %s", dbName, repoRoot))
+		}
+		src := DataSource{
+			Type: SourceTypeEmbeddedDolt,
+			Path: repoRoot,
+		}
+		if opts.ValidateAfterDiscovery {
+			_ = ValidateSource(&src)
+		}
+		return src, nil
 	}
 
 	// Dolt configured? Try it. If declared but unreachable, fail loudly so

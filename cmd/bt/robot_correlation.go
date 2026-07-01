@@ -35,6 +35,14 @@ import (
 // (no JSONL on disk AND no usable Dolt DataSource). Replaces the misleading
 // "no beads file found in <repo>/.beads/" wedge that bt-5s3u closes.
 func resolveCorrelator(repoPath string) (*correlation.Correlator, func(), error) {
+	// Embedded (in-process Dolt) projects have neither git-tracked JSONL nor a
+	// queryable Dolt SQL connection, so correlation cannot run. Surface a clear
+	// "not available yet" error (bt-5uaxh) instead of the misleading generic
+	// "no Dolt source" wedge below (bt-ij71a).
+	if appCtx.selectedSource != nil && appCtx.selectedSource.Type == datasource.SourceTypeEmbeddedDolt {
+		return nil, nil, correlation.ErrEmbeddedModeUnavailable
+	}
+
 	// The .git existence check that ValidateRepository used to perform is
 	// still meaningful — the correlator wants co-commit context. The
 	// beads-file half of that check is what the sweep drops.

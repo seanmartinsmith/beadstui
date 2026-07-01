@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 
 	_ "github.com/go-sql-driver/mysql"
 	json "github.com/goccy/go-json"
@@ -60,6 +61,8 @@ func ValidateSourceWithOptions(source *DataSource, opts ValidationOptions) error
 	switch source.Type {
 	case SourceTypeDolt, SourceTypeDoltGlobal:
 		err = validateDolt(source, opts)
+	case SourceTypeEmbeddedDolt:
+		err = validateEmbedded(source, opts)
 	case SourceTypeJSONLFallback:
 		err = validateJSONL(source, opts)
 	default:
@@ -109,6 +112,28 @@ func validateDolt(source *DataSource, opts ValidationOptions) error {
 		opts.Logger(fmt.Sprintf("Dolt validation passed: %s (%d issues)", source.Path, source.IssueCount))
 	}
 
+	return nil
+}
+
+// validateEmbedded runs a lightweight check for an embedded-Dolt source:
+// the `bd` CLI must be on PATH (the whole read path depends on it) and the
+// repo root must exist. It deliberately does NOT spawn `bd export` to count
+// issues - that would double the (already cheap but non-trivial) subprocess
+// spawn on every discovery. IssueCount is left for the actual load to report.
+func validateEmbedded(source *DataSource, opts ValidationOptions) error {
+	if _, err := exec.LookPath("bd"); err != nil {
+		return fmt.Errorf("embedded-mode read requires the `bd` CLI on PATH: %w", err)
+	}
+	if source.Path != "" {
+		if info, err := os.Stat(source.Path); err != nil {
+			return fmt.Errorf("cannot access repo root %s: %w", source.Path, err)
+		} else if !info.IsDir() {
+			return fmt.Errorf("repo root is not a directory: %s", source.Path)
+		}
+	}
+	if opts.Verbose {
+		opts.Logger(fmt.Sprintf("Embedded Dolt validation passed: %s", source.Path))
+	}
 	return nil
 }
 

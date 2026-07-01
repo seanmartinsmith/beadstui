@@ -135,6 +135,13 @@ func LoadFromSource(source DataSource) ([]model.Issue, error) {
 		defer reader.Close()
 		issues, err = reader.LoadIssues()
 
+	case SourceTypeEmbeddedDolt:
+		reader, derr := NewEmbeddedReader(source)
+		if derr != nil {
+			return nil, derr
+		}
+		issues, err = reader.LoadIssues()
+
 	case SourceTypeJSONLFallback:
 		issues, err = loader.LoadIssuesFromFile(source.Path)
 

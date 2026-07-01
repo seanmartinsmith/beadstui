@@ -62,6 +62,41 @@ type Issue struct {
 	ClosedBySession  string                     `json:"closed_by_session,omitempty"`
 }
 
+// UnmarshalJSON ingests `bd export` (JSONL) output, reconciling the field
+// names where bd's export keys differ from this struct's json tags. The
+// embedded read path (bt-ij71a) shells `bd export` and parses the stdout
+// through pkg/loader; without this, two fields the server-mode SQL reader
+// populates would come back empty from an identical dataset:
+//   - `created_by` (export) -> Author. The SQL reader maps the beads
+//     created_by column to Author (see internal/datasource/dolt.go); bd
+//     export uses the `created_by` key, but Author's tag is `author`.
+//   - `due_at` (export) -> DueDate. The SQL reader reads the due_at column;
+//     bd export uses the `due_at` key, but DueDate's tag is `due_date`.
+//
+// The struct's own `author` / `due_date` tags still take precedence when
+// present (bt's own marshalled output, and older fixtures), so this is
+// additive reconciliation, not a rename.
+func (i *Issue) UnmarshalJSON(data []byte) error {
+	type alias Issue // avoid recursion into this method
+	aux := &struct {
+		*alias
+		CreatedBy string     `json:"created_by"`
+		DueAt     *time.Time `json:"due_at"`
+	}{
+		alias: (*alias)(i),
+	}
+	if err := json.Unmarshal(data, aux); err != nil {
+		return err
+	}
+	if i.Author == "" && aux.CreatedBy != "" {
+		i.Author = aux.CreatedBy
+	}
+	if i.DueDate == nil && aux.DueAt != nil {
+		i.DueDate = aux.DueAt
+	}
+	return nil
+}
+
 // Clone creates a deep copy of the issue
 func (i Issue) Clone() Issue {
 	clone := i
@@ -311,12 +346,17 @@ type Comment struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-// UnmarshalJSON handles both string and numeric IDs for backward compatibility
-// with JSONL fixtures that used int64 IDs (bt-ju7o).
+// UnmarshalJSON handles both string and numeric comment IDs. Modern bd (Dolt)
+// emits UUID string ids (e.g. "019f1ea3-823c-7d8c-..."); legacy SQLite JSONL
+// fixtures used bare int64 numbers (bt-ju7o). A prior implementation decoded
+// the id into json.Number, which rejects UUID strings ("invalid number
+// literal") and silently dropped every comment-bearing issue from a modern
+// `bd export` — the exact fidelity break the embedded read path (bt-ij71a)
+// must avoid. Decode the id as a raw token and accept either shape.
 func (c *Comment) UnmarshalJSON(data []byte) error {
 	type Alias Comment // prevent recursion
 	aux := &struct {
-		ID json.Number `json:"id"`
+		ID json.RawMessage `json:"id"`
 		*Alias
 	}{
 		Alias: (*Alias)(c),
@@ -324,7 +364,19 @@ func (c *Comment) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, aux); err != nil {
 		return err
 	}
-	c.ID = aux.ID.String()
+	switch {
+	case len(aux.ID) == 0 || string(aux.ID) == "null":
+		c.ID = ""
+	default:
+		// Try a JSON string (UUID) first; fall back to the raw token (a
+		// number) verbatim.
+		var s string
+		if err := json.Unmarshal(aux.ID, &s); err == nil {
+			c.ID = s
+		} else {
+			c.ID = string(aux.ID)
+		}
+	}
 	return nil
 }
 

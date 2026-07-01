@@ -929,6 +929,17 @@ func loadBackgroundModeFromUserConfig() (bool, bool) {
 //     is the "no anchor available from outside any project" case and
 //     genuine `bd -C` failures.
 func autoGlobalWithColdBoot(envRobot bool) (bool, error) {
+	// An embedded (in-process Dolt) project is standalone and invisible to any
+	// shared server. When the cwd is inside one, honor it directly: defer to
+	// the local-project loader (which routes through the embedded bd-CLI
+	// reader) instead of hijacking to the global shared-server view or
+	// cold-booting a server the user isn't pointing at (bt-ij71a). Without
+	// this, a running shared server shadows the embedded project the user
+	// cd'd into.
+	if currentProjectIsEmbedded() {
+		return false, nil
+	}
+
 	host, port, discoverErr := datasource.DiscoverSharedServer()
 	if discoverErr == nil {
 		if loadGlobalMode(host, port) {
@@ -1064,6 +1075,20 @@ func currentProjectRoot() string {
 		return ""
 	}
 	return filepath.Dir(beadsDir)
+}
+
+// currentProjectIsEmbedded reports whether the cwd's beads project uses
+// embedded (in-process) Dolt (dolt_mode:embedded). Embedded projects are
+// standalone and invisible to any shared server, so bt reads them locally via
+// the bd-CLI export path rather than routing through the global shared-server
+// view (bt-ij71a / bt-qrt2u).
+func currentProjectIsEmbedded() bool {
+	beadsDir, err := loader.GetBeadsDir("")
+	if err != nil {
+		return false
+	}
+	_, ok := datasource.ReadEmbeddedConfig(beadsDir)
+	return ok
 }
 
 // startSharedServerViaAnchor shells out `bd -C <anchor> dolt start`. The

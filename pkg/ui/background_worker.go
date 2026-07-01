@@ -371,9 +371,19 @@ func NewBackgroundWorker(cfg WorkerConfig) (*BackgroundWorker, error) {
 		w.temporalCache = analysis.NewTemporalCache(analysis.DefaultTemporalCacheConfig())
 	}
 
-	// Initialize file watcher
-	if cfg.BeadsPath != "" {
-		fw, err := watcher.NewWatcher(cfg.BeadsPath,
+	// Initialize file watcher. For embedded (in-process Dolt) projects there
+	// is no JSONL file to watch; instead watch the Dolt storage manifest,
+	// which Dolt rewrites on every commit (e.g. `bd create`). That is the
+	// event-driven change signal for live refresh (bt-ij71a) - in place of
+	// the SQL MAX(updated_at) poll used for server-mode Dolt sources.
+	watchPath := cfg.BeadsPath
+	if cfg.DataSource != nil && cfg.DataSource.Type == datasource.SourceTypeEmbeddedDolt && cfg.BeadsDir != "" {
+		if manifest := datasource.EmbeddedManifestPath(cfg.BeadsDir); manifest != "" {
+			watchPath = manifest
+		}
+	}
+	if watchPath != "" {
+		fw, err := watcher.NewWatcher(watchPath,
 			watcher.WithDebounceDuration(cfg.DebounceDelay),
 		)
 		if err != nil {
@@ -1346,7 +1356,13 @@ func (w *BackgroundWorker) maybeIdleGC(now time.Time) {
 // This is called from the worker goroutine (NOT the UI thread).
 // Returns nil if no source is available, loading fails, or content is unchanged.
 func (w *BackgroundWorker) buildSnapshot() *DataSnapshot {
-	isDolt := w.dataSource != nil && (w.dataSource.Type == datasource.SourceTypeDolt || w.dataSource.Type == datasource.SourceTypeDoltGlobal)
+	// isDolt gates the "load via datasource reader" path (vs the JSONL
+	// file path). Embedded (in-process Dolt) sources load the same way -
+	// through datasource.LoadFromSource, which shells `bd export` - so they
+	// take this branch too (bt-ij71a).
+	isDolt := w.dataSource != nil && (w.dataSource.Type == datasource.SourceTypeDolt ||
+		w.dataSource.Type == datasource.SourceTypeDoltGlobal ||
+		w.dataSource.Type == datasource.SourceTypeEmbeddedDolt)
 	if w.beadsPath == "" && !isDolt {
 		return nil
 	}

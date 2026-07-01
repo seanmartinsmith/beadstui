@@ -444,6 +444,13 @@ func LoadHistoryCmd(repoPath, beadsPath string, issues []model.Issue, ds *dataso
 			return HistoryLoadedMsg{Error: fmt.Errorf("history load: empty repo path")}
 		}
 
+		// Embedded (in-process Dolt) projects have no git-tracked JSONL and no
+		// Dolt SQL connection, so correlation cannot run. Degrade the view with
+		// a clear message instead of a silent-empty report (bt-ij71a / bt-5uaxh).
+		if ds != nil && ds.Type == datasource.SourceTypeEmbeddedDolt {
+			return HistoryLoadedMsg{Error: correlation.ErrEmbeddedModeUnavailable}
+		}
+
 		// Convert model.Issue to correlation.BeadInfo
 		beads := make([]correlation.BeadInfo, len(issues))
 		for i, issue := range issues {
@@ -1154,13 +1161,18 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 	}
 
 	isDolt := ds != nil && (ds.Type == datasource.SourceTypeDolt || ds.Type == datasource.SourceTypeDoltGlobal)
+	// Embedded (in-process Dolt) projects live-refresh by watching the Dolt
+	// storage manifest (bt-ij71a); like Dolt sources they always use the
+	// background worker, not the opt-in JSONL file-watch path.
+	isEmbedded := ds != nil && ds.Type == datasource.SourceTypeEmbeddedDolt
 
 	// Compute beadsDir for reconnect and port resolution
 	workerBeadsDir, _ := loader.GetBeadsDir("")
 
 	// Dolt sources always use the background worker for polling since there are
-	// no files to watch. JSONL sources require explicit opt-in via BT_BACKGROUND_MODE.
-	bgEnabled := (beadsPath != "" || isDolt) && (backgroundModeRequested || isDolt)
+	// no files to watch; embedded sources always use it to watch the Dolt
+	// manifest. JSONL sources require explicit opt-in via BT_BACKGROUND_MODE.
+	bgEnabled := (beadsPath != "" || isDolt || isEmbedded) && (backgroundModeRequested || isDolt || isEmbedded)
 	if bgEnabled {
 		bw, err := NewBackgroundWorker(WorkerConfig{
 			BeadsPath:     beadsPath,

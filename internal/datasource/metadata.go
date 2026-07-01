@@ -57,6 +57,48 @@ func readJSONLExport(beadsDir string) (string, bool) {
 	return path, true
 }
 
+// ReadEmbeddedConfig reports whether the project at beadsDir uses embedded
+// (in-process) Dolt - dolt_mode:embedded in metadata.json, the beads v1.0
+// default - and returns the Dolt database name. Embedded projects have no SQL
+// server to reach; bt reads them by shelling `bd export` (bt-qrt2u / bt-ij71a).
+// Returns ("", false) for server-mode, JSONL, or missing/unparseable metadata.
+func ReadEmbeddedConfig(beadsDir string) (dbName string, ok bool) {
+	metaPath := filepath.Join(beadsDir, "metadata.json")
+	data, err := os.ReadFile(metaPath)
+	if err != nil {
+		return "", false
+	}
+	var meta struct {
+		Backend      string `json:"backend"`
+		DoltMode     string `json:"dolt_mode"`
+		DoltDatabase string `json:"dolt_database"`
+	}
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return "", false
+	}
+	if meta.Backend != "dolt" || meta.DoltMode != "embedded" {
+		return "", false
+	}
+	db := meta.DoltDatabase
+	if db == "" {
+		db = "beads"
+	}
+	return db, true
+}
+
+// EmbeddedManifestPath returns the Dolt storage manifest file for an embedded
+// project, or "" if the project is not embedded. Dolt rewrites this single
+// file on every commit (e.g. `bd create`), so it is bt's event-driven
+// change-detection signal for live refresh (bt-ij71a) - watched in place of
+// the SQL MAX(updated_at) poll used for server-mode sources.
+func EmbeddedManifestPath(beadsDir string) string {
+	db, ok := ReadEmbeddedConfig(beadsDir)
+	if !ok {
+		return ""
+	}
+	return filepath.Join(beadsDir, "embeddeddolt", db, ".dolt", "noms", "manifest")
+}
+
 // ReadDoltConfig reads .beads/metadata.json and (optionally) .beads/dolt/config.yaml
 // to build a DoltConfig. Returns the config and true if the project uses Dolt,
 // or a zero value and false otherwise.

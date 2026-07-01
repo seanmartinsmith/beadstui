@@ -1,9 +1,19 @@
 package correlation
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 )
+
+// ErrEmbeddedModeUnavailable signals that history/correlation cannot run in an
+// embedded (in-process Dolt) project: bd export carries no git-tracked JSONL to
+// diff for commit correlation, and bt opens no Dolt SQL connection in embedded
+// mode (bt-ij71a / bt-qrt2u). Consumers surface this as a clear "not available
+// yet" state rather than a silent-empty result. Full embedded correlation is a
+// separate, decide-first follow-up: bt-5uaxh. Correlation is unchanged for
+// JSONL-in-git and shared-server projects.
+var ErrEmbeddedModeUnavailable = errors.New("history/correlation not available in embedded (in-process Dolt) mode yet - tracked as bt-5uaxh (works for JSONL-in-git and shared-server projects)")
 
 var defaultBeadsFiles = []string{
 	".beads/issues.jsonl",
