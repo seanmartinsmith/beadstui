@@ -36,7 +36,7 @@ go build ./cmd/bt/
 
 ## Shared-server mode (for the cross-project view)
 
-For single-project use you need nothing special: `cd` into any beads project and run `bt`. If no Dolt server is already running for that project, bt starts a per-session one (via `bd dolt start`) and stops it on exit. This works whether the project uses bd's default embedded mode or a shared server.
+For single-project use you need nothing special: `cd` into any beads project and run `bt`. A project in bd's default embedded mode is read directly via `bd export` (into memory, never persisted) - no server and no lock, so a concurrent `bd` command is never blocked. If the project runs on a shared Dolt server bt connects to that; a project configured for server mode with none running gets a per-session server (via `bd dolt start`) that bt stops on exit.
 
 The cross-project global view is what needs shared-server mode. It enumerates projects from the `beads_global` aggregate database on a single shared Dolt server at `~/.beads/shared-server/`. Projects in bd's default embedded mode keep their data in the project's own `.beads/embeddeddolt/` directory, so it never touches the shared server - those projects work fine on their own but won't appear in the global view.
 
@@ -65,15 +65,15 @@ cd your-project    # any directory with beads initialized
 bt                 # launches the TUI
 ```
 
-bt needs a Dolt server it can talk to over the MySQL protocol. How it finds one depends on your bd setup:
+How bt reads your project depends on your bd setup:
 
 | Your bd setup | What bt does |
 |---|---|
-| Default (embedded - bd spawns a Dolt per command) | bt starts a per-session Dolt server for the project, stops it on exit. |
+| Default (embedded - bd spawns a Dolt per command) | bt reads the project via `bd export` into memory - no server, no lock, coexists with a concurrent `bd`. |
 | You ran `bd dolt start` (one shared server, N project DBs) | bt auto-discovers it via the port file and connects - no new server. |
 | You want a cross-project view | `bt --global` queries the `beads_global` aggregate database on the shared server. |
 
-**Caveat (tracked: bt-gm6ur):** in embedded mode, a `bd` command run from another shell *during* a bt session may collide with bt's auto-started server. Either use a shared server (`bd dolt start`) or run bd commands before/after bt, not during.
+**Embedded mode + concurrent `bd`:** because bt reads embedded projects through `bd export` and holds no server or lock, running `bd` from another shell during a bt session is safe - bt picks up the change on its next refresh. Remaining mode-parity edge cases are tracked in bt-gm6ur.
 
 ## Views
 
