@@ -28,7 +28,7 @@ const (
 	embeddedExportRetryBackoff = 150 * time.Millisecond
 )
 
-// exportRunner runs `bd export --all` in dir and returns (stdout, stderr, err).
+// exportRunner runs `bd export` in dir and returns (stdout, stderr, err).
 // Injectable so retry behavior is unit-testable without spawning bd.
 type exportRunner func(ctx context.Context, bdPath, dir string) (stdout, stderr []byte, err error)
 

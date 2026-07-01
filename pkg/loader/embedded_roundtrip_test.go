@@ -1,6 +1,7 @@
 package loader_test
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -162,5 +163,44 @@ func TestParseIssues_EmbeddedExportRoundTrip(t *testing.T) {
 	}
 	if c.Author != "actor-bob" {
 		t.Errorf("emb-c Author = %q, want actor-bob (from created_by)", c.Author)
+	}
+}
+
+// buildExportCorpus cycles the three-issue bd-export fixture until it holds n
+// issue lines, giving BenchmarkParseIssues a realistic multi-issue export
+// stream (duplicate ids are fine: the loader parses each line independently
+// and does no cross-line dedup).
+func buildExportCorpus(n int) string {
+	lines := strings.Split(strings.TrimSpace(embeddedExportFixture), "\n")
+	var b strings.Builder
+	for i := 0; i < n; i++ {
+		b.WriteString(lines[i%len(lines)])
+		b.WriteByte('\n')
+	}
+	return b.String()
+}
+
+// BenchmarkParseIssues locks the "negligible perf" claim for the custom
+// Issue.UnmarshalJSON added by the embedded read path (bt-ij71a): every line
+// of `bd export` output flows through it. The corpus is real-shape schema-v50
+// export JSONL, so the created_by/due_at reconciliation, UUID comment ids, and
+// flat dependency decoding are all on the measured path.
+func BenchmarkParseIssues(b *testing.B) {
+	for _, size := range []int{100, 500, 1000, 5000} {
+		b.Run(fmt.Sprintf("issues=%d", size), func(b *testing.B) {
+			corpus := buildExportCorpus(size)
+			b.SetBytes(int64(len(corpus)))
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				issues, err := loader.ParseIssues(strings.NewReader(corpus))
+				if err != nil {
+					b.Fatalf("ParseIssues: %v", err)
+				}
+				if len(issues) != size {
+					b.Fatalf("parsed %d issues, want %d", len(issues), size)
+				}
+			}
+		})
 	}
 }

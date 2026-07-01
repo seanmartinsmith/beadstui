@@ -62,7 +62,7 @@ func initEmbeddedProject(t *testing.T, bdPath string) string {
 }
 
 // TestEmbedded_LoadsRealProject exercises the full read path against real bd:
-// DiscoverSource -> embedded -> EmbeddedReader (`bd export --all`) -> loader,
+// DiscoverSource -> embedded -> EmbeddedReader (`bd export`) -> loader,
 // asserting labels, dependencies, and comments survive the round trip.
 func TestEmbedded_LoadsRealProject(t *testing.T) {
 	bdPath := requireEmbeddedIntegration(t)
