@@ -2,6 +2,7 @@ package ui
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -60,6 +61,32 @@ func TestBackgroundWorker_NewWithoutPath_EnvDefaults(t *testing.T) {
 	}
 	if worker.watchdogInterval != 11*time.Second {
 		t.Errorf("watchdogInterval=%v, want %v", worker.watchdogInterval, 11*time.Second)
+	}
+}
+
+// TestDoltPollErrorPhaseDetection proves doltPollOnce/globalDoltPollOnce's
+// connect-vs-query distinction survives as a typed field recoverable via
+// errors.As, rather than depending on a string prefix (bt-ndi5t).
+func TestDoltPollErrorPhaseDetection(t *testing.T) {
+	cause := fmt.Errorf("dial tcp: connection refused")
+	connectErr := error(&doltPollError{phase: DoltPollPhaseConnect, err: cause})
+	queryErr := error(&doltPollError{phase: DoltPollPhaseQuery, err: cause})
+
+	var pe *doltPollError
+	if !errors.As(connectErr, &pe) || pe.phase != DoltPollPhaseConnect {
+		t.Errorf("errors.As should recover DoltPollPhaseConnect from connectErr")
+	}
+
+	pe = nil
+	if !errors.As(queryErr, &pe) || pe.phase != DoltPollPhaseQuery {
+		t.Errorf("errors.As should recover DoltPollPhaseQuery from queryErr")
+	}
+
+	if !errors.Is(errors.Unwrap(queryErr), cause) {
+		t.Errorf("Unwrap should return the underlying cause unchanged")
+	}
+	if got := queryErr.Error(); got != "query: dial tcp: connection refused" {
+		t.Errorf("Error() = %q, want phase-prefixed message", got)
 	}
 }
 

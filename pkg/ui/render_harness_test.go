@@ -327,6 +327,9 @@ func TestRenderDump(t *testing.T) {
 		{"footer_success_100x24", 100, 24, func(m *Model) { m.setStatus("reloaded +3 -1") }},
 		{"footer_failure_100x24", 100, 24, func(m *Model) { m.setFailure("write failed: db locked") }},
 		{"footer_degraded_80x24", 80, 24, func(m *Model) { m.setDegraded("Dolt server unreachable (retrying in 5s)") }},
+		{"footer_degraded_query_80x24", 80, 24, func(m *Model) {
+			m.setDegraded("Dolt poll query failed (retrying in 5s): syntax error near SELECT")
+		}},
 		{"footer_bell_100x24", 100, 24, func(m *Model) {
 			for i := 0; i < 3; i++ {
 				m.events.Append(events.NewSystemEvent("activity"))

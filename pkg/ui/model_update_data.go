@@ -5,6 +5,7 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -474,12 +475,43 @@ func (m Model) handleDoltConnectionStatus(msg DoltConnectionStatusMsg) (Model, t
 		m.setStatus("Dolt server reconnected")
 	} else {
 		m.doltConnected = false
-		m.setDegraded(fmt.Sprintf("Dolt server unreachable (retrying in %ds)", msg.BackoffSeconds))
+		// Connect-phase failures are already self-explanatory ("unreachable"
+		// says what happened); query-phase failures previously collapsed
+		// into the same generic message even though the server was up and
+		// something else broke, so those get a distinct message plus the
+		// underlying cause (bt-ndi5t).
+		if msg.Phase == DoltPollPhaseQuery {
+			m.setDegraded(fmt.Sprintf("Dolt poll query failed (retrying in %ds)%s",
+				msg.BackoffSeconds, doltPollErrorDetail(msg.Error)))
+		} else {
+			m.setDegraded(fmt.Sprintf("Dolt server unreachable (retrying in %ds)", msg.BackoffSeconds))
+		}
 	}
 	if m.data.backgroundWorker != nil {
 		cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.data.backgroundWorker))
 	}
 	return m, tea.Batch(cmds...)
+}
+
+// doltPollErrorDetailMaxRunes caps the underlying error text appended to the
+// degraded footer/notification text so a verbose driver error can't dominate
+// the toast. The footer's own width-aware truncation still applies on top of
+// this when the toast doesn't fit the available columns (bt-ndi5t).
+const doltPollErrorDetailMaxRunes = 60
+
+// doltPollErrorDetail renders a ": <cause>" suffix describing a query-phase
+// poll failure. It unwraps the phase marker (doltPollError) so the message
+// doesn't repeat "query:" twice, and truncates the cause so a long driver
+// error doesn't dominate the toast. Returns "" if err is nil.
+func doltPollErrorDetail(err error) string {
+	if err == nil {
+		return ""
+	}
+	cause := err
+	if u := errors.Unwrap(err); u != nil {
+		cause = u
+	}
+	return ": " + truncate(cause.Error(), doltPollErrorDetailMaxRunes)
 }
 
 // handleTemporalCacheReady processes temporal cache population completion.

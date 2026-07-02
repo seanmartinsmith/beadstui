@@ -719,10 +719,11 @@ func TestErrorSettersBellAppend(t *testing.T) {
 func TestFooterNotificationsNeverWrap(t *testing.T) {
 	widths := []int{60, 70, 80, 100, 120, 160}
 	setups := map[string]func(*Model){
-		"idle": func(m *Model) {},
-		"success": func(m *Model) { m.setStatus("reloaded +3 -1") },
-		"failure": func(m *Model) { m.setFailure("write failed: db locked") },
-		"degraded": func(m *Model) { m.setDegraded("Dolt server unreachable (retrying in 5s)") },
+		"idle":           func(m *Model) {},
+		"success":        func(m *Model) { m.setStatus("reloaded +3 -1") },
+		"failure":        func(m *Model) { m.setFailure("write failed: db locked") },
+		"degraded":       func(m *Model) { m.setDegraded("Dolt server unreachable (retrying in 5s)") },
+		"degraded_query": func(m *Model) { m.setDegraded("Dolt poll query failed (retrying in 5s): syntax error near SELECT") },
 		"bell": func(m *Model) {
 			for i := 0; i < 4; i++ {
 				m.events.Append(events.NewSystemEvent("event"))
@@ -798,5 +799,65 @@ func TestMarkNotificationsSeenClearsBell(t *testing.T) {
 	m.markNotificationsSeen()
 	if got := m.footerData().BellCount; got != 0 {
 		t.Errorf("BellCount after mark-seen = %d, want 0", got)
+	}
+}
+
+// TestHandleDoltConnectionStatus_QueryPhase proves phase propagation end to
+// end: a query-phase doltPollError produces a distinct degraded message that
+// surfaces the underlying cause, while a connect-phase failure keeps the
+// original generic wording unchanged (bt-ndi5t).
+func TestHandleDoltConnectionStatus_QueryPhase(t *testing.T) {
+	m := NewModel(harnessIssues(), nil, "", nil)
+	queryErr := &doltPollError{phase: DoltPollPhaseQuery, err: fmt.Errorf("syntax error near SELECT")}
+	nm, _ := m.handleDoltConnectionStatus(DoltConnectionStatusMsg{
+		Connected:      false,
+		Error:          queryErr,
+		Phase:          DoltPollPhaseQuery,
+		BackoffSeconds: 5,
+	})
+	if !strings.Contains(nm.statusMsg, "Dolt poll query failed (retrying in 5s)") {
+		t.Errorf("query-phase message = %q, want the query-failed wording", nm.statusMsg)
+	}
+	if !strings.Contains(nm.statusMsg, "syntax error near SELECT") {
+		t.Errorf("query-phase message = %q, want the underlying cause surfaced", nm.statusMsg)
+	}
+	if strings.Contains(nm.statusMsg, "unreachable") {
+		t.Errorf("query-phase message = %q, must not claim the server is unreachable", nm.statusMsg)
+	}
+
+	connectErr := &doltPollError{phase: DoltPollPhaseConnect, err: fmt.Errorf("dial tcp: connection refused")}
+	m2 := NewModel(harnessIssues(), nil, "", nil)
+	nm2, _ := m2.handleDoltConnectionStatus(DoltConnectionStatusMsg{
+		Connected:      false,
+		Error:          connectErr,
+		Phase:          DoltPollPhaseConnect,
+		BackoffSeconds: 5,
+	})
+	if nm2.statusMsg != "Dolt server unreachable (retrying in 5s)" {
+		t.Errorf("connect-phase message = %q, want unchanged generic wording", nm2.statusMsg)
+	}
+}
+
+// TestDoltPollErrorDetail covers the truncation and unwrap behavior used to
+// build the query-phase footer suffix.
+func TestDoltPollErrorDetail(t *testing.T) {
+	if got := doltPollErrorDetail(nil); got != "" {
+		t.Errorf("nil error detail = %q, want empty", got)
+	}
+
+	wrapped := &doltPollError{phase: DoltPollPhaseQuery, err: fmt.Errorf("short cause")}
+	if got := doltPollErrorDetail(wrapped); got != ": short cause" {
+		t.Errorf("detail = %q, want %q", got, ": short cause")
+	}
+
+	long := strings.Repeat("x", doltPollErrorDetailMaxRunes+40)
+	longWrapped := &doltPollError{phase: DoltPollPhaseQuery, err: fmt.Errorf("%s", long)}
+	got := doltPollErrorDetail(longWrapped)
+	body := strings.TrimPrefix(got, ": ")
+	if lipgloss.Width(body) > doltPollErrorDetailMaxRunes {
+		t.Errorf("detail not truncated: width=%d, want <= %d", lipgloss.Width(body), doltPollErrorDetailMaxRunes)
+	}
+	if !strings.HasSuffix(got, "…") {
+		t.Errorf("truncated detail should end with ellipsis, got %q", got)
 	}
 }

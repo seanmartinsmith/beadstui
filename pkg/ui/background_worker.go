@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -1866,13 +1867,52 @@ type DoltVerifiedMsg struct {
 	At time.Time
 }
 
+// DoltPollPhase identifies which stage of a Dolt poll cycle failed: dialing
+// the server, or querying it once connected. Callers used to lose this
+// distinction because doltPollOnce/globalDoltPollOnce only encoded it as a
+// string prefix ("connect: "/"query: ") on the returned error, so the UI
+// reported every failure as "server unreachable" even when the server was
+// up and only the query failed (bt-ndi5t).
+type DoltPollPhase int
+
+const (
+	DoltPollPhaseConnect DoltPollPhase = iota
+	DoltPollPhaseQuery
+)
+
+func (p DoltPollPhase) String() string {
+	switch p {
+	case DoltPollPhaseQuery:
+		return "query"
+	default:
+		return "connect"
+	}
+}
+
+// doltPollError wraps a poll-cycle failure with the phase it occurred in, so
+// callers recover the phase via errors.As instead of sniffing the error
+// string for a "connect:"/"query:" prefix.
+type doltPollError struct {
+	phase DoltPollPhase
+	err   error
+}
+
+func (e *doltPollError) Error() string {
+	return fmt.Sprintf("%s: %v", e.phase, e.err)
+}
+
+func (e *doltPollError) Unwrap() error {
+	return e.err
+}
+
 // DoltConnectionStatusMsg notifies the UI about Dolt server connectivity changes.
 // Sent on first failure and on recovery - not on every poll attempt.
 type DoltConnectionStatusMsg struct {
-	Connected        bool  // True if connection was restored
-	Error            error // Non-nil on failure
-	ConsecutiveFails int   // How many consecutive failures so far
-	BackoffSeconds   int   // Current backoff interval
+	Connected        bool          // True if connection was restored
+	Error            error         // Non-nil on failure
+	ConsecutiveFails int           // How many consecutive failures so far
+	BackoffSeconds   int           // Current backoff interval
+	Phase            DoltPollPhase // Which stage failed (connect vs query); zero value is connect
 }
 
 // Phase2UpdateMsg is sent when Phase 2 analysis completes.
@@ -2010,22 +2050,34 @@ func (w *BackgroundWorker) startDoltPollLoop() {
 			if pollErr != nil {
 				consecutiveFails++
 
+				// Recover the failure phase (connect vs query) so the UI can
+				// report the real condition instead of always saying the
+				// server is unreachable (bt-ndi5t).
+				phase := DoltPollPhaseConnect
+				var pe *doltPollError
+				if errors.As(pollErr, &pe) {
+					phase = pe.phase
+				}
+
 				if consecutiveFails == 1 {
 					// First failure: log and notify UI
 					w.logEvent(LogLevelWarn, "dolt_poll_failed", map[string]any{
 						"error": pollErr.Error(),
+						"phase": phase.String(),
 					})
 					w.send(DoltConnectionStatusMsg{
 						Connected:        false,
 						Error:            pollErr,
 						ConsecutiveFails: consecutiveFails,
 						BackoffSeconds:   int(w.doltBackoff(baseInterval, consecutiveFails, maxBackoff).Seconds()),
+						Phase:            phase,
 					})
 				} else {
 					// Subsequent failures: trace-level only, no UI spam
 					w.logEvent(LogLevelTrace, "dolt_poll_failed", map[string]any{
 						"error":             pollErr.Error(),
 						"consecutive_fails": consecutiveFails,
+						"phase":             phase.String(),
 					})
 				}
 
@@ -2038,6 +2090,7 @@ func (w *BackgroundWorker) startDoltPollLoop() {
 						Connected:        false,
 						Error:            pollErr,
 						ConsecutiveFails: consecutiveFails,
+						Phase:            phase,
 					})
 					if reconErr := w.doltReconnectFn(w.beadsDir); reconErr != nil {
 						w.logEvent(LogLevelWarn, "dolt_reconnect_failed", map[string]any{
@@ -2087,13 +2140,13 @@ func (w *BackgroundWorker) startDoltPollLoop() {
 func (w *BackgroundWorker) doltPollOnce(lastModified *time.Time, firstPoll *bool) error {
 	reader, err := datasource.NewDoltReader(*w.dataSource)
 	if err != nil {
-		return fmt.Errorf("connect: %w", err)
+		return &doltPollError{phase: DoltPollPhaseConnect, err: err}
 	}
 
 	modTime, err := reader.GetLastModified()
 	reader.Close()
 	if err != nil {
-		return fmt.Errorf("query: %w", err)
+		return &doltPollError{phase: DoltPollPhaseQuery, err: err}
 	}
 
 	if *firstPoll {
@@ -2116,13 +2169,13 @@ func (w *BackgroundWorker) doltPollOnce(lastModified *time.Time, firstPoll *bool
 func (w *BackgroundWorker) globalDoltPollOnce(lastModified *time.Time, firstPoll *bool) error {
 	reader, err := datasource.NewGlobalDoltReader(*w.dataSource)
 	if err != nil {
-		return fmt.Errorf("connect: %w", err)
+		return &doltPollError{phase: DoltPollPhaseConnect, err: err}
 	}
 
 	modTime, err := reader.GetLastModified()
 	reader.Close()
 	if err != nil {
-		return fmt.Errorf("query: %w", err)
+		return &doltPollError{phase: DoltPollPhaseQuery, err: err}
 	}
 
 	// NULL timestamp (all databases empty) scans as zero time - skip comparison
