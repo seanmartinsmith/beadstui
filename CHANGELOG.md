@@ -24,6 +24,31 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-07-02 — Embedded-mode dogfood + fixes: end-to-end read path validation, --as-of gate, idle-refresh busy-loop kill (bt-fyzll, bt-uq3i3, bt-t19xt)
+
+**Dogfooded the embedded-mode read path end-to-end against a real fresh `bd init` project, meeting the bt-6odat gate. Load, live refresh (near-instant create/comment/close), concurrent-write no-hang, explicit history degradation, scope.mode=project, search, filters all working in <100-col terminals. Two fixes shipped: `bt robot --as-of` now refuses explicitly on embedded projects (was silently returning current data); embedded idle refresh busy-loop eliminated (manifest watcher was triggering on byte-identical `bd export` writes).**
+
+### Ships
+
+- **fix(data): bt robot --as-of explicit refusal on embedded (bt-fyzll)** — Embedded projects cannot time-travel; `bt robot --as-of` now exits nonzero with stderr message instead of silently returning current data stamped as historical. Root-cause discovery revealed the --as-of flag never triggered any as-of load for ANY source type; server/global half filed as bt-mjsr9 (P1).
+- **fix(tui): embedded idle refresh busy-loop killed (bt-uq3i3, bt-t19xt)** — `bd export` bumps the Dolt manifest mtime with byte-identical content, self-triggering the watcher. Manifest watch now gates on content sha256. Footer freshness no longer escalates to permanent STALE on quiet embedded projects; export failures still warn. Spinner coalesces rapid refresh cycles instead of sub-second flashing.
+- **Dogfood gate met (bt-6odat)** — live fresh-project validation: load, concurrent writes, near-instant refresh on edit/comment/close, search, filters, scrunched terminals.
+
+### New beads filed
+
+- **bt-to6vn** (P2) — notifications cross-project bleed
+- **bt-powiv** (P3) — alerts silently empty
+- **bt-6z6na** (P3) — no boot art in project mode
+- **bt-lcd59** (P2) — docs/README embedded parity matrix (dep-wired behind the fixes)
+- **bt-mjsr9** (P1) — server/global --as-of discovery
+
+### Notes
+
+- **Tested:** live `bd init` project end-to-end, create/comment/close ops, footer refresh, search at 97-col width. No regressions on existing test suite.
+- **Worktree session**: all changes on isolated branch, not pushed. Commit message ready for final integration.
+
+---
+
 ## 2026-07-02 — Boot-failure triage: cold-boot anchor self-heal, Dolt 2.1.x AS OF fix + temporal circuit breaker, honest poll-failure footer (bt-vsnla, bt-mix88, bt-ndi5t)
 
 **Session opened as orientation on two boot failures — `bt` from `~` dumping raw bd usage spew, and a "Dolt server unreachable" footer while the server was demonstrably up — and closed as a three-bug fix session. All root causes were verified live against the running shared server before any fix was specced; fixes were executed by three parallel Sonnet subagents in isolated worktrees and cherry-picked to main. Bonus find from the log forensics: the shared dolt server log held 160,549 silent AS OF errors dating to 2026-05-07 — the temporal cache had never populated on this box.**
