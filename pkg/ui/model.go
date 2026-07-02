@@ -285,6 +285,16 @@ var workerSpinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "�
 
 const (
 	freshnessErrorRetries = 3
+
+	// workerSpinnerFlashThreshold is the minimum processing duration before the
+	// "refreshing" indicator is allowed to appear, so sub-threshold refreshes
+	// never flash it (bt-uq3i3).
+	workerSpinnerFlashThreshold = 250 * time.Millisecond
+	// workerSpinnerMinDisplay is how long the indicator lingers after the worker
+	// last crossed the flash threshold. It coalesces a burst of rapid refresh
+	// cycles (e.g. an agent seeding many beads) into one steady "refreshing"
+	// rather than a sub-second on/off flash loop (bt-uq3i3).
+	workerSpinnerMinDisplay = 1500 * time.Millisecond
 )
 
 func freshnessWarnThreshold() time.Duration {
@@ -582,7 +592,14 @@ type DataState struct {
 	snapshotInitPending bool              // true until first BackgroundWorker snapshot received
 	backgroundWorker    *BackgroundWorker // manages async data loading (nil if background mode disabled)
 	workerSpinnerIdx    int               // Spinner frame for background worker activity
-	lastForceRefresh    time.Time
+
+	// workerSpinnerVisibleUntil is the end of the coalesced "refreshing" display
+	// window. Set/extended in handleWorkerPollTick while the worker processes
+	// past workerSpinnerFlashThreshold; the spinner renders while now is before
+	// it, so rapid refresh cycles show one steady indicator (bt-uq3i3).
+	workerSpinnerVisibleUntil time.Time
+
+	lastForceRefresh time.Time
 }
 
 // Model is the main Bubble Tea model for the beads viewer
@@ -1484,6 +1501,24 @@ func (m *Model) replaceIssues(newIssues []model.Issue) {
 // (single-repo or global).
 func (m *Model) isDoltSource() bool {
 	return m.data.dataSource != nil && (m.data.dataSource.Type == datasource.SourceTypeDolt || m.data.dataSource.Type == datasource.SourceTypeDoltGlobal)
+}
+
+// isEmbeddedSource returns true if the model's datasource is an embedded
+// (in-process Dolt) project. Embedded refresh is event-driven (manifest watch
+// -> re-export), so wall-age of the snapshot is not a staleness signal there
+// (bt-t19xt).
+func (m *Model) isEmbeddedSource() bool {
+	return m.data.dataSource != nil && m.data.dataSource.Type == datasource.SourceTypeEmbeddedDolt
+}
+
+// workerSpinnerVisible reports whether the coalesced "refreshing" indicator
+// should show. The window is opened/extended in handleWorkerPollTick while the
+// worker processes past workerSpinnerFlashThreshold and lingers for
+// workerSpinnerMinDisplay after, so a burst of rapid refresh cycles renders one
+// steady spinner instead of a sub-second flash loop (bt-uq3i3).
+func (m *Model) workerSpinnerVisible() bool {
+	return !m.data.workerSpinnerVisibleUntil.IsZero() &&
+		time.Now().Before(m.data.workerSpinnerVisibleUntil)
 }
 
 // reloadFromDataSource returns a Cmd that reloads issues from the stored DataSource.

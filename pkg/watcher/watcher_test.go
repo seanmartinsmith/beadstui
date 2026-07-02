@@ -461,6 +461,107 @@ func TestDetectFilesystemType_NonExistentPath(t *testing.T) {
 	_ = DetectFilesystemType(nonExistent)
 }
 
+// TestWatcher_ContentComparison_IgnoresMtimeOnlyTouch is the no-self-trigger
+// guard for the embedded manifest loop (bt-uq3i3). bt's own `bd export` rewrites
+// the Dolt manifest with byte-identical content but a fresh mtime; with content
+// comparison the watcher must NOT fire for that, or the export -> watch ->
+// export loop spins forever. A real commit (different bytes) must still fire.
+func TestWatcher_ContentComparison_IgnoresMtimeOnlyTouch(t *testing.T) {
+	tmpDir := t.TempDir()
+	// Name it "manifest" to mirror the real watched path.
+	tmpFile := filepath.Join(tmpDir, "manifest")
+	const rootA = "5:__DOLT__:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:1890"
+	if err := os.WriteFile(tmpFile, []byte(rootA), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var changes atomic.Int32
+	w, err := NewWatcher(tmpFile,
+		WithDebounceDuration(20*time.Millisecond),
+		WithPollInterval(30*time.Millisecond),
+		WithForcePoll(true),
+		WithContentComparison(true),
+		WithOnChange(func() { changes.Add(1) }),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer w.Stop()
+
+	// Let polling establish the baseline mtime/size.
+	time.Sleep(80 * time.Millisecond)
+
+	// Simulate two pure `bd export` cycles: rewrite the SAME bytes (advancing
+	// mtime) without changing content. The polling comparator sees the mtime
+	// advance and schedules notifyChange, but content comparison must suppress it.
+	for i := 0; i < 2; i++ {
+		if err := os.WriteFile(tmpFile, []byte(rootA), 0644); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(120 * time.Millisecond)
+	}
+	if got := changes.Load(); got != 0 {
+		t.Fatalf("mtime-only touches must not notify (self-feeding loop), got %d change(s)", got)
+	}
+
+	// A real commit changes the manifest content (root hash) -> must notify.
+	const rootB = "5:__DOLT__:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb:1928"
+	if err := os.WriteFile(tmpFile, []byte(rootB), 0644); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for time.Now().Before(deadline) && changes.Load() == 0 {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if got := changes.Load(); got != 1 {
+		t.Fatalf("content change must notify exactly once, got %d", got)
+	}
+}
+
+// TestWatcher_ContentComparison_Disabled confirms the default (mtime/size)
+// behavior is unchanged when content comparison is off: an mtime-only touch of
+// identical bytes still notifies, so JSONL/server watching keeps today's
+// semantics.
+func TestWatcher_ContentComparison_Disabled(t *testing.T) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "manifest")
+	const same = "identical-bytes"
+	if err := os.WriteFile(tmpFile, []byte(same), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var changes atomic.Int32
+	w, err := NewWatcher(tmpFile,
+		WithDebounceDuration(20*time.Millisecond),
+		WithPollInterval(30*time.Millisecond),
+		WithForcePoll(true),
+		WithOnChange(func() { changes.Add(1) }),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer w.Stop()
+
+	time.Sleep(80 * time.Millisecond)
+
+	if err := os.WriteFile(tmpFile, []byte(same), 0644); err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(500 * time.Millisecond)
+	for time.Now().Before(deadline) && changes.Load() == 0 {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if got := changes.Load(); got == 0 {
+		t.Fatal("without content comparison, an mtime bump on identical bytes should still notify")
+	}
+}
+
 func TestWatcher_EnvForcePoll(t *testing.T) {
 	// Test BT_FORCE_POLL (alternative env var)
 	t.Setenv("BT_FORCE_POLL", "true")

@@ -200,12 +200,19 @@ func (m Model) handleSemanticDebounceTick() (Model, tea.Cmd, bool) {
 	return m, nil, false
 }
 
-// handleWorkerPollTick updates the worker spinner animation.
+// handleWorkerPollTick updates the worker spinner animation and maintains the
+// coalesced "refreshing" display window (bt-uq3i3). While the worker processes
+// past workerSpinnerFlashThreshold it (re)extends the window so consecutive
+// short refresh cycles render one steady indicator rather than a sub-second
+// on/off flash loop; the window is read by workerSpinnerVisible().
 func (m Model) handleWorkerPollTick() (Model, tea.Cmd) {
 	if m.data.backgroundWorker != nil {
 		state := m.data.backgroundWorker.State()
 		if state == WorkerProcessing {
 			m.data.workerSpinnerIdx = (m.data.workerSpinnerIdx + 1) % len(workerSpinnerFrames)
+			if m.data.backgroundWorker.ProcessingDuration() >= workerSpinnerFlashThreshold {
+				m.data.workerSpinnerVisibleUntil = time.Now().Add(workerSpinnerMinDisplay)
+			}
 		} else {
 			m.data.workerSpinnerIdx = 0
 		}

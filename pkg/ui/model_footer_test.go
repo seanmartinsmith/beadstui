@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/seanmartinsmith/beadstui/internal/datasource"
 	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
 )
 
@@ -163,6 +165,139 @@ func TestFooterData_WorkerBadgeLevels(t *testing.T) {
 				t.Errorf("expected empty worker badge for level %d", tt.level)
 			}
 		})
+	}
+}
+
+// newBadgeTestModel builds a minimal Model wired with a background worker and a
+// data source of the given type, for exercising extractWorkerBadge. The worker
+// is intentionally NOT started, so Health.Started is false and the
+// "worker unresponsive" tier stays off.
+func newBadgeTestModel(t *testing.T, srcType datasource.SourceType) (Model, *BackgroundWorker) {
+	t.Helper()
+	w, err := NewBackgroundWorker(WorkerConfig{BeadsPath: ""})
+	if err != nil {
+		t.Fatalf("NewBackgroundWorker: %v", err)
+	}
+	t.Cleanup(w.Stop)
+	m := Model{data: &DataState{
+		backgroundWorker: w,
+		dataSource:       &datasource.DataSource{Type: srcType},
+	}}
+	return m, w
+}
+
+// TestExtractWorkerBadge_EmbeddedQuietNoStale: a quiet embedded project must not
+// escalate to a staleness warning even though the snapshot is old, because
+// embedded refresh is event-driven, not poll-verified (bt-t19xt).
+func TestExtractWorkerBadge_EmbeddedQuietNoStale(t *testing.T) {
+	m, _ := newBadgeTestModel(t, datasource.SourceTypeEmbeddedDolt)
+	// On a server source this age would read STALE; embedded must ignore it.
+	m.data.snapshot = &DataSnapshot{CreatedAt: time.Now().Add(-10 * time.Minute)}
+
+	text, level := m.extractWorkerBadge()
+	if text != "" || level != WorkerLevelNone {
+		t.Fatalf("quiet embedded project must show no staleness badge, got %q level=%d", text, level)
+	}
+}
+
+// TestExtractWorkerBadge_ServerQuietGoesStale is the control: server/global mode
+// freshness semantics are unchanged, so a quiet server project still reads STALE.
+func TestExtractWorkerBadge_ServerQuietGoesStale(t *testing.T) {
+	m, _ := newBadgeTestModel(t, datasource.SourceTypeDolt)
+	m.data.snapshot = &DataSnapshot{CreatedAt: time.Now().Add(-10 * time.Minute)}
+
+	text, level := m.extractWorkerBadge()
+	if level != WorkerLevelCritical || !strings.Contains(text, "STALE") {
+		t.Fatalf("quiet server project must still show STALE, got %q level=%d", text, level)
+	}
+}
+
+// TestExtractWorkerBadge_EmbeddedExportFailureWarns: suppressing the age tiers
+// for embedded must NOT go silent on real failures - a failed re-export still
+// surfaces a warning (bt-t19xt acceptance).
+func TestExtractWorkerBadge_EmbeddedExportFailureWarns(t *testing.T) {
+	m, w := newBadgeTestModel(t, datasource.SourceTypeEmbeddedDolt)
+	m.data.snapshot = &DataSnapshot{CreatedAt: time.Now().Add(-10 * time.Minute)}
+	w.recordError(&WorkerError{Phase: "load", Cause: fmt.Errorf("bd export failed"), Time: time.Now()})
+
+	text, level := m.extractWorkerBadge()
+	if level != WorkerLevelWarning || !strings.Contains(text, "bg load") {
+		t.Fatalf("embedded export failure must still surface a warning, got %q level=%d", text, level)
+	}
+}
+
+// TestExtractWorkerBadge_EmbeddedPersistentFailureCritical: repeated export
+// failures escalate to critical for embedded, same as any source.
+func TestExtractWorkerBadge_EmbeddedPersistentFailureCritical(t *testing.T) {
+	m, w := newBadgeTestModel(t, datasource.SourceTypeEmbeddedDolt)
+	for i := 0; i < freshnessErrorRetries; i++ {
+		w.recordError(&WorkerError{Phase: "load", Cause: fmt.Errorf("boom"), Time: time.Now()})
+	}
+	text, level := m.extractWorkerBadge()
+	if level != WorkerLevelCritical || !strings.Contains(text, "bg load") {
+		t.Fatalf("persistent embedded export failure must be critical, got %q level=%d", text, level)
+	}
+}
+
+// forceWorkerProcessing puts the worker into the processing state with the given
+// elapsed duration, so the spinner-coalescing tick can be exercised without
+// spawning a real load.
+func forceWorkerProcessing(w *BackgroundWorker, elapsed time.Duration) {
+	w.mu.Lock()
+	w.state = WorkerProcessing
+	w.processingStart = time.Now().Add(-elapsed)
+	w.mu.Unlock()
+}
+
+func forceWorkerIdle(w *BackgroundWorker) {
+	w.mu.Lock()
+	w.state = WorkerIdle
+	w.processingStart = time.Time{}
+	w.mu.Unlock()
+}
+
+// TestWorkerSpinner_CoalescesAcrossRapidCycles proves the presentation-layer
+// coalescing (bt-uq3i3): sub-threshold refreshes never flash the spinner, and a
+// burst of processing cycles separated by brief idle gaps renders one steady
+// "refreshing" indicator rather than a sub-second on/off loop.
+func TestWorkerSpinner_CoalescesAcrossRapidCycles(t *testing.T) {
+	m, w := newBadgeTestModel(t, datasource.SourceTypeEmbeddedDolt)
+
+	// Sub-threshold processing must NOT open the display window.
+	forceWorkerProcessing(w, 100*time.Millisecond)
+	m, _ = m.handleWorkerPollTick()
+	if m.workerSpinnerVisible() {
+		t.Fatal("sub-threshold processing should not show the spinner (no flash)")
+	}
+
+	// Processing past the flash threshold opens the window and shows the spinner.
+	forceWorkerProcessing(w, workerSpinnerFlashThreshold+50*time.Millisecond)
+	m, _ = m.handleWorkerPollTick()
+	if !m.workerSpinnerVisible() {
+		t.Fatal("processing past the flash threshold should show the spinner")
+	}
+	if text, level := m.extractWorkerBadge(); level != WorkerLevelInfo || !strings.Contains(text, "refreshing") {
+		t.Fatalf("expected refreshing badge while processing, got %q level=%d", text, level)
+	}
+
+	// The worker returns to idle between cycles: the spinner must stay up
+	// (coalesced) rather than blink off, because the min-display window persists.
+	forceWorkerIdle(w)
+	m, _ = m.handleWorkerPollTick()
+	if !m.workerSpinnerVisible() {
+		t.Fatal("spinner must stay up across an idle gap within the min-display window")
+	}
+	if text, level := m.extractWorkerBadge(); level != WorkerLevelInfo || !strings.Contains(text, "refreshing") {
+		t.Fatalf("coalesced spinner should still render while idle within the window, got %q level=%d", text, level)
+	}
+
+	// Once the window elapses, the spinner clears.
+	m.data.workerSpinnerVisibleUntil = time.Now().Add(-time.Millisecond)
+	if m.workerSpinnerVisible() {
+		t.Fatal("spinner must clear after the min-display window elapses")
+	}
+	if text, _ := m.extractWorkerBadge(); strings.Contains(text, "refreshing") {
+		t.Fatalf("spinner should be gone after the window elapses, got %q", text)
 	}
 }
 

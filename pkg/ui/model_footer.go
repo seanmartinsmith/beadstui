@@ -540,17 +540,27 @@ func (m *Model) extractWorkerBadge() (string, WorkerLevel) {
 		}
 	}
 
+	// Freshness age drives the STALE / aging tiers below. Those tiers encode
+	// server-mode semantics: the poll loop re-verifies freshness every few
+	// seconds, so a growing age means polling has stalled. Embedded mode is
+	// event-driven (manifest watch -> re-export) and a quiet project is
+	// unchanged for long stretches BY DESIGN, so wall-age is not staleness there
+	// - freshness instead means "watcher alive + last export succeeded", which
+	// the worker-health and error tiers above already cover. Skip the age tiers
+	// for embedded so a quiet project shows no false STALE warning (bt-t19xt).
+	// Server- and global-mode behavior is unchanged.
 	var freshnessAge time.Duration
 	hasFreshnessAge := false
-	if !m.lastDoltVerified.IsZero() {
-		freshnessAge = time.Since(m.lastDoltVerified)
-		hasFreshnessAge = true
-	} else if m.data.snapshot != nil && !m.data.snapshot.CreatedAt.IsZero() {
-		freshnessAge = time.Since(m.data.snapshot.CreatedAt)
-		hasFreshnessAge = true
+	if !m.isEmbeddedSource() {
+		if !m.lastDoltVerified.IsZero() {
+			freshnessAge = time.Since(m.lastDoltVerified)
+			hasFreshnessAge = true
+		} else if m.data.snapshot != nil && !m.data.snapshot.CreatedAt.IsZero() {
+			freshnessAge = time.Since(m.data.snapshot.CreatedAt)
+			hasFreshnessAge = true
+		}
 	}
 
-	state := m.data.backgroundWorker.State()
 	health := m.data.backgroundWorker.Health()
 	lastErr := m.data.backgroundWorker.LastError()
 
@@ -558,7 +568,7 @@ func (m *Model) extractWorkerBadge() (string, WorkerLevel) {
 	case health.Started && !health.Alive:
 		return "⚠ worker unresponsive", WorkerLevelCritical
 
-	case state == WorkerProcessing && m.data.backgroundWorker.ProcessingDuration() >= 250*time.Millisecond:
+	case m.workerSpinnerVisible():
 		frame := workerSpinnerFrames[m.data.workerSpinnerIdx%len(workerSpinnerFrames)]
 		return fmt.Sprintf("%s refreshing", frame), WorkerLevelInfo
 

@@ -87,6 +87,66 @@ func TestBackgroundWorker_EmbeddedLiveRefresh(t *testing.T) {
 	}
 }
 
+// TestBackgroundWorker_EmbeddedIdleNoSelfTrigger is the end-to-end no-self-trigger
+// guard for bt-uq3i3. The worker's own `bd export` reopens the embedded Dolt and
+// bumps the manifest mtime; before the content-comparison fix the watcher saw
+// that as a change and re-triggered a refresh, spinning forever (~2s period).
+// Here we do one refresh on a QUIET project (no bd writes) and assert the worker
+// processing count does not keep climbing while idle. Gated behind
+// BT_EMBEDDED_INTEGRATION=1 (spawns real bd).
+func TestBackgroundWorker_EmbeddedIdleNoSelfTrigger(t *testing.T) {
+	if os.Getenv("BT_EMBEDDED_INTEGRATION") != "1" {
+		t.Skip("set BT_EMBEDDED_INTEGRATION=1 to run bd-spawning embedded integration tests")
+	}
+	bdPath, err := exec.LookPath("bd")
+	if err != nil {
+		t.Skip("bd CLI not on PATH")
+	}
+
+	root := t.TempDir()
+	runBdUI(t, bdPath, root, "init")
+	beadsDir := filepath.Join(root, ".beads")
+	if _, ok := datasource.ReadEmbeddedConfig(beadsDir); !ok {
+		t.Fatalf("bd init did not produce an embedded project")
+	}
+	runBdUI(t, bdPath, root, "create", "seed", "-t", "task", "-p", "1")
+
+	src, err := datasource.DiscoverSource(datasource.DiscoveryOptions{BeadsDir: beadsDir})
+	if err != nil || src.Type != datasource.SourceTypeEmbeddedDolt {
+		t.Fatalf("DiscoverSource type=%q err=%v", src.Type, err)
+	}
+
+	worker, err := NewBackgroundWorker(WorkerConfig{
+		BeadsDir:      beadsDir,
+		DataSource:    &src,
+		DebounceDelay: 50 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatalf("NewBackgroundWorker: %v", err)
+	}
+	defer worker.Stop()
+
+	if err := worker.Start(); err != nil {
+		t.Fatalf("worker.Start: %v", err)
+	}
+
+	// One real refresh (its `bd export` bumps the manifest mtime).
+	worker.TriggerRefresh()
+	if got := waitForIssueCount(t, worker, 1, 5*time.Second); got < 1 {
+		t.Fatalf("initial snapshot has %d issues, want >=1", got)
+	}
+
+	// Let any self-feeding loop run several periods with NO bd writes.
+	baseline := worker.Metrics().ProcessingCount
+	time.Sleep(5 * time.Second)
+	after := worker.Metrics().ProcessingCount
+
+	if after != baseline {
+		t.Fatalf("idle embedded worker re-processed %d time(s) with no writes (self-feeding export loop); count %d -> %d",
+			after-baseline, baseline, after)
+	}
+}
+
 // waitForIssueCount polls the worker snapshot until it holds at least `want`
 // issues or the timeout elapses, returning the last observed count.
 func waitForIssueCount(t *testing.T, w *BackgroundWorker, want int, timeout time.Duration) int {

@@ -2,6 +2,8 @@ package watcher
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"os"
 	"path/filepath"
@@ -60,6 +62,20 @@ func WithForcePoll(force bool) WatcherOption {
 	}
 }
 
+// WithContentComparison makes the watcher fire only when the watched file's
+// CONTENT changes, ignoring mtime-only churn. It is required for the embedded
+// Dolt manifest: bt's own `bd export` reads open the in-process store and bump
+// the manifest's mtime without changing its bytes (the root hash only advances
+// on a real commit). Comparing content instead of mtime breaks the self-feeding
+// export -> watch -> export loop that otherwise spins forever on an idle
+// embedded project (bt-uq3i3). Applies to both fsnotify and polling modes,
+// since both route notifications through notifyChange.
+func WithContentComparison(enabled bool) WatcherOption {
+	return func(w *Watcher) {
+		w.compareContent = enabled
+	}
+}
+
 // Watcher monitors a file for changes using fsnotify with polling fallback.
 type Watcher struct {
 	path             string
@@ -76,6 +92,12 @@ type Watcher struct {
 	useFallback bool
 	lastMtime   time.Time
 	lastSize    int64
+
+	// compareContent gates notifications on a content-hash change rather than
+	// mtime/size (see WithContentComparison). lastContentHash is the hex sha256
+	// of the last content that produced a notification; "" until first read.
+	compareContent  bool
+	lastContentHash string
 
 	ctx      context.Context
 	cancel   context.CancelFunc
@@ -151,6 +173,12 @@ func (w *Watcher) Start() error {
 	} else {
 		w.lastMtime = info.ModTime()
 		w.lastSize = info.Size()
+	}
+
+	// Seed the content baseline so the first mtime-only touch (e.g. bt's own
+	// export reopening the manifest) does not count as a change.
+	if w.compareContent {
+		w.lastContentHash = hashFileContent(w.path)
 	}
 
 	// Try to use fsnotify
@@ -366,6 +394,29 @@ func (w *Watcher) notifyChange() {
 		return
 	}
 
+	// Content-comparison mode: suppress notifications when the file's bytes are
+	// unchanged (mtime-only touch). This is what breaks the embedded manifest
+	// export loop (bt-uq3i3): bt's own `bd export` bumps the manifest mtime but
+	// leaves its content byte-identical, so only a real Dolt commit (changed
+	// root hash) gets through. An unreadable/transient read ("" hash) is skipped
+	// rather than treated as a change, to avoid a false trigger mid-rename;
+	// genuine removal is surfaced via the Remove/NotExist error paths instead.
+	if w.compareContent {
+		hash := hashFileContent(w.path)
+		if hash == "" {
+			return
+		}
+		w.mu.Lock()
+		unchanged := hash == w.lastContentHash
+		if !unchanged {
+			w.lastContentHash = hash
+		}
+		w.mu.Unlock()
+		if unchanged {
+			return
+		}
+	}
+
 	w.onChange()
 
 	// Non-blocking send to change channel
@@ -373,4 +424,16 @@ func (w *Watcher) notifyChange() {
 	case w.changeCh <- struct{}{}:
 	default:
 	}
+}
+
+// hashFileContent returns the hex sha256 of the file at path, or "" if it
+// cannot be read. Used by content-comparison mode to detect real content
+// changes and ignore mtime-only touches.
+func hashFileContent(path string) string {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }

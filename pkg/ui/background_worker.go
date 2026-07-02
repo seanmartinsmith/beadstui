@@ -378,15 +378,26 @@ func NewBackgroundWorker(cfg WorkerConfig) (*BackgroundWorker, error) {
 	// event-driven change signal for live refresh (bt-ij71a) - in place of
 	// the SQL MAX(updated_at) poll used for server-mode Dolt sources.
 	watchPath := cfg.BeadsPath
+	embeddedManifestWatch := false
 	if cfg.DataSource != nil && cfg.DataSource.Type == datasource.SourceTypeEmbeddedDolt && cfg.BeadsDir != "" {
 		if manifest := datasource.EmbeddedManifestPath(cfg.BeadsDir); manifest != "" {
 			watchPath = manifest
+			embeddedManifestWatch = true
 		}
 	}
 	if watchPath != "" {
-		fw, err := watcher.NewWatcher(watchPath,
+		watcherOpts := []watcher.WatcherOption{
 			watcher.WithDebounceDuration(cfg.DebounceDelay),
-		)
+		}
+		// The embedded manifest's mtime is bumped by bt's own `bd export` reads
+		// even when its content (root hash) is unchanged. Compare content, not
+		// mtime, so a pure export cycle does not re-trigger a refresh and spin
+		// the worker forever on an idle project (bt-uq3i3). Only a real Dolt
+		// commit changes the manifest bytes and gets through.
+		if embeddedManifestWatch {
+			watcherOpts = append(watcherOpts, watcher.WithContentComparison(true))
+		}
+		fw, err := watcher.NewWatcher(watchPath, watcherOpts...)
 		if err != nil {
 			return nil, err
 		}
