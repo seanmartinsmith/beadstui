@@ -106,6 +106,21 @@ func harnessIssues() []model.Issue {
 	}
 }
 
+// seedHarnessNotifications fills the ring buffer with a mixed-kind spread so
+// the notifications tab's summary chips, kind-tinted rows, and filter states
+// all have material to render.
+func seedHarnessNotifications(m *Model) {
+	now := time.Now()
+	m.events.AppendMany([]events.Event{
+		{ID: "n1", Kind: events.EventCreated, BeadID: "bt-evuf.1", Repo: "bt", Title: "Per-cell vocabulary design", At: now.Add(-4 * time.Hour)},
+		{ID: "n2", Kind: events.EventEdited, BeadID: "bt-0qzp", Repo: "bt", Title: "Detail pane dep graph ANSI leak", At: now.Add(-3 * time.Hour)},
+		{ID: "n3", Kind: events.EventClosed, BeadID: "bt-h5jz", Repo: "bt", Title: "First-class decisions support", Summary: "Shipped schema + filter + view.", At: now.Add(-2 * time.Hour)},
+		{ID: "n4", Kind: events.EventCommented, BeadID: "bt-0qzp", Repo: "bt", Title: "Detail pane dep graph ANSI leak", Summary: "still repro'ing on 90-col terminals", At: now.Add(-90 * time.Minute)},
+		{ID: "n5", Kind: events.EventCreated, BeadID: "bt-9kdo", Repo: "bt", Title: "ephemeral wisp scratch note", At: now.Add(-time.Hour)},
+		{ID: "n6", Kind: events.EventSystem, Title: "update available: v0.1.3", At: now.Add(-30 * time.Minute)},
+	})
+}
+
 func harnessSelect(m *Model, id string) {
 	for i, it := range m.list.Items() {
 		if issueItem, ok := it.(IssueItem); ok && issueItem.Issue.ID == id {
@@ -321,6 +336,22 @@ func TestRenderDump(t *testing.T) {
 		{"modal_labelpicker_120x36", 120, 36, func(m *Model) { m.openModal(ModalLabelPicker) }},
 		{"modal_recipepicker_120x36", 120, 36, func(m *Model) { m.openModal(ModalRecipePicker) }},
 		{"modal_alerts_120x36", 120, 36, func(m *Model) { m.openModal(ModalAlerts) }},
+
+		// Notifications tab with kind chips (click-to-filter summary row):
+		// unfiltered vs kind-filtered — the filtered dump must keep all chips
+		// visible (counts are kind-unfiltered) with the active chip underlined
+		// and a "filter: <kind>" label on the above-hint row.
+		{"modal_notifications_120x36", 120, 36, func(m *Model) {
+			seedHarnessNotifications(m)
+			m.activeTab = TabNotifications
+			m.openModal(ModalAlerts)
+		}},
+		{"modal_notifications_filtered_120x36", 120, 36, func(m *Model) {
+			seedHarnessNotifications(m)
+			m.activeTab = TabNotifications
+			m.openModal(ModalAlerts)
+			m.notifFilterKind = "created"
+		}},
 
 		// Footer Phase 4 notification states: toast (success/failure/degraded) and
 		// bell badge. Proves the right-zone layout at representative widths.

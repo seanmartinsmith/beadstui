@@ -255,6 +255,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			} else {
 				m.activeTab = TabAlerts
 			}
+			m.syncModalCursorToSelection()
 			return m, nil
 		case "!":
 			if m.activeTab == TabAlerts {
@@ -262,6 +263,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				m.closeModal()
 			} else {
 				m.activeTab = TabAlerts
+				m.syncModalCursorToSelection()
 			}
 			return m, nil
 		case "1":
@@ -270,6 +272,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			} else {
 				m.activeTab = TabNotifications
 				m.markNotificationsSeen()
+				m.syncModalCursorToSelection()
 			}
 			return m, nil
 		}
@@ -1216,6 +1219,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.openModal(ModalAlerts)
 			m.alertsCursor = 0
 			m.resetAlertFilters()
+			m.syncModalCursorToSelection()
 			return m, nil
 
 		case key.Matches(msg, m.keys.Global.Notifications):
@@ -1229,6 +1233,8 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.markNotificationsSeen()
 			m.openModal(ModalAlerts)
 			m.notificationsCursor = 0
+			m.notifFilterKind = ""
+			m.syncModalCursorToSelection()
 			return m, nil
 
 		case key.Matches(msg, m.keys.Global.BQL):
@@ -2084,6 +2090,60 @@ func (m Model) handleNotificationsKey(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		m.notifShowDismissed = !m.notifShowDismissed
 		m.notificationsCursor = 0
 		return m, nil
+	case "t":
+		// Cycle kind filter forward through kinds present: all → first →
+		// … → last → all (mirrors the alerts tab's type cycle).
+		kinds := m.notifActiveKinds()
+		if len(kinds) == 0 {
+			return m, nil
+		}
+		if m.notifFilterKind == "" {
+			m.notifFilterKind = kinds[0]
+		} else {
+			idx := -1
+			for i, k := range kinds {
+				if k == m.notifFilterKind {
+					idx = i
+					break
+				}
+			}
+			if idx < 0 || idx >= len(kinds)-1 {
+				m.notifFilterKind = "" // wrap to all
+			} else {
+				m.notifFilterKind = kinds[idx+1]
+			}
+		}
+		m.notificationsCursor = 0
+		return m, nil
+	case "T":
+		// Cycle kind filter BACKWARDS through kinds present.
+		kinds := m.notifActiveKinds()
+		if len(kinds) == 0 {
+			return m, nil
+		}
+		if m.notifFilterKind == "" {
+			m.notifFilterKind = kinds[len(kinds)-1]
+		} else {
+			idx := -1
+			for i, k := range kinds {
+				if k == m.notifFilterKind {
+					idx = i
+					break
+				}
+			}
+			if idx <= 0 {
+				m.notifFilterKind = "" // wrap to all
+			} else {
+				m.notifFilterKind = kinds[idx-1]
+			}
+		}
+		m.notificationsCursor = 0
+		return m, nil
+	case "r", "R":
+		// Reset the kind filter.
+		m.notifFilterKind = ""
+		m.notificationsCursor = 0
+		return m, nil
 	case "esc", "q":
 		m.closeModal()
 		return m, nil
@@ -2128,6 +2188,16 @@ const (
 // returning the row above the click.
 const modalChromeAboveItems = 4
 
+// modalSummaryRow is the panel-relative row of the summary/count line (row 0
+// is the top border; see the modalChromeAboveItems layering). Clicks here are
+// hit-tested against the tab's summary segments to toggle filters.
+const modalSummaryRow = 1
+
+// modalContentXOffset translates a panel-relative X into the tab renderer's
+// line coordinates: 1 column of left border + 1 column added by
+// padContentLines in renderAlertsPanel.
+const modalContentXOffset = 2
+
 // handleAlertsModalClick routes a MouseClickMsg when the shared alerts /
 // notifications modal is open (bt-46p6.14). Mirrors the keyboard handler
 // semantics: clicking a row moves the cursor there; double-clicking the
@@ -2157,6 +2227,14 @@ func (m Model) handleAlertsModalClick(mouse tea.Mouse) (Model, tea.Cmd) {
 		// Backdrop click: do NOT close (bead acceptance: "Click on modal
 		// backdrop / outside the content area is a no-op, not a close").
 		return m, nil
+	}
+
+	// Summary-row click: toggle the count chip's filter (click-to-filter,
+	// both tabs). Routed before the item hit-test since row 1 is chrome to
+	// alertsModalItemAtY. Double-click state is deliberately not updated —
+	// two fast clicks on a chip must toggle twice, not activate.
+	if my == modalSummaryRow {
+		return m.handleModalSummaryClick(mx), nil
 	}
 
 	idx, ok := m.alertsModalItemAtY(my)
@@ -2365,6 +2443,92 @@ func (m Model) alertsModalItemAtY(my int) (int, bool) {
 		}
 	}
 	return -1, false
+}
+
+// handleModalSummaryClick hit-tests a click on the modal's summary row
+// against the active tab's count chips and toggles the matching filter:
+// clicking the active chip clears it, clicking another switches to it.
+// The alerts "N total" chip carries value "" and always clears the
+// severity filter. Clicks on separators / trailing space are no-ops.
+func (m Model) handleModalSummaryClick(mx int) Model {
+	// The summary row only renders when the tab has visible items — with an
+	// empty visible set the tab body is the "No …" placeholder, so there are
+	// no chips on screen to click.
+	if m.activeTab == TabAlerts {
+		if len(m.visibleAlerts()) == 0 {
+			return m
+		}
+	} else if len(m.visibleNotifications()) == 0 {
+		return m
+	}
+
+	lineX := mx - modalContentXOffset
+	var segs []summarySegment
+	if m.activeTab == TabAlerts {
+		segs = m.alertSummarySegments()
+	} else {
+		segs = m.notifSummarySegments()
+	}
+	for _, seg := range segs {
+		if lineX < seg.start || lineX >= seg.end {
+			continue
+		}
+		if m.activeTab == TabAlerts {
+			if seg.value == "" || m.alertFilterSeverity == seg.value {
+				m.alertFilterSeverity = ""
+			} else {
+				m.alertFilterSeverity = seg.value
+			}
+			m.alertsCursor = 0
+		} else {
+			if m.notifFilterKind == seg.value {
+				m.notifFilterKind = ""
+			} else {
+				m.notifFilterKind = seg.value
+			}
+			m.notificationsCursor = 0
+		}
+		break
+	}
+	return m
+}
+
+// selectedIssueID returns the ID of the issue currently selected in the
+// list — which is what the detail pane shows in both split and single-pane
+// layouts — or "" when nothing is selected.
+func (m Model) selectedIssueID() string {
+	if sel, ok := m.list.SelectedItem().(IssueItem); ok {
+		return sel.Issue.ID
+	}
+	return ""
+}
+
+// syncModalCursorToSelection points the active tab's cursor at the first
+// visible entry referencing the currently selected issue, so opening the
+// modal (or switching tabs inside it) lands hovering the bead the detail
+// pane is showing. Notifications are newest-first, so the match is the most
+// recent event for that bead. Cursor is left untouched when the selected
+// bead has no visible entry.
+func (m *Model) syncModalCursorToSelection() {
+	id := m.selectedIssueID()
+	if id == "" {
+		return
+	}
+	if m.activeTab == TabAlerts {
+		for i, a := range m.visibleAlerts() {
+			if a.IssueID == id {
+				m.alertsCursor = i
+				return
+			}
+		}
+		return
+	}
+	for i, e := range m.visibleNotifications() {
+		if e.BeadID == id {
+			m.notificationsCursor = i
+			return
+		}
+	}
 }
 
 // alertIssueTitleMap returns a {issue_id → title} lookup drawn from the

@@ -746,6 +746,11 @@ type Model struct {
 	// Toggled with `d` from the notifications tab.
 	notifShowDismissed bool
 
+	// notifFilterKind restricts the notifications tab to a single event kind
+	// ("created", "edited", "closed", "commented", "bulk", "system"); "" = all.
+	// Set by the t/T cycle keys or by clicking a kind count in the summary row.
+	notifFilterKind string
+
 	// Double-click detection for modal mouse activation (bt-46p6.14).
 	// Updated on every MouseClickMsg inside the alerts modal; a second click
 	// at the same (X,Y) within modalDoubleClickWindow promotes to activate.

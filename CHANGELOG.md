@@ -6,6 +6,24 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-07-02 — Notification center: kind filter, click-to-filter summary chips (both tabs), open-hovers-selected-bead (bt-3pymz, bt-xw1vl)
+
+**Two dogfood asks against the shared alerts/notifications modal. The notifications tab — until now an unfilterable 500-event feed — gets the filtering treatment the alerts tab already had, and the summary count rows on both tabs become clickable filter chips. Separately, opening the modal (or switching tabs inside it) now lands the cursor on the entry for the bead currently selected in the list/detail pane, closing the jump-out/jump-back loop.**
+
+### Ships
+
+- **Notifications kind filter (bt-3pymz, area:tui)** — new `notifFilterKind`; `t`/`T` cycle through kinds present, `r` resets, filter resets on reopen. Active chip underlined + "filter: \<kind\>" label on the above-hint row, mirroring the alerts tab's filter-label placement.
+- **Click-to-filter summary chips, both tabs (bt-3pymz)** — clicking a count chip filters to it, re-clicking (or alerts' "N total") unfilters, clicking another switches. A shared `summarySegment` geometry feeds both the renderer and the mouse hit-test so click math can't drift from the drawn row. Chips render filter-dimension-unfiltered counts (kind for notifications, severity for alerts) so they stay visible and clickable while a filter is active.
+- **Modal opens hovering the selected bead (bt-xw1vl, area:tui)** — `!`/`1` open and in-modal tab switches seek the cursor to the first visible entry referencing `m.list.SelectedItem()` (notifications: the bead's newest event). Works identically in split and single-pane layouts since both read the same list selection.
+
+### Notes
+
+- **Tested:** full `go test ./...` green, build/vet clean. New coverage: chip toggle/switch/clear + separator no-op + total-chip clear, kind cycle/reset keys, reset-on-reopen, cursor-hover on open/tab-switch/no-match. Two render-harness scenarios added (`modal_notifications_120x36`, `_filtered_`) and eyeballed.
+- **Deliberate quirks:** summary clicks bypass double-click state (two fast chip clicks toggle twice, never activate); alerts' "N total" chip counts the severity-unfiltered set so it can differ from the border badge while filtered; footer hint omits `r` to fit the 96-col inner width.
+- **Follow-up:** bt-8sgpv — filtered-empty state falls back to the plain "No notifications"/"No active alerts" body, losing the chips and filter label.
+
+---
+
 ## 2026-07-02 — Boot-failure triage: cold-boot anchor self-heal, Dolt 2.1.x AS OF fix + temporal circuit breaker, honest poll-failure footer (bt-vsnla, bt-mix88, bt-ndi5t)
 
 **Session opened as orientation on two boot failures — `bt` from `~` dumping raw bd usage spew, and a "Dolt server unreachable" footer while the server was demonstrably up — and closed as a three-bug fix session. All root causes were verified live against the running shared server before any fix was specced; fixes were executed by three parallel Sonnet subagents in isolated worktrees and cherry-picked to main. Bonus find from the log forensics: the shared dolt server log held 160,549 silent AS OF errors dating to 2026-05-07 — the temporal cache had never populated on this box.**

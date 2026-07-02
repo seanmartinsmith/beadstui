@@ -526,3 +526,160 @@ func TestActivateNotification_NonCommentEventDoesNotQueueScroll(t *testing.T) {
 		t.Errorf("activation should close the modal")
 	}
 }
+
+// TestNotificationsKindFilter_CycleAndReset drives the t/T/r keys on the
+// notifications tab: t cycles forward through kinds present (in display
+// order) wrapping to all, T cycles backwards, r resets.
+func TestNotificationsKindFilter_CycleAndReset(t *testing.T) {
+	m := seedModel()
+	m.events = events.NewRingBuffer(10)
+	m.events.AppendMany([]events.Event{
+		{ID: "e1", Kind: events.EventCreated, BeadID: "bt-1", Repo: "bt", Title: "one", At: time.Now()},
+		{ID: "e2", Kind: events.EventClosed, BeadID: "bt-2", Repo: "bt", Title: "two", At: time.Now()},
+		{ID: "e3", Kind: events.EventCreated, BeadID: "bt-3", Repo: "bt", Title: "three", At: time.Now()},
+	})
+	m = pressRune(m, '1')
+	if m.activeModal != ModalAlerts || m.activeTab != TabNotifications {
+		t.Fatalf("setup: modal/tab not as expected (%v/%v)", m.activeModal, m.activeTab)
+	}
+
+	// Kinds present in display order: created, closed.
+	m = pressRune(m, 't')
+	if m.notifFilterKind != "created" {
+		t.Fatalf("first t: expected %q, got %q", "created", m.notifFilterKind)
+	}
+	if got := len(m.visibleNotifications()); got != 2 {
+		t.Fatalf("created filter: expected 2 visible, got %d", got)
+	}
+	m = pressRune(m, 't')
+	if m.notifFilterKind != "closed" {
+		t.Fatalf("second t: expected %q, got %q", "closed", m.notifFilterKind)
+	}
+	m = pressRune(m, 't')
+	if m.notifFilterKind != "" {
+		t.Fatalf("third t: expected wrap to all, got %q", m.notifFilterKind)
+	}
+
+	// Backwards from all lands on the last present kind.
+	m = pressRune(m, 'T')
+	if m.notifFilterKind != "closed" {
+		t.Fatalf("T from all: expected %q, got %q", "closed", m.notifFilterKind)
+	}
+	m = pressRune(m, 'r')
+	if m.notifFilterKind != "" {
+		t.Fatalf("r: expected filter reset, got %q", m.notifFilterKind)
+	}
+}
+
+// TestNotificationsOpen_ResetsKindFilter ensures reopening the notifications
+// modal starts unfiltered (mirrors the alerts tab's reset-on-open).
+func TestNotificationsOpen_ResetsKindFilter(t *testing.T) {
+	m := seedModel()
+	m.events.Append(events.Event{ID: "e1", Kind: events.EventCreated, BeadID: "bt-1", Repo: "bt", Title: "one", At: time.Now()})
+	m = pressRune(m, '1')
+	m = pressRune(m, 't')
+	if m.notifFilterKind == "" {
+		t.Fatalf("setup: expected an active kind filter")
+	}
+	m = pressRune(m, 'q') // close
+	m = pressRune(m, '1') // reopen
+	if m.notifFilterKind != "" {
+		t.Fatalf("reopen must reset kind filter, got %q", m.notifFilterKind)
+	}
+}
+
+// syncModel builds a model with real issues (so the list has a selection)
+// for the open-hovers-selected-bead tests.
+func syncModel(t *testing.T) Model {
+	t.Helper()
+	issues := []model.Issue{
+		{ID: "bt-1", Title: "One", Status: model.StatusOpen, CreatedAt: time.Now()},
+		{ID: "bt-2", Title: "Two", Status: model.StatusOpen, CreatedAt: time.Now()},
+	}
+	m := NewModel(issues, nil, "", nil)
+	m.width = 120
+	m.height = 40
+	m.mode = ViewList
+	m.ready = true
+	return m
+}
+
+// TestAlertsOpen_CursorHoversSelectedBead: opening the alerts modal lands the
+// cursor on the alert referencing the issue selected in the list/detail pane.
+func TestAlertsOpen_CursorHoversSelectedBead(t *testing.T) {
+	m := syncModel(t)
+	m.alerts = []drift.Alert{
+		{Type: drift.AlertStale, Severity: drift.SeverityWarning, Message: "a", IssueID: "bt-1"},
+		{Type: drift.AlertStale, Severity: drift.SeverityWarning, Message: "b", IssueID: "bt-2"},
+	}
+	if !m.selectIssueByID("bt-2") {
+		t.Fatalf("setup: could not select bt-2")
+	}
+	m = pressRune(m, '!')
+	if m.activeModal != ModalAlerts {
+		t.Fatalf("setup: modal did not open")
+	}
+	if m.alertsCursor != 1 {
+		t.Fatalf("expected alertsCursor=1 (hovering bt-2), got %d", m.alertsCursor)
+	}
+}
+
+// TestNotificationsOpen_CursorHoversSelectedBead: same contract for the
+// notifications tab, with newest-first ordering.
+func TestNotificationsOpen_CursorHoversSelectedBead(t *testing.T) {
+	m := syncModel(t)
+	m.events.AppendMany([]events.Event{
+		{ID: "e1", Kind: events.EventCreated, BeadID: "bt-1", Repo: "bt", Title: "one", At: time.Now()},
+		{ID: "e2", Kind: events.EventEdited, BeadID: "bt-2", Repo: "bt", Title: "two", At: time.Now()},
+		{ID: "e3", Kind: events.EventCreated, BeadID: "bt-9", Repo: "bt", Title: "nine", At: time.Now()},
+	})
+	if !m.selectIssueByID("bt-2") {
+		t.Fatalf("setup: could not select bt-2")
+	}
+	m = pressRune(m, '1')
+	if m.activeModal != ModalAlerts || m.activeTab != TabNotifications {
+		t.Fatalf("setup: modal/tab not as expected (%v/%v)", m.activeModal, m.activeTab)
+	}
+	// Newest-first: [e3(bt-9), e2(bt-2), e1(bt-1)] → bt-2 at index 1.
+	if m.notificationsCursor != 1 {
+		t.Fatalf("expected notificationsCursor=1 (hovering bt-2), got %d", m.notificationsCursor)
+	}
+}
+
+// TestModalTabSwitch_SyncsCursorToSelection: switching tabs inside the modal
+// re-seeks the newly shown tab's cursor to the selected bead.
+func TestModalTabSwitch_SyncsCursorToSelection(t *testing.T) {
+	m := syncModel(t)
+	m.alerts = []drift.Alert{
+		{Type: drift.AlertStale, Severity: drift.SeverityWarning, Message: "a", IssueID: "bt-1"},
+		{Type: drift.AlertStale, Severity: drift.SeverityWarning, Message: "b", IssueID: "bt-2"},
+	}
+	m.events.Append(events.Event{ID: "e1", Kind: events.EventCreated, BeadID: "bt-1", Repo: "bt", Title: "one", At: time.Now()})
+	if !m.selectIssueByID("bt-2") {
+		t.Fatalf("setup: could not select bt-2")
+	}
+	m = pressRune(m, '1') // open on notifications
+	m = pressRune(m, '!') // switch to alerts tab
+	if m.activeTab != TabAlerts {
+		t.Fatalf("expected TabAlerts after !, got %v", m.activeTab)
+	}
+	if m.alertsCursor != 1 {
+		t.Fatalf("expected alertsCursor=1 after tab switch, got %d", m.alertsCursor)
+	}
+}
+
+// TestAlertsOpen_NoMatchLeavesCursorAtTop: selected bead without a matching
+// alert keeps the reset cursor (no stale hover).
+func TestAlertsOpen_NoMatchLeavesCursorAtTop(t *testing.T) {
+	m := syncModel(t)
+	m.alerts = []drift.Alert{
+		{Type: drift.AlertStale, Severity: drift.SeverityWarning, Message: "b", IssueID: "bt-2"},
+	}
+	if !m.selectIssueByID("bt-1") {
+		t.Fatalf("setup: could not select bt-1")
+	}
+	m = pressRune(m, '!')
+	if m.alertsCursor != 0 {
+		t.Fatalf("expected alertsCursor=0 with no matching alert, got %d", m.alertsCursor)
+	}
+}

@@ -65,6 +65,18 @@ func alertKey(a drift.Alert) string {
 // visibleAlerts returns alerts filtered by dismissed state, repo filter,
 // and stackable alert filters (severity, type, project, sort).
 func (m Model) visibleAlerts() []drift.Alert {
+	return m.filteredAlerts(true)
+}
+
+// visibleAlertsAllSeverities is visibleAlerts minus the severity filter —
+// dismissed/repo/type/project filters still apply. Feeds the summary row's
+// severity chips so every severity stays visible (and clickable to switch
+// or unfilter) while one is selected.
+func (m Model) visibleAlertsAllSeverities() []drift.Alert {
+	return m.filteredAlerts(false)
+}
+
+func (m Model) filteredAlerts(applySeverity bool) []drift.Alert {
 	var out []drift.Alert
 	for _, a := range m.alerts {
 		if m.dismissedAlerts[alertKey(a)] {
@@ -81,7 +93,7 @@ func (m Model) visibleAlerts() []drift.Alert {
 			}
 		}
 		// Stackable filters (bt-46p6.5)
-		if m.alertFilterSeverity != "" && string(a.Severity) != m.alertFilterSeverity {
+		if applySeverity && m.alertFilterSeverity != "" && string(a.Severity) != m.alertFilterSeverity {
 			continue
 		}
 		if m.alertFilterType != "" && string(a.Type) != m.alertFilterType {
@@ -114,13 +126,25 @@ func (m Model) visibleAlerts() []drift.Alert {
 	return out
 }
 
-// visibleNotifications returns ring-buffer events filtered by dismissed state
-// and active-repo filter, newest-first. v1 hides dismissed; v2 (bt-46p6.13)
-// exposes them when notifShowDismissed is set. In workspace mode with an
-// active repo filter, events whose Repo isn't in activeRepos are hidden —
-// mirrors the alerts tab's project-scoping so 'single project' /
+// visibleNotifications returns ring-buffer events filtered by dismissed state,
+// active-repo filter, and kind filter, newest-first. v1 hides dismissed; v2
+// (bt-46p6.13) exposes them when notifShowDismissed is set. In workspace mode
+// with an active repo filter, events whose Repo isn't in activeRepos are
+// hidden — mirrors the alerts tab's project-scoping so 'single project' /
 // 'multi-project select' / 'global' views produce the right notification set.
 func (m Model) visibleNotifications() []events.Event {
+	return m.filteredNotifications(true)
+}
+
+// visibleNotificationsAllKinds is visibleNotifications minus the kind filter —
+// dismissed/repo filters still apply. Feeds the summary row's kind chips so
+// every kind count stays visible (and clickable to switch or unfilter) while
+// one kind is selected.
+func (m Model) visibleNotificationsAllKinds() []events.Event {
+	return m.filteredNotifications(false)
+}
+
+func (m Model) filteredNotifications(applyKind bool) []events.Event {
 	snap := m.events.Snapshot()
 	out := make([]events.Event, 0, len(snap))
 	// Snapshot is oldest-first; reverse to newest-first.
@@ -134,6 +158,9 @@ func (m Model) visibleNotifications() []events.Event {
 			if !m.activeRepos[snap[i].Repo] {
 				continue
 			}
+		}
+		if applyKind && m.notifFilterKind != "" && snap[i].Kind.String() != m.notifFilterKind {
+			continue
 		}
 		out = append(out, snap[i])
 	}
@@ -207,6 +234,111 @@ func (m *Model) resetAlertFilters() {
 	m.alertFilterType = ""
 	m.alertFilterProject = ""
 	m.alertSortOrder = 0
+}
+
+// notifKindOrder is the display order of event kinds in the notifications
+// summary row and the t/T filter cycle.
+var notifKindOrder = []events.EventKind{
+	events.EventCreated,
+	events.EventEdited,
+	events.EventClosed,
+	events.EventCommented,
+	events.EventBulk,
+	events.EventSystem,
+}
+
+// summarySegment is one clickable count chip on the modal's summary row
+// (panel row 1, directly under the top border). start/end are columns in
+// the tab renderer's line coordinates — before padContentLines and the
+// panel border — so the click handler subtracts modalContentXOffset from
+// the panel-relative X before hit-testing. Both the renderer and the click
+// handler consume the same segment slice, so geometry cannot drift from
+// what is drawn.
+type summarySegment struct {
+	value string           // filter value the chip toggles; "" = clear (alerts "total")
+	text  string           // plain rendered text, e.g. "140 created"
+	kind  events.EventKind // notifications tab only: kind for row-color styling
+	start int              // inclusive column
+	end   int              // exclusive column
+}
+
+// alertSummarySegments builds the alerts summary row: "N total • K critical
+// • K warning • K info". Counts come from the severity-unfiltered set so
+// all severity chips stay visible while one is selected; "total" is that
+// set's size and clicking it clears the severity filter. Zero-count
+// severities are skipped, matching the previous rendering.
+func (m Model) alertSummarySegments() []summarySegment {
+	all := m.visibleAlertsAllSeverities()
+	critical, warning, info := 0, 0, 0
+	for _, a := range all {
+		switch a.Severity {
+		case drift.SeverityCritical:
+			critical++
+		case drift.SeverityWarning:
+			warning++
+		case drift.SeverityInfo:
+			info++
+		}
+	}
+
+	x := 1 // leading " " written by the renderer
+	var segs []summarySegment
+	add := func(value, text string) {
+		if len(segs) > 0 {
+			x += 3 // " • " separator
+		}
+		segs = append(segs, summarySegment{value: value, text: text, start: x, end: x + len(text)})
+		x += len(text)
+	}
+	add("", fmt.Sprintf("%d total", len(all)))
+	if critical > 0 {
+		add("critical", fmt.Sprintf("%d critical", critical))
+	}
+	if warning > 0 {
+		add("warning", fmt.Sprintf("%d warning", warning))
+	}
+	if info > 0 {
+		add("info", fmt.Sprintf("%d info", info))
+	}
+	return segs
+}
+
+// notifSummarySegments builds the notifications summary row: per-kind counts
+// in notifKindOrder, zero-count kinds skipped. Counts come from the
+// kind-unfiltered set so every chip stays visible while a kind filter is
+// active.
+func (m Model) notifSummarySegments() []summarySegment {
+	counts := make(map[events.EventKind]int)
+	for _, e := range m.visibleNotificationsAllKinds() {
+		counts[e.Kind]++
+	}
+
+	x := 1 // leading " " written by the renderer
+	var segs []summarySegment
+	for _, k := range notifKindOrder {
+		n := counts[k]
+		if n == 0 {
+			continue
+		}
+		if len(segs) > 0 {
+			x += 3 // " • " separator
+		}
+		text := fmt.Sprintf("%d %s", n, k.String())
+		segs = append(segs, summarySegment{value: k.String(), text: text, kind: k, start: x, end: x + len(text)})
+		x += len(text)
+	}
+	return segs
+}
+
+// notifActiveKinds returns the kind labels present in the kind-unfiltered
+// visible set, in display order. Mirrors alertActiveTypes for the t/T cycle.
+func (m Model) notifActiveKinds() []string {
+	segs := m.notifSummarySegments()
+	kinds := make([]string, len(segs))
+	for i, s := range segs {
+		kinds[i] = s.value
+	}
+	return kinds
 }
 
 // alertsPanelHeight returns the fixed outer height of the alerts panel
@@ -296,38 +428,30 @@ func (m Model) renderAlertsTab() string {
 		sb.WriteString(lipgloss.NewStyle().Foreground(ColorSuccess).Render(" No active alerts"))
 		sb.WriteString("\n")
 	} else {
-		// Summary line with counts from the visible (filtered) set
-		critical, warning, info := 0, 0, 0
-		for _, a := range visibleAlerts {
-			switch a.Severity {
-			case drift.SeverityCritical:
-				critical++
-			case drift.SeverityWarning:
-				warning++
-			case drift.SeverityInfo:
-				info++
-			}
-		}
-		totalStyle := lipgloss.NewStyle().Foreground(t.Secondary)
-		critStyle := lipgloss.NewStyle().Foreground(t.Blocked).Bold(true)
-		warnStyle := lipgloss.NewStyle().Foreground(t.Feature)
-		infoStyle := lipgloss.NewStyle().Foreground(t.Secondary)
+		// Summary line rendered from alertSummarySegments so the click
+		// handler's hit-test geometry always matches what is drawn. Counts
+		// are severity-unfiltered (chips stay clickable while filtered);
+		// the active severity chip is underlined.
 		sepStyle := lipgloss.NewStyle().Foreground(t.Muted)
 		sep := sepStyle.Render(" • ")
-
 		sb.WriteString(" ")
-		sb.WriteString(totalStyle.Render(fmt.Sprintf("%d total", len(visibleAlerts))))
-		if critical > 0 {
-			sb.WriteString(sep)
-			sb.WriteString(critStyle.Render(fmt.Sprintf("%d critical", critical)))
-		}
-		if warning > 0 {
-			sb.WriteString(sep)
-			sb.WriteString(warnStyle.Render(fmt.Sprintf("%d warning", warning)))
-		}
-		if info > 0 {
-			sb.WriteString(sep)
-			sb.WriteString(infoStyle.Render(fmt.Sprintf("%d info", info)))
+		for i, seg := range m.alertSummarySegments() {
+			if i > 0 {
+				sb.WriteString(sep)
+			}
+			var st lipgloss.Style
+			switch seg.value {
+			case "critical":
+				st = lipgloss.NewStyle().Foreground(t.Blocked).Bold(true)
+			case "warning":
+				st = lipgloss.NewStyle().Foreground(t.Feature)
+			default: // info, total
+				st = lipgloss.NewStyle().Foreground(t.Secondary)
+			}
+			if seg.value != "" && seg.value == m.alertFilterSeverity {
+				st = st.Bold(true).Underline(true)
+			}
+			sb.WriteString(st.Render(seg.text))
 		}
 		sb.WriteString("\n\n")
 
@@ -673,45 +797,24 @@ func (m Model) renderNotificationsTab() string {
 
 	// Summary line: per-kind breakdown (mirrors alerts' "N total · K critical · …").
 	// Total is already rendered in the border's RightLabel, so omit it here.
-	var created, edited, closed, commented, bulk, system int
-	for _, e := range active {
-		switch e.Kind {
-		case events.EventCreated:
-			created++
-		case events.EventEdited:
-			edited++
-		case events.EventClosed:
-			closed++
-		case events.EventCommented:
-			commented++
-		case events.EventBulk:
-			bulk++
-		case events.EventSystem:
-			system++
-		}
-	}
+	// Rendered from notifSummarySegments so the click handler's hit-test
+	// geometry always matches what is drawn. Counts are kind-unfiltered
+	// (chips stay clickable while a kind filter is active); the active
+	// kind's chip is underlined. bt-0mxw: chips use the same kind→color
+	// token map as the row renderer so the eye links the header to the rows.
 	sepStyle := lipgloss.NewStyle().Foreground(t.Muted)
 	sep := sepStyle.Render(" • ")
 	sb.WriteString(" ")
-	first := true
-	// bt-0mxw: color the per-kind counts using the same token map as the
-	// row renderer so the eye links the header to the rows.
-	writeKind := func(n int, label string, kind events.EventKind) {
-		if n == 0 {
-			return
-		}
-		if !first {
+	for i, seg := range m.notifSummarySegments() {
+		if i > 0 {
 			sb.WriteString(sep)
 		}
-		sb.WriteString(kindRowStyle(t, kind).Render(fmt.Sprintf("%d %s", n, label)))
-		first = false
+		st := kindRowStyle(t, seg.kind)
+		if seg.value == m.notifFilterKind {
+			st = st.Bold(true).Underline(true)
+		}
+		sb.WriteString(st.Render(seg.text))
 	}
-	writeKind(created, "created", events.EventCreated)
-	writeKind(edited, "edited", events.EventEdited)
-	writeKind(closed, "closed", events.EventClosed)
-	writeKind(commented, "commented", events.EventCommented)
-	writeKind(bulk, "bulk", events.EventBulk)
-	writeKind(system, "system", events.EventSystem)
 	sb.WriteString("\n\n")
 
 	// Leave one row of the page for the cursor-expand line (hover-expand
@@ -729,9 +832,24 @@ func (m Model) renderNotificationsTab() string {
 
 	mutedStyle := lipgloss.NewStyle().Foreground(t.Muted)
 
-	// Above-indicator line (matches alerts' above-hint row).
+	// Above-indicator line: "▴ N more above" left, active kind-filter label
+	// right (matches alerts' above-hint/filter-label row).
+	aboveHint := ""
 	if start > 0 {
-		sb.WriteString(mutedStyle.Render(fmt.Sprintf(" ▴ %d more above", start)))
+		aboveHint = fmt.Sprintf(" ▴ %d more above", start)
+	}
+	filterLabel := ""
+	if m.notifFilterKind != "" {
+		filterLabel = "filter: " + m.notifFilterKind
+	}
+	if aboveHint != "" || filterLabel != "" {
+		leftPart := mutedStyle.Render(aboveHint)
+		rightPart := lipgloss.NewStyle().Foreground(t.Feature).Italic(true).Render(filterLabel)
+		gap := innerWidth - lipgloss.Width(leftPart) - lipgloss.Width(rightPart)
+		if gap < 1 {
+			gap = 1
+		}
+		sb.WriteString(leftPart + strings.Repeat(" ", gap) + rightPart)
 	}
 	sb.WriteString("\n")
 
@@ -819,7 +937,10 @@ func (m Model) renderNotificationsTab() string {
 	if m.notifShowDismissed {
 		dismissToggleLabel = "d: hide dismissed"
 	}
-	hintText := hintStyle.Render(fmt.Sprintf("j/k: nav  enter: open  c: dismiss  C: dismiss all  %s  esc: close", dismissToggleLabel))
+	// r (reset) is intentionally undocumented here: the hint must fit the
+	// 96-col inner width, and unfiltering is already discoverable (cycle t
+	// to "all", or click the active chip).
+	hintText := hintStyle.Render(fmt.Sprintf("j/k: nav  enter: open  t: filter  c: dismiss  C: dismiss all  %s  esc: close", dismissToggleLabel))
 	hintW := lipgloss.Width(hintText)
 	hintPad := (innerWidth - hintW) / 2
 	if hintPad < 0 {

@@ -14,9 +14,9 @@ import (
 // alerts tab. Dimensions chosen so the centering math is simple:
 //
 //	width=120, height=40
-//	panelWidth  = min(80, width-4)        = 80
+//	panelWidth  = min(100, width-4)       = 100
 //	panelHeight = height * 7 / 10         = 28
-//	startCol    = (width - 80) / 2        = 20
+//	startCol    = (width - 100) / 2       = 10
 //	startRow    = (height-1 - 28) / 2     = 5
 //	first item row on screen = startRow + modalChromeAboveItems = 10
 func modalMouseModel(t *testing.T) Model {
@@ -181,6 +181,154 @@ func TestAlertsModalItemAtY_ChromeGuard(t *testing.T) {
 	// First item row should map to index start (0 with fresh cursor).
 	if idx, ok := m.alertsModalItemAtY(modalChromeAboveItems); !ok || idx != 0 {
 		t.Errorf("first item row should map to index 0, got (%d, %v)", idx, ok)
+	}
+}
+
+// summaryChipClick returns a left-click aimed at the middle of the summary
+// chip with the given filter value on the active tab. Coordinates are derived
+// from the same segment geometry the renderer and click handler share, so the
+// test exercises the real translation math (panel centering + border/pad
+// offset) rather than hardcoded columns.
+func summaryChipClick(t *testing.T, m Model, value string) tea.MouseClickMsg {
+	t.Helper()
+	var segs []summarySegment
+	if m.activeTab == TabAlerts {
+		segs = m.alertSummarySegments()
+	} else {
+		segs = m.notifSummarySegments()
+	}
+	startCol := (m.width - m.alertsPanelWidth()) / 2
+	startRow := (m.height - 1 - m.alertsPanelHeight()) / 2
+	for _, seg := range segs {
+		if seg.value == value {
+			return tea.MouseClickMsg{
+				X:      startCol + modalContentXOffset + (seg.start+seg.end)/2,
+				Y:      startRow + modalSummaryRow,
+				Button: tea.MouseLeft,
+			}
+		}
+	}
+	t.Fatalf("no summary chip with value %q (segments: %+v)", value, segs)
+	return tea.MouseClickMsg{}
+}
+
+// summaryClickModel seeds a model with mixed-severity alerts and opens the
+// alerts tab, for click-to-filter tests that need more than one chip.
+func summaryClickModel(t *testing.T) Model {
+	t.Helper()
+	m := seedModel()
+	m.alerts = []drift.Alert{
+		{Type: drift.AlertStale, Severity: drift.SeverityCritical, Message: "crit a", IssueID: "bt-a"},
+		{Type: drift.AlertStale, Severity: drift.SeverityWarning, Message: "warn b", IssueID: "bt-b"},
+		{Type: drift.AlertStale, Severity: drift.SeverityWarning, Message: "warn c", IssueID: "bt-c"},
+	}
+	m = pressRune(m, '!')
+	if m.activeModal != ModalAlerts || m.activeTab != TabAlerts {
+		t.Fatalf("setup: modal/tab not as expected (%v/%v)", m.activeModal, m.activeTab)
+	}
+	return m
+}
+
+func TestAlertsModal_ClickSeverityChipTogglesFilter(t *testing.T) {
+	m := summaryClickModel(t)
+
+	// Click "warning" chip → filter to warning.
+	m, _ = m.handleMouseClick(summaryChipClick(t, m, "warning"))
+	if m.alertFilterSeverity != "warning" {
+		t.Fatalf("expected severity filter %q, got %q", "warning", m.alertFilterSeverity)
+	}
+	if got := len(m.visibleAlerts()); got != 2 {
+		t.Fatalf("expected 2 visible warning alerts, got %d", got)
+	}
+	// Chips stay severity-unfiltered: total + critical + warning all present.
+	if got := len(m.alertSummarySegments()); got != 3 {
+		t.Fatalf("expected 3 chips while filtered, got %d", got)
+	}
+
+	// Click "critical" chip → switch filter.
+	m, _ = m.handleMouseClick(summaryChipClick(t, m, "critical"))
+	if m.alertFilterSeverity != "critical" {
+		t.Fatalf("expected severity filter %q after switch, got %q", "critical", m.alertFilterSeverity)
+	}
+
+	// Click "critical" again → unfilter.
+	m, _ = m.handleMouseClick(summaryChipClick(t, m, "critical"))
+	if m.alertFilterSeverity != "" {
+		t.Fatalf("expected severity filter cleared, got %q", m.alertFilterSeverity)
+	}
+	if m.activeModal != ModalAlerts {
+		t.Fatalf("chip clicks must not close the modal")
+	}
+}
+
+func TestAlertsModal_ClickTotalChipClearsFilter(t *testing.T) {
+	m := summaryClickModel(t)
+	m, _ = m.handleMouseClick(summaryChipClick(t, m, "warning"))
+	if m.alertFilterSeverity != "warning" {
+		t.Fatalf("setup: expected warning filter, got %q", m.alertFilterSeverity)
+	}
+	m, _ = m.handleMouseClick(summaryChipClick(t, m, ""))
+	if m.alertFilterSeverity != "" {
+		t.Fatalf("total chip should clear the severity filter, got %q", m.alertFilterSeverity)
+	}
+}
+
+func TestAlertsModal_ClickSummaryGapIsNoOp(t *testing.T) {
+	m := summaryClickModel(t)
+	segs := m.alertSummarySegments()
+	startCol := (m.width - m.alertsPanelWidth()) / 2
+	startRow := (m.height - 1 - m.alertsPanelHeight()) / 2
+	// Middle of the " • " separator after the first chip.
+	msg := tea.MouseClickMsg{
+		X:      startCol + modalContentXOffset + segs[0].end + 1,
+		Y:      startRow + modalSummaryRow,
+		Button: tea.MouseLeft,
+	}
+	got, _ := m.handleMouseClick(msg)
+	if got.alertFilterSeverity != "" {
+		t.Fatalf("separator click must not set a filter, got %q", got.alertFilterSeverity)
+	}
+	if got.activeModal != ModalAlerts {
+		t.Fatalf("separator click must not close the modal")
+	}
+}
+
+func TestNotificationsModal_ClickKindChipTogglesFilter(t *testing.T) {
+	m := seedModel()
+	m.events = events.NewRingBuffer(10)
+	m.events.AppendMany([]events.Event{
+		{ID: "e1", Kind: events.EventCreated, BeadID: "bt-1", Repo: "bt", Title: "one", At: time.Now()},
+		{ID: "e2", Kind: events.EventClosed, BeadID: "bt-2", Repo: "bt", Title: "two", At: time.Now()},
+		{ID: "e3", Kind: events.EventCreated, BeadID: "bt-3", Repo: "bt", Title: "three", At: time.Now()},
+	})
+	m = pressRune(m, '1')
+	if m.activeModal != ModalAlerts || m.activeTab != TabNotifications {
+		t.Fatalf("setup: modal/tab not as expected (%v/%v)", m.activeModal, m.activeTab)
+	}
+
+	m, _ = m.handleMouseClick(summaryChipClick(t, m, "closed"))
+	if m.notifFilterKind != "closed" {
+		t.Fatalf("expected kind filter %q, got %q", "closed", m.notifFilterKind)
+	}
+	if got := len(m.visibleNotifications()); got != 1 {
+		t.Fatalf("expected 1 visible closed event, got %d", got)
+	}
+	// Chips stay kind-unfiltered while a kind filter is active.
+	if got := len(m.notifSummarySegments()); got != 2 {
+		t.Fatalf("expected 2 chips while filtered, got %d", got)
+	}
+
+	// Second click on the same chip → unfilter. Also proves summary clicks
+	// don't feed double-click activation (modal must stay open).
+	m, _ = m.handleMouseClick(summaryChipClick(t, m, "closed"))
+	if m.notifFilterKind != "" {
+		t.Fatalf("expected kind filter cleared, got %q", m.notifFilterKind)
+	}
+	if got := len(m.visibleNotifications()); got != 3 {
+		t.Fatalf("expected all 3 events visible after unfilter, got %d", got)
+	}
+	if m.activeModal != ModalAlerts {
+		t.Fatalf("chip clicks must not close the modal")
 	}
 }
 
