@@ -980,6 +980,19 @@ func autoGlobalWithColdBoot(envRobot bool) (bool, error) {
 		return false, fmt.Errorf("shared Dolt server unreachable and no anchor project is set\n  reason: %v\n  fix: cd into any beads project once (so bt records it as the cold-boot anchor), or export BT_ANCHOR_PROJECT=<path>", discoverErr)
 	}
 
+	// Stat the anchor before shelling out to `bd -C`. A deleted anchor
+	// directory (e.g. an agent-scratch fixture that got cleaned up) makes
+	// bd fail with a raw "-C directory does not exist" error plus a full
+	// usage dump; catching it here keeps that spew off the user's screen
+	// and lets the same self-heal path fire as an actually-invalid anchor.
+	if info, statErr := os.Stat(anchor); statErr != nil || !info.IsDir() {
+		if !settings.AnchorFromEnv() {
+			g.AnchorProject = ""
+			_ = g.Save()
+		}
+		return false, fmt.Errorf("anchor at %s no longer exists; cd into a project once to re-anchor, or set BT_ANCHOR_PROJECT manually", anchor)
+	}
+
 	if !envRobot {
 		fmt.Fprintf(os.Stderr, "Starting shared Dolt server via anchor %s...\n", anchor)
 	}
@@ -1045,6 +1058,9 @@ func maybeUpdateAnchor() {
 	if err != nil {
 		abs = root
 	}
+	if isEphemeralAnchorPath(abs) {
+		return
+	}
 	g, err := settings.Load()
 	if err != nil {
 		return
@@ -1054,6 +1070,43 @@ func maybeUpdateAnchor() {
 	}
 	g.AnchorProject = abs
 	_ = g.Save()
+}
+
+// isEphemeralAnchorPath reports whether path sits under a scratch location
+// that can be torn down at any time — the OS temp dir, or a Claude Code
+// agent job's working tree under ~/.claude/jobs. Anchoring to a path like
+// that is how bt-vsnla happened: an agent ran bt from a throwaway fixture,
+// latest-cwd-wins recorded it as the anchor, and the anchor went stale the
+// moment the fixture was cleaned up. Comparison is case-insensitive since
+// Windows paths are case-insensitive; no third-party path libraries needed.
+func isEphemeralAnchorPath(path string) bool {
+	clean := filepath.Clean(path)
+
+	if tmp := filepath.Clean(os.TempDir()); tmp != "" && tmp != "." {
+		if pathHasPrefix(clean, tmp) {
+			return true
+		}
+	}
+
+	if home, err := os.UserHomeDir(); err == nil {
+		jobs := filepath.Clean(filepath.Join(home, ".claude", "jobs"))
+		if pathHasPrefix(clean, jobs) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// pathHasPrefix reports whether path equals prefix or is nested under it,
+// comparing case-insensitively and on separator boundaries so
+// "C:\tmp2" doesn't false-positive against prefix "C:\tmp".
+func pathHasPrefix(path, prefix string) bool {
+	path, prefix = strings.ToLower(path), strings.ToLower(prefix)
+	if path == prefix {
+		return true
+	}
+	return strings.HasPrefix(path, prefix+string(filepath.Separator))
 }
 
 // currentProjectRoot returns the absolute path of the cwd's beads project,
@@ -1112,16 +1165,25 @@ func startSharedServerViaAnchor(anchor string) error {
 }
 
 // isAnchorInvalidError matches the error shape bd emits when `-C <path>`
-// resolves to a non-beads directory. We're conservative here — only the
-// canonical "no active beads workspace" message clears the anchor.
-// Transient failures (bd missing, port collision, network) keep the
-// persisted anchor so the next boot can retry.
+// resolves to a non-beads directory, or to a directory that doesn't exist
+// at all. We're conservative here — only these known-anchor-is-bad shapes
+// clear the anchor. Transient failures (bd missing, port collision,
+// network) keep the persisted anchor so the next boot can retry.
+//
+// The "cannot use -c directory" match is defense-in-depth for the
+// nonexistent-anchor case: autoGlobalWithColdBoot stats the anchor before
+// ever shelling out to bd, so bd itself shouldn't hit this today, but the
+// match stays cheap insurance against future callers of
+// startSharedServerViaAnchor skipping that check. Matched without the
+// OS-specific "cannot find the path specified" suffix (that phrasing is
+// Windows-only; bd's message is otherwise platform-independent).
 func isAnchorInvalidError(err error) bool {
 	if err == nil {
 		return false
 	}
 	msg := strings.ToLower(err.Error())
-	return strings.Contains(msg, "no active beads workspace")
+	return strings.Contains(msg, "no active beads workspace") ||
+		strings.Contains(msg, "cannot use -c directory")
 }
 
 // waitForSharedServer polls DiscoverSharedServer until either the server
