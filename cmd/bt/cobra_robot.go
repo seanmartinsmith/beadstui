@@ -11,6 +11,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/seanmartinsmith/beadstui/internal/datasource"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/baseline"
 	"github.com/seanmartinsmith/beadstui/pkg/bql"
@@ -114,6 +115,21 @@ func init() {
 	pf.BoolVar(&robotFlagFull, "full", false, "Alias for --shape=full")
 }
 
+// checkAsOfEmbeddedSupport refuses a --as-of request against an embedded
+// (in-process) Dolt project instead of letting it silently pass through.
+// AS OF is a Dolt SQL server feature; the embedded reader always shells
+// `bd export` for CURRENT state (internal/datasource/embedded.go), so
+// honoring --as-of there would echo the requested ref into the envelope
+// while quietly serving current data (bt-fyzll). Server-mode and
+// shared-server (global) sources are untouched - nil source or empty asOf
+// is a no-op so callers can call this unconditionally after load.
+func checkAsOfEmbeddedSupport(asOf string, source *datasource.DataSource) error {
+	if asOf == "" || source == nil || source.Type != datasource.SourceTypeEmbeddedDolt {
+		return nil
+	}
+	return fmt.Errorf("--as-of %q: %w", asOf, datasource.ErrAsOfNotSupportedForEmbedded)
+}
+
 // robotPreRun loads issues and applies common robot pre-processing (label scope, recipe, BQL).
 // Call this at the start of each robot subcommand's RunE.
 func robotPreRun() (*robotCtx, error) {
@@ -121,6 +137,13 @@ func robotPreRun() (*robotCtx, error) {
 		if !flagGlobal {
 			return nil, fmt.Errorf("%w (try --global if no local Dolt server is reachable)", err)
 		}
+		return nil, err
+	}
+
+	// Refuse loudly rather than silently serving current data under a
+	// historical as_of stamp (bt-fyzll). Checked immediately after load, before
+	// any filtering, so every robot subcommand that accepts --as-of is covered.
+	if err := checkAsOfEmbeddedSupport(robotFlagAsOf, appCtx.selectedSource); err != nil {
 		return nil, err
 	}
 

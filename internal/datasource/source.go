@@ -41,6 +41,16 @@ var ErrDoltRequired = errors.New("Dolt server required but not reachable")
 // can be resolved in the beads directory.
 var ErrNoSource = errors.New("no data source found")
 
+// ErrAsOfNotSupportedForEmbedded signals that a point-in-time (--as-of) query
+// was requested against an embedded (in-process) Dolt project. AS OF is a
+// Dolt SQL server feature; the embedded read path shells `bd export` for
+// CURRENT state only (bt-qrt2u), so there is no historical snapshot to serve.
+// Callers must check this before trusting loaded data as if it reflected the
+// requested ref - the alternative is a silent wrong answer: current data
+// stamped with a historical as_of ref (bt-fyzll). Server-mode and
+// shared-server (global) Dolt sources are unaffected.
+var ErrAsOfNotSupportedForEmbedded = errors.New("AS OF requires Dolt server mode; this project uses embedded (in-process) Dolt and has no server to query historically")
+
 // SourceType identifies the type of data source. ADR-003 fixed three
 // values; bt-qrt2u added the embedded-Dolt read path. Do not add more
 // without revisiting those decisions.
