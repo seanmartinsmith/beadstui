@@ -6,6 +6,23 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-07-02 — Boot-failure triage: cold-boot anchor self-heal, Dolt 2.1.x AS OF fix + temporal circuit breaker, honest poll-failure footer (bt-vsnla, bt-mix88, bt-ndi5t)
+
+**Session opened as orientation on two boot failures — `bt` from `~` dumping raw bd usage spew, and a "Dolt server unreachable" footer while the server was demonstrably up — and closed as a three-bug fix session. All root causes were verified live against the running shared server before any fix was specced; fixes were executed by three parallel Sonnet subagents in isolated worktrees and cherry-picked to main. Bonus find from the log forensics: the shared dolt server log held 160,549 silent AS OF errors dating to 2026-05-07 — the temporal cache had never populated on this box.**
+
+### Ships
+
+- **Cold-boot anchor self-heal (bt-vsnla, area:cli)** — `autoGlobalWithColdBoot` stat-validates the anchor before shelling `bd -C`; a deleted anchor dir now clears itself with the friendly re-anchor message instead of raw bd usage spew. `isAnchorInvalidError` additionally matches "cannot use -C directory" as defense-in-depth. `maybeUpdateAnchor` refuses to persist anchors under `os.TempDir()` or `~/.claude/jobs` — throwaway agent fixtures can no longer poison the anchor (root cause of the incident: the 2026-07-01 embedded-mode test fixture under a since-deleted CC job tmp dir).
+- **Dolt 2.1.x AS OF fix + temporal circuit breaker (bt-mix88, area:data)** — Dolt 2.1.x resolves bare `AS OF '<string>'` as branch/hash only, so every temporal-history query had failed with "string is not a valid branch or hash" since at least 2026-05-07, silently skipped per-DB. `buildIssuesQueryAsOf` now emits `AS OF TIMESTAMP('YYYY-MM-DD HH:MM:SS')` (verified live against dolt 2.1.9 before speccing). `TemporalCache` trips a session-scoped circuit breaker when a full sweep fails for all databases — one warn line, no more 20-DB hammering of the server log per refresh.
+- **Honest poll-failure footer (bt-ndi5t, area:tui)** — typed `DoltPollPhase` (connect/query) threaded from `doltPollOnce`/`globalDoltPollOnce` through `DoltConnectionStatusMsg`; query-phase failures render "Dolt poll query failed (retrying in Ns)" with a truncated cause (which lands in the Notifications ring for free), while connect-phase keeps the byte-identical "Dolt server unreachable" toast.
+
+### Notes
+
+- **Tested:** each fix gated in its own worktree, re-gated on main after cherry-pick, full `go test ./...` on the integrated head. New tests: anchor helper table tests (incl. sibling-prefix false-positive guard), exact AS OF `TIMESTAMP()` fragment assertion + breaker trip/no-trip, poll phase propagation end-to-end + `degraded_query` width-sweep case.
+- **Deferred:** end-to-end temporal populate verify happens on the next global-mode `bt` launch — if sparklines/history stay empty, the single breaker warn line is the tell.
+
+---
+
 ## 2026-06-22 — Help surfaces consume the key.Map: `;` sidebar + `?` overlay as FullHelp() consumers (bt-ift6.10, bt-ift6.11)
 
 **The surface layer of the bubbles/v2/key epic (bt-ift6). The `;` shortcuts sidebar and `?` help overlay now render from per-view `key.Map.FullHelp()` instead of hand-maintained string tables, so all three help surfaces — L1 footer (`ShortHelp`), L1.5 sidebar (`FullHelp`), L2 overlay (`FullHelp`) — consume the single binding source and the keybindings audit's drift table is zero by construction. (.12, the L1 footer hint, was already done by the bt-a3zi3 footer redesign.) Shipped as a net upgrade with two known follow-up bugs the dogfood surfaced — see Notes.**
