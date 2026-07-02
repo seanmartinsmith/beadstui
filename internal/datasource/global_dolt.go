@@ -389,7 +389,10 @@ func (r *GlobalDoltReader) LoadIssuesAsOf(timestamp time.Time) ([]model.Issue, e
 		return nil, fmt.Errorf("no databases to query")
 	}
 
-	tsStr := timestamp.UTC().Format("2006-01-02T15:04:05")
+	// Dolt 2.1.x rejects bare string timestamps in AS OF ("not a valid
+	// branch or hash"); buildIssuesQueryAsOf wraps this in TIMESTAMP(...),
+	// which requires the space-separated SQL datetime form (bt-mix88).
+	tsStr := timestamp.UTC().Format("2006-01-02 15:04:05")
 	columnsByDB := columnsByDatabase(r.db, r.databases, "issues")
 	var allIssues []model.Issue
 	var dbErrors []string
@@ -456,11 +459,14 @@ func (r *GlobalDoltReader) Databases() []string {
 // and now, the snapshot may still have it under a different shape; in that
 // case the query may still error and the per-DB AS OF caller skips with a
 // log warning.
-// Dolt AS OF syntax: SELECT ... FROM `db`.issues AS OF '<timestamp>'
+// Dolt 2.1.x does not resolve a bare string as a timestamp - it errors with
+// "not a valid branch or hash" - so the timestamp must be wrapped in
+// TIMESTAMP(...) (bt-mix88).
+// Dolt AS OF syntax: SELECT ... FROM `db`.issues AS OF TIMESTAMP('<timestamp>')
 func buildIssuesQueryAsOf(dbName, tsStr string, available map[string]bool) string {
 	quoted := backtickQuote(dbName)
 	cols := selectColumnExprs(IssuesColumnList, available)
-	return fmt.Sprintf("SELECT %s, '%s' AS _global_source FROM %s.issues AS OF '%s' WHERE status != 'tombstone'",
+	return fmt.Sprintf("SELECT %s, '%s' AS _global_source FROM %s.issues AS OF TIMESTAMP('%s') WHERE status != 'tombstone'",
 		cols, escapeSQLString(dbName), quoted, escapeSQLString(tsStr))
 }
 

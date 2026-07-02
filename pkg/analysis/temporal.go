@@ -98,6 +98,7 @@ type TemporalCache struct {
 	lastPopulated time.Time // when the cache was last fully populated
 	populating    bool      // true while background population is running
 	populateErr   error     // last population error (if any)
+	disabled      bool      // true after a full sweep failure; trips the circuit breaker for the rest of the session (bt-mix88)
 }
 
 // TemporalCacheConfig configures a TemporalCache.
@@ -182,6 +183,17 @@ func (tc *TemporalCache) LastError() error {
 	return tc.populateErr
 }
 
+// IsDisabled returns true if the circuit breaker has tripped. This happens
+// when a Populate sweep fails to load a single snapshot across every
+// timestamp attempted (i.e. LoadIssuesAsOf failed for all databases at
+// every timestamp in the sweep). Once tripped, Populate returns immediately
+// without querying for the remainder of the process lifetime (bt-mix88).
+func (tc *TemporalCache) IsDisabled() bool {
+	tc.mu.RLock()
+	defer tc.mu.RUnlock()
+	return tc.disabled
+}
+
 // Timestamps returns all cached snapshot timestamps, sorted ascending.
 func (tc *TemporalCache) Timestamps() []time.Time {
 	tc.mu.RLock()
@@ -216,6 +228,10 @@ func (tc *TemporalCache) Populate(loader IssueLoader, from, to time.Time, interv
 	}
 
 	tc.mu.Lock()
+	if tc.disabled {
+		tc.mu.Unlock()
+		return 0, fmt.Errorf("temporal cache: populate disabled after a prior full sweep failure")
+	}
 	if tc.populating {
 		tc.mu.Unlock()
 		return 0, fmt.Errorf("temporal cache: population already in progress")
@@ -260,6 +276,19 @@ func (tc *TemporalCache) Populate(loader IssueLoader, from, to time.Time, interv
 		tc.snapshots[ts] = issues
 		tc.mu.Unlock()
 		loaded++
+	}
+
+	// Circuit breaker: every timestamp in this sweep failed to load (the
+	// underlying loader returned an error for all of them, meaning every
+	// database failed at every timestamp). Retrying on the next tick would
+	// just repeat the same all-database failure indefinitely, flooding the
+	// log - trip the breaker instead (bt-mix88).
+	if len(timestamps) > 0 && loaded == 0 {
+		tc.mu.Lock()
+		tc.disabled = true
+		tc.mu.Unlock()
+		slog.Warn("temporal cache: full sweep failed for all timestamps, disabling further populate attempts for this session",
+			"timestamps_attempted", len(timestamps), "error", lastErr)
 	}
 
 	// Evict oldest if over capacity

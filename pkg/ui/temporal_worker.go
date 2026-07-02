@@ -61,6 +61,13 @@ func (w *BackgroundWorker) startTemporalCacheLoop() {
 
 // populateTemporalCache loads historical snapshots via Dolt AS OF queries.
 func (w *BackgroundWorker) populateTemporalCache() {
+	// Circuit breaker: a prior sweep already failed for every timestamp
+	// across every database. Retrying would just reopen a connection and
+	// repeat the same failure on a schedule, flooding the log (bt-mix88).
+	if w.temporalCache.IsDisabled() {
+		return
+	}
+
 	reader, err := datasource.NewGlobalDoltReader(*w.dataSource)
 	if err != nil {
 		slog.Warn("temporal cache: cannot connect to shared server", "error", err)

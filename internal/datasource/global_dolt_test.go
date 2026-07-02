@@ -531,12 +531,12 @@ func TestBuildIssuesQueryAsOf(t *testing.T) {
 		{
 			name:   "simple database",
 			dbName: "myproject",
-			tsStr:  "2026-01-15T00:00:00",
+			tsStr:  "2026-01-15 00:00:00",
 		},
 		{
 			name:   "database with hyphen",
 			dbName: "my-project",
-			tsStr:  "2025-06-30T12:30:00",
+			tsStr:  "2025-06-30 12:30:00",
 		},
 	}
 
@@ -548,9 +548,10 @@ func TestBuildIssuesQueryAsOf(t *testing.T) {
 			}
 			query := buildIssuesQueryAsOf(tt.dbName, tt.tsStr, avail)
 
-			// Should contain AS OF clause with timestamp
-			if !strings.Contains(query, "AS OF '"+tt.tsStr+"'") {
-				t.Errorf("query should contain AS OF clause, got: %s", query)
+			// Should contain AS OF clause wrapping the timestamp in
+			// TIMESTAMP(...) - Dolt 2.1.x rejects a bare string (bt-mix88).
+			if !strings.Contains(query, "AS OF TIMESTAMP('"+tt.tsStr+"')") {
+				t.Errorf("query should contain AS OF TIMESTAMP(...) clause, got: %s", query)
 			}
 
 			// Should reference backtick-quoted database
@@ -595,9 +596,28 @@ func TestBuildIssuesQueryAsOf_QuoteEscaping(t *testing.T) {
 	}
 	query := buildIssuesQueryAsOf("normal_db", "2026-01-01'; DROP TABLE issues; --", avail)
 
-	// The single quote should be doubled (escaped)
-	if !strings.Contains(query, "2026-01-01''; DROP TABLE issues; --") {
-		t.Error("single quote in timestamp should be escaped to '' in query")
+	// The single quote should be doubled (escaped), inside the TIMESTAMP(...) wrapper
+	if !strings.Contains(query, "TIMESTAMP('2026-01-01''; DROP TABLE issues; --')") {
+		t.Error("single quote in timestamp should be escaped to '' inside TIMESTAMP(...) in query")
+	}
+}
+
+func TestBuildIssuesQueryAsOf_TimestampWrapping(t *testing.T) {
+	// Dolt 2.1.x rejects a bare string AS OF clause ("not a valid branch or
+	// hash") - the timestamp must be wrapped in TIMESTAMP(...) (bt-mix88).
+	avail := map[string]bool{}
+	for _, c := range IssuesColumnList {
+		avail[c] = true
+	}
+	query := buildIssuesQueryAsOf("myproject", "2026-07-01 12:00:00", avail)
+
+	wantFragment := "FROM `myproject`.issues AS OF TIMESTAMP('2026-07-01 12:00:00') WHERE status != 'tombstone'"
+	if !strings.Contains(query, wantFragment) {
+		t.Errorf("query should contain exact fragment %q, got: %s", wantFragment, query)
+	}
+
+	if strings.Contains(query, "AS OF '2026-07-01 12:00:00'") {
+		t.Error("query must not emit a bare string AS OF clause; Dolt 2.1.x rejects it (bt-mix88)")
 	}
 }
 

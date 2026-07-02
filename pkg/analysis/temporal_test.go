@@ -365,3 +365,74 @@ func TestComputeMetricsSeries_Nil(t *testing.T) {
 		t.Error("nil cache should return nil series")
 	}
 }
+
+// alwaysFailLoader fails LoadIssuesAsOf for every timestamp, simulating a
+// Dolt server that rejects every AS OF query (bt-mix88).
+type alwaysFailLoader struct {
+	calls int
+}
+
+func (l *alwaysFailLoader) LoadIssuesAsOf(ts time.Time) ([]model.Issue, error) {
+	l.calls++
+	return nil, fmt.Errorf("simulated AS OF failure at %s", ts)
+}
+
+func TestTemporalCache_CircuitBreakerOnFullSweepFailure(t *testing.T) {
+	loader := &alwaysFailLoader{}
+	from := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 4, 3, 0, 0, 0, 0, time.UTC)
+	interval := 24 * time.Hour
+
+	tc := NewTemporalCache(TemporalCacheConfig{MaxSnapshots: 30, TTL: time.Hour})
+
+	loaded, err := tc.Populate(loader, from, to, interval)
+	if loaded != 0 {
+		t.Errorf("loaded = %d, want 0 (every timestamp failed)", loaded)
+	}
+	if err == nil {
+		t.Error("expected error when every timestamp fails")
+	}
+	if !tc.IsDisabled() {
+		t.Fatal("circuit breaker should trip after a full sweep failure")
+	}
+
+	callsAfterFirstSweep := loader.calls
+	if callsAfterFirstSweep == 0 {
+		t.Fatal("loader should have been called during the failing sweep")
+	}
+
+	// A subsequent Populate call must bail out immediately without querying
+	// the loader again.
+	loaded, err = tc.Populate(loader, from, to, interval)
+	if loaded != 0 {
+		t.Errorf("loaded = %d, want 0 after breaker trips", loaded)
+	}
+	if err == nil {
+		t.Error("expected error from a disabled cache")
+	}
+	if loader.calls != callsAfterFirstSweep {
+		t.Errorf("loader.calls = %d, want %d (no further queries once disabled)",
+			loader.calls, callsAfterFirstSweep)
+	}
+}
+
+func TestTemporalCache_CircuitBreakerNotTrippedOnPartialFailure(t *testing.T) {
+	// TestTemporalCache_PopulatePartialFailure already covers the loaded
+	// count; this asserts the breaker specifically stays open when at
+	// least one timestamp in the sweep succeeds.
+	loader := newMockLoader()
+	from := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 4, 3, 0, 0, 0, 0, time.UTC)
+	interval := 24 * time.Hour
+
+	loader.addSnapshot(from, makeIssues(5, 0, 0))
+	loader.failAtTimestamp(from.AddDate(0, 0, 1))
+	loader.failAtTimestamp(from.AddDate(0, 0, 2))
+
+	tc := NewTemporalCache(TemporalCacheConfig{MaxSnapshots: 30, TTL: time.Hour})
+	_, _ = tc.Populate(loader, from, to, interval)
+
+	if tc.IsDisabled() {
+		t.Error("circuit breaker should not trip when at least one timestamp succeeds")
+	}
+}
