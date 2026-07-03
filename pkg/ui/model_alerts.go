@@ -127,11 +127,12 @@ func (m Model) filteredAlerts(applySeverity bool) []drift.Alert {
 }
 
 // visibleNotifications returns ring-buffer events filtered by dismissed state,
-// active-repo filter, and kind filter, newest-first. v1 hides dismissed; v2
-// (bt-46p6.13) exposes them when notifShowDismissed is set. In workspace mode
-// with an active repo filter, events whose Repo isn't in activeRepos are
-// hidden — mirrors the alerts tab's project-scoping so 'single project' /
-// 'multi-project select' / 'global' views produce the right notification set.
+// active-repo scope, and kind filter, newest-first. v1 hides dismissed; v2
+// (bt-46p6.13) exposes them when notifShowDismissed is set. Events are scoped
+// to the active project(s) via notificationRepoScope so 'single project' /
+// 'embedded' / 'multi-project select' / 'global' views each produce the right
+// notification set — see notificationRepoScope for why single-project scoping
+// is load-bearing (bt-to6vn).
 func (m Model) visibleNotifications() []events.Event {
 	return m.filteredNotifications(true)
 }
@@ -147,17 +148,16 @@ func (m Model) visibleNotificationsAllKinds() []events.Event {
 func (m Model) filteredNotifications(applyKind bool) []events.Event {
 	snap := m.events.Snapshot()
 	out := make([]events.Event, 0, len(snap))
+	scope := m.notificationRepoScope()
 	// Snapshot is oldest-first; reverse to newest-first.
 	for i := len(snap) - 1; i >= 0; i-- {
 		if snap[i].Dismissed && !m.notifShowDismissed {
 			continue
 		}
-		// Respect workspace-mode project filter. activeRepos == nil means
-		// "all projects" (global); a non-nil map means "only these repos".
-		if m.workspaceMode && m.activeRepos != nil && snap[i].Repo != "" {
-			if !m.activeRepos[snap[i].Repo] {
-				continue
-			}
+		// Scope events to the active project(s). A nil scope means "show all"
+		// (the true global view); system events (Repo == "") always pass.
+		if scope != nil && snap[i].Repo != "" && !scope[snap[i].Repo] {
+			continue
 		}
 		if applyKind && m.notifFilterKind != "" && snap[i].Kind.String() != m.notifFilterKind {
 			continue
@@ -165,6 +165,59 @@ func (m Model) filteredNotifications(applyKind bool) []events.Event {
 		out = append(out, snap[i])
 	}
 	return out
+}
+
+// notificationRepoScope returns the set of repo keys the notifications feed is
+// limited to, or nil for "show all" (the true global view). The event ring is
+// hydrated at boot from a user-global on-disk store (~/.bt/events.jsonl) shared
+// across every project bt has ever opened, so without a scope a single-project
+// or embedded session bleeds other projects' events into its notifications and
+// bell badge (bt-to6vn). System events (Repo == "") bypass this and are always
+// kept by callers.
+//
+// Keys are derived with the same model.RepoKey the event diff pipeline stamps
+// into Event.Repo (via IssueRepoKey), so scope membership is an exact match.
+func (m Model) notificationRepoScope() map[string]bool {
+	if m.workspaceMode {
+		// Workspace mode: nil activeRepos is the global "all projects" view;
+		// a non-nil selection scopes to those repos.
+		return m.activeRepos
+	}
+	// Single-project / embedded: scope to the repos actually loaded this
+	// session. A per-repo event only exists because that repo's issues were
+	// loaded and diffed, so a non-empty scope covers every legitimately-own
+	// event. When no issues are loaded the scope is indeterminate - fall back
+	// to nil (show all) rather than hiding legitimate content, since a display
+	// filter should only remove what it is confident is foreign.
+	scope := make(map[string]bool, 1)
+	for i := range m.data.issues {
+		if key := IssueRepoKey(m.data.issues[i]); key != "" {
+			scope[key] = true
+		}
+	}
+	if len(scope) == 0 {
+		return nil
+	}
+	return scope
+}
+
+// unseenNotificationCount counts non-dismissed events newer than the "seen"
+// watermark that fall within the active notification scope. The footer bell
+// uses this instead of the ring's unscoped UnseenCount so a single-project or
+// embedded session doesn't badge a cross-project unseen total (bt-to6vn).
+func (m Model) unseenNotificationCount(since time.Time) int {
+	scope := m.notificationRepoScope()
+	n := 0
+	for _, e := range m.events.Snapshot() {
+		if e.Dismissed || !e.At.After(since) {
+			continue
+		}
+		if scope != nil && e.Repo != "" && !scope[e.Repo] {
+			continue
+		}
+		n++
+	}
+	return n
 }
 
 // alertProjectKey returns the project prefix for an alert's issue.

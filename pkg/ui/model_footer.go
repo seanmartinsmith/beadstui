@@ -387,9 +387,11 @@ func (m *Model) footerData() FooterData {
 	// Per-view center meaning (Phase 3)
 	fd.CenterOverride = m.footerCenter()
 
-	// Footer bell: unseen-since-last-look count from the ring buffer.
+	// Footer bell: unseen-since-last-look count, scoped to the active project
+	// so a single-project/embedded session doesn't badge a cross-project total
+	// from the shared ~/.bt/events.jsonl store (bt-to6vn).
 	if m.events != nil {
-		fd.BellCount = m.events.UnseenCount(m.alertsSeenAt)
+		fd.BellCount = m.unseenNotificationCount(m.alertsSeenAt)
 	}
 
 	return fd
