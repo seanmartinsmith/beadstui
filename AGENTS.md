@@ -102,7 +102,7 @@ patterns). Read it first when reaching for bt from any project.
 Primary CLI entry point: `bt robot triage` (ranked recs, quick wins, blockers,
 health). Full per-subcommand reference with output shapes and flags:
 [docs/robot/README.md](docs/robot/README.md). List subcommands: `bt robot --help`.
-Common scoping flags: `--label <name>`, `--as-of <ref>`, `--recipe actionable|high-impact`.
+Common scoping flags: `--label <name>`, `--recipe actionable|high-impact`, `--source <prefix,...>`. (`--as-of` is TUI-only for now - robot mode refuses it; tracked bt-9kiy4.)
 
 Every robot envelope carries `.scope.mode` (cross-project | project | workspace)
 — read it before drawing conclusions from counts. See agents.md for the full

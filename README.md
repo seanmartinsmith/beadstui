@@ -75,6 +75,23 @@ How bt reads your project depends on your bd setup:
 
 **Embedded mode + concurrent `bd`:** because bt reads embedded projects through `bd export` and holds no server or lock, running `bd` from another shell during a bt session is safe - bt picks up the change on its next refresh. Remaining mode-parity edge cases are tracked in bt-gm6ur.
 
+### Mode parity
+
+Embedded mode (bd's default since v1.0) supports the full core surface - list/detail, board, triage, graph analysis, BQL, search, and every `bt robot` subcommand. A few capabilities differ by backend:
+
+| Capability | Embedded / project (default) | Shared-server / `--global` |
+|---|---|---|
+| Live refresh | Event-driven - watches the Dolt manifest, re-runs `bd export` on change | SQL polling |
+| Startup | Instant (in-process load), no splash | Brief loading indicator during the remote fetch |
+| Notifications / alerts | Scoped to the current project | Scoped to the selection (all projects in the global view) |
+| History / correlation | Not available yet - explicit banner, never silent (bt-5uaxh) | Available |
+| Cross-project view | Single project by nature | Aggregates every project on the shared server |
+
+Two notes:
+
+- **Embedded is single-project by nature.** Its data lives in the project's own `.beads/embeddeddolt/`, so it won't appear in the cross-project `--global` view until you [switch it to shared-server mode](#shared-server-mode-for-the-cross-project-view).
+- **Point-in-time (`--as-of`)** is an interactive-TUI feature (`bt --as-of <ref>`); it is not yet supported in robot mode, where it refuses explicitly rather than return current data as historical (tracked in bt-9kiy4).
+
 ## Views
 
 | Key | View | What it shows |
