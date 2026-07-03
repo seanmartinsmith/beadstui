@@ -6,8 +6,71 @@ import (
 	"testing"
 	"time"
 
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
 )
+
+// TestNotificationRepoScope_SingleProjectHidesForeign verifies that in
+// single-project / embedded mode (workspaceMode == false) the notifications
+// feed and bell count are scoped to the loaded project's repo keys, so events
+// from other projects hydrated from the shared ~/.bt/events.jsonl store don't
+// bleed in (bt-to6vn). System events (Repo == "") always pass; the true global
+// view (workspaceMode with nil activeRepos) shows everything.
+func TestNotificationRepoScope_SingleProjectHidesForeign(t *testing.T) {
+	now := time.Now()
+	seedEvents := func(m Model) Model {
+		m.events.Append(events.Event{ID: "own1", Kind: events.EventCreated, BeadID: "bt-1", Repo: "bt", Title: "own", At: now})
+		m.events.Append(events.Event{ID: "foreign1", Kind: events.EventCreated, BeadID: "sym-9", Repo: "sym", Title: "foreign", At: now})
+		m.events.Append(events.Event{ID: "sys1", Kind: events.EventSystem, Repo: "", Title: "system", At: now})
+		return m
+	}
+
+	t.Run("single-project scopes to loaded repo, keeps system", func(t *testing.T) {
+		m := seedModel()
+		m.data.issues = []model.Issue{{ID: "bt-1"}, {ID: "bt-2"}} // scope = {"bt"}
+		m = seedEvents(m)
+
+		got := m.filteredNotifications(false)
+		if len(got) != 2 {
+			t.Fatalf("expected 2 events (own + system), got %d: %+v", len(got), got)
+		}
+		for _, e := range got {
+			if e.Repo == "sym" {
+				t.Errorf("foreign 'sym' event leaked into single-project notifications")
+			}
+		}
+		if n := m.unseenNotificationCount(time.Time{}); n != 2 {
+			t.Errorf("bell count should exclude foreign: expected 2, got %d", n)
+		}
+	})
+
+	t.Run("global view shows all projects", func(t *testing.T) {
+		m := seedModel()
+		m.workspaceMode = true
+		m.activeRepos = nil // nil = all projects (true global)
+		m.data.issues = []model.Issue{{ID: "bt-1"}}
+		m = seedEvents(m)
+
+		if n := len(m.filteredNotifications(false)); n != 3 {
+			t.Errorf("global view should show all 3 events, got %d", n)
+		}
+		if n := m.unseenNotificationCount(time.Time{}); n != 3 {
+			t.Errorf("global bell should count all 3, got %d", n)
+		}
+	})
+
+	t.Run("no loaded issues falls back to show-all (fail open)", func(t *testing.T) {
+		// A per-repo event only exists because that repo was loaded, so this
+		// state can't occur in production; when scope is indeterminate the
+		// filter shows all rather than hiding legitimate content.
+		m := seedModel() // no issues loaded -> scope indeterminate (nil)
+		m = seedEvents(m)
+
+		if n := len(m.filteredNotifications(false)); n != 3 {
+			t.Errorf("with no loaded issues, scope is indeterminate and all events show, got %d", n)
+		}
+	})
+}
 
 // TestFormatDaySeparator_ContainsDate verifies the separator includes the
 // ISO-8601 date string surrounded by horizontal-line padding.
