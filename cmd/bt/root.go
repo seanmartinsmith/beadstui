@@ -148,7 +148,11 @@ func rootPersistentPreRun(cmd *cobra.Command) error {
 	if flagGlobal && flagWorkspace != "" {
 		return fmt.Errorf("--global and --workspace are mutually exclusive")
 	}
-	if flagGlobal && flagAsOf != "" {
+	// --global and --as-of are mutually exclusive. Robot subcommands carry the
+	// ref in robotFlagAsOf (a separate persistent flag from the root flagAsOf),
+	// so both must be checked or the exclusion is dead for robot invocations
+	// (bt-mjsr9).
+	if flagGlobal && (flagAsOf != "" || robotFlagAsOf != "") {
 		return fmt.Errorf("--global and --as-of are mutually exclusive")
 	}
 

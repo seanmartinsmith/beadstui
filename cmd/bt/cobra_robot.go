@@ -115,19 +115,26 @@ func init() {
 	pf.BoolVar(&robotFlagFull, "full", false, "Alias for --shape=full")
 }
 
-// checkAsOfEmbeddedSupport refuses a --as-of request against an embedded
-// (in-process) Dolt project instead of letting it silently pass through.
-// AS OF is a Dolt SQL server feature; the embedded reader always shells
-// `bd export` for CURRENT state (internal/datasource/embedded.go), so
-// honoring --as-of there would echo the requested ref into the envelope
-// while quietly serving current data (bt-fyzll). Server-mode and
-// shared-server (global) sources are untouched - nil source or empty asOf
-// is a no-op so callers can call this unconditionally after load.
-func checkAsOfEmbeddedSupport(asOf string, source *datasource.DataSource) error {
-	if asOf == "" || source == nil || source.Type != datasource.SourceTypeEmbeddedDolt {
+// checkAsOfRobotSupport refuses a --as-of request for a robot subcommand
+// instead of letting it silently pass through as current data stamped with a
+// historical ref. Robot commands never wire a historical loader (loadIssues
+// branches on the root as-of flag, which is empty for robot invocations), so
+// every source type would otherwise serve CURRENT state under the requested
+// ref - the bt-fyzll silent-wrong-answer, generalized (bt-mjsr9). Embedded
+// sources get the more specific "no server to query historically" message;
+// every other source (server, JSONL fallback, or an unresolved nil source)
+// gets the general robot-mode refusal. Global mode is refused earlier by the
+// --global/--as-of mutual-exclusion check in rootPersistentPreRun. An empty
+// asOf is a no-op so callers can invoke this unconditionally after load. Real
+// per-mode temporal loading is tracked as bt-9kiy4.
+func checkAsOfRobotSupport(asOf string, source *datasource.DataSource) error {
+	if asOf == "" {
 		return nil
 	}
-	return fmt.Errorf("--as-of %q: %w", asOf, datasource.ErrAsOfNotSupportedForEmbedded)
+	if source != nil && source.Type == datasource.SourceTypeEmbeddedDolt {
+		return fmt.Errorf("--as-of %q: %w", asOf, datasource.ErrAsOfNotSupportedForEmbedded)
+	}
+	return fmt.Errorf("--as-of %q: %w", asOf, datasource.ErrAsOfNotSupportedForRobot)
 }
 
 // robotPreRun loads issues and applies common robot pre-processing (label scope, recipe, BQL).
@@ -141,9 +148,10 @@ func robotPreRun() (*robotCtx, error) {
 	}
 
 	// Refuse loudly rather than silently serving current data under a
-	// historical as_of stamp (bt-fyzll). Checked immediately after load, before
-	// any filtering, so every robot subcommand that accepts --as-of is covered.
-	if err := checkAsOfEmbeddedSupport(robotFlagAsOf, appCtx.selectedSource); err != nil {
+	// historical as_of stamp (bt-fyzll for embedded, bt-mjsr9 for server/JSONL).
+	// Checked immediately after load, before any filtering, so every robot
+	// subcommand that accepts --as-of is covered.
+	if err := checkAsOfRobotSupport(robotFlagAsOf, appCtx.selectedSource); err != nil {
 		return nil, err
 	}
 

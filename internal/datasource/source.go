@@ -51,6 +51,17 @@ var ErrNoSource = errors.New("no data source found")
 // shared-server (global) Dolt sources are unaffected.
 var ErrAsOfNotSupportedForEmbedded = errors.New("AS OF requires Dolt server mode; this project uses embedded (in-process) Dolt and has no server to query historically")
 
+// ErrAsOfNotSupportedForRobot signals that --as-of was requested for a robot
+// subcommand against a source that has no historical loader wired for robot
+// mode. Robot commands load CURRENT state (loadIssues branches on the root
+// as-of flag, which is never set for robot invocations), so honoring --as-of
+// would echo the ref into the envelope while serving current data - the same
+// silent-wrong-answer class as bt-fyzll, now covered for server/JSONL sources
+// by bt-mjsr9. Real per-mode temporal loading (git-history for JSONL projects,
+// Dolt AS OF for server) is tracked as bt-9kiy4; the interactive TUI's
+// `bt --as-of` remains the working point-in-time view.
+var ErrAsOfNotSupportedForRobot = errors.New("--as-of is not yet supported in robot mode; use the interactive TUI 'bt --as-of' for point-in-time views (tracked as bt-9kiy4)")
+
 // SourceType identifies the type of data source. ADR-003 fixed three
 // values; bt-qrt2u added the embedded-Dolt read path. Do not add more
 // without revisiting those decisions.
