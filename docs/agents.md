@@ -18,7 +18,7 @@ bd remains the authority for *writing* bead state (claim, close, update, comment
 | "Tell me when bead `bt-X` changes." | `bt tail --bead bt-X --robot-format jsonl` |
 | "Watch a dynamic set of beads as they evolve." | `bt tail --bql "<query>" --robot-format jsonl` |
 | "Filter beads by structured criteria right now." | `bt robot list --bql "<query>"` or `bt robot bql --query "<query>"` |
-| "Take a snapshot at a point in time." | any subcommand + `--as-of <ref>` |
+| "Take a snapshot at a point in time." | `bt --as-of <ref>` (interactive TUI; robot `--as-of` is not yet supported - bt-9kiy4) |
 | "Find cross-project paired beads or refs." | `bt robot pairs --global` / `bt robot refs --global` |
 | "Long-running follow with replay on connect." | `bt tail --since <ref>` (exit with `--idle-exit <duration>` when needed) |
 | "Triage: what should I work on next?" | `bt robot triage` or `bt robot next` |
@@ -42,7 +42,7 @@ Every `bt robot` subcommand wraps its payload in the same envelope:
     "databases": ["bd", "bt", "..."],       // present only when mode=cross-project
     "project_filter": "bt",                 // present when --source / --repo applied
     "workspace": "...",                     // present when --workspace applied
-    "as_of": "<sha>"                        // present when --as-of applied
+    "as_of": "<sha>"                        // populated once robot --as-of is supported (bt-9kiy4); refused today
   },
   // ... subcommand-specific payload ...
 }
@@ -109,11 +109,11 @@ The BQL set is re-evaluated on each event, so beads entering/leaving the predica
 
 ### Snapshotting state
 
-Every robot subcommand accepts `--as-of <ref>` where `<ref>` is a git revision (branch, tag, SHA, or relative ref like `HEAD~30`). The envelope echoes the resolved SHA in `scope.as_of` so the snapshot is self-documenting.
+`--as-of <ref>` is **not yet supported in robot mode** - it refuses with an explicit error rather than returning current data stamped as historical (bt-mjsr9). Use the interactive TUI `bt --as-of <ref>` for point-in-time views; robot-mode temporal loading is tracked as bt-9kiy4. `bt robot diff --since` still works in robot mode (it reads git history directly, independent of the load path):
 
 ```sh
-bt robot triage --as-of HEAD~7   # what triage looked like a week ago
-bt robot diff --since HEAD~7     # what changed between then and now
+bt --as-of HEAD~7                # point-in-time view (interactive TUI)
+bt robot diff --since HEAD~7     # what changed since then (robot mode, git history)
 ```
 
 ## Discoverability hooks

@@ -34,7 +34,7 @@ Every robot subcommand emits the same standard envelope:
     "databases": ["bd", "bt", ...], // present only when mode=cross-project
     "project_filter": "bt",         // present when --source or --repo applied
     "workspace": "...",             // present when --workspace applied
-    "as_of": "<sha>"                // present when --as-of applied
+    "as_of": "<sha>"                // populated once robot --as-of is supported (bt-9kiy4); refused today
   },
   // ... subcommand-specific payload
 }
@@ -75,7 +75,7 @@ These flags apply to all `bt robot` subcommands unless noted otherwise:
 |---|---|
 | `--label <name>` | Scope analysis to a label's subgraph |
 | `--recipe <name>` | Apply named recipe filter (see `bt robot recipes`) |
-| `--as-of <ref>` | View state at a point in time (commit SHA, branch, tag, or date) |
+| `--as-of <ref>` | Point-in-time view. **Not yet supported in robot mode** - refuses explicitly rather than serving current data stamped as historical (bt-mjsr9). Use the interactive TUI `bt --as-of`; robot support tracked as bt-9kiy4. |
 | `--bql <query>` | BQL query to pre-filter issues before analysis |
 | `--shape compact\|full` | Output shape; aliases `--compact` / `--full` |
 | `--format json\|toon` | Output format (default: json) |
