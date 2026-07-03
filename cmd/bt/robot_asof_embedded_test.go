@@ -11,16 +11,19 @@ import (
 	"github.com/seanmartinsmith/beadstui/internal/datasource"
 )
 
-// TestCheckAsOfEmbeddedSupport is a pure table test of the bt-fyzll guard:
-// --as-of must be refused for embedded-mode Dolt sources and left alone for
-// everything else (server, global, JSONL fallback, or no source resolved
-// yet).
-func TestCheckAsOfEmbeddedSupport(t *testing.T) {
+// TestCheckAsOfRobotSupport is a pure table test of the robot --as-of guard.
+// Robot commands never wire a historical loader, so --as-of must be refused for
+// EVERY source type rather than serving current data under a historical stamp
+// (bt-fyzll for embedded, generalized to server/JSONL/global by bt-mjsr9).
+// Embedded sources get the specific "embedded ... no server" message; every
+// other source gets the general "robot mode" refusal.
+func TestCheckAsOfRobotSupport(t *testing.T) {
 	tests := []struct {
-		name    string
-		asOf    string
-		source  *datasource.DataSource
-		wantErr bool
+		name        string
+		asOf        string
+		source      *datasource.DataSource
+		wantErr     bool
+		wantErrHint string // substring the error must explain
 	}{
 		{
 			name:   "no as-of requested, embedded source",
@@ -28,41 +31,55 @@ func TestCheckAsOfEmbeddedSupport(t *testing.T) {
 			source: &datasource.DataSource{Type: datasource.SourceTypeEmbeddedDolt},
 		},
 		{
-			name:    "as-of requested against embedded source",
-			asOf:    "HEAD~1",
-			source:  &datasource.DataSource{Type: datasource.SourceTypeEmbeddedDolt},
-			wantErr: true,
+			name:   "no as-of requested, no source",
+			asOf:   "",
+			source: nil,
 		},
 		{
-			name:   "as-of requested against server-mode source is unaffected",
-			asOf:   "HEAD~1",
-			source: &datasource.DataSource{Type: datasource.SourceTypeDolt},
+			name:        "as-of against embedded source: embedded-specific refusal",
+			asOf:        "HEAD~1",
+			source:      &datasource.DataSource{Type: datasource.SourceTypeEmbeddedDolt},
+			wantErr:     true,
+			wantErrHint: "embedded",
 		},
 		{
-			name:   "as-of requested against global source is unaffected",
-			asOf:   "HEAD~1",
-			source: &datasource.DataSource{Type: datasource.SourceTypeDoltGlobal},
+			name:        "as-of against server-mode source: general robot refusal",
+			asOf:        "HEAD~1",
+			source:      &datasource.DataSource{Type: datasource.SourceTypeDolt},
+			wantErr:     true,
+			wantErrHint: "robot mode",
 		},
 		{
-			name:   "as-of requested against jsonl fallback is unaffected",
-			asOf:   "HEAD~1",
-			source: &datasource.DataSource{Type: datasource.SourceTypeJSONLFallback},
+			name:        "as-of against global source: general robot refusal",
+			asOf:        "HEAD~1",
+			source:      &datasource.DataSource{Type: datasource.SourceTypeDoltGlobal},
+			wantErr:     true,
+			wantErrHint: "robot mode",
 		},
 		{
-			name: "as-of requested with no resolved source",
-			asOf: "HEAD~1",
-			// source intentionally nil: must not panic and must not refuse.
+			name:        "as-of against jsonl fallback: general robot refusal",
+			asOf:        "HEAD~1",
+			source:      &datasource.DataSource{Type: datasource.SourceTypeJSONLFallback},
+			wantErr:     true,
+			wantErrHint: "robot mode",
+		},
+		{
+			name:        "as-of with no resolved source: general robot refusal, no panic",
+			asOf:        "HEAD~1",
+			source:      nil,
+			wantErr:     true,
+			wantErrHint: "robot mode",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := checkAsOfEmbeddedSupport(tt.asOf, tt.source)
+			err := checkAsOfRobotSupport(tt.asOf, tt.source)
 			if (err != nil) != tt.wantErr {
-				t.Fatalf("checkAsOfEmbeddedSupport(%q, %+v) error = %v, wantErr %v", tt.asOf, tt.source, err, tt.wantErr)
+				t.Fatalf("checkAsOfRobotSupport(%q, %+v) error = %v, wantErr %v", tt.asOf, tt.source, err, tt.wantErr)
 			}
-			if err != nil && !strings.Contains(err.Error(), "embedded") {
-				t.Errorf("error should explain the embedded-mode restriction, got: %v", err)
+			if err != nil && !strings.Contains(err.Error(), tt.wantErrHint) {
+				t.Errorf("error should explain %q, got: %v", tt.wantErrHint, err)
 			}
 		})
 	}
