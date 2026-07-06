@@ -34,6 +34,16 @@ type Global struct {
 	// Dolt server from a non-workspace cwd). Auto-managed by bt's
 	// successful-boot hook with latest-cwd-wins semantics.
 	AnchorProject string `json:"anchor_project,omitempty"`
+
+	// ProjectPaths maps a Dolt database name (metadata.json's
+	// dolt_database) to the absolute checkout path bt last saw it booted
+	// from. Auto-stamped on every successful single-project (cwd-mode)
+	// boot, keyed strictly by dolt_database - never by an inferred bead-ID
+	// prefix, since internal/bdroute's global-mode write routing trusts
+	// this mapping only after re-verifying it against the target's own
+	// .beads/metadata.json at write time. A cache: deleting an entry only
+	// means the next boot from that project re-stamps it.
+	ProjectPaths map[string]string `json:"project_paths,omitempty"`
 }
 
 // DefaultPath returns the canonical location of the global settings
@@ -47,13 +57,27 @@ func DefaultPath() (string, error) {
 	return filepath.Join(home, ".bt", "settings.json"), nil
 }
 
-// Load reads the global settings file at the default path. A missing
-// file is not an error — Load returns a zero-value Global so callers
-// can treat first-run identically to subsequent runs. Corrupt JSON IS
-// surfaced, since silently wiping a malformed file would erase the
-// user's anchor on the first cold-boot after the corruption.
+// ResolvedPath returns the settings file path to read or write, honoring the
+// BT_SETTINGS_PATH env override and falling back to DefaultPath when unset.
+// Mirrors pkg/projects.ResolvedPath (BT_PROJECTS_REGISTRY_PATH) so tests can
+// isolate settings.json the same way they isolate the projects registry -
+// every test that touches settings must set this override; the real
+// ~/.bt/settings.json must never be read or written by a test.
+func ResolvedPath() (string, error) {
+	if override := os.Getenv("BT_SETTINGS_PATH"); override != "" {
+		return override, nil
+	}
+	return DefaultPath()
+}
+
+// Load reads the global settings file at ResolvedPath (the default path
+// unless BT_SETTINGS_PATH overrides it). A missing file is not an error —
+// Load returns a zero-value Global so callers can treat first-run
+// identically to subsequent runs. Corrupt JSON IS surfaced, since silently
+// wiping a malformed file would erase the user's anchor on the first
+// cold-boot after the corruption.
 func Load() (*Global, error) {
-	path, err := DefaultPath()
+	path, err := ResolvedPath()
 	if err != nil {
 		return nil, err
 	}
@@ -80,11 +104,11 @@ func LoadFrom(path string) (*Global, error) {
 	return &g, nil
 }
 
-// Save writes the receiver to the default path using atomic-replace
-// (tempfile + os.Rename in the same directory). Creates ~/.bt/ if it
-// doesn't exist.
+// Save writes the receiver to ResolvedPath (the default path unless
+// BT_SETTINGS_PATH overrides it) using atomic-replace (tempfile +
+// os.Rename in the same directory). Creates ~/.bt/ if it doesn't exist.
 func (g *Global) Save() error {
-	path, err := DefaultPath()
+	path, err := ResolvedPath()
 	if err != nil {
 		return err
 	}
