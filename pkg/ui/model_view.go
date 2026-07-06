@@ -101,6 +101,9 @@ func (m Model) View() tea.View {
 	case ModalQuitConfirm:
 		// Handled as overlay after background renders (below) so the
 		// backdrop dims behind the panel like the other modals (bt-yly4).
+	case ModalClaimConfirm:
+		// Handled as overlay after background renders (below) — dimmed
+		// backdrop like the other confirm modals (bt-oiaj.10).
 	case ModalAgentPrompt:
 		// Handled as overlay after background renders (below)
 	case ModalCassSession:
@@ -253,6 +256,11 @@ func (m Model) View() tea.View {
 		// Dim the background behind the destructive-confirm modal so it
 		// reads as an overlay rather than a mode switch (bt-yly4).
 		body = OverlayCenterDimBackdrop(body, m.renderQuitConfirm(), m.width, m.height-1)
+	}
+	if m.activeModal == ModalClaimConfirm {
+		// Dim the background behind the write-confirm modal, matching the
+		// other confirm modals (bt-oiaj.10).
+		body = OverlayCenterDimBackdrop(body, m.renderClaimConfirm(), m.width, m.height-1)
 	}
 	if m.activeModal == ModalEpicCard {
 		// Dim the overview/list behind the tier-2 epic focus card (bt-gfxhz.3).

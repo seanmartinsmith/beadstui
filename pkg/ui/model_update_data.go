@@ -355,6 +355,10 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 		m.updateViewportContent()
 	}
 
+	// Settle any pending claim whose reloaded state now reflects it (bt-oiaj.10).
+	// Runs after setListItems so the refreshed delegate carries the cleared set.
+	m.settlePendingClaims()
+
 	// Keep semantic index current when enabled.
 	if m.semanticSearchEnabled && !m.semanticIndexBuilding {
 		m.semanticIndexBuilding = true
@@ -443,6 +447,9 @@ func (m Model) handleDataSourceReload(msg DataSourceReloadMsg) (Model, tea.Cmd) 
 
 	// Filter state is preserved inside setListItems (bt-nzsy).
 	m.replaceIssues(msg.Issues)
+
+	// Settle any pending claim whose reloaded state now reflects it (bt-oiaj.10).
+	m.settlePendingClaims()
 
 	cmds = append(cmds, m.setInlineTransientStatus(
 		fmt.Sprintf("Reloaded %d issues", len(msg.Issues)), 3*time.Second))

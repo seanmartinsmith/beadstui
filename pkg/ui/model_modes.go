@@ -397,6 +397,8 @@ func (m Model) FocusState() string {
 		return "help"
 	case focusQuitConfirm:
 		return "quit_confirm"
+	case focusClaimConfirm:
+		return "claim_confirm"
 	case focusTimeTravelInput:
 		return "time_travel_input"
 	case focusHistory:

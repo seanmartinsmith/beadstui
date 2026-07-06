@@ -568,6 +568,20 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		}
 	}
 
+	// Handle claim confirmation (bt-oiaj.10). y/Y/enter fires the claim; any
+	// other key cancels. No free-text input anywhere in the path (cp1252 safety).
+	if m.activeModal == ModalClaimConfirm {
+		switch msg.String() {
+		case "ctrl+c":
+			return m, tea.Quit
+		case "y", "Y", "enter":
+			return m.confirmClaim()
+		default:
+			m.cancelClaim()
+			return m, nil
+		}
+	}
+
 	// Handle help overlay toggle (? or F1)
 	if key.Matches(msg, m.keys.Global.Help) && m.list.FilterState() != list.Filtering {
 		if m.activeModal == ModalHelp {
@@ -1447,7 +1461,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			case key.Matches(msg,
 				ln.CopyID, ln.CopyIssue, ln.OpenInEditor, ln.RecipeTriage,
 				ln.TimeTravelInput, ln.EpicCard,
-				ln.SelfUpdate, ln.CassSession,
+				ln.SelfUpdate, ln.CassSession, ln.Claim,
 				ln.SplitFocusToggle, ln.SplitShrinkLeft, ln.SplitShrinkRight):
 				m = m.handleListKeys(msg)
 				return m, nil
