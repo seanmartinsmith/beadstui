@@ -138,6 +138,10 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 		m.showCassSessionModal()
 	case key.Matches(msg, k.SelfUpdate):
 		m.showSelfUpdateModal()
+	case key.Matches(msg, k.Claim):
+		// First bt write (bt-oiaj.10): open the confirm modal for the selected
+		// bead. The confirm's accept path fires the claim (handleKeyPress).
+		m.requestClaim()
 	case key.Matches(msg, k.CopyID):
 		// Copy ID to clipboard (consistent with board view - bv-yg39)
 		selectedItem := m.list.SelectedItem()

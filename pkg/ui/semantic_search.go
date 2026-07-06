@@ -742,6 +742,8 @@ func (m *Model) updateListDelegate() {
 		ShowPriorityHints: m.ac.showPriorityHints,
 		PriorityHints:     m.ac.priorityHints,
 		WorkspaceMode:     m.workspaceMode,
+		PendingClaims:     m.pendingClaims,
+		ClaimSpinner:      claimSpinnerFrame(m.claimSpinnerIdx),
 	})
 }
 

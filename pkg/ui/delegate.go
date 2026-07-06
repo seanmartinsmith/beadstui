@@ -20,6 +20,12 @@ type IssueDelegate struct {
 	ShowPriorityHints bool
 	PriorityHints     map[string]*analysis.PriorityRecommendation
 	WorkspaceMode     bool // When true, shows repo prefix badges
+
+	// PendingClaims marks bead IDs awaiting a write settle (bt-oiaj.10); a
+	// pending row shows ClaimSpinner in place of the selection caret. Both are
+	// zero-value safe: a nil map and empty frame render exactly as before.
+	PendingClaims map[string]bool
+	ClaimSpinner  string
 }
 
 func (d IssueDelegate) Height() int {
@@ -267,10 +273,21 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 	// ══════════════════════════════════════════════════════════════════════════
 	var leftSide strings.Builder
 
-	// Selection indicator with accent color (using pre-computed style)
-	if isSelected {
+	// Selection indicator with accent color (using pre-computed style). A
+	// pending claim (bt-oiaj.10) borrows the same 2-cell slot for a 1-cell
+	// spinner + space, so the row layout never shifts; selection stays legible
+	// via the row background highlight below.
+	switch {
+	case d.PendingClaims[i.Issue.ID]:
+		frame := d.ClaimSpinner
+		if frame == "" {
+			frame = claimSpinnerFrame(0)
+		}
+		leftSide.WriteString(lipgloss.NewStyle().Foreground(ColorWarning).Render(frame))
+		leftSide.WriteString(" ")
+	case isSelected:
 		leftSide.WriteString(t.PrimaryBold.Render("▸ "))
-	} else {
+	default:
 		leftSide.WriteString("  ")
 	}
 

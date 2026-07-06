@@ -73,9 +73,10 @@ const (
 	focusAgentPrompt // AGENTS.md integration prompt (bv-i8dk)
 	focusFlowMatrix  // Cross-label flow matrix view
 	focusTutorial    // Interactive tutorial (bv-8y31)
-	focusCassModal   // Cass session preview modal (bv-5bqh)
-	focusUpdateModal // Self-update modal (bv-182)
-	focusBQLQuery    // BQL composable search modal
+	focusCassModal    // Cass session preview modal (bv-5bqh)
+	focusUpdateModal  // Self-update modal (bv-182)
+	focusBQLQuery     // BQL composable search modal
+	focusClaimConfirm // Claim-first write confirm modal (bt-oiaj.10)
 )
 
 // ViewMode represents which primary view is active. Only one view mode
@@ -130,6 +131,7 @@ const (
 	ModalLabelDrilldown                      // Label issue drill-down
 	ModalLabelGraphAnalysis                  // Label graph analysis
 	ModalEpicCard                            // Tier-2 epic focus card (bt-gfxhz.3)
+	ModalClaimConfirm                        // Claim-first write confirm (bt-oiaj.10)
 )
 
 // ModalTab identifies which tab the shared alerts/notifications modal is
@@ -831,6 +833,15 @@ type Model struct {
 	// AppKeys.Tree is the worked-example carrier; AppKeys.List etc. land
 	// in .2-.9.
 	keys keys.AppKeys
+
+	// Claim-first write slice (bt-oiaj.10). claimTargetID/Title back the
+	// confirm modal; pendingClaims marks rows awaiting the watcher-driven
+	// settle (rendered as a per-row spinner); claimSpinner* drive that spinner.
+	claimTargetID      string
+	claimTargetTitle   string
+	pendingClaims      map[string]bool
+	claimSpinnerIdx    int
+	claimSpinnerActive bool
 }
 
 // labelCount is a simple label->count pair for display
@@ -1391,6 +1402,8 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		}(),
 		// Tutorial integration (bv-8y31)
 		tutorialModel: NewTutorialModel(theme),
+		// Claim-first write slice (bt-oiaj.10)
+		pendingClaims: make(map[string]bool),
 	}
 }
 
@@ -1680,6 +1693,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case FileChangedMsg:
 		return m.handleFileChanged(msg)
+
+	case claimResultMsg:
+		return m.handleClaimResult(msg)
+
+	case claimSpinnerTickMsg:
+		return m.handleClaimSpinnerTick()
 
 	case tea.KeyPressMsg:
 		m, cmd = m.handleKeyPress(msg)

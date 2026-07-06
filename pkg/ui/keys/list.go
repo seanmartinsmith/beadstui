@@ -63,6 +63,11 @@ type ListNormalKeys struct {
 	OpenInEditor key.Binding
 	CassSession  key.Binding
 	SelfUpdate   key.Binding
+
+	// Write verbs (bt-oiaj.10). Claim is the first bt write to ship: it shells
+	// out `bd update <id> --claim` behind a confirm. 'm' = "claim it for me"
+	// (the only free letter in "claim"; c/l/a/i are all taken).
+	Claim key.Binding
 }
 
 // NewListNormalKeys returns the default list (non-filter-mode) keymap.
@@ -165,6 +170,11 @@ func NewListNormalKeys() ListNormalKeys {
 			key.WithKeys("U"),
 			key.WithHelp("U", "self-update"),
 		),
+
+		Claim: key.NewBinding(
+			key.WithKeys("m"),
+			key.WithHelp("m", "claim (assign to me)"),
+		),
 	}
 }
 
@@ -190,7 +200,7 @@ func (k ListNormalKeys) FullHelp() [][]key.Binding {
 		// Time travel
 		{k.TimeTravelInput},
 		// Actions
-		{k.CopyID, k.CopyIssue, k.OpenInEditor, k.CassSession, k.SelfUpdate},
+		{k.CopyID, k.CopyIssue, k.OpenInEditor, k.CassSession, k.SelfUpdate, k.Claim},
 	}
 }
 
