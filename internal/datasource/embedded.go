@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -48,8 +49,12 @@ func defaultExportRunner(ctx context.Context, bdPath, dir string) ([]byte, []byt
 // Unlike the server-mode DoltReader it opens no SQL connection and holds no
 // lock, so a concurrent `bd` command (e.g. `bd create`) is never blocked -
 // the core reason bt reads embedded projects this way rather than hosting its
-// own dolt sql-server (bt-qrt2u). Nothing is written to disk: the export
-// stream is consumed straight from the subprocess pipe.
+// own dolt sql-server (bt-qrt2u). The `bd export` stream itself is never
+// written to disk: it's consumed straight from the subprocess pipe. (A
+// separate, read-side parsed-snapshot CACHE under bt's own .bt/ directory may
+// be written afterward purely as a latency optimization - see LoadIssues and
+// embedded_cache.go, bt-xdah0. That cache never touches .beads/, so it does
+// not change the never-persist boundary this comment describes.)
 type EmbeddedReader struct {
 	repoRoot string
 	// lookPath resolves the bd binary; injectable for tests. nil => exec.LookPath.
@@ -89,6 +94,14 @@ func NewEmbeddedReader(source DataSource) (*EmbeddedReader, error) {
 // `SELECT FROM issues` excludes them and `--all` would over-include memories
 // the server never renders. (`--include-infra` added zero rows on a
 // 1314-issue project - there are no infra beads in the issues table.)
+//
+// Before paying for the export, checks the manifest-hash snapshot cache
+// under .bt/ (bt-xdah0): if the Dolt storage manifest's content hash matches
+// the hash stored alongside the last cached snapshot, nothing has changed
+// since that export and the cached issues are returned as-is, skipping the
+// subprocess entirely. Caching is skipped (never errors) when the project's
+// embedded config or manifest can't be read - e.g. non-embedded sources, or
+// a brand new project with no manifest yet.
 func (r *EmbeddedReader) LoadIssues() ([]model.Issue, error) {
 	lookPath := r.lookPath
 	if lookPath == nil {
@@ -97,6 +110,16 @@ func (r *EmbeddedReader) LoadIssues() ([]model.Issue, error) {
 	bdPath, err := lookPath("bd")
 	if err != nil {
 		return nil, fmt.Errorf("embedded-mode read requires the `bd` CLI on PATH: %w", err)
+	}
+
+	beadsDir := filepath.Join(r.repoRoot, ".beads")
+	cacheKey, cacheEnabled := computeEmbeddedCacheKey(beadsDir)
+	var cachePath string
+	if cacheEnabled {
+		cachePath = embeddedSnapshotCachePath(r.repoRoot, cacheKey.dbName)
+		if issues, hit := readEmbeddedSnapshot(cachePath, cacheKey); hit {
+			return issues, nil
+		}
 	}
 
 	timeout := r.timeout
@@ -133,6 +156,12 @@ func (r *EmbeddedReader) LoadIssues() ([]model.Issue, error) {
 			issues, perr := loader.ParseIssues(bytes.NewReader(stdout))
 			if perr != nil {
 				return nil, fmt.Errorf("parsing `bd export` output: %w", perr)
+			}
+			if cacheEnabled {
+				// Best-effort: a cache write failure never fails the load
+				// (the cache is a derived speedup, not a system of record).
+				// The next call simply re-exports.
+				_ = writeEmbeddedSnapshot(cachePath, cacheKey, issues)
 			}
 			return issues, nil
 		}
