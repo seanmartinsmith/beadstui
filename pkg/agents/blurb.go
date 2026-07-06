@@ -122,7 +122,7 @@ bd update <id> --status=blocked          # for non-claim state transitions
 bd close  <id> --reason="<template>"     # see close template below
 bd comments add <id> "<note>"            # session handoffs, progress checkpoints
 bd dep add <id> <depends-on>             # blocking dependency
-bd human <id>                            # flag for human decision (don't invent patterns)
+bd update <id> --add-label human         # flag for human decision (shows in bd human list)
 bd dolt push && git push                 # sync to remote (there is no single-step sync command)
 ` + "```" + `
 

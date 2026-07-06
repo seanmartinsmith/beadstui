@@ -169,7 +169,7 @@ Comments are right for: session handoffs, questions/blockers, progress checkpoin
 
 - `bd show <id>` and read close_reason before starting work
 - Check `bd list --status=in_progress` at session start
-- Use `bd human <id>` for issues needing human decision (don't invent ad-hoc patterns)
+- Flag issues needing human decision: `bd update <id> --assignee=sms --add-label workflow:collaborative` (don't invent ad-hoc patterns; `bd human <id>` no longer exists - `bd human` is now a help-menu command)
 - Close beads before committing
 - Run `bd dolt push` before ending session
 
