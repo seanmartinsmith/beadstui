@@ -205,12 +205,15 @@ Open items:
 Full list: `bd list --status=open` (50 items)
 
 ### Stream 7: CRUD from TUI
-**Status**: Not started (design decided)
-**Priority**: Deferred until polish is solid
-**Bead**: bt-oiaj
-**Decision**: Shell out to `bd` for writes, poll Dolt for changes. No beads fork needed.
+**Status**: First live write shipped (2026-07-06) — claim-first vertical slice per bt-chbqq
+**Priority**: Active (write arc bt-oiaj.10—.14)
+**Bead**: bt-oiaj (umbrella); bt-oiaj.10 closed
+**Decision**: Shell out to `bd` for writes, poll Dolt for changes. No beads fork needed. Sequencing per bt-chbqq: claim-first vertical slice FIRST, foundations (bt-msxk, bt-3epf) extract from the live write rather than speculative design.
 
 This is the end goal - making bt interactive, not just a viewer. CWD tracking for multi-project writes designed as part of bt-s4b7 project navigation work.
+
+- [x] **bt-oiaj.10** (2026-07-06, PR #5): claim slice end-to-end — `m` + confirm -> `internal/bdexec` executor -> `bd update --claim` -> pending spinner -> existing reload settles (both embedded and server modes, live-verified). Side-finding: server-mode poll freshness query is broken generally (bt-xcvxv, P1).
+- [ ] bt-oiaj.11 receipts pane, .12 --readonly safe mode, .13 pending/settled semantics, .14 write-actor identity — the trust-release tier (bt-mpt9d).
 
 ### Stream 9: Release engineering (added 2026-04-22)
 **Status**: DONE — pre-tag gates cleared, binaries-only release path ready (2026-04-23)

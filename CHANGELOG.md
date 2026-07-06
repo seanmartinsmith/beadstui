@@ -6,6 +6,33 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-07-06 — Three-lane Fable session: bt-2ubez diagnosis + fix, first live write (claim slice), embedded snapshot cache (bt-2ubez, bt-oiaj.10, bt-xdah0, bt-r7nrl)
+
+**Dispatcher session (background job): three parallel lanes in isolated worktrees, shipped as three draft PRs (#3, #4, #5) rather than direct to main. Lane 1 diagnosed the 740MB/16%-core "leak" with a committed soak harness and live-instance forensics — verdict: not a leak; a perpetual-tick CPU floor plus a working-set high-water ratchet from transient churn, both fixed. Lane 2 shipped bt's first live write (claim-first vertical slice per bt-chbqq). Lane 3 shipped the manifest-hash snapshot cache unblocked by the bt-p34aw ruling. Two significant side-discoveries: the original observed instance was found still running with its event loop silently halted (bt-vv502), and server-mode live auto-refresh turns out to be broken generally by a freshness-query Scan bug (bt-xcvxv, P1) — vindicating the "was embedded ever verified against shared server?" flag raised mid-session.**
+
+### Ships
+
+- **fix(tui): idle CPU + working-set fixes (bt-2ubez, PR #3)** — Pure timer ticks (`statusTickMsg`, `workerPollTickMsg`) no longer pay Update()'s list/delegate tail (2.39ms -> 0.16ms, 15x); the 120ms spinner tick chain goes dormant when the worker idles and is re-armed by a new `RefreshStartedMsg` from `process()` (mode-agnostic chokepoint); `idleGCFunc` switched `runtime.GC` -> `debug.FreeOSMemory` so the existing idle trigger actually returns pages to the OS. Idle floor: ~7.7%/core -> ~0.44%/core (~94% cut). Soak harness committed as `pkg/ui/soak_diag_test.go` (BT_SOAK=1-gated: idle-frame CPU, 300-cycle reload retention + pprof heap diff, GOGC 200-vs-100 A/B). Bead stays in_progress pending a real busy-day soak on the merged binary.
+- **feat(tui): claim-first vertical write slice (bt-oiaj.10, PR #5)** — `m` on the selected bead (list + detail) -> k9s-style confirm -> new `internal/bdexec` executor runs `bd update <id> --claim` (env inherited, argv/exit/stderr captured) -> per-row pending spinner -> existing reload machinery settles (hooked into both `handleSnapshotReady` and `handleDataSourceReload`, no mode branching). Live-verified in embedded (watcher auto-settle + external-claim regression) and server (settle via forced refresh) modes against throwaway projects; teatest keypath coverage. Boundary beads deferred by design: .11 receipts, .12 --readonly, .13 pending/settled, .14 actor identity.
+- **feat(data): manifest-hash snapshot cache (bt-xdah0, PR #4)** — `EmbeddedReader.LoadIssues()` checks a `.bt/snapshot-cache/` snapshot keyed by (db name, sha256 of the Dolt manifest) before spawning `bd export`; ~4x measured on unchanged-data robot calls (686ms -> 173ms mean). Versioned BTSC header + gob payload, atomic temp+rename, per-DB keying, no-op for non-embedded sources; `.beads/` untouched (bt-qrt2u boundary intact). Real-bd staleness integration test included.
+- **docs: housekeeping (bt-r7nrl, rides PR #3)** — 2026-07-04 ideation HTML preserved at `docs/ideation/` (was in crash-vulnerable Windows temp); stale `bd human <id>` guidance replaced in AGENTS.md, `.beads/conventions/reference.md`, and at its propagation source `pkg/agents/blurb.go` (generated blurb now teaches the upstream `human` label; this repo's convention is assignee + `workflow:collaborative`).
+
+### New beads filed
+
+- **bt-xcvxv** (P1, bug) — server-mode poll broken: `GetLastModified` `GREATEST(COALESCE(...))` returns VARCHAR, Scan into `*time.Time` fails every probe, auto-refresh never fires (force refresh masks it). Feeds bt-gm6ur.
+- **bt-vv502** (P2, bug) — long-running TUI instance silently halts: PID 35332 found with 0.00s CPU over 60s, all ticks dead, no error surface. Discrimination protocol on the bead; the wedged instance is still alive as evidence.
+- **bt-uwtuf** (P2) — cut ~70MB/cycle per-refresh transient churn (the WS root); includes the GOGC 200->100 decision with A/B numbers (1.31x HeapSys, peak-live GOGC-insensitive).
+- **bt-my4k1** (P3, bug) — pre-existing race: pooled issue backing recycled while `events.Diff` reads the old snapshot (3-line fix shape on the bead).
+
+### Notes
+
+- **Tested:** full `go test ./...` green on all three branches including tests/e2e; soak before/after numbers on bt-2ubez; live both-mode verification for the write slice.
+- **Evidence trail:** two structured evidence comments on bt-2ubez (live forensics + soak numbers); mode-parity checkpoint recorded on bt-gm6ur (both modes converge on `process()`/`buildSnapshot`; divergence is change-detection + read path only).
+- **Not installed:** binaries not `go install`ed — three branches are unmerged drafts. After merging: `go install ./cmd/bt/`, then validate bt-2ubez acceptance on the next busy day.
+- Leftover OS-temp bench dir from xdah0 latency measurement (harmless, guard blocked auto-removal): `C:\Users\sms\AppData\Local\Temp\bt-cache-bench.ZCFfBv`.
+
+---
+
 ## 2026-07-02 — Notification center: kind filter, click-to-filter summary chips (both tabs), open-hovers-selected-bead (bt-3pymz, bt-xw1vl)
 
 **Two dogfood asks against the shared alerts/notifications modal. The notifications tab — until now an unfilterable 500-event feed — gets the filtering treatment the alerts tab already had, and the summary count rows on both tabs become clickable filter chips. Separately, opening the modal (or switching tabs inside it) now lands the cursor on the entry for the bead currently selected in the list/detail pane, closing the jump-out/jump-back loop.**
