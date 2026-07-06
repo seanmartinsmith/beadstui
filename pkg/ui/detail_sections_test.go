@@ -165,7 +165,7 @@ func TestUpdateViewportContent_PropertyBlock_NoFence(t *testing.T) {
 		UpdatedAt: time.Date(2026, 5, 15, 13, 0, 0, 0, time.UTC),
 		Labels:    []string{"a", "b"},
 	}}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width = 120
 	m.height = 40
 	m.mode = ViewList

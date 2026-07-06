@@ -67,7 +67,7 @@ func TestShortcutsSidebar_SkipsDisabledAndEmptyBindings(t *testing.T) {
 // lives on the ? overlay). In List view, "cycle sort" (ListNormal) is present
 // and "board" (Global) is absent.
 func TestSidebarHelpGroups_NonModalShowsViewOnly(t *testing.T) {
-	m := NewModel(harnessIssues(), nil, "", nil)
+	m := NewModel(harnessIssues(), nil, "", nil, nil)
 	m.mode = ViewList
 	m.activeModal = ModalNone
 
@@ -89,7 +89,7 @@ func TestSidebarHelpGroups_NonModalShowsViewOnly(t *testing.T) {
 // active modal's own bindings and not the global view-switch keys while a modal
 // is open (modals own the sidebar per ADR-004 Decision 4).
 func TestSidebarHelpGroups_ModalShowsModalOnly(t *testing.T) {
-	m := NewModel(harnessIssues(), nil, "", nil)
+	m := NewModel(harnessIssues(), nil, "", nil, nil)
 	m.mode = ViewList
 	m.activeModal = ModalRecipePicker
 

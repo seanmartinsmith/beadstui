@@ -187,7 +187,7 @@ func TestSoakIdleTickCPU(t *testing.T) {
 	}
 
 	issues := genSoakIssues(1300)
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	nm, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
 	m = nm.(Model)
 
@@ -294,7 +294,7 @@ func TestSoakReloadRetention(t *testing.T) {
 	// Persistent model that receives every snapshot, like a live session. It
 	// owns no worker/watcher itself (beadsPath ""), so handleSnapshotReady runs
 	// purely off the snapshots we feed it.
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	nm, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
 	m = nm.(Model)
 	m.data.snapshotInitPending = true // first snapshot is the bootstrap
@@ -467,7 +467,7 @@ func runGCSoakSub(t *testing.T, label string, gcPercent int) gcABResult {
 		msgCh:     make(chan tea.Msg, 8),
 	}
 
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	nm, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 30})
 	m = nm.(Model)
 	m.data.snapshotInitPending = true

@@ -384,7 +384,7 @@ func TestRenderDump(t *testing.T) {
 			}()
 
 			issues := harnessIssues()
-			m := NewModel(issues, nil, "", nil)
+			m := NewModel(issues, nil, "", nil, nil)
 			nm, _ := m.Update(tea.WindowSizeMsg{Width: sc.w, Height: sc.h})
 			m = nm.(Model)
 			if sc.setup != nil {

@@ -516,7 +516,7 @@ func TestFooterData_NeverWrapsPathologicalBadge(t *testing.T) {
 // corpus — the bt-gcuv generalization. The breakdown is computed at the
 // setListItems chokepoint, so applying a filter must reshape it.
 func TestFooterCounts_ScopedToActiveFilter(t *testing.T) {
-	m := NewModel(harnessIssues(), nil, "", nil)
+	m := NewModel(harnessIssues(), nil, "", nil, nil)
 	nm, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	m = nm.(Model)
 
@@ -635,7 +635,7 @@ func TestFooterData_CenterOverrideNeverWraps(t *testing.T) {
 // columns/cards, and plain list = "" (keeps the default scoped counts).
 func TestFooterCenter_PerView(t *testing.T) {
 	newModel := func() Model {
-		m := NewModel(harnessIssues(), nil, "", nil)
+		m := NewModel(harnessIssues(), nil, "", nil, nil)
 		nm, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 		return nm.(Model)
 	}
@@ -766,7 +766,7 @@ func TestFooterPinnedToBottomRow(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			m := NewModel(harnessIssues(), nil, "", nil)
+			m := NewModel(harnessIssues(), nil, "", nil, nil)
 			nm, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: c.h})
 			m = nm.(Model)
 			if c.setup != nil {
@@ -819,7 +819,7 @@ func TestFooterData_SecondaryInstance(t *testing.T) {
 }
 
 func TestDegradedClearsOnSnapshot(t *testing.T) {
-	m := NewModel(harnessIssues(), nil, "", nil)
+	m := NewModel(harnessIssues(), nil, "", nil, nil)
 	// Simulate the scenario: Dolt was unreachable during initial load, so a
 	// degraded toast was set before any snapshot arrived. snapshotInitPending
 	// must be true so handleSnapshotReady takes the firstSnapshot branch
@@ -848,7 +848,7 @@ func TestDegradedClearsOnSnapshot(t *testing.T) {
 // SeveritySuccess (NOT None). The contract is: the degraded toast is gone — severity
 // is no longer Degraded and the degraded message text is cleared. bt-a3zi3.1.
 func TestDegradedClearsOnNonFirstSnapshot(t *testing.T) {
-	m := NewModel(harnessIssues(), nil, "", nil)
+	m := NewModel(harnessIssues(), nil, "", nil, nil)
 	// Non-first path: a prior snapshot already exists and init is no longer
 	// pending, so firstSnapshot evaluates false. ModalNone (the default) keeps
 	// shouldDeferRefresh() false so the handler does not defer.
@@ -870,7 +870,7 @@ func TestDegradedClearsOnNonFirstSnapshot(t *testing.T) {
 
 func TestErrorSettersBellAppend(t *testing.T) {
 	newM := func() *Model {
-		m := NewModel(harnessIssues(), nil, "", nil)
+		m := NewModel(harnessIssues(), nil, "", nil, nil)
 		return &m
 	}
 	t.Run("notice does not touch the bell", func(t *testing.T) {
@@ -929,7 +929,7 @@ func TestFooterNotificationsNeverWrap(t *testing.T) {
 	for name, setup := range setups {
 		for _, w := range widths {
 			t.Run(fmt.Sprintf("%s_%d", name, w), func(t *testing.T) {
-				m := NewModel(harnessIssues(), nil, "", nil)
+				m := NewModel(harnessIssues(), nil, "", nil, nil)
 				nm, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: 24})
 				m = nm.(Model)
 				setup(&m)
@@ -987,7 +987,7 @@ func TestFooterToastBellCenterOverrideNeverWrap(t *testing.T) {
 }
 
 func TestMarkNotificationsSeenClearsBell(t *testing.T) {
-	m := NewModel(harnessIssues(), nil, "", nil)
+	m := NewModel(harnessIssues(), nil, "", nil, nil)
 	m.events.Append(events.NewSystemEvent("something happened"))
 	if m.footerData().BellCount == 0 {
 		t.Fatal("precondition: an unseen event should bump the bell")
@@ -1003,7 +1003,7 @@ func TestMarkNotificationsSeenClearsBell(t *testing.T) {
 // surfaces the underlying cause, while a connect-phase failure keeps the
 // original generic wording unchanged (bt-ndi5t).
 func TestHandleDoltConnectionStatus_QueryPhase(t *testing.T) {
-	m := NewModel(harnessIssues(), nil, "", nil)
+	m := NewModel(harnessIssues(), nil, "", nil, nil)
 	queryErr := &doltPollError{phase: DoltPollPhaseQuery, err: fmt.Errorf("syntax error near SELECT")}
 	nm, _ := m.handleDoltConnectionStatus(DoltConnectionStatusMsg{
 		Connected:      false,
@@ -1022,7 +1022,7 @@ func TestHandleDoltConnectionStatus_QueryPhase(t *testing.T) {
 	}
 
 	connectErr := &doltPollError{phase: DoltPollPhaseConnect, err: fmt.Errorf("dial tcp: connection refused")}
-	m2 := NewModel(harnessIssues(), nil, "", nil)
+	m2 := NewModel(harnessIssues(), nil, "", nil, nil)
 	nm2, _ := m2.handleDoltConnectionStatus(DoltConnectionStatusMsg{
 		Connected:      false,
 		Error:          connectErr,

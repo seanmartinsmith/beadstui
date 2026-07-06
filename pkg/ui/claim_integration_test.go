@@ -23,12 +23,17 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	tea "charm.land/bubbletea/v2"
+
 	"github.com/seanmartinsmith/beadstui/internal/bdexec"
+	"github.com/seanmartinsmith/beadstui/internal/bdroute"
 	"github.com/seanmartinsmith/beadstui/internal/datasource"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/workspace"
 )
 
 // runBdUIAllow runs a bd subcommand without failing the test on error, so the
@@ -248,4 +253,220 @@ func TestClaimLive_Server(t *testing.T) {
 	}
 
 	verifyClaimSlice(t, "server", root, beadsDir, src)
+}
+
+// drainClaimResult executes cmd and returns the claimResultMsg it produces.
+// confirmClaim batches the claim dispatch together with the spinner-tick cmd
+// whenever the spinner isn't already active (the common case: the first claim
+// in a session), so cmd() may yield a tea.BatchMsg ([]tea.Cmd, not yet
+// executed) rather than the claimResultMsg directly - this unwraps that case
+// by running each sub-command until it finds the one that produced it.
+func drainClaimResult(t *testing.T, cmd tea.Cmd) claimResultMsg {
+	t.Helper()
+	msg := cmd()
+	switch v := msg.(type) {
+	case claimResultMsg:
+		return v
+	case tea.BatchMsg:
+		for _, sub := range v {
+			if sub == nil {
+				continue
+			}
+			if res, ok := sub().(claimResultMsg); ok {
+				return res
+			}
+		}
+	}
+	t.Fatalf("cmd() did not yield a claimResultMsg (got %T)", msg)
+	return claimResultMsg{}
+}
+
+// firstOpenIssueViaWorker inits a throwaway bd project at root, creates one
+// open task, and reads it back through the real BackgroundWorker/DataSource
+// plumbing (not a hand-parsed `bd` CLI output) so the returned issue is
+// exactly what bt's own read path would produce.
+func firstOpenIssueViaWorker(t *testing.T, bdPath, root string) model.Issue {
+	t.Helper()
+	runBdUI(t, bdPath, root, "init")
+	beadsDir := filepath.Join(root, ".beads")
+	runBdUI(t, bdPath, root, "create", "route table target", "-t", "task", "-p", "1")
+
+	src, err := datasource.DiscoverSource(datasource.DiscoveryOptions{BeadsDir: beadsDir})
+	if err != nil {
+		t.Fatalf("DiscoverSource(%s): %v", root, err)
+	}
+
+	worker, err := NewBackgroundWorker(WorkerConfig{
+		BeadsDir:      beadsDir,
+		DataSource:    &src,
+		DebounceDelay: 50 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatalf("NewBackgroundWorker(%s): %v", root, err)
+	}
+	defer worker.Stop()
+	if err := worker.Start(); err != nil {
+		t.Fatalf("worker.Start(%s): %v", root, err)
+	}
+	worker.TriggerRefresh()
+	if got := waitForIssueCount(t, worker, 1, 10*time.Second); got < 1 {
+		t.Fatalf("initial snapshot at %s has %d issues, want >=1", root, got)
+	}
+	snap := worker.GetSnapshot()
+	if snap == nil || len(snap.Issues) == 0 {
+		t.Fatalf("empty snapshot at %s", root)
+	}
+	return snap.Issues[0]
+}
+
+// TestClaimLive_WorkspaceMultiProject is the bt-scc35 regression test: a
+// workspace-mode route table must dispatch a claim to the CORRECT project
+// checkout keyed by bead-ID prefix, across two DIFFERENT prefixes, and must
+// refuse pre-flight (zero bd invocations) for a prefix the table doesn't
+// know about. Throwaway projects + an isolated projects registry AND
+// isolated settings.json - this test must never touch the developer's real
+// ~/.bt files.
+func TestClaimLive_WorkspaceMultiProject(t *testing.T) {
+	if os.Getenv("BT_CLAIM_INTEGRATION") != "1" {
+		t.Skip("set BT_CLAIM_INTEGRATION=1 to run bd-spawning claim integration tests")
+	}
+	bdPath, err := exec.LookPath("bd")
+	if err != nil {
+		t.Skip("bd CLI not on PATH")
+	}
+
+	// bt-scc35 pollution-immunity requirement: even though this path never
+	// reads the registry, isolate it (and settings.json) so a mistaken
+	// future read can never reach the developer's real files.
+	t.Setenv("BT_PROJECTS_REGISTRY_PATH", filepath.Join(t.TempDir(), "projects.json"))
+	t.Setenv("BT_SETTINGS_PATH", filepath.Join(t.TempDir(), "settings.json"))
+
+	root1 := t.TempDir()
+	issue1 := firstOpenIssueViaWorker(t, bdPath, root1)
+	prefix1, _, ok := strings.Cut(issue1.ID, "-")
+	if !ok || prefix1 == "" {
+		t.Fatalf("could not derive a prefix from issue ID %q", issue1.ID)
+	}
+
+	root2 := t.TempDir()
+	issue2 := firstOpenIssueViaWorker(t, bdPath, root2)
+	prefix2, _, ok := strings.Cut(issue2.ID, "-")
+	if !ok || prefix2 == "" {
+		t.Fatalf("could not derive a prefix from issue ID %q", issue2.ID)
+	}
+	if prefix1 == prefix2 {
+		t.Fatalf("test setup collision: both throwaway projects assigned prefix %q; cannot exercise multi-prefix routing", prefix1)
+	}
+
+	table := bdroute.FromWorkspace([]workspace.LoadResult{
+		{Prefix: prefix1, AbsPath: root1},
+		{Prefix: prefix2, AbsPath: root2},
+	})
+
+	m := newSizedModelWithRoute(t, []model.Issue{issue1, issue2}, 120, 32, table)
+
+	// Claim both beads - two DIFFERENT prefixes through the SAME route
+	// table, each dispatching a REAL bd invocation (claimRunner is not
+	// stubbed in this test).
+	for _, iss := range []model.Issue{issue1, issue2} {
+		m.claimTargetID = iss.ID
+		updated, cmd := m.confirmClaim()
+		m = updated
+		if cmd == nil {
+			t.Fatalf("confirmClaim(%s) returned a nil cmd; want a real claim dispatch", iss.ID)
+		}
+		res := drainClaimResult(t, cmd)
+		if res.result.Err != nil || res.result.ExitCode != 0 {
+			t.Fatalf("claim %s failed: exit=%d err=%v stderr=%q", iss.ID, res.result.ExitCode, res.result.Err, res.result.Stderr)
+		}
+	}
+
+	// Verify both claims actually landed in their OWN (different) project
+	// checkouts, proving the route table sent each claim to the right place.
+	assertClaimedInProject(t, root1, issue1.ID)
+	assertClaimedInProject(t, root2, issue2.ID)
+
+	// Refusal on an unmappable third: a prefix the table has never heard of
+	// must refuse pre-flight - no claim command, no pending state, no bd
+	// invocation (no third project was even created).
+	orphan := model.Issue{ID: "unmapped-zzz-1", Title: "orphan", Status: model.StatusOpen}
+	m.data.issueMap[orphan.ID] = &orphan
+	m.claimTargetID = orphan.ID
+	updated, cmd := m.confirmClaim()
+	m = updated
+	if cmd != nil {
+		t.Error("confirmClaim on an unmapped prefix must not dispatch a claim command")
+	}
+	if m.pendingClaims[orphan.ID] {
+		t.Error("an unmappable claim must never enter the pending state")
+	}
+}
+
+// TestClaimLive_SingleProjectUnchanged verifies confirmClaim's new
+// Resolve()-based routing does not regress the plain single-project case:
+// a bdroute.SingleProject table must still dispatch a real, successful claim.
+func TestClaimLive_SingleProjectUnchanged(t *testing.T) {
+	if os.Getenv("BT_CLAIM_INTEGRATION") != "1" {
+		t.Skip("set BT_CLAIM_INTEGRATION=1 to run bd-spawning claim integration tests")
+	}
+	bdPath, err := exec.LookPath("bd")
+	if err != nil {
+		t.Skip("bd CLI not on PATH")
+	}
+
+	t.Setenv("BT_PROJECTS_REGISTRY_PATH", filepath.Join(t.TempDir(), "projects.json"))
+	t.Setenv("BT_SETTINGS_PATH", filepath.Join(t.TempDir(), "settings.json"))
+
+	root := t.TempDir()
+	issue := firstOpenIssueViaWorker(t, bdPath, root)
+
+	m := newSizedModelWithRoute(t, []model.Issue{issue}, 120, 32, bdroute.SingleProject(root))
+	m.claimTargetID = issue.ID
+	updated, cmd := m.confirmClaim()
+	m = updated
+	if cmd == nil {
+		t.Fatalf("confirmClaim(%s) returned a nil cmd; want a real claim dispatch", issue.ID)
+	}
+	res := drainClaimResult(t, cmd)
+	if res.result.Err != nil || res.result.ExitCode != 0 {
+		t.Fatalf("claim %s failed: exit=%d err=%v stderr=%q", issue.ID, res.result.ExitCode, res.result.Err, res.result.Stderr)
+	}
+	assertClaimedInProject(t, root, issue.ID)
+}
+
+// assertClaimedInProject re-reads dir's project through the real
+// BackgroundWorker plumbing and fails the test unless id is claimed (status
+// moved off open, or an assignee is set - the same predicate settlePendingClaims
+// uses).
+func assertClaimedInProject(t *testing.T, dir, id string) {
+	t.Helper()
+	beadsDir := filepath.Join(dir, ".beads")
+	src, err := datasource.DiscoverSource(datasource.DiscoveryOptions{BeadsDir: beadsDir})
+	if err != nil {
+		t.Fatalf("DiscoverSource(%s): %v", dir, err)
+	}
+	worker, err := NewBackgroundWorker(WorkerConfig{
+		BeadsDir:      beadsDir,
+		DataSource:    &src,
+		DebounceDelay: 50 * time.Millisecond,
+	})
+	if err != nil {
+		t.Fatalf("NewBackgroundWorker(%s): %v", dir, err)
+	}
+	defer worker.Stop()
+	if err := worker.Start(); err != nil {
+		t.Fatalf("worker.Start(%s): %v", dir, err)
+	}
+
+	deadline := time.Now().Add(15 * time.Second)
+	for time.Now().Before(deadline) {
+		worker.TriggerRefresh()
+		if snap := worker.GetSnapshot(); snap != nil {
+			if is, ok := snapshotIssue(snap, id); ok && isClaimed(is) {
+				return
+			}
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	t.Fatalf("issue %s in %s did not settle to a claimed state", id, dir)
 }

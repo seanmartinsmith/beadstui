@@ -18,7 +18,7 @@ func TestHistoryFileTreeFocusNoGlobalLeak(t *testing.T) {
 		{ID: "bv-1", Title: "Test 1", Status: model.StatusOpen, Priority: 0},
 		{ID: "bv-2", Title: "Test 2", Status: model.StatusOpen, Priority: 1},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 180, Height: 50})
 	m = updated.(Model)
 
@@ -61,7 +61,7 @@ func TestBoardSearchModeNoGlobalLeak(t *testing.T) {
 		{ID: "auth-1", Title: "Auth thing", Status: model.StatusOpen, Priority: 0},
 		{ID: "bug-2", Title: "Bug thing", Status: model.StatusInProgress, Priority: 1},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 180, Height: 50})
 	m = updated.(Model)
 

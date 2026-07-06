@@ -26,7 +26,7 @@ func pressTab(m Model) Model {
 }
 
 func seedModel() Model {
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 	m.width = 120
 	m.height = 40
 	m.mode = ViewList
@@ -304,7 +304,7 @@ func TestUpdateViewportContent_ScrollsToCommentAt(t *testing.T) {
 			{ID: "c3", Author: "sms", Text: "later comment", CreatedAt: commentTime.Add(time.Hour)},
 		},
 	}}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width = 120
 	m.height = 40
 	m.mode = ViewList
@@ -335,7 +335,7 @@ func TestUpdateViewportContent_NoScrollWhenPendingZero(t *testing.T) {
 			{ID: "c1", Author: "sms", Text: "x", CreatedAt: commentTime},
 		},
 	}}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width = 120
 	m.height = 40
 	m.mode = ViewList
@@ -354,7 +354,7 @@ func TestUpdateViewportContent_NoScrollWhenPendingZero(t *testing.T) {
 // target) routes to the insights view rather than no-op'ing or jumping
 // to a hallucinated bead.
 func TestActivateAlert_CentralityChangeOpensInsights(t *testing.T) {
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 	m.width = 120
 	m.height = 40
 	m.mode = ViewList
@@ -385,7 +385,7 @@ func TestActivateAlert_StaleAlertJumpsToBead(t *testing.T) {
 	issues := []model.Issue{{
 		ID: "bt-stale", Title: "stale", Status: model.StatusOpen, CreatedAt: time.Now(),
 	}}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width = 120
 	m.height = 40
 	m.mode = ViewList
@@ -458,7 +458,7 @@ func TestAlertsRender_CentralityChangeShowsFirstChange(t *testing.T) {
 // events. v1 hides dismissed unconditionally; v2 lets the user surface them
 // for audit without restoring them.
 func TestNotifications_DismissedFilterToggle(t *testing.T) {
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 	m.width = 120
 	m.height = 40
 	m.mode = ViewList
@@ -504,7 +504,7 @@ func TestActivateNotification_NonCommentEventDoesNotQueueScroll(t *testing.T) {
 	issues := []model.Issue{{
 		ID: "bt-x", Title: "X", Status: model.StatusOpen, CreatedAt: time.Now(),
 	}}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width = 120
 	m.height = 40
 	m.mode = ViewList
@@ -596,7 +596,7 @@ func syncModel(t *testing.T) Model {
 		{ID: "bt-1", Title: "One", Status: model.StatusOpen, CreatedAt: time.Now()},
 		{ID: "bt-2", Title: "Two", Status: model.StatusOpen, CreatedAt: time.Now()},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width = 120
 	m.height = 40
 	m.mode = ViewList

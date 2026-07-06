@@ -21,8 +21,7 @@ import (
 	"golang.org/x/term"
 	"gopkg.in/yaml.v3"
 
-	json "github.com/goccy/go-json"
-
+	"github.com/seanmartinsmith/beadstui/internal/bdroute"
 	"github.com/seanmartinsmith/beadstui/internal/datasource"
 	"github.com/seanmartinsmith/beadstui/internal/doltctl"
 	"github.com/seanmartinsmith/beadstui/internal/settings"
@@ -204,6 +203,7 @@ func loadIssues() error {
 		workspaceRoot := filepath.Dir(filepath.Dir(flagWorkspace))
 		_ = loader.EnsureBTInGitignore(workspaceRoot)
 		stampLaunchProjects("", nil, results, false, false)
+		appCtx.routeTable = bdroute.FromWorkspace(results)
 	} else if flagGlobal {
 		host, port, err := datasource.DiscoverSharedServer()
 		if err != nil {
@@ -221,6 +221,7 @@ func loadIssues() error {
 		appCtx.selectedSource = &globalSource
 		appCtx.beadsPath = ""
 		appCtx.workspaceInfo = buildWorkspaceInfoFromIssues(result)
+		appCtx.routeTable = buildGlobalRouteTable(appCtx.workspaceInfo.RepoPrefixes)
 	} else if loaded, autoErr := autoGlobalWithColdBoot(envRobot); autoErr != nil {
 		return autoErr
 	} else if !loaded {
@@ -239,8 +240,16 @@ func loadIssues() error {
 		// data-source reasons, but the user's launch context is still
 		// project-anchored - record the prefix->path mapping so per-bead
 		// History (and other path-aware consumers) can resolve it.
+		//
+		// appCtx.routeTable is already global-mode (set by loadGlobalMode,
+		// called from autoGlobalWithColdBoot above) - NOT overwritten here.
+		// stampSettingsProjectPath additionally records THIS project's own
+		// dolt_database -> cwd mapping into settings.json, which is exactly
+		// what lets a LATER `bt --global` launch elsewhere route a claim for
+		// this project's beads back to this checkout (bt-scc35).
 		if cwd, err := os.Getwd(); err == nil {
 			stampLaunchProjects(cwd, appCtx.issues, nil, false, false)
+			stampSettingsProjectPath(cwd)
 		}
 	}
 
@@ -278,6 +287,10 @@ func loadIssues() error {
 		// the user to be in the project's cwd at query time.
 		if cwd, err := os.Getwd(); err == nil {
 			stampLaunchProjects(cwd, appCtx.issues, nil, false, false)
+			stampSettingsProjectPath(cwd)
+			// True single-project boot: every claim in this session targets
+			// cwd, full stop (bt-scc35). No registry, no per-issue lookup.
+			appCtx.routeTable = bdroute.SingleProject(cwd)
 		}
 	}
 
@@ -345,6 +358,18 @@ func runRootTUI(cmd *cobra.Command) {
 	if err := loadIssues(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
+	}
+
+	// Safety net: every loadIssues() branch that reaches a usable data set
+	// builds appCtx.routeTable, but --as-of (a separate top-of-function
+	// branch) and any other straggler leave it nil. Default to single-project
+	// mode anchored at cwd rather than let ui.NewModel receive a nil table
+	// (bdroute.Table.Resolve handles nil defensively too, but a claim
+	// attempted from a plain launch should still resolve to somewhere
+	// sensible rather than always refusing).
+	if appCtx.routeTable == nil {
+		cwd, _ := os.Getwd()
+		appCtx.routeTable = bdroute.SingleProject(cwd)
 	}
 
 	// Load recipes.
@@ -426,7 +451,7 @@ func runRootTUI(cmd *cobra.Command) {
 			fmt.Printf("No issues found at %s.\n", flagAsOf)
 			return
 		}
-		m := ui.NewModel(appCtx.issues, activeRecipe, "", nil)
+		m := ui.NewModel(appCtx.issues, activeRecipe, "", nil, appCtx.routeTable)
 		defer m.Stop()
 		if err := runTUIProgram(m); err != nil {
 			fmt.Printf("Error running beads viewer: %v\n", err)
@@ -466,7 +491,7 @@ func runRootTUI(cmd *cobra.Command) {
 	}
 
 	// Build TUI model.
-	m := ui.NewModel(appCtx.issues, activeRecipe, appCtx.beadsPath, appCtx.selectedSource)
+	m := ui.NewModel(appCtx.issues, activeRecipe, appCtx.beadsPath, appCtx.selectedSource, appCtx.routeTable)
 
 	// Set project name for footer.
 	if beadsDir, err := loader.GetBeadsDir(""); err == nil {
@@ -1038,7 +1063,66 @@ func loadGlobalMode(host string, port int) bool {
 	appCtx.beadsPath = ""
 	appCtx.workspaceInfo = buildWorkspaceInfoFromIssues(result)
 	appCtx.currentProjectDB = detectCurrentProjectDB()
+	appCtx.routeTable = buildGlobalRouteTable(appCtx.workspaceInfo.RepoPrefixes)
 	return true
+}
+
+// buildGlobalRouteTable constructs the bdroute write-routing table for
+// global (shared Dolt server) mode: dbNames -> checkout path, sourced from
+// settings.json's project_paths (auto-stamped on single-project boots) and
+// filtered to the databases this launch actually discovered. A settings.json
+// load failure degrades to an empty table (bdroute.FromSettings tolerates a
+// nil *settings.Global) rather than failing the launch - every claim then
+// refuses with an actionable "no known checkout path" error instead of the
+// launch itself erroring.
+func buildGlobalRouteTable(dbNames []string) *bdroute.Table {
+	g, err := settings.Load()
+	if err != nil {
+		debug.Log("bdroute: settings load failed, global route table will have no mappings: %v", err)
+		g = &settings.Global{}
+	}
+	return bdroute.FromSettings(g, dbNames)
+}
+
+// stampSettingsProjectPath auto-stamps this project's dolt_database -> abs
+// path mapping into ~/.bt/settings.json (or BT_SETTINGS_PATH), so a later
+// global-mode launch elsewhere can route a claim for this project's beads
+// back to this checkout (bt-scc35). Runs on every successful cwd-mode boot,
+// keyed strictly by dolt_database from the project's own .beads/metadata.json
+// - never by an inferred bead-ID prefix, since bdroute's global-mode write
+// routing trusts this mapping only after re-verifying it at write time.
+// Stamped regardless of embedded/server dolt_mode: an embedded checkout can
+// never actually serve a global-mode write (Resolve refuses it at write
+// time), but recording the mapping is harmless and self-heals automatically
+// if the project later migrates to server mode.
+//
+// Skipped silently (no error, no write) when metadata.json is absent,
+// unreadable, or has no dolt_database - mirrors stampLaunchProjects' fail-open
+// posture: settings.json is a cache, never a blocking dependency for launch.
+func stampSettingsProjectPath(cwd string) {
+	meta, err := bdroute.ReadMetadataAt(cwd)
+	if err != nil || meta.DoltDatabase == "" {
+		return
+	}
+	abs, err := filepath.Abs(cwd)
+	if err != nil {
+		abs = cwd
+	}
+	g, err := settings.Load()
+	if err != nil {
+		debug.Log("settings: load failed before stamping project path: %v", err)
+		return
+	}
+	if g.ProjectPaths == nil {
+		g.ProjectPaths = make(map[string]string)
+	}
+	if g.ProjectPaths[meta.DoltDatabase] == abs {
+		return // no-op write avoided
+	}
+	g.ProjectPaths[meta.DoltDatabase] = abs
+	if err := g.Save(); err != nil {
+		debug.Log("settings: save failed after stamping project path: %v", err)
+	}
 }
 
 // maybeUpdateAnchor records the cwd's project root as the cold-boot anchor
@@ -1224,8 +1308,11 @@ func detectCurrentProjectDB() string {
 }
 
 // detectProjectDBAt reads the dolt_database name from the .beads/metadata.json
-// reachable from dir. Uses loader.GetBeadsDir(dir) so it inherits the same
-// discovery rules as the rest of bt:
+// reachable from dir. Thin delegate over bdroute.ReadMetadataAt, which owns
+// the actual metadata.json reading (shared with internal/bdroute's global-mode
+// identity proof so there is exactly one implementation). ReadMetadataAt in
+// turn uses loader.GetBeadsDir(dir), so this inherits the same discovery
+// rules as the rest of bt:
 //   - BEADS_DIR env override (config seam users rely on).
 //   - Git worktree walk-up: a worktree directory whose .beads/ lives under
 //     the main repo resolves correctly (load-bearing for `.claude/worktrees/`
@@ -1235,18 +1322,8 @@ func detectCurrentProjectDB() string {
 // the JSON is malformed - same fail-silent shape detectCurrentProjectDB has
 // always had.
 func detectProjectDBAt(dir string) string {
-	beadsDir, err := loader.GetBeadsDir(dir)
+	meta, err := bdroute.ReadMetadataAt(dir)
 	if err != nil {
-		return ""
-	}
-	data, err := os.ReadFile(filepath.Join(beadsDir, "metadata.json"))
-	if err != nil {
-		return ""
-	}
-	var meta struct {
-		DoltDatabase string `json:"dolt_database"`
-	}
-	if err := json.Unmarshal(data, &meta); err != nil {
 		return ""
 	}
 	return meta.DoltDatabase

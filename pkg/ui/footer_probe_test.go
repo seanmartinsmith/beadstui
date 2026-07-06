@@ -35,7 +35,7 @@ func TestFooterPinnedToLastRow_OverflowView(t *testing.T) {
 	const footerToken = "l:labels" // stable hint rendered in the status bar
 	for _, w := range []int{100, 110, 120, 121, 140, 160} {
 		for _, h := range []int{14, 20, 30} {
-			m := NewModel(harnessIssues(), nil, "", nil)
+			m := NewModel(harnessIssues(), nil, "", nil, nil)
 			nm, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: h})
 			m = nm.(Model)
 			m.openInsightsView()
@@ -96,7 +96,7 @@ func TestFooterFlushProbe(t *testing.T) {
 		t.Logf("  %4s %5s %7s %9s  %s", "H", "lines", "footerH", "lastBlank", "tail(last 2 rows)")
 		for _, h := range heights {
 			issues := harnessIssues()
-			m := NewModel(issues, nil, "", nil)
+			m := NewModel(issues, nil, "", nil, nil)
 			nm, _ := m.Update(tea.WindowSizeMsg{Width: width, Height: h})
 			m = nm.(Model)
 			if v.setup != nil {

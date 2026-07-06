@@ -17,7 +17,6 @@ package ui
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -25,9 +24,9 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/seanmartinsmith/beadstui/internal/bdexec"
+	"github.com/seanmartinsmith/beadstui/internal/bdroute"
 	"github.com/seanmartinsmith/beadstui/pkg/debug"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
-	"github.com/seanmartinsmith/beadstui/pkg/projects"
 )
 
 // claimResultMsg carries the outcome of a `bd update <id> --claim` shell-out
@@ -65,12 +64,23 @@ func claimSpinnerTickCmd() tea.Cmd {
 	})
 }
 
-// claimCmd shells out `bd update <id> --claim` in dir and reports the result.
+// claimCmd shells out `bd update <id> --claim` against target and reports the
+// result. A Global target routes via `bd --global` instead of a checkout
+// directory (WriteTarget.Global; the follow-up bt-scc35 designed but did not
+// implement full `bd --global` claim dispatch - Resolve currently refuses
+// beads_global before a Global target can reach here, but the branch is
+// wired and unit-tested so that follow-up is a routing-table change only).
 // The command builder is intentionally tiny; the canonical bd command-builder
 // package (bt-s5zgk.1) is a later extraction from this live write.
-func claimCmd(dir, id string) tea.Cmd {
+func claimCmd(target bdroute.WriteTarget, id string) tea.Cmd {
 	return func() tea.Msg {
-		res := claimRunner(context.Background(), dir, "update", id, "--claim")
+		args := []string{"update", id, "--claim"}
+		dir := target.Dir
+		if target.Global {
+			args = append(args, "--global")
+			dir = ""
+		}
+		res := claimRunner(context.Background(), dir, args...)
 		return claimResultMsg{id: id, result: res}
 	}
 }
@@ -96,6 +106,11 @@ func (m *Model) requestClaim() {
 
 // confirmClaim fires the claim for the confirm target, marks the row pending,
 // and starts the spinner. Called when the user accepts the confirm modal.
+//
+// Routing is a pre-flight step on the main goroutine (bt-scc35): Resolve is
+// consulted BEFORE any bd invocation, and a non-nil error is a refusal - the
+// row never enters pending, the executor is never dispatched, and the user
+// sees an actionable failure toast via the existing setFailure path.
 func (m Model) confirmClaim() (Model, tea.Cmd) {
 	id := m.claimTargetID
 	m.claimTargetID = ""
@@ -106,9 +121,17 @@ func (m Model) confirmClaim() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Resolve the target project directory on the main goroutine (registry
-	// lookup + os.Getwd are main-goroutine reads, mirroring resolveHistoryPath).
-	dir := m.resolveClaimDir(id)
+	iss, ok := m.data.issueMap[id]
+	if !ok {
+		m.setFailure(fmt.Sprintf("Claim %s refused: issue not found in loaded data", id))
+		return m, nil
+	}
+
+	target, err := m.routeTable.Resolve(*iss)
+	if err != nil {
+		m.setFailure(err.Error())
+		return m, nil
+	}
 
 	if m.pendingClaims == nil {
 		m.pendingClaims = make(map[string]bool)
@@ -117,7 +140,7 @@ func (m Model) confirmClaim() (Model, tea.Cmd) {
 	m.updateListDelegate()
 	m.setNotice(fmt.Sprintf("Claiming %s...", id))
 
-	cmds := []tea.Cmd{claimCmd(dir, id)}
+	cmds := []tea.Cmd{claimCmd(target, id)}
 	if !m.claimSpinnerActive {
 		m.claimSpinnerActive = true
 		cmds = append(cmds, claimSpinnerTickCmd())
@@ -132,24 +155,6 @@ func (m *Model) cancelClaim() {
 	m.closeModal()
 	m.focused = focusList
 	m.setNotice("Claim cancelled")
-}
-
-// resolveClaimDir picks the directory the bd claim runs in. Prefer the bead's
-// project via the registry (so claim works in workspace/global mode), then the
-// bt working directory, then the process cwd. Mirrors resolveHistoryPath.
-func (m Model) resolveClaimDir(id string) string {
-	if prefix, _, ok := strings.Cut(id, "-"); ok && prefix != "" {
-		if path, ok := projects.LookupAndValidate(prefix); ok {
-			return path
-		}
-	}
-	if m.workDir != "" {
-		return m.workDir
-	}
-	if cwd, err := os.Getwd(); err == nil {
-		return cwd
-	}
-	return "."
 }
 
 // handleClaimResult records the shell-out trace and surfaces success/failure.

@@ -14,7 +14,7 @@ func TestApplyFilterRespectsWorkspaceRepoFilter(t *testing.T) {
 		{ID: "web-UI-1", Title: "Web", Status: model.StatusOpen},
 	}
 
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
 	m = updated.(Model)
 
@@ -57,7 +57,7 @@ func TestTreeViewRespectsActiveRepos(t *testing.T) {
 		{ID: "web-UI-1", Title: "Web UI", Status: model.StatusOpen},
 	}
 
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
 	m = updated.(Model)
 
@@ -113,7 +113,7 @@ func TestRebuildTreeForCurrentFilterIsNoOpOutsideTreeMode(t *testing.T) {
 		{ID: "api-AUTH-1", Title: "API auth", Status: model.StatusOpen},
 	}
 
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
 	m = updated.(Model)
 	// mode defaults to ViewList; tree was never built.

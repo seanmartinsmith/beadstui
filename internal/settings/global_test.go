@@ -155,3 +155,99 @@ func TestAnchorFromEnv(t *testing.T) {
 		t.Fatalf("expected true when env set")
 	}
 }
+
+// TestProjectPaths_RoundTrip verifies the bt-scc35 ProjectPaths field
+// round-trips through Save/Load like the rest of Global.
+func TestProjectPaths_RoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	in := &Global{ProjectPaths: map[string]string{"myproject": "/abs/path/myproject"}}
+	if err := in.SaveTo(path); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	out, err := LoadFrom(path)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if out.ProjectPaths["myproject"] != "/abs/path/myproject" {
+		t.Fatalf("ProjectPaths round-trip mismatch: got %v", out.ProjectPaths)
+	}
+}
+
+// TestProjectPaths_MissingFieldIsNilNotError verifies that a settings.json
+// predating ProjectPaths (only anchor_project set) loads cleanly with a nil
+// map, not an error.
+func TestProjectPaths_MissingFieldIsNilNotError(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	if err := (&Global{AnchorProject: "/old"}).SaveTo(path); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	out, err := LoadFrom(path)
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if out.ProjectPaths != nil {
+		t.Fatalf("expected nil ProjectPaths for a file that never set it, got %v", out.ProjectPaths)
+	}
+}
+
+// TestResolvedPath_EnvOverride verifies BT_SETTINGS_PATH wins over
+// DefaultPath, mirroring pkg/projects.ResolvedPath's BT_PROJECTS_REGISTRY_PATH
+// contract (bt-scc35).
+func TestResolvedPath_EnvOverride(t *testing.T) {
+	override := filepath.Join(t.TempDir(), "custom-settings.json")
+	t.Setenv("BT_SETTINGS_PATH", override)
+
+	got, err := ResolvedPath()
+	if err != nil {
+		t.Fatalf("ResolvedPath: %v", err)
+	}
+	if got != override {
+		t.Fatalf("ResolvedPath = %q, want override %q", got, override)
+	}
+}
+
+func TestResolvedPath_FallsBackToDefaultWhenUnset(t *testing.T) {
+	t.Setenv("BT_SETTINGS_PATH", "")
+
+	got, err := ResolvedPath()
+	if err != nil {
+		t.Fatalf("ResolvedPath: %v", err)
+	}
+	want, err := DefaultPath()
+	if err != nil {
+		t.Fatalf("DefaultPath: %v", err)
+	}
+	if got != want {
+		t.Fatalf("ResolvedPath = %q, want DefaultPath %q", got, want)
+	}
+}
+
+// TestLoadSave_HonorSettingsPathOverride verifies Load()/Save() (the
+// default-path variants) route through BT_SETTINGS_PATH end to end, so a
+// test never touches the real ~/.bt/settings.json.
+func TestLoadSave_HonorSettingsPathOverride(t *testing.T) {
+	override := filepath.Join(t.TempDir(), "settings.json")
+	t.Setenv("BT_SETTINGS_PATH", override)
+
+	g, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	g.ProjectPaths = map[string]string{"myproject": "/abs/myproject"}
+	if err := g.Save(); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+
+	// The override path must exist now; nothing was written to DefaultPath.
+	if _, err := os.Stat(override); err != nil {
+		t.Fatalf("expected settings written to override path: %v", err)
+	}
+
+	reloaded, err := Load()
+	if err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+	if reloaded.ProjectPaths["myproject"] != "/abs/myproject" {
+		t.Fatalf("reloaded ProjectPaths mismatch: got %v", reloaded.ProjectPaths)
+	}
+}
