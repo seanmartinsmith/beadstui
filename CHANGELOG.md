@@ -6,6 +6,30 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-07-06 — Write-routing foundation: claim misroute fixed, registry demoted from the write path (bt-scc35, bt-fg7wa, bt-2pk38)
+
+**The first live dogfood of the claim write (bt-sj8zw) failed in workspace/global mode: the executor consulted the prefix registry (`~/.bt/projects.json`) and ran `bd update --claim` in a bench temp dir. Root cause was two-layered — the registry was polluted by non-isolated benches (proximate), and a launch-stamped prefix-keyed cache is structurally the wrong source for routing mutations (fundamental). This session shipped the designed fix (= bt-oiaj.9's core mechanism): a launch-time route table with per-mode trust models, consulted at write time, with pre-flight refusal. Dispatcher + two parallel Sonnet worktree agents; PR #6 merged first so the wave built on current main.**
+
+### Ships
+
+- **feat(data/tui): `internal/bdroute` write-routing table + claim consumer (bt-scc35)** — `Resolve(issue) -> (WriteTarget{Dir, Global}, error)`; error = pre-flight refusal (actionable toast, zero bd invocations). Single-project: launch cwd always. Workspace: config-authored `LoadResult.AbsPath` per prefix. Global: `settings.json project_paths[dbname]` cache + write-time identity proof against the target's own `.beads/metadata.json` (`dolt_database` must equal `issue.SourceRepo`, `dolt_mode` must not be embedded — a wholesale clone would pass a bd read but fails this). `settings.Global` gains `ProjectPaths` (auto-stamped on cwd-mode boots, keyed by dolt_database, never bead prefix) + `BT_SETTINGS_PATH` test isolation. The prefix registry is demoted to History-view use only; the write path never consults it. Metadata reading unified: `detectProjectDBAt` now delegates to `bdroute.ReadMetadataAt`.
+- **test(infra): registry isolation for tests and benches (bt-fg7wa)** — TestMain-level `BT_PROJECTS_REGISTRY_PATH` isolation + real-registry snapshot/diff FATAL guards in the four at-risk packages (`cmd/bt`, `tests/e2e`, `pkg/ui`, `pkg/projects`). The live polluter was an ephemeral session script (xdah0 latency bench), not committed code — the committed suite audited clean, now structurally guarded.
+- **docs(design): write-routing.md** — the routing architecture, identity-proof rationale, composition contracts (bdexec/bdcmd/BD_ACTOR), and the binding Consumers contract for the inline-edit beads (bt-oiaj.5/.6): every future mutation calls `Resolve(issue)` first. Records the cp1252 finding: the non-ASCII corruption class is a property of the cp1252 bash command-line layer, not bt's write path (Go argv is UTF-16 end-to-end), so single-line fields may use argv; multi-line stays tempfile for robustness.
+
+### Bead bookkeeping
+
+- **bt-2pk38** (decision) — the routing architecture, alternatives rejected (pre-flight bd read: passes on clones; `--db`: stale SQLite-era help; registry-hygiene-only: insufficient).
+- **bt-oiaj.9** amended (comment): `--db` dropped, BD_ACTOR-per-DB deferred to bt-oiaj.14, rescoped to "all future write paths adopt bdroute" + follow-ups.
+- **bt-ch1o9** (P3, new) — production-side defense-in-depth: `stampLaunchProjects` refuses real-registry writes when `BT_TEST_MODE` is set without a registry override (covers ad hoc scripts the test-side guards can't reach).
+
+### Notes
+
+- **Tested:** full `go test ./...` green on the integrated branch; `BT_CLAIM_INTEGRATION=1` live-bd suite green including the new workspace multi-prefix claim and single-project-unchanged tests; bench run with the real registry byte-identical before/after (md5-verified).
+- **Not installed:** no `go install` — sms is validating the PATH binary (bt-2ubez). The live bt-sj8zw TUI dogfood re-run is gated on merge + install; the scripted equivalent (claim integration suite) passes.
+- **Follow-up:** `beads_global` writes refuse with a `bd --global` hint today; actual `--global` dispatch is wired in claimCmd but gated behind a routing-table follow-up.
+
+---
+
 ## 2026-07-06 — Three-lane Fable session: bt-2ubez diagnosis + fix, first live write (claim slice), embedded snapshot cache (bt-2ubez, bt-oiaj.10, bt-xdah0, bt-r7nrl)
 
 **Dispatcher session (background job): three parallel lanes in isolated worktrees, shipped as three draft PRs (#3, #4, #5) rather than direct to main. Lane 1 diagnosed the 740MB/16%-core "leak" with a committed soak harness and live-instance forensics — verdict: not a leak; a perpetual-tick CPU floor plus a working-set high-water ratchet from transient churn, both fixed. Lane 2 shipped bt's first live write (claim-first vertical slice per bt-chbqq). Lane 3 shipped the manifest-hash snapshot cache unblocked by the bt-p34aw ruling. Two significant side-discoveries: the original observed instance was found still running with its event loop silently halted (bt-vv502), and server-mode live auto-refresh turns out to be broken generally by a freshness-query Scan bug (bt-xcvxv, P1) — vindicating the "was embedded ever verified against shared server?" flag raised mid-session.**
