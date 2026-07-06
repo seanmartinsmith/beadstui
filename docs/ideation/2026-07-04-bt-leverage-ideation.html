@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ideation: beadstui highest-leverage improvements</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+  :root{
+    --bg:#fafaf9; --surface:#ffffff; --ink:#1c1917; --muted:#57534e;
+    --line:#e7e5e4; --accent:#4338ca; --accent-soft:#eef2ff; --accent-text:#3730a3;
+    --good:#166534; --good-soft:#f0fdf4; --warn:#92400e; --warn-soft:#fffbeb;
+    --bad:#991b1b; --bad-soft:#fef2f2; --info:#155e75; --info-soft:#ecfeff;
+    --mono:"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.6 Inter,-apple-system,"Segoe UI",Roboto,sans-serif;}
+  .page{max-width:920px;margin-inline:auto;padding:40px 28px 80px}
+  p,li,dd{max-width:72ch}
+  code{font-family:var(--mono);font-size:.86em;background:#f5f5f4;border:1px solid var(--line);
+    border-radius:4px;padding:1px 5px;white-space:nowrap}
+  h1{font-size:30px;line-height:1.2;margin:8px 0 4px;font-weight:800;letter-spacing:-.02em}
+  h2{font-size:20px;margin:48px 0 12px;font-weight:700;letter-spacing:-.01em;
+    padding-top:20px;border-top:1px solid var(--line)}
+  h3{font-size:17px;margin:0 0 6px;font-weight:700}
+  .eyebrow{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-text)}
+  .meta{display:flex;flex-wrap:wrap;gap:8px 18px;color:var(--muted);font-size:13px;margin:10px 0 0}
+  .meta b{color:var(--ink);font-weight:600}
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:26px 0 0}
+  .stat{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .stat .n{font-size:22px;font-weight:800;letter-spacing:-.02em}
+  .stat .l{font-size:12px;color:var(--muted)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px}
+  .chip{font-size:12px;font-weight:600;border-radius:999px;padding:3px 10px;border:1px solid transparent}
+  .chip.axis{background:var(--accent-soft);color:var(--accent-text)}
+  .chip.conf-high{background:var(--good-soft);color:var(--good)}
+  .chip.conf-med{background:var(--warn-soft);color:var(--warn)}
+  .chip.cx{background:var(--info-soft);color:var(--info)}
+  .chip.verd{background:#f5f5f4;color:var(--muted)}
+  article.idea{background:var(--surface);border:1px solid var(--line);border-radius:12px;
+    padding:22px 24px;margin:18px 0}
+  article.idea .field{margin:12px 0 0}
+  article.idea .field .fl{font-size:11px;font-weight:700;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--muted);display:block;margin-bottom:2px}
+  .idnum{display:inline-block;font-family:var(--mono);font-weight:600;font-size:13px;
+    background:var(--accent-soft);color:var(--accent-text);border-radius:6px;padding:2px 8px;margin-right:8px}
+  ul.jump{list-style:none;margin:14px 0 4px;padding:14px 18px;background:var(--surface);
+    border:1px solid var(--line);border-radius:10px;font-size:14px}
+  ul.jump li{margin:3px 0}
+  ul.jump a{color:var(--accent-text);text-decoration:none}
+  ul.jump a:hover{text-decoration:underline}
+  table{border-collapse:collapse;width:100%;font-size:14px;margin:14px 0}
+  th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+  th{background:#f5f5f4;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+  td:first-child{white-space:nowrap;font-family:var(--mono);font-size:13px}
+  .callout{border-radius:10px;padding:12px 16px;margin:14px 0;font-size:14px}
+  .callout.warn{background:var(--warn-soft)}
+  .callout.warn .cl{color:var(--warn);font-weight:700;font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+  .callout.info{background:var(--info-soft)}
+  .callout.info .cl{color:var(--info);font-weight:700;font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+  figure{margin:16px 0 4px}
+  figure svg{max-width:100%;height:auto;display:block;background:#fff;border:1px solid var(--line);border-radius:10px}
+  figcaption{font-size:12.5px;color:var(--muted);margin-top:6px}
+  dl.grounding dt{font-weight:700;font-size:13.5px;margin-top:12px}
+  dl.grounding dd{margin:2px 0 0 0;color:var(--muted);font-size:14px}
+  footer.composition-signal{margin-top:64px;padding-top:16px;border-top:1px solid var(--line);
+    color:var(--muted);font-size:12.5px}
+  svg text{font-family:Inter,sans-serif}
+  svg .boxlabel{font-size:12px;font-weight:600;fill:#1c1917}
+  svg .sub{font-size:10.5px;fill:#57534e}
+  svg .arrlab{font-size:10.5px;fill:#57534e;paint-order:stroke fill;stroke:#ffffff;stroke-width:3px}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <span class="eyebrow">Ideation &middot; repo-grounded</span>
+  <h1>beadstui: highest-leverage improvements</h1>
+  <div class="meta">
+    <span><b>Date:</b> 2026-07-04</span>
+    <span><b>Topic:</b> bt-highest-leverage-improvements</span>
+    <span><b>Mode:</b> repo-grounded</span>
+  </div>
+  <div class="meta" style="margin-top:6px">
+    <span><b>Focus:</b> (1)&nbsp;support writes as well as reads, (2)&nbsp;become the official gastownhall/beads (gas town / gas city) TUI, (3)&nbsp;fix existing quality &mdash; footer informativeness, issues columns, general polish.</span>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="n">46 &rarr; 31 &rarr; 7</div><div class="l">raw ideas &rarr; deduped &rarr; survivors</div></div>
+    <div class="stat"><div class="n">24 / 2 / 0</div><div class="l">verifier: sound / weak / refuted</div></div>
+    <div class="stat"><div class="n">5 / 5</div><div class="l">topic axes covered by survivors</div></div>
+    <div class="stat"><div class="n">13</div><div class="l">grounding + ideation + verify agents</div></div>
+  </div>
+</header>
+
+<section id="grounding-context">
+<h2>Grounding Context</h2>
+<p><b>Codebase Context.</b> bt is a Go 1.25 / Bubble Tea v2 single binary with three API layers (interactive TUI, robot JSON CLI with 46 subcommands, export), 92k LOC production + 102k LOC tests, currently v0.1.2 pre-release and <b>100% read-only</b>. Data layer: Dolt-only upstream (embedded default read via <code>bd export</code> shell-out, never-persist per bt-qrt2u; server + shared-server modes; schema v50 absorbed via COALESCE + column probing). ADR-002 (stabilize-and-ship) is largely complete; ADR-004 (unified keybinding/help) is proposed with a spike and 13 child beads. The write path is designed but unbuilt: all writes shell out to <code>bd</code> (no direct SQL), Pattern-C modal pickers chosen, mutation-feedback / action-context / detail-pane foundation beads open (bt-msxk, bt-3epf, bt-krx1). Backlog: 377 open beads, 0 P0, with a P1 layer containing a product-vision epic (bt-53du), a cross-project OS epic (bt-ushd), and a production-ready epic (bt-aj3l).</p>
+<dl class="grounding">
+  <dt>Load-bearing tension</dt>
+  <dd>The footer got a full three-zone smart redesign that shipped 2026-06-21 (bt-a3zi3) &mdash; yet the owner still finds it uninformative. Diagnosis (verified in code): the degradation engine is good; the <em>content tiering</em> protects bt&rsquo;s own daemon chrome and drops bead substance first.</dd>
+  <dt>Verified external facts</dt>
+  <dd>Upstream <code>docs/COMMUNITY_TOOLS.md</code> lists ~11 TUIs, only 2 active; bt&rsquo;s ancestor beads_viewer is marked &ldquo;Historical/Stale, incompatible with Dolt-based beads (v0.50+)&rdquo;; <b>bt itself is not listed</b>. Gas Town ships a first-party monitoring TUI (<code>gt feed</code>: agent tree / convoy / event stream). Perles (the other live community TUI) could <em>not</em> be confirmed as doing writes or orchestration &mdash; its README reads as a read-only BQL/kanban tool.</dd>
+  <dt>Owner context</dt>
+  <dd>Works in scrunched terminals (14&ndash;30 rows) &mdash; small-terminal is the primary case. Active beads contributor (upstream asks are a real lever). Quiet-ship posture: product quality drives adoption, targeted maintainer collaboration only.</dd>
+  <dt>Evidence layer</dt>
+  <dd>Six dossiers (TUI information surface, write path, robot CLI, data layer, upstream adoption, web research) + fresh-context adversarial verification with live fetches; checkpoints alongside this file.</dd>
+</dl>
+</section>
+
+<section id="topic-axes">
+<h2>Topic Axes</h2>
+<ul>
+  <li><b>tui-information-surface</b> &mdash; footer/status bar, issues columns, detail pane, help, small-terminal behavior</li>
+  <li><b>write-path</b> &mdash; mutation architecture, bd shell-out, feedback patterns, refresh-after-write</li>
+  <li><b>robot-cli</b> &mdash; agent-facing JSON surface, envelope, wire stability</li>
+  <li><b>data-layer</b> &mdash; Dolt modes, freshness, schema resilience</li>
+  <li><b>upstream-adoption</b> &mdash; official-TUI path, distribution, compat posture, ecosystem integration</li>
+</ul>
+</section>
+
+<section id="ranked-ideas">
+<h2>Ranked Ideas</h2>
+<ul class="jump">
+  <li><a href="#i1">1. Ship the claim-first write slice as the trust release</a></li>
+  <li><a href="#i2">2. Footer shows the work, not the app</a></li>
+  <li><a href="#i3">3. The 14&times;80 layout contract</a></li>
+  <li><a href="#i4">4. The adoption ladder: certify &rarr; list &rarr; protocol</a></li>
+  <li><a href="#i5">5. Lane discipline: cede gt feed&rsquo;s lane, own cross-rig depth</a></li>
+  <li><a href="#i6">6. Agent-native surface: self-describing envelope + executable actions</a></li>
+  <li><a href="#i7">7. Events-first data spine + upstream read-API campaign</a></li>
+</ul>
+
+<article class="idea" id="i1">
+  <h3><span class="idnum">1</span>Ship the claim-first write slice as the trust release</h3>
+  <div class="chips">
+    <span class="chip axis">write-path</span>
+    <span class="chip conf-high">Confidence 85%</span>
+    <span class="chip cx">Complexity Medium</span>
+  </div>
+  <div class="field"><span class="fl">Description</span>
+    <p>Invert the planned sequencing (&ldquo;foundations first, writes later&rdquo;): ship one real write end-to-end <em>now</em> &mdash; <code>bd update &lt;id&gt; --claim</code> on a single keystroke. Claim is the perfect first write: no modal, no text input (so no Windows cp1252 corruption risk), and the refresh loop already exists &mdash; a bt-initiated claim commits to Dolt, rewrites the manifest, and the content-comparing watcher reloads exactly as it does for external <code>bd</code> writes today. Then extract the foundations (bt-msxk feedback patterns, bt-3epf action contexts) from a live write instead of designing them speculatively. Shape the v1 write release as a <em>governance artifact</em>: an always-visible command-log pane showing every <code>bd</code> invocation verbatim with exit status (lazygit&rsquo;s <code>@</code> panel), a formal <code>--readonly</code> flag / <code>BT_READONLY</code> that hard-disables the mutation layer (k9s&rsquo;s safe-mode), pending&rarr;settled write semantics (below), and an actor-identity decision made now &mdash; while upstream&rsquo;s attribution redesign (bd-edi, P0 in-progress) is still wet cement.</p>
+  </div>
+  <figure>
+  <svg viewBox="0 0 880 210" role="img" aria-label="Claim write flow with pending and settled states">
+    <defs><marker id="ar1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#57534e"/></marker></defs>
+    <rect x="20" y="30" width="130" height="52" rx="8" fill="#eef2ff" stroke="#c7d2fe"/>
+    <text x="85" y="52" text-anchor="middle" class="boxlabel">keystroke</text>
+    <text x="85" y="68" text-anchor="middle" class="sub">row marked pending</text>
+    <line x1="150" y1="56" x2="192" y2="56" stroke="#57534e" stroke-width="1.5" marker-end="url(#ar1)"/>
+    <rect x="196" y="30" width="150" height="52" rx="8" fill="#ffffff" stroke="#d6d3d1"/>
+    <text x="271" y="52" text-anchor="middle" class="boxlabel">bd update --claim</text>
+    <text x="271" y="68" text-anchor="middle" class="sub">shell-out, exit code</text>
+    <line x1="346" y1="56" x2="388" y2="56" stroke="#57534e" stroke-width="1.5" marker-end="url(#ar1)"/>
+    <rect x="392" y="30" width="140" height="52" rx="8" fill="#ffffff" stroke="#d6d3d1"/>
+    <text x="462" y="52" text-anchor="middle" class="boxlabel">Dolt commit</text>
+    <text x="462" y="68" text-anchor="middle" class="sub">manifest hash moves</text>
+    <line x1="532" y1="56" x2="574" y2="56" stroke="#57534e" stroke-width="1.5" marker-end="url(#ar1)"/>
+    <rect x="578" y="30" width="130" height="52" rx="8" fill="#ffffff" stroke="#d6d3d1"/>
+    <text x="643" y="52" text-anchor="middle" class="boxlabel">watcher fires</text>
+    <text x="643" y="68" text-anchor="middle" class="sub">existing machinery</text>
+    <line x1="708" y1="56" x2="750" y2="56" stroke="#57534e" stroke-width="1.5" marker-end="url(#ar1)"/>
+    <rect x="754" y="30" width="106" height="52" rx="8" fill="#f0fdf4" stroke="#bbf7d0"/>
+    <text x="807" y="52" text-anchor="middle" class="boxlabel">settled</text>
+    <text x="807" y="68" text-anchor="middle" class="sub">or discrepancy</text>
+    <rect x="20" y="128" width="840" height="56" rx="8" fill="#fffbeb" stroke="#fde68a"/>
+    <text x="440" y="150" text-anchor="middle" class="boxlabel">governance wrapper shipped with the first write</text>
+    <text x="440" y="168" text-anchor="middle" class="sub">visible bd command-log receipts &middot; formal --readonly safe-mode &middot; actor identity decided during the bd-edi window</text>
+  </svg>
+  <figcaption>One keystroke exercises the whole write architecture; the wrapper turns compliance with &ldquo;bd is the canonical writer&rdquo; into something visible.</figcaption>
+  </figure>
+  <div class="field"><span class="fl">Basis</span>
+    <p><code>direct:</code> evidence-write-path dossier &mdash; &ldquo;<b>Claim</b> (<code>bd update &lt;id&gt; --claim</code>): Single keystroke, no modal&rdquo;; <code>internal/datasource/metadata.go:89-99</code> &mdash; Dolt rewrites the manifest on every commit, &ldquo;bt&rsquo;s event-driven change-detection signal for live refresh&rdquo;; <code>docs/design/writable-tui-design-surface.md</code> &sect;3 &mdash; session attribution explicitly unresolved. <code>external:</code> lazygit command-log (transparency as the trust mechanism); k9s formal <code>--readonly</code> safe-mode. Verifier: sound; and Perles&rsquo; supposed write support could not be confirmed &mdash; if the surviving community TUIs are all read-only, the trust/governance shaping <em>is</em> the differentiator, not optional polish.</p>
+  </div>
+  <div class="field"><span class="fl">Rationale</span>
+    <p>This is the highest-leverage sequencing decision on the table. It collapses &ldquo;bt eventually supports writes&rdquo; from a horizon into a shippable slice; it validates three open foundation epics against reality before they harden; and it converts the write push&rsquo;s biggest non-technical risk &mdash; a possible &ldquo;bd is the canonical writer&rdquo; ecosystem norm &mdash; into bt&rsquo;s adoption argument, because every mutation is demonstrably a bd invocation with a visible receipt. The actor-identity leg is time-sensitive: whoever writes first sets the attribution convention, and upstream&rsquo;s events redesign is in flight right now.</p>
+  </div>
+  <div class="field"><span class="fl">Downsides</span>
+    <p>Claim-first means shipping UX before the full action-context model exists &mdash; some rework risk in bt-3epf/bt-msxk. The pending/settled semantics re-litigate the pessimistic-spinner v1 default (bt-oiaj) &mdash; a deliberate re-vote, but it reopens a closed decision. <code>--readonly</code> and the receipts pane are extra scope for a v1 that could technically ship without them (not recommended).</p>
+  </div>
+</article>
+
+<article class="idea" id="i2">
+  <h3><span class="idnum">2</span>Footer shows the work, not the app</h3>
+  <div class="chips">
+    <span class="chip axis">tui-information-surface</span>
+    <span class="chip conf-high">Confidence 90%</span>
+    <span class="chip cx">Complexity Low</span>
+  </div>
+  <div class="field"><span class="fl">Description</span>
+    <p>The June footer redesign (bt-a3zi3) fixed compression mechanics, not content philosophy &mdash; which is why it still reads as uninformative. Verified in code: the never-drop tier 0 is <code>alerts / instance / worker</code> (bt&rsquo;s own daemon chrome), while bead substance (<code>statsSection</code>, counts, anything about the selection) is zeroed early in the reduction cascade. Invert the tier map: the protected core becomes <em>the selected bead&rsquo;s actionable state</em> (blocked/ready, blocker count, next legal action &mdash; wired from the bt-3epf action-context model so it becomes the write-affordance surface for free), and daemon chrome degrades first. Two compatible content upgrades: a <b>dark-cockpit discipline</b> (quiet strip when healthy; anomalies and deltas light up &mdash; stale data, dead watcher, failed shell-out), and later an <b>event ticker</b> with graph-ripple facts (&ldquo;bt-krx1 closed 2m ago &rarr; 3 unblocked&rdquo;) once the events spine (idea 7) exists.</p>
+  </div>
+  <figure>
+  <svg viewBox="0 0 880 190" role="img" aria-label="Footer tier map today versus inverted">
+    <text x="230" y="26" text-anchor="middle" class="boxlabel">today: survives degradation</text>
+    <rect x="60" y="40" width="340" height="34" rx="6" fill="#fef2f2" stroke="#fecaca"/>
+    <text x="230" y="61" text-anchor="middle" class="sub">tier 0: alerts &middot; instance &middot; worker (daemon chrome)</text>
+    <rect x="60" y="82" width="340" height="34" rx="6" fill="#fef2f2" stroke="#fecaca"/>
+    <text x="230" y="103" text-anchor="middle" class="sub">dropped early: stats &middot; counts &middot; selection context</text>
+    <text x="650" y="26" text-anchor="middle" class="boxlabel">inverted: survives degradation</text>
+    <rect x="480" y="40" width="340" height="34" rx="6" fill="#f0fdf4" stroke="#bbf7d0"/>
+    <text x="650" y="61" text-anchor="middle" class="sub">core: selection state &middot; next action &middot; anomalies</text>
+    <rect x="480" y="82" width="340" height="34" rx="6" fill="#f0fdf4" stroke="#bbf7d0"/>
+    <text x="650" y="103" text-anchor="middle" class="sub">dropped early: daemon chrome (quiet when healthy)</text>
+    <rect x="60" y="136" width="760" height="36" rx="6" fill="#ffffff" stroke="#d6d3d1"/>
+    <text x="440" y="158" text-anchor="middle" class="sub">the shipped degradation engine (bt-a3zi3) is kept as-is &mdash; this is a re-tiering of content, not a rewrite</text>
+  </svg>
+  <figcaption>Same engine, opposite priorities: protect what the user is doing, not what bt&rsquo;s daemons are doing.</figcaption>
+  </figure>
+  <div class="field"><span class="fl">Basis</span>
+    <p><code>direct:</code> <code>pkg/ui/model_footer.go:1130-1133</code> &mdash; &ldquo;Tier 0 (always keep): alerts, instance, worker status&rdquo;; <code>:1187-1188</code> &mdash; <code>statsSection = ""</code> zeroed at reduction step 5 (verified by the fresh-context checker). <code>external:</code> Airbus dark-cockpit / annunciator doctrine &mdash; a quiet panel means healthy; anything lit demands attention. Five of five ideation frames independently converged on this diagnosis.</p>
+  </div>
+  <div class="field"><span class="fl">Rationale</span>
+    <p>It resolves the named daily pain at its actual root with the smallest diff on this list &mdash; the <code>Render()</code> engine is pure and isolated; the change is reordering the tier map and redefining the core sections. Anchoring the core to the action-context model means the footer becomes the affordance surface the write era needs anyway: fix the footer once, and it is already the &ldquo;what can I do next&rdquo; surface when writes land.</p>
+  </div>
+  <div class="field"><span class="fl">Downsides</span>
+    <p>Content selection is opinionated &mdash; needs a real decision about what earns tier 0 (selection state vs. scope counts vs. anomalies). The event-ticker variant depends on idea 7 and should not gate the re-tiering. Small risk of churn if bt-krx1&rsquo;s detail-pane redesign wants to own some of the same information.</p>
+  </div>
+</article>
+
+<article class="idea" id="i3">
+  <h3><span class="idnum">3</span>The 14&times;80 layout contract: one W&times;H budget, sweep-gated, agent-queryable</h3>
+  <div class="chips">
+    <span class="chip axis">tui-information-surface</span>
+    <span class="chip conf-high">Confidence 80%</span>
+    <span class="chip cx">Complexity Medium</span>
+  </div>
+  <div class="field"><span class="fl">Description</span>
+    <p>bt has two responsive systems that never talk: the issues list gates columns on five inline magic widths (<code>&gt;60/80/100/120/140</code>) and reserves full column width even when every value is empty (the bt-foit padding), while the footer runs its own tier cascade &mdash; and there are <em>zero</em> height rules anywhere. Replace both with one declarative layout-budget module: elements (columns, badges, hints, panes) declare priority and minimum size; a single allocator fits them per width <em>and height</em> class; columns earn cells only when their data exists under the current filter; below ~20 rows the TUI swaps to a purpose-built compact layout rather than a degraded desktop one (the watch-complication rule). Enforce it: productize the existing render harness into <code>bt robot render --view list --width 80 --height 14</code> (deterministic frame + JSON layout report) and add a CI sweep across width 14&ndash;200 &times; height 3&ndash;30 with invariants (no wraps, footer always 1 line, &ge;5 visible rows). Fold help into the command palette &mdash; a scrolling filtered list degrades at any height, which collapses bt-0h7p + bt-xavk and structurally dissolves bt-dx7k (help broken at small sizes).</p>
+  </div>
+  <figure>
+  <svg viewBox="0 0 880 230" role="img" aria-label="One layout budget feeding columns, footer and help, gated by a render sweep">
+    <defs><marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#57534e"/></marker></defs>
+    <rect x="330" y="24" width="220" height="58" rx="8" fill="#eef2ff" stroke="#c7d2fe"/>
+    <text x="440" y="48" text-anchor="middle" class="boxlabel">layout budget (W &times; H)</text>
+    <text x="440" y="66" text-anchor="middle" class="sub">declared priorities, one allocator</text>
+    <line x1="360" y1="82" x2="170" y2="128" stroke="#57534e" stroke-width="1.5" marker-end="url(#ar3)"/>
+    <line x1="440" y1="82" x2="440" y2="128" stroke="#57534e" stroke-width="1.5" marker-end="url(#ar3)"/>
+    <line x1="520" y1="82" x2="710" y2="128" stroke="#57534e" stroke-width="1.5" marker-end="url(#ar3)"/>
+    <rect x="60" y="132" width="220" height="50" rx="8" fill="#ffffff" stroke="#d6d3d1"/>
+    <text x="170" y="153" text-anchor="middle" class="boxlabel">issues columns</text>
+    <text x="170" y="170" text-anchor="middle" class="sub">content-driven, no empty padding</text>
+    <rect x="330" y="132" width="220" height="50" rx="8" fill="#ffffff" stroke="#d6d3d1"/>
+    <text x="440" y="153" text-anchor="middle" class="boxlabel">footer</text>
+    <text x="440" y="170" text-anchor="middle" class="sub">same budget, same tiers</text>
+    <rect x="600" y="132" width="220" height="50" rx="8" fill="#ffffff" stroke="#d6d3d1"/>
+    <text x="710" y="153" text-anchor="middle" class="boxlabel">help &rarr; palette</text>
+    <text x="710" y="170" text-anchor="middle" class="sub">scrolls at any height</text>
+    <rect x="60" y="198" width="760" height="1" fill="#e7e5e4"/>
+    <text x="440" y="220" text-anchor="middle" class="sub">CI gate: bt robot render sweep, width 14&ndash;200 &times; height 3&ndash;30 &mdash; small-terminal correctness becomes a tested contract</text>
+  </svg>
+  <figcaption>One budget authority, three consumers, one sweep gate &mdash; layout stops being five magic numbers nobody owns.</figcaption>
+  </figure>
+  <div class="field"><span class="fl">Basis</span>
+    <p><code>direct:</code> <code>pkg/ui/delegate.go:73/100/111/125/138</code> &mdash; uncoordinated width literals (verified); <code>delegate.go:111-118</code> &mdash; empty assignee still reserves 14 cells; TUI dossier &mdash; &ldquo;No explicit row-height handling found&rdquo; and no W&times;H sweep in <code>render_harness_test.go</code>; bt-dx7k blocked. <code>external:</code> cartographic generalization (different map per scale, not a shrunken one); Apple Watch &ldquo;not a shrunken phone app&rdquo; doctrine.</p>
+  </div>
+  <div class="field"><span class="fl">Rationale</span>
+    <p>The owner&rsquo;s 14&ndash;30-row terminals make the &ldquo;degraded&rdquo; case the primary case, and today that case is governed by magic numbers nobody owns. One budget module turns the user&rsquo;s second named complaint (columns) plus the blocked help bead plus every future TUI surface into declarations against a tested contract &mdash; and <code>bt robot render</code> simultaneously kills the biggest friction in bt&rsquo;s own agent-driven development loop (agents being blind to the TUI) and becomes the bug-report artifact for third parties.</p>
+  </div>
+  <div class="field"><span class="fl">Downsides</span>
+    <p>The largest TUI refactor on the list; touches delegate, footer, and help simultaneously (though it can land budget-first, consumers one at a time). Per-row content-driven columns can cause visual jitter across rows if done naively (needs a column-stability rule within a viewport). Palette-as-help overturns the 16-context modal matrix &mdash; some context-specific help content needs a new home.</p>
+  </div>
+</article>
+
+<article class="idea" id="i4">
+  <h3><span class="idnum">4</span>The adoption ladder: certify &rarr; list &rarr; protocol</h3>
+  <div class="chips">
+    <span class="chip axis">upstream-adoption</span>
+    <span class="chip conf-med">Confidence 75%</span>
+    <span class="chip cx">Complexity Medium</span>
+  </div>
+  <div class="field"><span class="fl">Description</span>
+    <p>Three rungs, each producing the evidence the next one cites. <b>Rung 1 &mdash; certify:</b> a CI matrix that runs bt&rsquo;s e2e suite against each new bd release (plus a nightly bd-HEAD canary) across embedded / server / shared-server fixtures, publishing a passing compatibility matrix and badge; fold in the golden-file wire-stability gate (snapshot all 46 robot envelope schemas; CI fails on rename/removal, passes add-only) and the still-unbuilt <code>fallback==tag</code> release guard; complete first-run resilience with a <code>bt doctor</code> source-discovery trace (which detection branch fired, bd + schema version, manifest age, watcher liveness). <b>Rung 2 &mdash; list:</b> the COMMUNITY_TOOLS.md PR &mdash; verified: the doc marks bt&rsquo;s ancestor beads_viewer &ldquo;Historical/Stale, incompatible with Dolt-based beads (v0.50+)&rdquo; and bt is absent; the successor narrative writes itself, led by the living compat matrix rather than a claim. <b>Rung 3 &mdash; protocol:</b> propose upstream that <code>bd ui</code> exec a UI binary discovered on PATH under a documented convention (the git-subcommand / gh-extension model). beads stays CLI-only by philosophy; official status becomes a protocol bt authored rather than a favor bt requests.</p>
+  </div>
+  <figure>
+  <svg viewBox="0 0 880 200" role="img" aria-label="Three-rung adoption ladder">
+    <defs><marker id="ar4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#57534e"/></marker></defs>
+    <rect x="40" y="120" width="240" height="56" rx="8" fill="#ecfeff" stroke="#a5f3fc"/>
+    <text x="160" y="143" text-anchor="middle" class="boxlabel">1 &middot; certify</text>
+    <text x="160" y="161" text-anchor="middle" class="sub">CI matrix vs bd releases + badge</text>
+    <rect x="320" y="72" width="240" height="56" rx="8" fill="#eef2ff" stroke="#c7d2fe"/>
+    <text x="440" y="95" text-anchor="middle" class="boxlabel">2 &middot; list</text>
+    <text x="440" y="113" text-anchor="middle" class="sub">COMMUNITY_TOOLS.md successor PR</text>
+    <rect x="600" y="24" width="240" height="56" rx="8" fill="#f0fdf4" stroke="#bbf7d0"/>
+    <text x="720" y="47" text-anchor="middle" class="boxlabel">3 &middot; protocol</text>
+    <text x="720" y="65" text-anchor="middle" class="sub">bd ui PATH-delegation proposal</text>
+    <line x1="280" y1="140" x2="320" y2="108" stroke="#57534e" stroke-width="1.5" marker-end="url(#ar4)"/>
+    <line x1="560" y1="92" x2="600" y2="60" stroke="#57534e" stroke-width="1.5" marker-end="url(#ar4)"/>
+  </svg>
+  <figcaption>Each rung is the evidence the next one cites; all three fit the quiet-ship posture (proof, not promotion).</figcaption>
+  </figure>
+  <div class="field"><span class="fl">Basis</span>
+    <p><code>external:</code> COMMUNITY_TOOLS.md fetched and verified &mdash; ~11 TUIs listed, only 2 active, ancestor flagged stale-incompatible, bt absent; gh-extension / git-subcommand / kubectl-plugin delegation precedent; gh itself adopting Charm&rsquo;s huh (the CLI owner treating TUI-via-Charm as natural evolution). <code>direct:</code> upstream dossier &mdash; &ldquo;a release-time CI guard (fallback==tag) is still unbuilt&rdquo;; <code>internal/diagnostics/diagnostics.go:1-9</code> covers caches, not source-mode detection (verified).</p>
+  </div>
+  <div class="field"><span class="fl">Rationale</span>
+    <p>Version drift is the documented graveyard of every prior beads TUI &mdash; and bt already carries the drift armor (column probing, v50 COALESCE) without publishing any proof of it. Certification converts existing engineering into visible trust; the listing converts an ephemeral Discord drop into a permanent front-door entry; the protocol converts &ldquo;official&rdquo; from someone&rsquo;s goodwill into a convention bt defined. This ladder is intent (2) made concrete, and none of it depends on unbuilt product features.</p>
+  </div>
+  <div class="field"><span class="fl">Downsides</span>
+    <p>Standing CI infrastructure to maintain (bd fixture projects per version &times; mode). The rung-3 proposal spends contributor capital and could be declined &mdash; though rungs 1&ndash;2 retain full value on their own. Listing bt raises its visibility before the write story ships (arguably a feature: the read surface is the mature one).</p>
+  </div>
+</article>
+
+<article class="idea" id="i5">
+  <h3><span class="idnum">5</span>Lane discipline: cede gt feed&rsquo;s monitoring lane, own cross-rig issue-graph depth</h3>
+  <div class="chips">
+    <span class="chip axis">upstream-adoption</span>
+    <span class="chip conf-med">Confidence 65%</span>
+    <span class="chip cx">Complexity High</span>
+  </div>
+  <div class="field"><span class="fl">Description</span>
+    <p>Verified: Gas Town ships a first-party three-panel Charm TUI (<code>gt feed</code>: Agent Tree / Convoy / Event Stream, plus <code>--problems</code> triage) built by the same team as beads. bt-62dz8&rsquo;s in-progress scoping (Surfaces B: rig topology, C: event stream, D: cross-session) drifts straight into that owned lane. Re-aim the integration at what gt structurally does not do: deep issue-graph analytics (BQL, triage, impact networks, planning) projected onto gascity&rsquo;s Run model (<code>bt robot run &lt;run-id&gt;</code> as the run-correlation surface, per bt-npxi&rsquo;s &ldquo;consume gascity&rsquo;s Run model, don&rsquo;t invent a parallel primitive&rdquo;), and elevate the cross-project consolidator arc (bt-ushd: fix the bt-dcby global-filter bug, ship bt-ssk7 <code>--global</code> federation) to flagship: one bt session running BQL, triage, and impact analysis across every rig&rsquo;s beads DB in a town &mdash; the consolidated-tape position a per-town first-party tool cannot occupy.</p>
+  </div>
+  <figure>
+  <svg viewBox="0 0 880 220" role="img" aria-label="Two lanes: gt feed monitoring versus bt cross-rig depth">
+    <defs><marker id="ar5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#57534e"/></marker></defs>
+    <rect x="40" y="30" width="380" height="70" rx="8" fill="#fef2f2" stroke="#fecaca"/>
+    <text x="230" y="56" text-anchor="middle" class="boxlabel">lane owned by gt feed (first-party) &mdash; cede it</text>
+    <text x="230" y="76" text-anchor="middle" class="sub">agent tree &middot; convoy &middot; event-stream monitoring</text>
+    <rect x="460" y="30" width="380" height="70" rx="8" fill="#f0fdf4" stroke="#bbf7d0"/>
+    <text x="650" y="56" text-anchor="middle" class="boxlabel">lane open for bt &mdash; own it</text>
+    <text x="650" y="76" text-anchor="middle" class="sub">BQL &middot; graph analytics &middot; planning &middot; run correlation</text>
+    <rect x="460" y="140" width="110" height="44" rx="8" fill="#ffffff" stroke="#d6d3d1"/>
+    <text x="515" y="166" text-anchor="middle" class="sub">rig A beads</text>
+    <rect x="595" y="140" width="110" height="44" rx="8" fill="#ffffff" stroke="#d6d3d1"/>
+    <text x="650" y="166" text-anchor="middle" class="sub">rig B beads</text>
+    <rect x="730" y="140" width="110" height="44" rx="8" fill="#ffffff" stroke="#d6d3d1"/>
+    <text x="785" y="166" text-anchor="middle" class="sub">rig C beads</text>
+    <line x1="515" y1="140" x2="610" y2="104" stroke="#57534e" stroke-width="1.5" marker-end="url(#ar5)"/>
+    <line x1="650" y1="140" x2="650" y2="104" stroke="#57534e" stroke-width="1.5" marker-end="url(#ar5)"/>
+    <line x1="785" y1="140" x2="690" y2="104" stroke="#57534e" stroke-width="1.5" marker-end="url(#ar5)"/>
+    <text x="650" y="208" text-anchor="middle" class="sub">the consolidator position: one bt session over every rig&rsquo;s DB &mdash; structurally unavailable to a per-town first-party tool</text>
+  </svg>
+  <figcaption>Positioning, not just prioritization: pick the lane the ecosystem owner left open.</figcaption>
+  </figure>
+  <div class="field"><span class="fl">Basis</span>
+    <p><code>external:</code> gt feed existence and shape verified by live fetch; Bloomberg / consolidated-tape market structure (exchanges ship terminals; the consolidator wins on cross-venue depth). <code>direct:</code> bt-62dz8 scope = Surfaces B/C/D (upstream dossier); bt-npxi &mdash; &ldquo;bt is designed to consume gascity&rsquo;s Run model&rdquo;; bt-ushd / bt-dcby / bt-ssk7 in the P1 layer.</p>
+  </div>
+  <div class="field"><span class="fl">Rationale</span>
+    <p>This changes what an in-progress epic builds <em>before</em> months go into a second convoy monitor that loses to a first-party incumbent on its home turf. Every hour on graph/query depth compounds a moat gt feed cannot cheaply replicate; it is also the only positioning where the other live community TUI is not already present. Combined with idea 4, it defines what &ldquo;official gas town TUI&rdquo; concretely means: the ecosystem&rsquo;s issue-intelligence layer, not its second dashboard.</p>
+  </div>
+  <div class="field"><span class="fl">Downsides</span>
+    <p>Strategic bet on incomplete information &mdash; bt-62dz8&rsquo;s scoping may already account for gt feed (worth checking before re-aiming). The federation leg (bt-ssk7) is genuinely large. Run-correlation depends on gascity surfaces that are still moving (bt-npxi is blocked/P3 today).</p>
+  </div>
+</article>
+
+<article class="idea" id="i6">
+  <h3><span class="idnum">6</span>Agent-native surface: self-describing envelope + executable actions</h3>
+  <div class="chips">
+    <span class="chip axis">robot-cli</span>
+    <span class="chip conf-high">Confidence 80%</span>
+    <span class="chip cx">Complexity Medium</span>
+  </div>
+  <div class="field"><span class="fl">Description</span>
+    <p>Four add-only wire upgrades that turn bt&rsquo;s robot surface from &ldquo;structured on success, opaque otherwise&rdquo; into a self-describing agent API. (1) A per-mode <code>capabilities</code> block in the envelope (or <code>bt robot capabilities</code>): as-of, history, correlation, writes, schema versions &mdash; declared as data, so agents branch instead of pattern-matching refusal prose; when embedded gains history or writes ship, the block flips and every agent adapts with zero coordination. (2) Structured errors: code, message, <code>supported_alternative</code> &mdash; starting with the <code>--as-of</code> refusal, whose fix-suggestion currently exists only as English inside an error string. (3) <code>actions[]</code> order-set envelopes: triage/recommendation payloads ship the exact ready-to-exec <code>bd</code> argv with preconditions (the CPOE / hypermedia pattern) &mdash; bt makes bd writes <em>correct</em> for agents without writing anything itself. (4) TUI yank upgraded from bare bead ID to the full <code>bt robot ...</code> invocation reproducing the current view &mdash; which forces TUI filter state and robot flags onto one canonical model. All four sit on a single <code>bdcmd</code> command-builder package with three consumers: robot emit, the TUI write executor (idea 1), and the receipts pane &mdash; command construction tested once under the robot contract suite.</p>
+  </div>
+  <figure>
+  <svg viewBox="0 0 880 200" role="img" aria-label="bdcmd builder hub with three consumers">
+    <defs><marker id="ar6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#57534e"/></marker></defs>
+    <rect x="350" y="70" width="180" height="56" rx="8" fill="#eef2ff" stroke="#c7d2fe"/>
+    <text x="440" y="94" text-anchor="middle" class="boxlabel">bdcmd builder</text>
+    <text x="440" y="112" text-anchor="middle" class="sub">canonical bd argv, tested once</text>
+    <rect x="40" y="24" width="240" height="48" rx="8" fill="#ffffff" stroke="#d6d3d1"/>
+    <text x="160" y="44" text-anchor="middle" class="boxlabel">robot actions[]</text>
+    <text x="160" y="61" text-anchor="middle" class="sub">executable next steps for agents</text>
+    <rect x="40" y="128" width="240" height="48" rx="8" fill="#ffffff" stroke="#d6d3d1"/>
+    <text x="160" y="148" text-anchor="middle" class="boxlabel">TUI yank</text>
+    <text x="160" y="165" text-anchor="middle" class="sub">view state &rarr; bt robot invocation</text>
+    <rect x="600" y="76" width="240" height="48" rx="8" fill="#ffffff" stroke="#d6d3d1"/>
+    <text x="720" y="96" text-anchor="middle" class="boxlabel">write executor + receipts</text>
+    <text x="720" y="113" text-anchor="middle" class="sub">idea 1&rsquo;s mutation path</text>
+    <line x1="350" y1="88" x2="284" y2="56" stroke="#57534e" stroke-width="1.5" marker-end="url(#ar6)"/>
+    <line x1="350" y1="112" x2="284" y2="144" stroke="#57534e" stroke-width="1.5" marker-end="url(#ar6)"/>
+    <line x1="530" y1="98" x2="596" y2="98" stroke="#57534e" stroke-width="1.5" marker-end="url(#ar6)"/>
+  </svg>
+  <figcaption>One command-construction primitive bridges the read surface, the write path, and the trust surface.</figcaption>
+  </figure>
+  <div class="field"><span class="fl">Basis</span>
+    <p><code>direct:</code> <code>internal/datasource/source.go:63</code> &mdash; <code>ErrAsOfNotSupportedForRobot</code> with the alternative embedded in prose (verified); <code>pkg/ui/list_keys.go:147</code> &mdash; yank copies only <code>Issue.ID</code> (verified); <code>robot_output.go:45-61</code> &mdash; RobotScope precedent for envelope self-description; docs/robot README add-only rule makes all four wire-compatible. <code>external:</code> HATEOAS hypermedia controls; CPOE order sets; 2025&ndash;26 agent-CLI consensus (structured errors carrying fix suggestions).</p>
+  </div>
+  <div class="field"><span class="fl">Rationale</span>
+    <p>bt&rsquo;s stated identity is &ldquo;the agent-consumption layer,&rdquo; and its differentiation against every other beads TUI is exactly this surface &mdash; deepening it is moat-building where bt is already ahead. The <code>actions[]</code> + capabilities pair is also the strongest possible expression of the ecosystem&rsquo;s canonical-writer norm: bt tells agents precisely what to run; bd stays the only writer. And the bdcmd package quietly builds half of idea 1&rsquo;s executor.</p>
+  </div>
+  <div class="field"><span class="fl">Downsides</span>
+    <p>Wire-surface additions are forever (add-only discipline means these fields must be right the first time). <code>actions[]</code> preconditions can go stale between emit and exec &mdash; needs an honest &ldquo;advisory, re-validate on exec&rdquo; contract. Yank-as-command requires the TUI filter model cleanup first (that is the point, but it is real work).</p>
+  </div>
+</article>
+
+<article class="idea" id="i7">
+  <h3><span class="idnum">7</span>Events-first data spine + upstream read-API campaign</h3>
+  <div class="chips">
+    <span class="chip axis">data-layer</span>
+    <span class="chip conf-med">Confidence 60%</span>
+    <span class="chip cx">Complexity High</span>
+  </div>
+  <div class="field"><span class="fl">Description</span>
+    <p>Embedded mode &mdash; the upstream default, so bt&rsquo;s common case &mdash; refreshes by shelling a full <code>bd export</code> and re-parsing the entire project&rsquo;s JSONL on every manifest change (30s timeout, 3 retries; ~0.4s per 1300 issues; the 4921-issue cross-project workspace already hurts). bt has a precise <em>when</em>-signal (the Dolt manifest root hash) and no <em>what</em>-signal. Move to the market-data architecture: an events feed as the primary change channel, full export demoted to gap/hash-mismatch recovery. Three steps: (1) manifest-hash snapshot cache under <code>.bt/</code> so unchanged data is never re-exported (needs an explicit ruling that a read-side cache doesn&rsquo;t violate bt-qrt2u&rsquo;s never-persist boundary &mdash; precedent exists: <code>.bt/</code> already holds the semantic index); (2) a single monotonic data-version signal consumed by the watcher, server-mode polling, post-write settlement (idea 1), and the footer ticker (idea 2); (3) the upstream campaign: spec and file <code>bd export --since &lt;hash&gt;</code>, <code>bd history &lt;id&gt; --json</code>, and <code>bd events --follow</code> as bt/bd-paired beads &mdash; bt as the reference consumer shaping bd&rsquo;s read API, which also kills the <code>--as-of</code> robot refusal and the embedded correlation/history gap at their root.</p>
+  </div>
+  <figure>
+  <svg viewBox="0 0 880 210" role="img" aria-label="Full re-export today versus events-first refresh">
+    <defs><marker id="ar7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#57534e"/></marker></defs>
+    <text x="110" y="40" class="boxlabel">today</text>
+    <rect x="60" y="52" width="200" height="46" rx="8" fill="#ffffff" stroke="#d6d3d1"/>
+    <text x="160" y="72" text-anchor="middle" class="sub">manifest change (when-signal)</text>
+    <text x="160" y="88" text-anchor="middle" class="sub">no what-signal</text>
+    <line x1="260" y1="75" x2="330" y2="75" stroke="#57534e" stroke-width="1.5" marker-end="url(#ar7)"/>
+    <rect x="334" y="52" width="250" height="46" rx="8" fill="#fef2f2" stroke="#fecaca"/>
+    <text x="459" y="72" text-anchor="middle" class="sub">full bd export + re-parse everything</text>
+    <text x="459" y="88" text-anchor="middle" class="sub">O(n) per change &middot; 4921-issue pain</text>
+    <text x="110" y="140" class="boxlabel">target</text>
+    <rect x="60" y="152" width="200" height="46" rx="8" fill="#f0fdf4" stroke="#bbf7d0"/>
+    <text x="160" y="172" text-anchor="middle" class="sub">events feed (what-signal)</text>
+    <text x="160" y="188" text-anchor="middle" class="sub">O(delta) apply</text>
+    <line x1="260" y1="175" x2="330" y2="175" stroke="#57534e" stroke-width="1.5" marker-end="url(#ar7)"/>
+    <rect x="334" y="152" width="250" height="46" rx="8" fill="#ffffff" stroke="#d6d3d1"/>
+    <text x="459" y="172" text-anchor="middle" class="sub">snapshot cache by manifest hash</text>
+    <text x="459" y="188" text-anchor="middle" class="sub">full export only on gap / mismatch</text>
+    <rect x="630" y="98" width="210" height="60" rx="8" fill="#eef2ff" stroke="#c7d2fe"/>
+    <text x="735" y="120" text-anchor="middle" class="boxlabel">one data-version signal</text>
+    <text x="735" y="138" text-anchor="middle" class="sub">watcher &middot; write settlement &middot; footer ticker</text>
+    <line x1="584" y1="175" x2="626" y2="145" stroke="#57534e" stroke-width="1.5" marker-end="url(#ar7)"/>
+  </svg>
+  <figcaption>Snapshot-plus-incremental (the market-data model): bt stops paying whole-database cost for single-bead changes.</figcaption>
+  </figure>
+  <div class="field"><span class="fl">Basis</span>
+    <p><code>direct:</code> <code>internal/datasource/embedded.go:45-52</code> &mdash; full export re-parse, nothing cached (verified); <code>embedded.go:16-19</code> &mdash; ~0.4s / 1300 issues; <code>metadata.go:89-99</code> &mdash; manifest as the change signal; bt-5uaxh &mdash; embedded correlation/history deliberately empty awaiting bd support. <code>external:</code> NASDAQ ITCH / OPRA snapshot-plus-incremental feed architecture; upstream&rsquo;s native events table (<code>Storage.GetEvents</code>) exists &mdash; only the CLI access is missing.</p>
+  </div>
+  <div class="field"><span class="fl">Rationale</span>
+    <p>This is the long pole under everything else: refresh latency is the floor under write feedback (idea 1), the fuel for the footer ticker (idea 2), and the scaling wall for both fleet-sized workspaces (idea 5) and N agents hammering robot mode. The upstream campaign converts three bt workarounds into sanctioned primitives while making bt the tool whose needs are encoded in bd&rsquo;s own API &mdash; the most durable form of &ldquo;official&rdquo; there is.</p>
+  </div>
+  <div class="field"><span class="fl">Downsides</span>
+    <p>The full payoff depends on upstream landing primitives bt doesn&rsquo;t control (hence 60%); the snapshot cache and data-version unification are unilateral, but the events channel is not. Cache invalidation correctness is real work (hash-keyed helps). Needs the bt-qrt2u boundary ruling before any disk cache ships.</p>
+  </div>
+</article>
+</section>
+
+<section id="rejection-summary">
+<h2>Rejection Summary</h2>
+<table>
+  <thead><tr><th>#</th><th>Idea</th><th>Reason</th></tr></thead>
+  <tbody>
+    <tr><td>C4</td><td>Generic mutation-substrate primitive</td><td>Verifier: WEAK &mdash; restates the already-planned bt-msxk/bt-oiaj substrate; arc folded into idea 1 instead.</td></tr>
+    <tr><td>C10</td><td>Schema-derived write pickers (generate the edit UI from bd&rsquo;s schema)</td><td>Verifier: WEAK &mdash; assumes bd enum/field introspection that doesn&rsquo;t exist (probing covers column existence only). Revisit as an upstream ask.</td></tr>
+    <tr><td>C15</td><td><code>bt statusline</code> one-line ambient surface (tmux/starship/CC)</td><td>Sound but below the top-7 leverage bar; natural follow-on after idea 6&rsquo;s wire discipline.</td></tr>
+    <tr><td>C3</td><td>Palette-as-help consolidation</td><td>Folded into idea 3 (help is the height-degradation strategy of the layout contract).</td></tr>
+    <tr><td>C5&ndash;C9</td><td>Receipts log, --readonly, pending/settled, actor identity, claim-first slice</td><td>Folded into idea 1 as one governance-shaped release.</td></tr>
+    <tr><td>C11&ndash;C14</td><td>Structured errors, capabilities block, actions[], yank-as-command</td><td>Folded into idea 6 on the shared bdcmd primitive.</td></tr>
+    <tr><td>C16&ndash;C17</td><td><code>bt robot render</code>; golden-file wire gate</td><td>Folded into ideas 3 and 4 respectively (enforcement legs).</td></tr>
+    <tr><td>C19&ndash;C20, C26</td><td>Snapshot cache; upstream read-API asks; bt doctor</td><td>Folded into ideas 7, 7, and 4 respectively.</td></tr>
+    <tr><td>S1&ndash;S5</td><td>Dispatcher syntheses</td><td>Absorbed as the shaping of ideas 1, 6, 3, 4, and 7 &mdash; no axis left without survivors.</td></tr>
+  </tbody>
+</table>
+<div class="callout info"><span class="cl">Verifier corrections</span>
+<p style="margin:6px 0 0">COMMUNITY_TOOLS.md is even more decisive than first reported (~11 TUIs, 2 active). Perles doing read+write+orchestration was <b>not confirmed</b> (README reads read-only) &mdash; competitive urgency for writes was overstated; the trust-shaped release framing in idea 1 strengthened. Help-context count is 16, not 18 (immaterial).</p>
+</div>
+</section>
+
+<footer class="composition-signal">Composed 2026-07-04 by ce-ideate (run 3a00f8d6) from the user&rsquo;s leverage-analysis request in session 3a00f8d6-b7e8-45fc-bdf9-359a34d8a7b1 &middot; grounding: 6 evidence dossiers + adversarial verification, alongside this file.</footer>
+
+</div>
+</body>
+</html>

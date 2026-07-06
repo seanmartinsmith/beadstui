@@ -140,7 +140,7 @@ Scope maps to area labels: `cli`, `tui`, `bql`, `data`, `export`, `graph`, `sear
 | Read before work | `bd show <id>` |
 | Claim | `bd update <id> --claim` |
 | Complete | `bd close <id> --reason="..."` |
-| Flag for human | `bd human <id>` |
+| Flag for human | `bd update <id> --assignee=sms --add-label workflow:collaborative` |
 | Session notes | `bd comments add <id> "..."` |
 | Search | `bd search "query"` |
 | Sync | `bd dolt push` |
@@ -174,7 +174,7 @@ Notes: ..."
 
 - Read close_reason before working a bead to avoid re-solving
 - Check for abandoned work: `bd list --status=in_progress`
-- Use `bd human <id>` for issues needing human decision
+- Flag issues needing human decision: `bd update <id> --assignee=sms --add-label workflow:collaborative` (`bd human <id>` no longer exists; `bd human` is now a help menu)
 - Close beads before committing
 - Don't invent labels - use `.beads/conventions/labels.md`
 - Do NOT use `bd edit` - it opens $EDITOR. Use `bd update <id> --field "value"`
