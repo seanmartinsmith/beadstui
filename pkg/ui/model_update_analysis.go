@@ -205,21 +205,37 @@ func (m Model) handleSemanticDebounceTick() (Model, tea.Cmd, bool) {
 // past workerSpinnerFlashThreshold it (re)extends the window so consecutive
 // short refresh cycles render one steady indicator rather than a sub-second
 // on/off flash loop; the window is read by workerSpinnerVisible().
+//
+// The 120ms chain runs only while the worker is processing or the display
+// window lingers. When idle it goes DORMANT (no reschedule) and is re-armed by
+// RefreshStartedMsg from the worker - a perpetual tick at this cadence cost
+// ~6.6% of a core at 1300 issues even when fully idle (bt-2ubez).
 func (m Model) handleWorkerPollTick() (Model, tea.Cmd) {
-	if m.data.backgroundWorker != nil {
-		state := m.data.backgroundWorker.State()
-		if state == WorkerProcessing {
-			m.data.workerSpinnerIdx = (m.data.workerSpinnerIdx + 1) % len(workerSpinnerFrames)
-			if m.data.backgroundWorker.ProcessingDuration() >= workerSpinnerFlashThreshold {
-				m.data.workerSpinnerVisibleUntil = time.Now().Add(workerSpinnerMinDisplay)
-			}
-		} else {
-			m.data.workerSpinnerIdx = 0
-		}
-		if state != WorkerStopped {
-			return m, workerPollTickCmd()
-		}
+	w := m.data.backgroundWorker
+	if w == nil {
+		m.data.workerTickArmed = false
+		return m, nil
 	}
+	state := w.State()
+	if state == WorkerStopped {
+		m.data.workerTickArmed = false
+		return m, nil
+	}
+	if state == WorkerProcessing {
+		m.data.workerSpinnerIdx = (m.data.workerSpinnerIdx + 1) % len(workerSpinnerFrames)
+		if w.ProcessingDuration() >= workerSpinnerFlashThreshold {
+			m.data.workerSpinnerVisibleUntil = time.Now().Add(workerSpinnerMinDisplay)
+		}
+		m.data.workerTickArmed = true
+		return m, workerPollTickCmd()
+	}
+	// Idle: keep animating only while the coalesced display window lingers.
+	m.data.workerSpinnerIdx = 0
+	if time.Now().Before(m.data.workerSpinnerVisibleUntil) {
+		m.data.workerTickArmed = true
+		return m, workerPollTickCmd()
+	}
+	m.data.workerTickArmed = false
 	return m, nil
 }
 

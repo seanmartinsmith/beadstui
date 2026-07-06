@@ -599,6 +599,11 @@ type DataState struct {
 	// it, so rapid refresh cycles show one steady indicator (bt-uq3i3).
 	workerSpinnerVisibleUntil time.Time
 
+	// workerTickArmed tracks whether a workerPollTick chain is currently
+	// scheduled, so RefreshStartedMsg re-arms exactly one chain and the chain
+	// can go dormant while the worker idles (bt-2ubez).
+	workerTickArmed bool
+
 	lastForceRefresh time.Time
 }
 
@@ -1543,6 +1548,7 @@ func (m Model) Init() tea.Cmd {
 	if m.data.backgroundWorker != nil {
 		cmds = append(cmds, StartBackgroundWorkerCmd(m.data.backgroundWorker))
 		cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.data.backgroundWorker))
+		m.data.workerTickArmed = true
 		cmds = append(cmds, workerPollTickCmd())
 	} else if m.data.watcher != nil {
 		cmds = append(cmds, WatchFileCmd(m.data.watcher))
@@ -1610,8 +1616,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m = m.handleStatusClear(msg)
 
 	case statusTickMsg:
-		m, cmd = m.handleStatusTick(msg)
-		cmds = append(cmds, cmd)
+		// Pure timer tick: return directly, skipping the shared list.Update /
+		// delegate tail below (bt-2ubez: at 1300 issues that tail costs ~2.8ms
+		// per message and a timer tick changes nothing the list can see).
+		return m.handleStatusTick(msg)
 
 	case SemanticIndexReadyMsg:
 		var done bool
@@ -1636,8 +1644,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case workerPollTickMsg:
-		m, cmd = m.handleWorkerPollTick()
-		cmds = append(cmds, cmd)
+		// Pure timer tick: return directly (see statusTickMsg above).
+		return m.handleWorkerPollTick()
 
 	case Phase2ReadyMsg:
 		m, cmd = m.handlePhase2Ready(msg)
@@ -1651,6 +1659,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Only ONE subscriber is active at a time. Each handler MUST re-subscribe
 	// via WaitForBackgroundWorkerMsgCmd or the subscription chain dies silently
 	// and the poll loop, snapshots, and connection status all stop updating.
+
+	case RefreshStartedMsg:
+		return m.handleRefreshStarted(msg)
 
 	case SnapshotReadyMsg:
 		return m.handleSnapshotReady(msg)

@@ -42,6 +42,13 @@ const (
 	WorkerStopped
 )
 
+// RefreshStartedMsg is sent when the worker transitions Idle -> Processing so
+// the UI can re-arm its dormant spinner tick chain (bt-2ubez). Delivered over
+// the worker message channel; its handler must re-subscribe via
+// WaitForBackgroundWorkerMsgCmd like every other worker channel message (see
+// the dispatch comment in model.go).
+type RefreshStartedMsg struct{}
+
 // WorkerLogLevel controls background worker log verbosity.
 type WorkerLogLevel int
 
@@ -362,7 +369,12 @@ func NewBackgroundWorker(cfg WorkerConfig) (*BackgroundWorker, error) {
 		idleGCMinInterval: idleGCConfig.MinInterval,
 		idleGCCheckEvery:  idleGCConfig.CheckEvery,
 		idleGCGCPercent:   idleGCConfig.GCPercent,
-		idleGCFunc:        runtime.GC,
+		// debug.FreeOSMemory, not runtime.GC: a plain GC lowers live heap but
+		// never returns idle pages to the OS, so hours of refresh churn ratchet
+		// the working set permanently (bt-2ubez: ~40MB idle-not-released at
+		// 1300 issues in the soak harness; ~700MB observed on a busy day).
+		// FreeOSMemory forces the scavenger to hand pages back while idle.
+		idleGCFunc:        debug.FreeOSMemory,
 		doltReconnectFn:   cfg.DoltReconnectFn,
 	}
 	w.lastActivityUnixNano.Store(time.Now().UnixNano())
@@ -1091,6 +1103,10 @@ func (w *BackgroundWorker) process() {
 	})
 	w.mu.Unlock()
 
+	// Tell the UI processing began so the dormant spinner tick chain can
+	// re-arm (bt-2ubez). Non-blocking drop-oldest send.
+	w.send(RefreshStartedMsg{})
+
 	processStart := time.Now()
 	queueDepth := w.pendingChanges.Swap(0)
 	w.metrics.lastQueueDepth.Store(queueDepth)
@@ -1349,7 +1365,7 @@ func (w *BackgroundWorker) maybeIdleGC(now time.Time) {
 
 	gcFunc := w.idleGCFunc
 	if gcFunc == nil {
-		gcFunc = runtime.GC
+		gcFunc = debug.FreeOSMemory
 	}
 	start := time.Now()
 	gcFunc()

@@ -450,6 +450,24 @@ func (m Model) handleDataSourceReload(msg DataSourceReloadMsg) (Model, tea.Cmd) 
 	return m, tea.Batch(cmds...)
 }
 
+// handleRefreshStarted re-arms the worker spinner tick chain when the worker
+// begins processing a refresh. The 120ms workerPollTick chain goes dormant
+// while the worker idles (bt-2ubez); this message restarts it so the spinner
+// still appears for refreshes that cross workerSpinnerFlashThreshold.
+func (m Model) handleRefreshStarted(_ RefreshStartedMsg) (Model, tea.Cmd) {
+	var cmds []tea.Cmd
+	if m.data.backgroundWorker != nil {
+		// Worker channel message: MUST re-subscribe or the subscription chain
+		// dies silently (bt-6l2c).
+		cmds = append(cmds, WaitForBackgroundWorkerMsgCmd(m.data.backgroundWorker))
+	}
+	if !m.data.workerTickArmed {
+		m.data.workerTickArmed = true
+		cmds = append(cmds, workerPollTickCmd())
+	}
+	return m, tea.Batch(cmds...)
+}
+
 // handleDoltVerified processes a successful Dolt poll.
 func (m Model) handleDoltVerified(msg DoltVerifiedMsg) (Model, tea.Cmd) {
 	doltVerifiedStart := time.Now()

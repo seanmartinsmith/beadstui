@@ -301,6 +301,67 @@ func TestWorkerSpinner_CoalescesAcrossRapidCycles(t *testing.T) {
 	}
 }
 
+// TestWorkerPollTick_DormantAndRearm verifies the 120ms tick chain stops
+// rescheduling once the worker is idle and the coalesced display window has
+// elapsed (bt-2ubez: a perpetual idle tick cost ~6.6%/core at 1300 issues),
+// and that RefreshStartedMsg re-arms exactly one chain.
+func TestWorkerPollTick_DormantAndRearm(t *testing.T) {
+	m, w := newBadgeTestModel(t, datasource.SourceTypeEmbeddedDolt)
+
+	// Idle with no display window: the chain must go dormant (no reschedule).
+	forceWorkerIdle(w)
+	m.data.workerSpinnerVisibleUntil = time.Time{}
+	m, cmd := m.handleWorkerPollTick()
+	if cmd != nil {
+		t.Fatal("idle worker outside the display window must not reschedule the tick chain")
+	}
+	if m.data.workerTickArmed {
+		t.Fatal("tick chain should be disarmed when dormant")
+	}
+
+	// Idle but within the display window: keep ticking (coalesced spinner).
+	m.data.workerSpinnerVisibleUntil = time.Now().Add(500 * time.Millisecond)
+	m, cmd = m.handleWorkerPollTick()
+	if cmd == nil {
+		t.Fatal("idle worker inside the display window must keep the tick chain alive")
+	}
+	if !m.data.workerTickArmed {
+		t.Fatal("tick chain should be armed while the display window lingers")
+	}
+
+	// Processing: keep ticking.
+	forceWorkerProcessing(w, workerSpinnerFlashThreshold+50*time.Millisecond)
+	m.data.workerSpinnerVisibleUntil = time.Time{}
+	m, cmd = m.handleWorkerPollTick()
+	if cmd == nil {
+		t.Fatal("processing worker must keep the tick chain alive")
+	}
+
+	// Dormant again, then RefreshStartedMsg re-arms exactly one chain.
+	forceWorkerIdle(w)
+	m.data.workerSpinnerVisibleUntil = time.Time{}
+	m, _ = m.handleWorkerPollTick()
+	if m.data.workerTickArmed {
+		t.Fatal("setup: expected dormant chain")
+	}
+	m, cmd = m.handleRefreshStarted(RefreshStartedMsg{})
+	if cmd == nil {
+		t.Fatal("RefreshStartedMsg must return commands (re-subscribe + tick)")
+	}
+	if !m.data.workerTickArmed {
+		t.Fatal("RefreshStartedMsg must re-arm the tick chain")
+	}
+	// A second RefreshStartedMsg while armed must not double-arm: it still
+	// re-subscribes to the worker channel but the armed flag stays set.
+	m, cmd = m.handleRefreshStarted(RefreshStartedMsg{})
+	if cmd == nil {
+		t.Fatal("RefreshStartedMsg must always re-subscribe to the worker channel")
+	}
+	if !m.data.workerTickArmed {
+		t.Fatal("armed flag must remain set after redundant RefreshStartedMsg")
+	}
+}
+
 func TestFooterData_AlertsBadge(t *testing.T) {
 	fd := FooterData{AlertCount: 3, CriticalCount: 1, WarningCount: 2}
 	out := fd.renderAlertsBadge()
