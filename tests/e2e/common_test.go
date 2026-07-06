@@ -14,6 +14,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/seanmartinsmith/beadstui/pkg/projects"
 )
 
 var btBinaryPath string
@@ -38,6 +40,45 @@ func TestMain(m *testing.M) {
 	}
 	os.Setenv("BT_AGENT_PROMPTS_DIR", promptsTmp)
 
+	// Guard against this package silently stamping real prefixes into the
+	// user's ~/.bt/projects.json (bt-fg7wa). Many e2e tests here `git init`
+	// a fixture directory and then exec the real bt binary against it
+	// (e.g. correlation_e2e_test.go, history_timeline_e2e_test.go,
+	// robot_history_test.go, workflow_e2e_test.go). Every runBTCommand /
+	// exec.Command(bt, ...) call in this package builds cmd.Env from
+	// os.Environ(), so setting BT_PROJECTS_REGISTRY_PATH here (unless the
+	// environment already overrides it) is a single choke point that
+	// isolates every subprocess launch in the suite.
+	//
+	// The snapshot/diff around m.Run() is the automated acceptance check
+	// for bt-fg7wa: if the real registry file exists before the suite and
+	// differs (or newly exists) after, some test in this package reached
+	// the real registry and the suite fails loudly instead of silently
+	// polluting it - this is exactly the live-evidence scenario
+	// (bt-cache-bench.ZCFfBv stamping "bt" into the real registry).
+	realRegistryPath, registryPathErr := projects.DefaultRegistryPath()
+	var registryBefore []byte
+	registryBeforeExisted := false
+	if registryPathErr == nil {
+		if data, err := os.ReadFile(realRegistryPath); err == nil {
+			registryBefore = data
+			registryBeforeExisted = true
+		}
+	}
+
+	registryIsolatedHere := false
+	var registryTmpPath string
+	if os.Getenv("BT_PROJECTS_REGISTRY_PATH") == "" {
+		registryTmp, err := os.MkdirTemp("", "bt-projects-registry-e2e-*")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create isolated registry dir: %v\n", err)
+			os.Exit(1)
+		}
+		registryTmpPath = filepath.Join(registryTmp, "projects.json")
+		os.Setenv("BT_PROJECTS_REGISTRY_PATH", registryTmpPath)
+		registryIsolatedHere = true
+	}
+
 	// Build the binary once for all tests
 	if err := buildBtOnce(); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to build bt binary: %v\n", err)
@@ -51,6 +92,21 @@ func TestMain(m *testing.M) {
 		_ = os.RemoveAll(btBinaryDir)
 	}
 	_ = os.RemoveAll(promptsTmp)
+	if registryIsolatedHere {
+		_ = os.RemoveAll(filepath.Dir(registryTmpPath))
+	}
+
+	if registryPathErr == nil {
+		registryAfter, err := os.ReadFile(realRegistryPath)
+		registryAfterExisted := err == nil
+		if registryBeforeExisted != registryAfterExisted || !bytes.Equal(registryBefore, registryAfter) {
+			fmt.Fprintf(os.Stderr, "FATAL: tests/e2e tests modified the real registry at %s (bt-fg7wa regression guard)\n", realRegistryPath)
+			if code == 0 {
+				code = 1
+			}
+		}
+	}
+
 	os.Exit(code)
 }
 

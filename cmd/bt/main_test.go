@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,8 +12,73 @@ import (
 	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/projects"
 	"github.com/seanmartinsmith/beadstui/pkg/recipe"
 )
+
+// TestMain guards against this package's tests silently stamping real
+// prefixes into the user's ~/.bt/projects.json (bt-fg7wa). cmd/bt is where
+// stampLaunchProjects lives, and many tests here build a temporary bt
+// binary and exec it (main_test.go, main_robot_test.go,
+// robot_all_subcommands_test.go, robot_bql_test.go, etc.) with
+// cmd.Env = append(os.Environ(), ...) - meaning any env var set via
+// os.Setenv before m.Run() is inherited by every spawned subprocess.
+// Setting BT_PROJECTS_REGISTRY_PATH here (if the environment doesn't
+// already override it) is therefore a single choke point that isolates
+// every subprocess launch in the package, not just the in-process calls
+// in projects_stamp_test.go (which already isolate per-test via
+// setIsolatedRegistry/t.Setenv).
+//
+// The snapshot/diff around m.Run() is the automated acceptance check for
+// bt-fg7wa: if the real file exists before the suite and differs (or
+// newly exists) after, something in this package reached the real
+// registry and the suite fails loudly instead of silently polluting it.
+func TestMain(m *testing.M) {
+	realPath, pathErr := projects.DefaultRegistryPath()
+
+	var before []byte
+	beforeExisted := false
+	if pathErr == nil {
+		if data, err := os.ReadFile(realPath); err == nil {
+			before = data
+			beforeExisted = true
+		}
+	}
+
+	isolatedHere := false
+	var tmpPath string
+	if os.Getenv("BT_PROJECTS_REGISTRY_PATH") == "" {
+		tmp, err := os.CreateTemp("", "bt-projects-registry-test-*.json")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "cmd/bt TestMain: failed to create isolated registry temp file: %v\n", err)
+			os.Exit(1)
+		}
+		tmpPath = tmp.Name()
+		_ = tmp.Close()
+		_ = os.Remove(tmpPath) // Save() recreates it fresh; Load() tolerates missing.
+		os.Setenv("BT_PROJECTS_REGISTRY_PATH", tmpPath)
+		isolatedHere = true
+	}
+
+	code := m.Run()
+
+	if isolatedHere {
+		_ = os.Remove(tmpPath)
+	}
+
+	if pathErr == nil {
+		after, err := os.ReadFile(realPath)
+		afterExisted := err == nil
+		if beforeExisted != afterExisted || !bytes.Equal(before, after) {
+			fmt.Fprintf(os.Stderr, "FATAL: cmd/bt tests modified the real registry at %s (bt-fg7wa regression guard)\n", realPath)
+			if code == 0 {
+				code = 1
+			}
+		}
+	}
+
+	os.Exit(code)
+}
 
 func TestFilterByRepo_CaseInsensitiveAndFlexibleSeparators(t *testing.T) {
 	issues := []model.Issue{
