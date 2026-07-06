@@ -125,6 +125,68 @@ func TestEmbedded_LoadsRealProject(t *testing.T) {
 	}
 }
 
+// TestEmbedded_SnapshotCacheNeverStale is the bt-xdah0 staleness-forcing
+// acceptance test, run against a REAL bd binary and a throwaway embedded
+// project in a temp dir outside the repo (initEmbeddedProject uses
+// t.TempDir()). It writes data, observes the manifest hash advance, and
+// asserts the next load reflects the fresh data rather than a cached-stale
+// snapshot from before the write.
+func TestEmbedded_SnapshotCacheNeverStale(t *testing.T) {
+	bdPath := requireEmbeddedIntegration(t)
+	root := initEmbeddedProject(t, bdPath)
+	beadsDir := filepath.Join(root, ".beads")
+
+	runBd(t, bdPath, root, 15*time.Second, "create", "Seed", "-t", "task", "-p", "2")
+
+	src, err := DiscoverSource(DiscoveryOptions{BeadsDir: beadsDir})
+	if err != nil || src.Type != SourceTypeEmbeddedDolt {
+		t.Fatalf("DiscoverSource: type=%q err=%v", src.Type, err)
+	}
+
+	issues1, err := LoadFromSource(src)
+	if err != nil {
+		t.Fatalf("first load: %v", err)
+	}
+	if len(issues1) != 1 {
+		t.Fatalf("first load: got %d issues, want 1 (seed)", len(issues1))
+	}
+
+	key1, ok := computeEmbeddedCacheKey(beadsDir)
+	if !ok {
+		t.Fatal("computeEmbeddedCacheKey: not ok after real bd init + create")
+	}
+
+	// Nothing changed: a second load must still see exactly the seed issue,
+	// whether served from cache or a fresh export.
+	issues2, err := LoadFromSource(src)
+	if err != nil {
+		t.Fatalf("second (unchanged) load: %v", err)
+	}
+	if len(issues2) != 1 {
+		t.Fatalf("second load: got %d issues, want 1", len(issues2))
+	}
+
+	// Force a real data change. `bd create` commits, which rewrites the Dolt
+	// storage manifest - the root hash MUST advance.
+	runBd(t, bdPath, root, 15*time.Second, "create", "Fresh", "-t", "task", "-p", "1")
+
+	key2, ok := computeEmbeddedCacheKey(beadsDir)
+	if !ok {
+		t.Fatal("computeEmbeddedCacheKey: not ok after second create")
+	}
+	if key1.manifestHash == key2.manifestHash {
+		t.Fatal("manifest hash did not change after `bd create` - cache-key precondition is broken, test cannot validate staleness handling")
+	}
+
+	issues3, err := LoadFromSource(src)
+	if err != nil {
+		t.Fatalf("third load: %v", err)
+	}
+	if len(issues3) != 2 {
+		t.Fatalf("third load after bd create: got %d issues, want 2 - cache served stale data across a manifest hash change", len(issues3))
+	}
+}
+
 // TestEmbedded_ConcurrentBdCreateSucceeds is the HARD-CONSTRAINT acceptance
 // test (bt-ij71a / bt-qrt2u): while bt actively reads an embedded project,
 // a concurrent `bd create` in another process MUST succeed and MUST NOT hang.
