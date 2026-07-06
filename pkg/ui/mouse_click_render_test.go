@@ -71,7 +71,7 @@ func mouseTestModel(n int, w, h, listW, listH int) Model {
 			Status: model.StatusOpen,
 		})
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width = w
 	m.height = h
 	m.mode = ViewList

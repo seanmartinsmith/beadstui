@@ -42,7 +42,7 @@ func TestFileChangedPreservesTriageData(t *testing.T) {
 	}
 	beadsPath := writeTempBeadsFile(t, t.TempDir(), issue)
 
-	m := NewModel([]model.Issue{issue}, nil, beadsPath, nil)
+	m := NewModel([]model.Issue{issue}, nil, beadsPath, nil, nil)
 	defer m.Stop()
 
 	m.ac.triageScores = map[string]float64{issue.ID: 0.9}
@@ -102,7 +102,7 @@ func TestDataSnapshotPreservesTriageWhenPhase1(t *testing.T) {
 		Priority:  2,
 		IssueType: model.TypeTask,
 	}
-	m := NewModel([]model.Issue{issue}, nil, "", nil)
+	m := NewModel([]model.Issue{issue}, nil, "", nil, nil)
 
 	m.ac.triageScores = map[string]float64{issue.ID: 0.75}
 	m.ac.triageReasons = map[string]analysis.TriageReasons{

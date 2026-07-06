@@ -23,7 +23,7 @@ func TestHandleSnapshotReady_EmitsCreateEvent(t *testing.T) {
 	// Bootstrap a Model with a prior snapshot and feed a new snapshot
 	// that adds one bead. Verify the ring buffer captures a create event.
 	initial := []model.Issue{{ID: "bt-1", Title: "alpha", Status: model.StatusOpen}}
-	m := NewModel(initial, nil, "", nil)
+	m := NewModel(initial, nil, "", nil, nil)
 	m.data.snapshot = mkSnapshot(initial)
 
 	next := []model.Issue{
@@ -45,7 +45,7 @@ func TestHandleSnapshotReady_EmitsCreateEvent(t *testing.T) {
 
 func TestHandleSnapshotReady_SkipsInTimeTravel(t *testing.T) {
 	initial := []model.Issue{{ID: "bt-1", Title: "alpha", Status: model.StatusOpen}}
-	m := NewModel(initial, nil, "", nil)
+	m := NewModel(initial, nil, "", nil, nil)
 	m.data.snapshot = mkSnapshot(initial)
 	m.timeTravelMode = true // active time-travel must suppress emission
 
@@ -65,7 +65,7 @@ func TestHandleSnapshotReady_SkipsInTimeTravel(t *testing.T) {
 func TestHandleSnapshotReady_SkipsOnBootstrap(t *testing.T) {
 	// First snapshot with a nil prior must not emit creates for every
 	// existing bead — that would flood the ring on startup.
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 	m.data.snapshot = nil // bootstrap path
 	m.data.snapshotInitPending = true
 
@@ -99,7 +99,7 @@ func TestHandleSnapshotReady_WorkspaceFilterHonorsSourceRepo(t *testing.T) {
 		ID: "mkt-foo", Title: "alpha", Status: model.StatusOpen,
 		SourceRepo: "marketplace",
 	}}
-	m := NewModel(prior, nil, "", nil)
+	m := NewModel(prior, nil, "", nil, nil)
 	m.workspaceMode = true
 	m.activeRepos = map[string]bool{"marketplace": true}
 
@@ -139,7 +139,7 @@ func TestHandleSnapshotReady_WorkspaceFilterAlsoRespectsIDPrefix(t *testing.T) {
 		ID: "bt-foo", Title: "alpha", Status: model.StatusOpen,
 		// SourceRepo deliberately empty — exercises the ID-prefix fallback.
 	}}
-	m := NewModel(prior, nil, "", nil)
+	m := NewModel(prior, nil, "", nil, nil)
 	m.workspaceMode = true
 	m.activeRepos = map[string]bool{"bt": true}
 
@@ -176,7 +176,7 @@ func TestVisibleNotifications_HonorsSourceRepo(t *testing.T) {
 		SourceRepo: "marketplace",
 	}}
 
-	m := NewModel(prior, nil, "", nil)
+	m := NewModel(prior, nil, "", nil, nil)
 	m.workspaceMode = true
 	m.activeRepos = map[string]bool{"marketplace": true}
 	m.data.snapshot = mkSnapshot(prior)

@@ -17,7 +17,7 @@ func TestUpdateHelpQuitAndTabFocus(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "1", Title: "One", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 
 	// Make model ready and split view
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
@@ -63,7 +63,7 @@ func TestUpdateHelpQuitAndTabFocus(t *testing.T) {
 }
 
 func TestUpdateMsgSetsUpdateAvailable(t *testing.T) {
-	m := NewModel([]model.Issue{{ID: "1", Title: "One", Status: model.StatusOpen}}, nil, "", nil)
+	m := NewModel([]model.Issue{{ID: "1", Title: "One", Status: model.StatusOpen}}, nil, "", nil, nil)
 	updated, _ := m.Update(UpdateMsg{TagName: "v9.9.9", URL: "https://example"})
 	m = updated.(Model)
 	if !m.updateAvailable || m.updateTag != "v9.9.9" {
@@ -90,7 +90,7 @@ func TestHistoryViewToggle(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "bv-1", Title: "Test Issue", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 
 	// Make model ready
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
@@ -132,7 +132,7 @@ func TestLabelPickerEnterClearsWhenOpenedWithFilter(t *testing.T) {
 		{ID: "bv-1", Title: "One", Status: model.StatusOpen, Labels: []string{"area:tui"}},
 		{ID: "bv-2", Title: "Two", Status: model.StatusOpen, Labels: []string{"area:product"}},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
 	m = updated.(Model)
 
@@ -179,7 +179,7 @@ func TestLabelPickerEnterAppliesCursorWhenColdOpen(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "bv-1", Title: "One", Status: model.StatusOpen, Labels: []string{"area:tui"}},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
 	m = updated.(Model)
 
@@ -217,7 +217,7 @@ func TestHistoryViewTransitionNoLeakage(t *testing.T) {
 		{ID: "dotfiles-d6n", Title: "Some dotfiles work", Status: model.StatusOpen, Priority: 0},
 		{ID: "bv-2", Title: "Other work", Status: model.StatusOpen, Priority: 1},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 180, Height: 50})
 	m = updated.(Model)
@@ -290,7 +290,7 @@ func TestHistoryAsyncDispatch(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "bv-1", Title: "Test", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
 	m = updated.(Model)
@@ -351,7 +351,7 @@ func TestHistoryDoltOnlyShortCircuit(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "bv-1", Title: "Test", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, beadsFile, nil)
+	m := NewModel(issues, nil, beadsFile, nil, nil)
 
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
 	m = updated.(Model)
@@ -413,7 +413,7 @@ func TestHistoryDispatchTarget_CursorDrivenGlobal(t *testing.T) {
 	m := NewModel(issues, nil, "", &datasource.DataSource{
 		Type: datasource.SourceTypeDoltGlobal,
 		Path: "root@tcp(127.0.0.1:9999)/?parseTime=true",
-	})
+	}, nil)
 	// Force a non-beads cwd posture: clear the anchor that detectCurrentProjectDB
 	// would normally populate. This is the Case B condition: cwd is not in a
 	// beads project, so m.currentProjectDB == "".
@@ -454,7 +454,7 @@ func TestHistoryDispatchTarget_GlobalUnknownPrefixFalls(t *testing.T) {
 	m := NewModel(issues, nil, "", &datasource.DataSource{
 		Type: datasource.SourceTypeDoltGlobal,
 		Path: "root@tcp(127.0.0.1:9999)/?parseTime=true",
-	})
+	}, nil)
 	m.currentProjectDB = ""
 
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
@@ -495,7 +495,7 @@ func TestHistoryDispatchTarget_CrossProjectCursor(t *testing.T) {
 	m := NewModel(issues, nil, "", &datasource.DataSource{
 		Type: datasource.SourceTypeDoltGlobal,
 		Path: "root@tcp(127.0.0.1:9999)/?parseTime=true",
-	})
+	}, nil)
 	m.currentProjectDB = ""
 
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
@@ -542,7 +542,7 @@ func TestHistoryDispatchTarget_CursorPrefixFallback(t *testing.T) {
 	m := NewModel(issues, nil, "", &datasource.DataSource{
 		Type: datasource.SourceTypeDoltGlobal,
 		Path: "root@tcp(127.0.0.1:9999)/?parseTime=true",
-	})
+	}, nil)
 	m.currentProjectDB = ""
 
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
@@ -576,7 +576,7 @@ func TestHistoryDispatchTarget_GlobalEnumerationFailure(t *testing.T) {
 	m := NewModel(issues, nil, "", &datasource.DataSource{
 		Type: datasource.SourceTypeDoltGlobal,
 		Path: "root@tcp(127.0.0.1:9999)/?parseTime=true",
-	})
+	}, nil)
 	m.currentProjectDB = "bt"
 
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
@@ -621,7 +621,7 @@ func TestHistorySearchKeyIsolation(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "bv-1", Title: "Test Issue", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
 	m = updated.(Model)
@@ -690,7 +690,7 @@ func TestHistoryViewKeys(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "bv-1", Title: "Test Issue", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 
 	// Make model ready
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})

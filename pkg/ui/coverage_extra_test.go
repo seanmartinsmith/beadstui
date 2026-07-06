@@ -162,7 +162,7 @@ func TestHandleListKeysFiltersAndTimeTravelPrompt(t *testing.T) {
 		{ID: "2", Title: "Two", Status: model.StatusOpen},
 		{ID: "3", Title: "Three", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.height = 30
 	m.width = 80
 	m.focused = focusList
@@ -223,7 +223,7 @@ func TestHandleListKeysSortCycle(t *testing.T) {
 		{ID: "1", Title: "One", Status: model.StatusOpen},
 		{ID: "2", Title: "Two", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.height = 30
 	m.width = 80
 	m.focused = focusList
@@ -273,7 +273,7 @@ func TestHandleListKeysTriageRecipe(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "1", Title: "One", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.height = 30
 	m.width = 80
 	m.focused = focusList
@@ -370,7 +370,7 @@ func TestViewTogglesGraphBoardInsightsActionable(t *testing.T) {
 		{ID: "A", Title: "Alpha", Status: model.StatusOpen},
 		{ID: "B", Title: "Beta", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	// Prime layout so width/height are non-zero
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 140, Height: 30})
 
@@ -422,7 +422,7 @@ func TestHandleGraphBoardActionableKeys(t *testing.T) {
 		{ID: "X", Title: "Cross", Status: model.StatusOpen},
 		{ID: "Y", Title: "Why", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width, m.height = 120, 30
 
 	// Focus graph and exercise navigation + enter selection logic
@@ -472,7 +472,7 @@ func TestHandleRecipePickerAndInsightsKeys(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "1", Title: "One", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width, m.height = 100, 20
 
 	// Seed insights with a selected item
@@ -527,7 +527,7 @@ func TestWaitForPhase2CmdCompletes(t *testing.T) {
 }
 
 func TestDiffStatusAndExitTimeTravel(t *testing.T) {
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 	m.timeTravelMode = true
 	m.newIssueIDs = map[string]bool{"N": true}
 	m.closedIssueIDs = map[string]bool{"C": true}
@@ -557,7 +557,7 @@ func TestDiffStatusAndExitTimeTravel(t *testing.T) {
 }
 
 func TestRenderFooterStatusAndBadges(t *testing.T) {
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 	m.width = 200 // wide enough to avoid width-based badge dropping (bt-m9te)
 
 	// status message branch
@@ -588,7 +588,7 @@ func TestRenderFooterStatusAndBadges(t *testing.T) {
 }
 
 func TestRenderFooter_FreshnessIndicatorLevels(t *testing.T) {
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 	m.width = 140
 	m.filter.currentFilter = "all"
 
@@ -628,7 +628,7 @@ func TestRenderFooter_FreshnessIndicatorLevels(t *testing.T) {
 }
 
 func TestRenderFooter_DoltVerifiedPreventsStale(t *testing.T) {
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 	m.width = 140
 	m.filter.currentFilter = "all"
 
@@ -667,7 +667,7 @@ func TestView_LoadingScreen_TransitionsOnFirstSnapshotOrError(t *testing.T) {
 		CreatedAt: time.Now(),
 	}}
 
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width, m.height = 120, 30
 	m.data.backgroundWorker = &BackgroundWorker{state: WorkerProcessing}
 	m.data.snapshot = nil
@@ -695,7 +695,7 @@ func TestView_LoadingScreen_TransitionsOnFirstSnapshotOrError(t *testing.T) {
 }
 
 func TestRenderFooter_ShowsPhase2ProgressBadge(t *testing.T) {
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 	m.width = 200 // wide enough to avoid width-based badge dropping (bt-m9te)
 	m.data.snapshot = &DataSnapshot{Phase2Ready: false}
 
@@ -706,7 +706,7 @@ func TestRenderFooter_ShowsPhase2ProgressBadge(t *testing.T) {
 }
 
 func TestRenderFooter_ShowsWorkerHealthIndicators(t *testing.T) {
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 	m.width = 140
 	m.filter.currentFilter = "all"
 	m.data.snapshot = &DataSnapshot{CreatedAt: time.Now()}
@@ -749,7 +749,7 @@ func TestExportToMarkdownSmoke(t *testing.T) {
 		IssueType: model.TypeTask,
 		CreatedAt: time.Now(),
 	}}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.exportToMarkdown()
 
 	files, _ := os.ReadDir(".")
@@ -777,7 +777,7 @@ func TestGraphConnectorDown(t *testing.T) {
 }
 
 func TestCopyIssueToClipboardNoSelection(t *testing.T) {
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 	m.copyIssueToClipboard()
 	if m.statusSeverity < SeverityNotice || !strings.Contains(m.statusMsg, "No issue selected") {
 		t.Fatalf("expected notice status for missing selection")
@@ -796,7 +796,7 @@ func TestOpenInEditorTerminalEditorGuard(t *testing.T) {
 	defer os.Setenv("EDITOR", origEditor)
 	_ = os.Setenv("EDITOR", "vim") // triggers terminal-editor guard, no exec
 
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 	m.openInEditor()
 	if m.statusSeverity < SeverityFailure || !strings.Contains(m.statusMsg, "terminal editor") {
 		t.Fatalf("expected terminal editor warning, got %q", m.statusMsg)
@@ -823,7 +823,7 @@ func TestOpenInEditorWithArguments(t *testing.T) {
 	// Using "true --" simulates EDITOR with arguments like "cursor -w"
 	_ = os.Setenv("EDITOR", "true --")
 
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 	m.openInEditor()
 	// Should succeed - the shell should parse "true --" correctly
 	if m.statusSeverity >= SeverityFailure {
@@ -835,7 +835,7 @@ func TestOpenInEditorWithArguments(t *testing.T) {
 
 	// Also test terminal editor detection with arguments (e.g., "vim -u NONE")
 	_ = os.Setenv("EDITOR", "vim -u NONE")
-	m2 := NewModel(nil, nil, "", nil)
+	m2 := NewModel(nil, nil, "", nil, nil)
 	m2.openInEditor()
 	if m2.statusSeverity < SeverityFailure || !strings.Contains(m2.statusMsg, "terminal editor") {
 		t.Fatalf("expected terminal editor warning for 'vim -u NONE', got %q", m2.statusMsg)
@@ -848,7 +848,7 @@ func TestGraphPageDownEmpty(t *testing.T) {
 }
 
 func TestRenderFooterErrorStatus(t *testing.T) {
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 	m.width = 40
 	m.statusMsg = "boom"
 	m.statusSeverity = SeverityFailure
@@ -881,7 +881,7 @@ func TestRenderFooter_CombinedIndicators(t *testing.T) {
 	}
 	t.Cleanup(func() { w.Stop() })
 
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 	m.width = 300 // wide enough to avoid width-based badge dropping (bt-m9te);
 	// bumped from 200 in bt-ift6.2 because ListNormalKeys.ShortHelp() expanded the
 	// L1 hint chain (~80 chars), squeezing tier-1 badges (phase2 "metrics", watcher
@@ -913,7 +913,7 @@ func TestRenderSplitAndListViews(t *testing.T) {
 		{ID: "1", Title: "Alpha", Status: model.StatusOpen},
 		{ID: "2", Title: "Beta", Status: model.StatusClosed},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 
 	// Prime layout into split view
 	modelAny, _ := m.Update(tea.WindowSizeMsg{Width: 180, Height: 40})
@@ -937,7 +937,7 @@ func TestRenderSplitAndListViews(t *testing.T) {
 }
 
 func TestInitAndStopNoWatcher(t *testing.T) {
-	m := NewModel([]model.Issue{{ID: "1", Title: "x", Status: model.StatusOpen}}, nil, "", nil)
+	m := NewModel([]model.Issue{{ID: "1", Title: "x", Status: model.StatusOpen}}, nil, "", nil, nil)
 	if cmd := m.Init(); cmd == nil {
 		t.Fatalf("Init should return a command batch")
 	}
@@ -962,7 +962,7 @@ func TestInitAndStopNoWatcher(t *testing.T) {
 
 func TestBoardAndInsightsExtraKeys(t *testing.T) {
 	issues := []model.Issue{{ID: "1", Title: "One", Status: model.StatusOpen}}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width, m.height = 120, 30
 
 	// Board page up/down coverage
@@ -1008,7 +1008,7 @@ func TestOpenInEditorMissingAndGUI(t *testing.T) {
 	t.Cleanup(func() { _ = os.Chdir(origWD) })
 	_ = os.Chdir(tmp)
 
-	m := NewModel([]model.Issue{{ID: "1", Title: "x", Status: model.StatusOpen}}, nil, "", nil)
+	m := NewModel([]model.Issue{{ID: "1", Title: "x", Status: model.StatusOpen}}, nil, "", nil, nil)
 	m.openInEditor()
 	if m.statusSeverity < SeverityFailure || !strings.Contains(m.statusMsg, "No .beads") {
 		t.Fatalf("expected missing beads error, got %q", m.statusMsg)
@@ -1036,7 +1036,7 @@ func TestExportToMarkdownCreatesFile(t *testing.T) {
 	_ = os.Chdir(tmp)
 
 	issues := []model.Issue{{ID: "1", Title: "Alpha", Status: model.StatusOpen}}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	filename := m.generateExportFilename()
 
 	m.exportToMarkdown()
@@ -1085,7 +1085,7 @@ func TestRenderFooterVariantsAndDiffStatus(t *testing.T) {
 		{ID: "1", Title: "One", Status: model.StatusOpen},
 		{ID: "2", Title: "Two", Status: model.StatusClosed},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width = 200 // wide enough to avoid width-based badge dropping (bt-m9te)
 	m.height = 20
 	m.ready = true
@@ -1171,7 +1171,7 @@ func TestGraphRenderBlocksAndDependents(t *testing.T) {
 
 func TestViewVariantsCoverBranches(t *testing.T) {
 	issues := []model.Issue{{ID: "1", Title: "One", Status: model.StatusOpen}}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.ready = true
 	m.width, m.height = 120, 30
 
@@ -1221,7 +1221,7 @@ func TestUpdateMouseAndResize(t *testing.T) {
 		{ID: "1", Title: "One", Status: model.StatusOpen},
 		{ID: "2", Title: "Two", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 
 	// Window size
 	_, _ = m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
@@ -1248,7 +1248,7 @@ func TestOverlaysAndWorkspaceHelpers(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "W-1", Title: "Workspace", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	if updated, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 30}); updated != nil {
 		m = updated.(Model)
 	}
@@ -1302,7 +1302,7 @@ func TestGraphIconsAndTruncation(t *testing.T) {
 
 func TestHelpOverlayScroll(t *testing.T) {
 	issues := []model.Issue{{ID: "1", Title: "One", Status: model.StatusOpen}}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width, m.height = 80, 20 // Small terminal to force scroll
 	m.openModal(ModalHelp)
 	m.focused = focusHelp
@@ -1414,7 +1414,7 @@ func TestRenderHelpOverlay_ResponsiveLayout(t *testing.T) {
 
 	for _, tc := range widths {
 		t.Run(tc.name, func(t *testing.T) {
-			m := NewModel(nil, nil, "", nil)
+			m := NewModel(nil, nil, "", nil, nil)
 			m.width = tc.width
 			m.height = 40
 			m.openModal(ModalHelp)
@@ -1432,7 +1432,7 @@ func TestRenderHelpOverlay_ResponsiveLayout(t *testing.T) {
 // (ListNormal's "epic card" / "cycle sort") do not. Source is still the key.Map
 // FullHelp(), never literal tables.
 func TestHelpOverlay_ConsumesKeyMapBindings(t *testing.T) {
-	m := NewModel(harnessIssues(), nil, "", nil)
+	m := NewModel(harnessIssues(), nil, "", nil, nil)
 	m.mode = ViewList // a populated view, to prove its keys are still excluded
 	m.width, m.height = 180, 60
 	m.openModal(ModalHelp)
@@ -1476,7 +1476,7 @@ func TestHelpOverlayColumns(t *testing.T) {
 // the render surface is now the mini, not the full sheet. The "scrolling changes
 // the render" premise no longer applies to this size class.
 func TestHelpOverlayScroll_WindowsContent(t *testing.T) {
-	m := NewModel(harnessIssues(), nil, "", nil)
+	m := NewModel(harnessIssues(), nil, "", nil, nil)
 	m.width, m.height = 60, 16 // narrow + short -> 1 column, overflows -> mini tier
 	m.openModal(ModalHelp)
 	m.focused = focusHelp
@@ -1512,7 +1512,7 @@ func TestHelpOverlayScroll_WindowsContent(t *testing.T) {
 // TestHelpOverlay_CrossRefFooter verifies the ? overlay footer carries the
 // one-line cross-reference to the ; sidebar plus a close hint (bt-dx7k).
 func TestHelpOverlay_CrossRefFooter(t *testing.T) {
-	m := NewModel(harnessIssues(), nil, "", nil)
+	m := NewModel(harnessIssues(), nil, "", nil, nil)
 	m.width, m.height = 120, 40
 	m.openModal(ModalHelp)
 	m.focused = focusHelp
@@ -1532,7 +1532,7 @@ func TestHelpOverlay_CrossRefFooter(t *testing.T) {
 // "label" matches the LabelPicker desc "label picker"; the task spec used "labels"
 // as a shorthand for the label-entry slot.
 func TestHelpOverlayMini_ShownWhenShort(t *testing.T) {
-	m := NewModel(harnessIssues(), nil, "", nil)
+	m := NewModel(harnessIssues(), nil, "", nil, nil)
 	m.width, m.height = 80, 12
 	m.openModal(ModalHelp)
 	m.focused = focusHelp
@@ -1562,7 +1562,7 @@ func TestHelpOverlayMini_ShownWhenShort(t *testing.T) {
 // TestHelpOverlayMini_HiddenWhenTall verifies the full sheet renders (not the
 // mini) when the terminal is tall enough for the full body (bt-dx7k.1 Task 2).
 func TestHelpOverlayMini_HiddenWhenTall(t *testing.T) {
-	m := NewModel(harnessIssues(), nil, "", nil)
+	m := NewModel(harnessIssues(), nil, "", nil, nil)
 	m.width, m.height = 120, 40
 	m.openModal(ModalHelp)
 	m.focused = focusHelp
@@ -1585,7 +1585,7 @@ func TestHelpOverlayMini_HiddenWhenTall(t *testing.T) {
 // it with its own full-screen page (bt-dx7k.1 dogfood). Driven through View() so
 // the OverlayCenterDimBackdrop compositing path is exercised.
 func TestHelpOverlay_FloatsOverDimmedBackground(t *testing.T) {
-	m := NewModel(harnessIssues(), nil, "", nil)
+	m := NewModel(harnessIssues(), nil, "", nil, nil)
 	nm, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 44})
 	m = nm.(Model)
 	m.openModal(ModalHelp)
@@ -1630,7 +1630,7 @@ func TestHelpOverlay_FloatsOverDimmedBackground(t *testing.T) {
 // full sheet uses fewer, wider columns so long descriptions are not truncated
 // (bt-dx7k.1 dogfood). At 120x44 the longest desc renders in full.
 func TestHelpOverlay_FewerColumnsWhenTall(t *testing.T) {
-	m := NewModel(harnessIssues(), nil, "", nil)
+	m := NewModel(harnessIssues(), nil, "", nil, nil)
 	m.width, m.height = 120, 44
 	m.openModal(ModalHelp)
 	m.focused = focusHelp
@@ -1648,7 +1648,7 @@ func TestHelpOverlay_FewerColumnsWhenTall(t *testing.T) {
 // TestHelpMini_ProjectsGate verifies ProjectsOrWisps appears in helpMiniRows
 // only when m.workspaceMode is true (bt-dx7k.1 Task 3).
 func TestHelpMini_ProjectsGate(t *testing.T) {
-	m := NewModel(harnessIssues(), nil, "", nil)
+	m := NewModel(harnessIssues(), nil, "", nil, nil)
 	m.width, m.height = 80, 30
 
 	// Single-project: workspaceMode off — "projects / wisps" must be absent.
@@ -1681,7 +1681,7 @@ func TestHelpMini_ProjectsGate(t *testing.T) {
 // descs must be present, and the box title "shortcuts" must appear exactly once
 // (proving one box, not four).
 func TestHelpOverlay_SingleBoxAesthetic(t *testing.T) {
-	m := NewModel(harnessIssues(), nil, "", nil)
+	m := NewModel(harnessIssues(), nil, "", nil, nil)
 	m.width, m.height = 120, 40
 	m.openModal(ModalHelp)
 	m.focused = focusHelp

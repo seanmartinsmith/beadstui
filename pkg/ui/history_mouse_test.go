@@ -213,7 +213,7 @@ func TestHistoryMouseClickRoutesToHistoryView(t *testing.T) {
 	issues := []model.Issue{
 		{ID: "bv-1", Title: "Test", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 180, Height: 50})
 	m = updated.(Model)
 
@@ -248,7 +248,7 @@ func TestHistoryMouseClickRoutesToHistoryView(t *testing.T) {
 // mode) must move the commit cursor; wheel-on-list moves the bead cursor.
 func TestHistoryMouseWheelRoutesPerPane(t *testing.T) {
 	issues := []model.Issue{{ID: "bv-1", Title: "Test", Status: model.StatusOpen}}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 180, Height: 50})
 	m = updated.(Model)
 

@@ -14,7 +14,7 @@ import (
 // exercise Phase2Ready and FileChanged branches of Update for coverage.
 func TestModelUpdatePhase2AndFileChanged(t *testing.T) {
 	issues := []model.Issue{{ID: "A", Title: "Alpha", Status: model.StatusOpen}}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width, m.height = 120, 40
 
 	// Phase2ReadyMsg should rebuild insights/graph without error
@@ -41,7 +41,7 @@ func (badItem) Description() string { return "bad" }
 func (badItem) FilterValue() string { return "bad" }
 
 func TestCopyIssueToClipboardInvalidItem(t *testing.T) {
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 	m.list.SetItems([]list.Item{badItem{}})
 	m.list.Select(0)
 	m.copyIssueToClipboard()
@@ -56,7 +56,7 @@ func TestEnterTimeTravelModeGracefulFailure(t *testing.T) {
 	defer os.Chdir(orig)
 	_ = os.Chdir(tmp)
 
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 	m.enterTimeTravelMode("HEAD")
 	if m.statusSeverity < SeverityFailure {
 		t.Fatalf("expected error when not in git repo")
@@ -97,7 +97,7 @@ func TestUpdateFileChangedReloadsSelection(t *testing.T) {
 	if err := os.WriteFile(beads, []byte(data), 0644); err != nil {
 		t.Fatalf("write beads: %v", err)
 	}
-	m := NewModel(nil, nil, beads, nil)
+	m := NewModel(nil, nil, beads, nil, nil)
 	defer m.Stop()
 	m.list.SetItems([]list.Item{IssueItem{Issue: model.Issue{ID: "ONE", Title: "One", Status: model.StatusOpen}}})
 	m.list.Select(0)
@@ -117,7 +117,7 @@ func TestNewModel_SetsTreeBeadsDirFromBeadsPath(t *testing.T) {
 		t.Fatalf("write beads: %v", err)
 	}
 
-	m := NewModel(nil, nil, beads, nil)
+	m := NewModel(nil, nil, beads, nil, nil)
 	defer m.Stop()
 
 	if got, want := m.tree.beadsDir, filepath.Dir(beads); got != want {
@@ -131,7 +131,7 @@ func TestNewModel_SetsTreeBeadsDirFromBeadsPath(t *testing.T) {
 // settled messages are no-ops.
 func TestResizeDebounce_StaleSettleMsgIgnored(t *testing.T) {
 	issues := []model.Issue{{ID: "bt-1", Title: "Resize Test", Status: model.StatusOpen}}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 
 	// Send a burst of 3 WindowSizeMsgs with increasing widths.
 	const (
@@ -183,7 +183,7 @@ func TestResizeDebounce_StaleSettleMsgIgnored(t *testing.T) {
 // originally filed as bt-jqst3).
 func TestResizeDebounce_InsightsDeferredToSettle(t *testing.T) {
 	issues := []model.Issue{{ID: "bt-1", Title: "Resize Test", Status: model.StatusOpen}}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 
 	// Send a burst of WindowSizeMsgs. The insights panel's width must NOT
 	// advance during the burst -- it is only updated when the gen-current
@@ -219,7 +219,7 @@ func TestResizeDebounce_InsightsDeferredToSettle(t *testing.T) {
 // waiting for the settle tick (bt-kfkrb). Existing chrome-layout tests rely
 // on this; only the renderer rebuild + viewport content is deferred.
 func TestResizeDebounce_Phase1LayoutSync(t *testing.T) {
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 
 	// Below SplitViewThreshold -- list should consume full body width.
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})

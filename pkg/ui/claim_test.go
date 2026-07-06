@@ -19,21 +19,31 @@ import (
 	"github.com/charmbracelet/x/exp/teatest/v2"
 
 	"github.com/seanmartinsmith/beadstui/internal/bdexec"
+	"github.com/seanmartinsmith/beadstui/internal/bdroute"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 func claimTestIssues() []model.Issue {
-	// Synthetic "zz" prefix so resolveClaimDir's registry lookup never resolves
-	// to a real project; the executor is stubbed regardless.
+	// Synthetic "zz" prefix; the executor is stubbed regardless of routing.
 	return []model.Issue{
 		{ID: "zz-target", Title: "Claim target bead", Status: model.StatusOpen, Priority: 0},
 		{ID: "zz-other", Title: "Another open bead", Status: model.StatusOpen, Priority: 1},
 	}
 }
 
+// newSizedModel builds a sized Model with a working single-project route
+// table (bt-scc35): every issue ID resolves to the same tempdir, regardless
+// of prefix, so pre-bt-scc35 tests that don't care about routing keep working
+// unchanged. Tests that DO care about routing (refusal, workspace/global
+// mapping) use newSizedModelWithRoute directly.
 func newSizedModel(t *testing.T, issues []model.Issue, w, h int) Model {
 	t.Helper()
-	m := NewModel(issues, nil, "", nil)
+	return newSizedModelWithRoute(t, issues, w, h, bdroute.SingleProject(t.TempDir()))
+}
+
+func newSizedModelWithRoute(t *testing.T, issues []model.Issue, w, h int, table *bdroute.Table) Model {
+	t.Helper()
+	m := NewModel(issues, nil, "", nil, table)
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: h})
 	return updated.(Model)
 }
@@ -52,9 +62,25 @@ func stubClaimRunner(t *testing.T, res bdexec.Result) *[]string {
 	return &got
 }
 
+// stubClaimRunnerCapturingDir is stubClaimRunner plus capturing the dir
+// argument, so a WriteTarget.Global branch (which passes "" instead of a
+// checkout path) can be asserted directly.
+func stubClaimRunnerCapturingDir(t *testing.T, res bdexec.Result, gotDir *string) *[]string {
+	t.Helper()
+	var got []string
+	orig := claimRunner
+	claimRunner = func(ctx context.Context, dir string, args ...string) bdexec.Result {
+		*gotDir = dir
+		got = append([]string{}, args...)
+		return res
+	}
+	t.Cleanup(func() { claimRunner = orig })
+	return &got
+}
+
 func TestClaimCmd_BuildsClaimArgv(t *testing.T) {
 	got := stubClaimRunner(t, bdexec.Result{ExitCode: 0})
-	msg := claimCmd("some/dir", "zz-target")()
+	msg := claimCmd(bdroute.WriteTarget{Dir: "some/dir"}, "zz-target")()
 	res, ok := msg.(claimResultMsg)
 	if !ok {
 		t.Fatalf("claimCmd msg type = %T, want claimResultMsg", msg)
@@ -65,6 +91,27 @@ func TestClaimCmd_BuildsClaimArgv(t *testing.T) {
 	want := []string{"update", "zz-target", "--claim"}
 	if !slices.Equal(*got, want) {
 		t.Errorf("claim argv = %v, want %v", *got, want)
+	}
+}
+
+// TestClaimCmd_GlobalTargetAppendsFlag verifies the WriteTarget.Global branch
+// (bt-scc35 follow-up wiring): claimCmd appends --global and runs with no
+// checkout directory, rather than requiring Dir. Resolve does not produce a
+// Global target yet (beads_global is refused pre-flight), so this exercises
+// the claimCmd branch directly via the executor stub.
+func TestClaimCmd_GlobalTargetAppendsFlag(t *testing.T) {
+	var gotDir string
+	got := stubClaimRunnerCapturingDir(t, bdexec.Result{ExitCode: 0}, &gotDir)
+	msg := claimCmd(bdroute.WriteTarget{Global: true}, "zz-target")()
+	if _, ok := msg.(claimResultMsg); !ok {
+		t.Fatalf("claimCmd msg type = %T, want claimResultMsg", msg)
+	}
+	want := []string{"update", "zz-target", "--claim", "--global"}
+	if !slices.Equal(*got, want) {
+		t.Errorf("claim argv = %v, want %v", *got, want)
+	}
+	if gotDir != "" {
+		t.Errorf("global target dir = %q, want empty (no checkout needed)", gotDir)
 	}
 }
 
@@ -224,7 +271,7 @@ func TestClaimKeypath_Teatest(t *testing.T) {
 	}
 	t.Cleanup(func() { claimRunner = orig })
 
-	m := NewModel(claimTestIssues(), nil, "", nil)
+	m := NewModel(claimTestIssues(), nil, "", nil, bdroute.SingleProject(t.TempDir()))
 	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(120, 32))
 
 	teatest.WaitFor(t, tm.Output(), func(b []byte) bool {
@@ -252,4 +299,59 @@ func TestClaimKeypath_Teatest(t *testing.T) {
 
 	tm.Quit()
 	tm.WaitFinished(t, teatest.WithFinalTimeout(15*time.Second))
+}
+
+// TestClaimKeypath_RefusalTeatest drives the same real event loop as
+// TestClaimKeypath_Teatest, but with a route table that cannot map the
+// selected bead (an empty workspace mapping). Resolve must refuse BEFORE any
+// bd invocation (bt-scc35): the executor stub records zero invocations, and
+// the refusal surfaces as a failure toast rather than a pending row.
+func TestClaimKeypath_RefusalTeatest(t *testing.T) {
+	invoked := make(chan []string, 1)
+	orig := claimRunner
+	claimRunner = func(ctx context.Context, dir string, args ...string) bdexec.Result {
+		invoked <- append([]string{}, args...)
+		return bdexec.Result{Args: append([]string{"bd"}, args...), ExitCode: 0}
+	}
+	t.Cleanup(func() { claimRunner = orig })
+
+	// An empty workspace table maps no prefixes at all - any claim in this
+	// model is unmappable.
+	m := NewModel(claimTestIssues(), nil, "", nil, bdroute.FromWorkspace(nil))
+	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(120, 32))
+
+	teatest.WaitFor(t, tm.Output(), func(b []byte) bool {
+		return bytes.Contains(b, []byte("zz-target"))
+	}, teatest.WithDuration(8*time.Second))
+
+	tm.Send(tea.KeyPressMsg{Code: 'm', Text: "m"})
+	teatest.WaitFor(t, tm.Output(), func(b []byte) bool {
+		return bytes.Contains(b, []byte("Claim?"))
+	}, teatest.WithDuration(5*time.Second))
+
+	tm.Send(tea.KeyPressMsg{Code: 'y', Text: "y"})
+
+	tm.Quit()
+	final := tm.FinalModel(t, teatest.WithFinalTimeout(15*time.Second))
+	fm, ok := final.(Model)
+	if !ok {
+		t.Fatalf("final model type = %T, want Model", final)
+	}
+
+	if fm.pendingClaims["zz-target"] {
+		t.Error("a refused claim must never enter the pending state")
+	}
+	if fm.statusSeverity != SeverityFailure {
+		t.Errorf("statusSeverity = %v, want SeverityFailure", fm.statusSeverity)
+	}
+	if !strings.Contains(fm.statusMsg, "no workspace mapping") {
+		t.Errorf("refusal toast = %q, want it to name the missing workspace mapping", fm.statusMsg)
+	}
+
+	select {
+	case args := <-invoked:
+		t.Fatalf("claim executor was invoked despite a pre-flight refusal; argv=%v", args)
+	default:
+		// Expected: zero invocations.
+	}
 }

@@ -30,7 +30,7 @@ func TestViewSwitchKeysToggleBack(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			m := NewModel(issues, nil, "", nil)
+			m := NewModel(issues, nil, "", nil, nil)
 			updated, _ := m.Update(tea.WindowSizeMsg{Width: 180, Height: 50})
 			m = updated.(Model)
 

@@ -12,7 +12,7 @@ import (
 )
 
 func TestHandleMouseClick_NoModalRequired(t *testing.T) {
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 	m.width = 200
 	m.height = 40
 	m.activeModal = ModalHelp
@@ -24,7 +24,7 @@ func TestHandleMouseClick_NoModalRequired(t *testing.T) {
 }
 
 func TestHandleMouseClick_SplitViewSwitchesFocus(t *testing.T) {
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 	m.width = 200
 	m.height = 40
 	m.mode = ViewList
@@ -50,7 +50,7 @@ func TestHandleMouseClick_SplitViewSwitchesFocus(t *testing.T) {
 }
 
 func TestHandleMouseClick_RightButtonIgnored(t *testing.T) {
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 	m.width = 200
 	m.height = 40
 	m.mode = ViewList
@@ -65,7 +65,7 @@ func TestHandleMouseClick_RightButtonIgnored(t *testing.T) {
 }
 
 func TestHandleMouseClick_FooterIgnored(t *testing.T) {
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 	m.width = 200
 	m.height = 40
 	m.mode = ViewList
@@ -81,7 +81,7 @@ func TestHandleMouseClick_FooterIgnored(t *testing.T) {
 }
 
 func TestHandleMouseClick_NonListModeIgnored(t *testing.T) {
-	m := NewModel(nil, nil, "", nil)
+	m := NewModel(nil, nil, "", nil, nil)
 	m.width = 200
 	m.height = 40
 	m.mode = ViewBoard // not ViewList
@@ -112,7 +112,7 @@ func TestHandleMouseClick_RowMathMatchesChrome(t *testing.T) {
 		{ID: "bd-cgh", Title: "epic: docs", Status: model.StatusOpen},
 		{ID: "cass-z95i", Title: "[epic] Build order", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width = 200
 	m.height = 40
 	m.mode = ViewList
@@ -157,7 +157,7 @@ func TestHandleMouseClick_BelowLastVisibleRow_NoSelectionChange(t *testing.T) {
 		{ID: "bd-cgh", Title: "second", Status: model.StatusOpen},
 		{ID: "cass-z95i", Title: "third", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width = 200
 	m.height = 40
 	m.mode = ViewList
@@ -199,7 +199,7 @@ func TestHandleMouseClick_BelowLastRenderedRow_Unfiltered_NoPageJump(t *testing.
 			Status: model.StatusOpen,
 		})
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width = 200
 	m.height = 40
 	m.mode = ViewList
@@ -264,7 +264,7 @@ func TestHandleMouseClick_SearchRowReopensFilter(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			m := NewModel(issues, nil, "", nil)
+			m := NewModel(issues, nil, "", nil, nil)
 			m.width = 200
 			m.height = 40
 			m.mode = ViewList
@@ -300,7 +300,7 @@ func TestHandleMouseClick_DetailFocusCommitsFilter(t *testing.T) {
 		{ID: "bd-cc0", Title: "first", Status: model.StatusOpen},
 		{ID: "bd-cgh", Title: "second", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width = 200
 	m.height = 40
 	m.mode = ViewList
@@ -342,7 +342,7 @@ func TestCommitFilterIfTyping_EmptyResetsFilter(t *testing.T) {
 		{ID: "bd-cc0", Title: "first", Status: model.StatusOpen},
 		{ID: "bd-cgh", Title: "second", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width = 200
 	m.height = 40
 	m.mode = ViewList
@@ -385,7 +385,7 @@ func TestSplitViewChromeHeight_StableAcrossFilterStates(t *testing.T) {
 		{ID: "bd-cgh", Title: "second", Status: model.StatusOpen},
 		{ID: "cass-z95i", Title: "third", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width = 200
 	m.height = 40
 	m.mode = ViewList
@@ -433,7 +433,7 @@ func TestRenderSearchRow_AlwaysOneRow(t *testing.T) {
 		{ID: "bd-cc0", Title: "first", Status: model.StatusOpen},
 		{ID: "bd-cgh", Title: "second", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width = 200
 	m.height = 40
 	m.mode = ViewList
@@ -491,7 +491,7 @@ func TestRenderSearchRow_ClipsToWidth(t *testing.T) {
 		{ID: "bd-cc0", Title: "first", Status: model.StatusOpen},
 		{ID: "bd-cgh", Title: "second", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width = 200
 	m.height = 40
 	m.mode = ViewList
@@ -534,7 +534,7 @@ func TestHandleMouseClick_SearchRowEntry_PreservesVisibleItems(t *testing.T) {
 		{ID: "bd-cgh", Title: "second", Status: model.StatusOpen},
 		{ID: "cass-z95i", Title: "third", Status: model.StatusOpen},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width = 200
 	m.height = 40
 	m.mode = ViewList
@@ -631,7 +631,7 @@ func TestHandleMouseClick_ListPaneClick_CommitsActiveFilter(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			m := NewModel(issues, nil, "", nil)
+			m := NewModel(issues, nil, "", nil, nil)
 			m.width = 200
 			m.height = 40
 			m.mode = ViewList
@@ -676,7 +676,7 @@ func singlePaneTestIssues() []model.Issue {
 // so the first list item is at Y=2 (bt-bxu6u). This is the single-pane analogue
 // of splitViewListChromeHeight's 3 rows.
 func TestHandleMouseClick_SinglePaneChromeHeight(t *testing.T) {
-	m := NewModel(singlePaneTestIssues(), nil, "", nil)
+	m := NewModel(singlePaneTestIssues(), nil, "", nil, nil)
 	m.width = 80
 	m.height = 30
 	m.list.SetSize(m.bodyWidth(), 24)
@@ -690,7 +690,7 @@ func TestHandleMouseClick_SinglePaneChromeHeight(t *testing.T) {
 // line 1, first list item on line 2. If renderListWithHeader's chrome ever
 // shifts, this fails alongside the click math that depends on it (bt-bxu6u).
 func TestSinglePaneListRenderGeometry(t *testing.T) {
-	m := NewModel(singlePaneTestIssues(), nil, "", nil)
+	m := NewModel(singlePaneTestIssues(), nil, "", nil, nil)
 	m.width = 90 // single-pane (< SplitViewThreshold)
 	m.height = 24
 	m.mode = ViewList
@@ -720,7 +720,7 @@ func TestSinglePaneListRenderGeometry(t *testing.T) {
 // detail pane), clicking a list row used to be a dead no-op. It must now select
 // the clicked row, matching split-view behavior.
 func TestHandleMouseClick_SinglePaneNarrowSelectsRow(t *testing.T) {
-	m := NewModel(singlePaneTestIssues(), nil, "", nil)
+	m := NewModel(singlePaneTestIssues(), nil, "", nil, nil)
 	m.width = 80 // below SplitViewThreshold (100): single-pane
 	m.height = 30
 	m.mode = ViewList
@@ -747,7 +747,7 @@ func TestHandleMouseClick_SinglePaneNarrowSelectsRow(t *testing.T) {
 // (full terminal width, details pane intentionally hidden, so isSplitView is
 // false even with room to spare). Clicks must select there too.
 func TestHandleMouseClick_SinglePaneWideMaximizedSelectsRow(t *testing.T) {
-	m := NewModel(singlePaneTestIssues(), nil, "", nil)
+	m := NewModel(singlePaneTestIssues(), nil, "", nil, nil)
 	m.width = 200 // well above SplitViewThreshold, but details hidden
 	m.height = 50
 	m.mode = ViewList
@@ -769,7 +769,7 @@ func TestHandleMouseClick_SinglePaneWideMaximizedSelectsRow(t *testing.T) {
 // single-pane search row (Y=0, no panel top border) reopens the filter input,
 // mirroring the split-view search-row click (which lives at Y=1) (bt-bxu6u).
 func TestHandleMouseClick_SinglePaneSearchRowReopensFilter(t *testing.T) {
-	m := NewModel(singlePaneTestIssues(), nil, "", nil)
+	m := NewModel(singlePaneTestIssues(), nil, "", nil, nil)
 	m.width = 80
 	m.height = 30
 	m.mode = ViewList
@@ -793,7 +793,7 @@ func TestHandleMouseClick_SinglePaneSearchRowReopensFilter(t *testing.T) {
 // single-pane layout is showing the full-screen detail viewport (showDetails,
 // no list rendered), a click does not select a list row (bt-bxu6u).
 func TestHandleMouseClick_SinglePaneShowDetailsNoOp(t *testing.T) {
-	m := NewModel(singlePaneTestIssues(), nil, "", nil)
+	m := NewModel(singlePaneTestIssues(), nil, "", nil, nil)
 	m.width = 80
 	m.height = 30
 	m.mode = ViewList
@@ -813,7 +813,7 @@ func TestHandleMouseClick_SinglePaneShowDetailsNoOp(t *testing.T) {
 // the shortcuts-sidebar columns (X past bodyWidth) do not select a list row in
 // single-pane layout (bt-bxu6u).
 func TestHandleMouseClick_SinglePaneSidebarClickIgnored(t *testing.T) {
-	m := NewModel(singlePaneTestIssues(), nil, "", nil)
+	m := NewModel(singlePaneTestIssues(), nil, "", nil, nil)
 	m.width = 120
 	m.height = 30
 	m.mode = ViewList
@@ -838,7 +838,7 @@ func TestHandleMouseClick_SinglePaneSidebarClickIgnored(t *testing.T) {
 // on the same row within listDoubleClickWindow opens the full-screen detail in
 // single-pane (Enter equivalent); the first click only selects (bt-f3zbz).
 func TestHandleMouseClick_SinglePaneDoubleClickOpensDetail(t *testing.T) {
-	m := NewModel(singlePaneTestIssues(), nil, "", nil)
+	m := NewModel(singlePaneTestIssues(), nil, "", nil, nil)
 	m.width = 80
 	m.height = 30
 	m.mode = ViewList
@@ -870,7 +870,7 @@ func TestHandleMouseClick_SinglePaneDoubleClickOpensDetail(t *testing.T) {
 // TestHandleMouseClick_DoubleClickDifferentRowDoesNotOpen: two clicks on
 // different rows within the window select but do not open (bt-f3zbz).
 func TestHandleMouseClick_DoubleClickDifferentRowDoesNotOpen(t *testing.T) {
-	m := NewModel(singlePaneTestIssues(), nil, "", nil)
+	m := NewModel(singlePaneTestIssues(), nil, "", nil, nil)
 	m.width = 80
 	m.height = 30
 	m.mode = ViewList
@@ -893,7 +893,7 @@ func TestHandleMouseClick_DoubleClickDifferentRowDoesNotOpen(t *testing.T) {
 // the same row after the window has elapsed re-selects but does not open
 // (bt-f3zbz).
 func TestHandleMouseClick_DoubleClickExpiredWindowDoesNotOpen(t *testing.T) {
-	m := NewModel(singlePaneTestIssues(), nil, "", nil)
+	m := NewModel(singlePaneTestIssues(), nil, "", nil, nil)
 	m.width = 80
 	m.height = 30
 	m.mode = ViewList
@@ -916,7 +916,7 @@ func TestHandleMouseClick_DoubleClickExpiredWindowDoesNotOpen(t *testing.T) {
 // detail pane is already visible, so double-click focuses it rather than
 // toggling showDetails (bt-f3zbz).
 func TestHandleMouseClick_SplitViewDoubleClickFocusesDetail(t *testing.T) {
-	m := NewModel(singlePaneTestIssues(), nil, "", nil)
+	m := NewModel(singlePaneTestIssues(), nil, "", nil, nil)
 	m.width = 200
 	m.height = 40
 	m.mode = ViewList
