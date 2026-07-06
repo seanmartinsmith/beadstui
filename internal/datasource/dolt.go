@@ -517,13 +517,25 @@ func (r *DoltReader) GetIssueByID(id string) (*model.Issue, error) {
 // GetLastModified returns the most recent modification time across issues and comments.
 // Comments don't bump issues.updated_at, so we check both tables to detect
 // comment-only changes (bt-ju7o).
+//
+// Mirrors GlobalDoltReader.buildLastModifiedQuery's shape (bt-xcvxv): a plain
+// MAX() over each table, UNION ALL'd together and re-aggregated with an outer
+// MAX. No string-literal sentinels. The prior GREATEST(COALESCE(..., '1970-01-01'), ...)
+// form forced the driver to type the result as VARCHAR ([]uint8), which
+// sql.NullTime cannot Scan even with parseTime=true (that DSN flag only
+// auto-parses columns declared DATE/DATETIME/TIMESTAMP, not a computed VARCHAR
+// expression) - every freshness poll failed, driving server-mode auto-refresh
+// into its exponential backoff ceiling. MAX() over real DATETIME columns keeps
+// the result typed as DATETIME, which parseTime handles. NULL (both tables
+// empty) falls through to the existing zero-time sentinel below.
 func (r *DoltReader) GetLastModified() (time.Time, error) {
 	var modTime sql.NullTime
 	err := r.db.QueryRow(`
-		SELECT GREATEST(
-			COALESCE((SELECT MAX(updated_at) FROM issues), '1970-01-01'),
-			COALESCE((SELECT MAX(created_at) FROM comments), '1970-01-01')
-		)`).Scan(&modTime)
+		SELECT MAX(m) FROM (
+			SELECT MAX(updated_at) AS m FROM issues
+			UNION ALL
+			SELECT MAX(created_at) AS m FROM comments
+		) t`).Scan(&modTime)
 	if err != nil {
 		return time.Time{}, err
 	}
