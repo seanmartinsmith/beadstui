@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/seanmartinsmith/beadstui/internal/bdroute"
 	"github.com/seanmartinsmith/beadstui/internal/datasource"
 	"github.com/seanmartinsmith/beadstui/internal/doltctl"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
@@ -16,6 +17,11 @@ type appContext struct {
 	serverState      *doltctl.ServerState
 	workspaceInfo    *workspace.LoadSummary
 	currentProjectDB string
+
+	// routeTable is the launch-time write-routing table (bt-scc35): resolves
+	// which directory (or --global) a bd claim/write should target, built
+	// once in loadIssues() per launch mode and threaded into ui.NewModel.
+	routeTable *bdroute.Table
 
 	// Resolved state from loading
 	dataHash     string

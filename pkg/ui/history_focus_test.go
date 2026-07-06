@@ -219,7 +219,7 @@ func TestHistoryTabCycleAtModelLevel(t *testing.T) {
 		{ID: "bv-2", Title: "Test 2", Status: model.StatusOpen},
 		{ID: "bv-3", Title: "Test 3", Status: model.StatusInProgress},
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	updated, _ := m.Update(tea.WindowSizeMsg{Width: 180, Height: 50})
 	m = updated.(Model)
 

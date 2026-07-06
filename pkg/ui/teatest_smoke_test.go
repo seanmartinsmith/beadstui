@@ -22,7 +22,7 @@ import (
 
 func TestTeatestSmoke(t *testing.T) {
 	issues := createTestIssues(8)
-	m := ui.NewModel(issues, nil, "", nil)
+	m := ui.NewModel(issues, nil, "", nil, nil)
 
 	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(120, 32))
 

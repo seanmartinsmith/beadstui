@@ -24,7 +24,7 @@ func epicCardFixture() []model.Issue {
 // epicCardModel builds a fully-wired ViewList model with the "all" filter so
 // every child is in the visible list (drill targets resolve).
 func epicCardModel(issues []model.Issue) Model {
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	nm, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 40})
 	m = nm.(Model)
 	m.filter.currentFilter = "all"

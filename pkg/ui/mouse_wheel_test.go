@@ -20,7 +20,7 @@ func wheelTestModel(n int) Model {
 			Status: model.StatusOpen,
 		})
 	}
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	m.width = 80
 	m.height = 30
 	m.mode = ViewList

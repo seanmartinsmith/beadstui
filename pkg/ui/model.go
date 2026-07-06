@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/seanmartinsmith/beadstui/internal/bdroute"
 	"github.com/seanmartinsmith/beadstui/internal/datasource"
 	"github.com/seanmartinsmith/beadstui/pkg/agents"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
@@ -847,6 +848,13 @@ type Model struct {
 	pendingClaims      map[string]bool
 	claimSpinnerIdx    int
 	claimSpinnerActive bool
+
+	// routeTable is the launch-time write-routing table (bt-scc35): resolves
+	// which directory (or --global) a bd claim/write should target, given
+	// the mode bt was launched in. Built once in cmd/bt/root.go and threaded
+	// in via NewModel; nil-safe (bdroute.Table.Resolve refuses gracefully on
+	// a nil receiver).
+	routeTable *bdroute.Table
 }
 
 // labelCount is a simple label->count pair for display
@@ -947,7 +955,10 @@ type WorkspaceInfo struct {
 // NewModel creates a new Model from the given issues.
 // beadsPath is the path to the beads.jsonl file for live reload support.
 // ds is the selected DataSource for routing refresh through the correct backend (nil for historical/test).
-func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath string, ds *datasource.DataSource) Model {
+// routeTable is the launch-time write-routing table (bt-scc35); nil is
+// accepted (bdroute.Table.Resolve refuses gracefully on a nil receiver),
+// but production callers should always supply one.
+func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath string, ds *datasource.DataSource, routeTable *bdroute.Table) Model {
 	// Graph Analysis - Phase 1 is instant, Phase 2 runs in background
 	analyzer := analysis.NewAnalyzer(issues)
 	graphStats := analyzer.AnalyzeAsync(context.Background())
@@ -1409,6 +1420,8 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		tutorialModel: NewTutorialModel(theme),
 		// Claim-first write slice (bt-oiaj.10)
 		pendingClaims: make(map[string]bool),
+		// Write-routing table (bt-scc35)
+		routeTable: routeTable,
 	}
 }
 

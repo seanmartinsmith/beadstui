@@ -13,7 +13,7 @@ import (
 // epicsTestModel builds a fully-initialized ViewEpics model (keys, filter,
 // data all wired via NewModel) from the given issues, then builds the tree.
 func epicsTestModel(issues []model.Issue) Model {
-	m := NewModel(issues, nil, "", nil)
+	m := NewModel(issues, nil, "", nil, nil)
 	nm, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 40})
 	m = nm.(Model)
 	m.mode = ViewEpics
