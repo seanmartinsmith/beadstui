@@ -8,15 +8,19 @@ package ui
 // content-comparing manifest watcher's reload settles it exactly as for an
 // external bd write (bt-chbqq).
 //
-// Deliberately out of scope here (boundary beads): the always-on receipts pane
-// (bt-oiaj.11), formal --readonly gating (bt-oiaj.12), full pending/settled
-// semantics with a timeout + discrepancy annunciator (bt-oiaj.13), and the
-// write-actor identity convention (bt-oiaj.14). This slice ships spinner-only
-// pending and a debug-log trace of the argv + exit code.
+// bt-oiaj.13 generalizes the pending/settled machinery introduced here into a
+// write-kind-agnostic mechanism (pendingWrite / writeCmd / writeResultMsg)
+// with a 45s timeout discrepancy annunciator, and claim migrates onto it as
+// the reference consumer. Field edits (bt-oiaj.5) and long-form modals
+// (bt-oiaj.6) are the next consumers of the SAME mechanism - see
+// docs/plans/2026-07-07-bt-edits-wave-oiaj13-5-6.md. Deliberately still out
+// of scope here: the always-on receipts pane (bt-oiaj.11), formal --readonly
+// gating (bt-oiaj.12), and the write-actor identity convention (bt-oiaj.14).
 
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -29,27 +33,77 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
-// claimResultMsg carries the outcome of a `bd update <id> --claim` shell-out
-// back onto the event loop.
-type claimResultMsg struct {
+// writeKind identifies which operation a pendingWrite/writeResultMsg
+// represents. Each kind carries its own settle predicate (writeSettled) and
+// its own toast wording (writeKindVerb) - see bt-oiaj.13 fork #3: claim
+// cannot target-compare assignee (bt can't predict the actor string bd will
+// resolve), so it keeps its shipped heuristic verbatim instead of unifying
+// with the field-edit target-compare predicate.
+type writeKind int
+
+const (
+	writeClaim writeKind = iota
+	writeFieldEdit
+)
+
+// pendingWrite tracks one in-flight write (bt-oiaj.13). Field/Target are
+// empty for writeClaim (fork #3, above); a writeFieldEdit entry (bt-oiaj.5/.6
+// callers, not yet wired in this slice) carries the field name and the
+// canonical string form of the value the write is expected to settle to.
+//
+// v1 simplification: one pending write per issue, keyed by ID. A second
+// write request on a row that already has a pending write is refused with a
+// notice rather than queued - see requestClaim.
+type pendingWrite struct {
+	Kind      writeKind
+	Field     string
+	Target    string
+	StartedAt time.Time
+}
+
+// label names pw for the timeout annunciator's toast copy (settlePendingWrites).
+func (pw pendingWrite) label() string {
+	if pw.Field != "" {
+		return pw.Field
+	}
+	if pw.Kind == writeClaim {
+		return "claim"
+	}
+	return "write"
+}
+
+// writeResultMsg carries the outcome of a bd write shell-out back onto the
+// event loop. Generalizes claimResultMsg (bt-oiaj.10) to carry the write's
+// kind and field so handleWriteResult can build kind-appropriate toast copy
+// without consulting the pendingWrites map.
+type writeResultMsg struct {
 	id     string
+	kind   writeKind
+	field  string
 	result bdexec.Result
 }
 
-// claimSpinnerTickMsg advances the pending-claim row spinner. It self-cancels
-// once no claims are pending (handleClaimSpinnerTick).
-type claimSpinnerTickMsg struct{}
+// writeSpinnerTickMsg advances the pending-write row spinner. It self-cancels
+// once no writes are pending (handleWriteSpinnerTick).
+type writeSpinnerTickMsg struct{}
 
 // claimRunner is the seam the executor runs through. Production wires it to
 // bdexec.Run; tests swap in a stub so the keypath is exercised without
-// spawning bd.
+// spawning bd. Already write-kind-agnostic (it just runs bd with the argv
+// it's given): claim is the only caller in this slice, but bt-oiaj.5/.6 field
+// edits share this exact seam rather than inventing their own.
 var claimRunner = func(ctx context.Context, dir string, args ...string) bdexec.Result {
 	return bdexec.Run(ctx, dir, args...)
 }
 
-// claimSpinnerInterval paces the pending-row spinner. Matches the worker
+// writeSpinnerInterval paces the pending-row spinner. Matches the worker
 // spinner cadence so concurrent indicators animate in lockstep.
-const claimSpinnerInterval = 150 * time.Millisecond
+const writeSpinnerInterval = 150 * time.Millisecond
+
+// writeSettleTimeout is how long a pending write may go unconfirmed before
+// settlePendingWrites surfaces a discrepancy annunciator and clears the
+// marker (bt-oiaj.13: never silent stale state).
+const writeSettleTimeout = 45 * time.Second
 
 // claimSpinnerFrame returns the current 1-cell braille frame. It reuses the
 // worker spinner frames (already 1 column wide) so it drops into the
@@ -58,44 +112,48 @@ func claimSpinnerFrame(idx int) string {
 	return workerSpinnerFrames[idx%len(workerSpinnerFrames)]
 }
 
-func claimSpinnerTickCmd() tea.Cmd {
-	return tea.Tick(claimSpinnerInterval, func(time.Time) tea.Msg {
-		return claimSpinnerTickMsg{}
+func writeSpinnerTickCmd() tea.Cmd {
+	return tea.Tick(writeSpinnerInterval, func(time.Time) tea.Msg {
+		return writeSpinnerTickMsg{}
 	})
 }
 
-// claimCmd shells out `bd update <id> --claim` against target and reports the
-// result. A Global target routes via `bd --global` instead of a checkout
-// directory (WriteTarget.Global; the follow-up bt-scc35 designed but did not
-// implement full `bd --global` claim dispatch - Resolve currently refuses
-// beads_global before a Global target can reach here, but the branch is
-// wired and unit-tested so that follow-up is a routing-table change only).
-// The command builder is intentionally tiny; the canonical bd command-builder
-// package (bt-s5zgk.1) is a later extraction from this live write.
-func claimCmd(target bdroute.WriteTarget, id string) tea.Cmd {
+// writeCmd shells out a bd write command against target and reports the
+// result via writeResultMsg. Generalizes claimCmd (bt-oiaj.10): claim passes
+// args = ["update", id, "--claim"], kind = writeClaim, field = ""; future
+// field-edit callers (bt-oiaj.5/.6) pass their own argv/kind/field. A Global
+// target routes via `bd --global` instead of a checkout directory
+// (WriteTarget.Global; the follow-up bt-scc35 designed but did not implement
+// full `bd --global` write dispatch - Resolve currently refuses beads_global
+// before a Global target can reach here, but the branch is wired and
+// unit-tested so that follow-up is a routing-table change only). The command
+// builder is intentionally tiny; the canonical bd command-builder package
+// (bt-s5zgk.1) is a later extraction from this live write.
+func writeCmd(target bdroute.WriteTarget, id string, kind writeKind, field string, args []string) tea.Cmd {
 	return func() tea.Msg {
-		args := []string{"update", id, "--claim"}
 		dir := target.Dir
+		finalArgs := args
 		if target.Global {
-			args = append(args, "--global")
+			finalArgs = append(append([]string{}, args...), "--global")
 			dir = ""
 		}
-		res := claimRunner(context.Background(), dir, args...)
-		return claimResultMsg{id: id, result: res}
+		res := claimRunner(context.Background(), dir, finalArgs...)
+		return writeResultMsg{id: id, kind: kind, field: field, result: res}
 	}
 }
 
-// requestClaim opens the confirm modal for the currently selected bead. It is a
-// no-op with a notice when nothing is selected or a claim is already pending
-// for that bead (double-dispatch guard).
+// requestClaim opens the confirm modal for the currently selected bead. It is
+// a no-op with a notice when nothing is selected or a write is already
+// pending for that bead (double-dispatch guard; v1 simplification - one
+// pending write per issue, see pendingWrite doc).
 func (m *Model) requestClaim() {
 	sel, ok := m.list.SelectedItem().(IssueItem)
 	if !ok {
 		m.setNotice("No issue selected")
 		return
 	}
-	if m.pendingClaims[sel.Issue.ID] {
-		m.setNotice(fmt.Sprintf("Claim already pending for %s", sel.Issue.ID))
+	if _, pending := m.pendingWrites[sel.Issue.ID]; pending {
+		m.setNotice(fmt.Sprintf("write already pending for %s", sel.Issue.ID))
 		return
 	}
 	m.claimTargetID = sel.Issue.ID
@@ -133,17 +191,17 @@ func (m Model) confirmClaim() (Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.pendingClaims == nil {
-		m.pendingClaims = make(map[string]bool)
+	if m.pendingWrites == nil {
+		m.pendingWrites = make(map[string]pendingWrite)
 	}
-	m.pendingClaims[id] = true
+	m.pendingWrites[id] = pendingWrite{Kind: writeClaim, StartedAt: time.Now()}
 	m.updateListDelegate()
 	m.setNotice(fmt.Sprintf("Claiming %s...", id))
 
-	cmds := []tea.Cmd{claimCmd(target, id)}
-	if !m.claimSpinnerActive {
-		m.claimSpinnerActive = true
-		cmds = append(cmds, claimSpinnerTickCmd())
+	cmds := []tea.Cmd{writeCmd(target, id, writeClaim, "", []string{"update", id, "--claim"})}
+	if !m.writeSpinnerActive {
+		m.writeSpinnerActive = true
+		cmds = append(cmds, writeSpinnerTickCmd())
 	}
 	return m, tea.Batch(cmds...)
 }
@@ -157,29 +215,45 @@ func (m *Model) cancelClaim() {
 	m.setNotice("Claim cancelled")
 }
 
-// handleClaimResult records the shell-out trace and surfaces success/failure.
-// On failure the row leaves pending immediately with bd's stderr preserved; on
-// success the row stays pending until the manifest watcher's reload settles it
-// (settlePendingClaims). The always-on receipts pane is bt-oiaj.11; the timeout
-// + discrepancy annunciator are bt-oiaj.13.
-func (m Model) handleClaimResult(msg claimResultMsg) (Model, tea.Cmd) {
+// writeKindVerb returns the past-tense and present-tense verbs bt uses in
+// status/failure toast copy for kind. Claim keeps its established
+// "Claimed"/"Claim" wording (bt-55n3s toast taxonomy: claim copy is
+// deliberately distinct from generic write copy); field-edit wording is
+// bt-oiaj.5/.6's to refine when the first field-edit caller lands.
+func writeKindVerb(kind writeKind) (past, present string) {
+	if kind == writeClaim {
+		return "Claimed", "Claim"
+	}
+	return "Updated", "Update"
+}
+
+// handleWriteResult records the shell-out trace and surfaces success/failure.
+// Generalizes handleClaimResult (bt-oiaj.10) to any write kind. On failure
+// the row leaves pending immediately with bd's stderr preserved; on success
+// the row stays pending until the manifest watcher's reload settles it
+// (settlePendingWrites). The always-on receipts pane is bt-oiaj.11; the
+// timeout + discrepancy annunciator are implemented in settlePendingWrites
+// (bt-oiaj.13).
+func (m Model) handleWriteResult(msg writeResultMsg) (Model, tea.Cmd) {
 	res := msg.result
 	// Observable trace: exact argv + exit code (pre-receipts, gated on BT_DEBUG).
-	debug.Log("claim: %s -> exit %d (%v)", res.Argv(), res.ExitCode, res.Duration)
+	debug.Log("write: %s -> exit %d (%v)", res.Argv(), res.ExitCode, res.Duration)
 
 	if res.Err != nil || res.ExitCode != 0 {
-		delete(m.pendingClaims, msg.id)
+		delete(m.pendingWrites, msg.id)
 		m.updateListDelegate()
-		m.setFailure(claimFailureMessage(msg.id, res))
+		m.setFailure(writeFailureMessage(msg.id, msg.kind, res))
 		return m, nil
 	}
-	m.setStatus(fmt.Sprintf("Claimed %s; awaiting refresh", msg.id))
+	past, _ := writeKindVerb(msg.kind)
+	m.setStatus(fmt.Sprintf("%s %s; awaiting refresh", past, msg.id))
 	return m, nil
 }
 
-// claimFailureMessage builds a one-line failure toast, preferring the last
+// writeFailureMessage builds a one-line failure toast, preferring the last
 // non-empty line of bd stderr so the user sees bd's own reason verbatim.
-func claimFailureMessage(id string, res bdexec.Result) string {
+// Generalizes claimFailureMessage (bt-oiaj.10).
+func writeFailureMessage(id string, kind writeKind, res bdexec.Result) string {
 	detail := lastNonEmptyLine(res.Stderr)
 	if detail == "" {
 		detail = lastNonEmptyLine(res.Stdout)
@@ -190,7 +264,8 @@ func claimFailureMessage(id string, res bdexec.Result) string {
 	if detail == "" {
 		detail = fmt.Sprintf("exit %d", res.ExitCode)
 	}
-	return fmt.Sprintf("Claim %s failed: %s", id, detail)
+	_, present := writeKindVerb(kind)
+	return fmt.Sprintf("%s %s failed: %s", present, id, detail)
 }
 
 // lastNonEmptyLine returns the last non-blank line of s, trimmed.
@@ -204,43 +279,129 @@ func lastNonEmptyLine(s string) string {
 	return ""
 }
 
-// handleClaimSpinnerTick advances the pending-row spinner, re-arming itself
-// while claims remain pending and self-cancelling otherwise.
-func (m Model) handleClaimSpinnerTick() (Model, tea.Cmd) {
-	if len(m.pendingClaims) == 0 {
-		m.claimSpinnerActive = false
+// handleWriteSpinnerTick advances the pending-row spinner, re-arming itself
+// while writes remain pending and self-cancelling otherwise. Generalizes
+// handleClaimSpinnerTick (bt-oiaj.10).
+func (m Model) handleWriteSpinnerTick() (Model, tea.Cmd) {
+	if len(m.pendingWrites) == 0 {
+		m.writeSpinnerActive = false
 		return m, nil
 	}
-	m.claimSpinnerIdx++
+	m.writeSpinnerIdx++
 	m.updateListDelegate()
-	return m, claimSpinnerTickCmd()
+	return m, writeSpinnerTickCmd()
 }
 
-// settlePendingClaims clears pending-claim markers for beads whose reloaded
-// state now reflects the claim (status moved off open, or an assignee is set).
-// The content-comparing manifest watcher is the authoritative confirmation
-// channel (bt-chbqq); this is the v1 spinner-pending settle. Beads not present
-// in the reloaded set (e.g. filtered out of a cross-project scope) are left
-// pending. Full settle semantics (timeout, discrepancy annunciator) are
-// bt-oiaj.13.
-func (m *Model) settlePendingClaims() {
-	if len(m.pendingClaims) == 0 {
+// pendingWriteIDs derives a presence-only view of pendingWrites for the list
+// delegate, which only needs to know WHETHER a row has a pending write (not
+// its kind/field) to swap in the spinner glyph (IssueDelegate.PendingClaims).
+func (m *Model) pendingWriteIDs() map[string]bool {
+	if len(m.pendingWrites) == 0 {
+		return nil
+	}
+	ids := make(map[string]bool, len(m.pendingWrites))
+	for id := range m.pendingWrites {
+		ids[id] = true
+	}
+	return ids
+}
+
+// writeSettled reports whether iss's current (reloaded) state confirms pw,
+// per its Kind's op-specific predicate (bt-oiaj.13 fork #3):
+//
+//   - writeClaim keeps the shipped heuristic verbatim (bt-oiaj.10): a claim
+//     moves the bead off open and/or sets an assignee. bt cannot predict the
+//     actor string bd will resolve, so claim cannot target-compare assignee.
+//   - writeFieldEdit target-compares the named field's canonical string
+//     (captured at write time as pw.Target) against its current value.
+func writeSettled(pw pendingWrite, iss *model.Issue) bool {
+	switch pw.Kind {
+	case writeClaim:
+		return iss.Status != model.StatusOpen || iss.Assignee != ""
+	case writeFieldEdit:
+		return fieldValue(iss, pw.Field) == pw.Target
+	default:
+		return false
+	}
+}
+
+// fieldValue returns the canonical string form of the named field on iss, for
+// settle-time target-compare. The field-edit callers land in bt-oiaj.5/.6;
+// this slice only needs the compare to exist and be correct so those
+// callers can register a pendingWrite{Kind: writeFieldEdit, ...} against a
+// mechanism already proven by unit tests. Unknown field names return "" and
+// can only settle via the writeSettleTimeout path.
+func fieldValue(iss *model.Issue, field string) string {
+	switch field {
+	case "status":
+		return string(iss.Status)
+	case "priority":
+		return strconv.Itoa(iss.Priority)
+	case "title":
+		return iss.Title
+	case "assignee":
+		return iss.Assignee
+	default:
+		return ""
+	}
+}
+
+// settlePendingWrites clears pending-write markers for issues whose reloaded
+// state confirms the write (writeSettled), and surfaces a discrepancy
+// annunciator for any write that has not settled within writeSettleTimeout -
+// including one whose issue is missing from the reloaded set entirely (e.g.
+// filtered out of a cross-project scope) - so no write is ever left silently
+// pending forever (bt-oiaj.13: never silent stale state). Generalizes
+// settlePendingClaims (bt-oiaj.10); called from the same two reload sites in
+// model_update_data.go (handleSnapshotReady, handleDataSourceReload).
+func (m *Model) settlePendingWrites() {
+	if len(m.pendingWrites) == 0 {
 		return
 	}
 	changed := false
-	for id := range m.pendingClaims {
-		iss, ok := m.data.issueMap[id]
-		if !ok {
+	now := time.Now()
+	for id, pw := range m.pendingWrites {
+		if iss, ok := m.data.issueMap[id]; ok && writeSettled(pw, iss) {
+			delete(m.pendingWrites, id)
+			changed = true
 			continue
 		}
-		if iss.Status != model.StatusOpen || iss.Assignee != "" {
-			delete(m.pendingClaims, id)
+		if now.Sub(pw.StartedAt) >= writeSettleTimeout {
+			delete(m.pendingWrites, id)
 			changed = true
+			// No dedicated "warning" StatusSeverity exists (only
+			// Success/Notice/Failure/Degraded - see model_footer.go); Failure
+			// is the closest fit (auto-dismisses, records an events ring
+			// entry) and is reused here per the plan's fallback (noted in
+			// the PR description).
+			m.setFailure(fmt.Sprintf(
+				"write to %s (%s) not confirmed after %s - refresh or check bd",
+				id, pw.label(), writeSettleTimeout))
 		}
 	}
 	if changed {
 		m.updateListDelegate()
 	}
+}
+
+// predictClaimOutcome returns a WARN-only outcome line for the claim confirm
+// modal, built entirely from already-loaded issue state (bt-55n3s's
+// empirical claim matrix) - zero bd spawns, never a refusal. Empty string
+// means no warning (the common case: open + unassigned). bd remains the
+// actual source of truth (don't-trust-verify); y/enter always proceeds
+// regardless of this line.
+func predictClaimOutcome(iss *model.Issue) string {
+	if iss == nil {
+		return ""
+	}
+	switch iss.Status {
+	case model.StatusClosed, model.StatusBlocked:
+		return fmt.Sprintf("not claimable: status %s", iss.Status)
+	}
+	if iss.Assignee != "" {
+		return fmt.Sprintf("assigned to %s - bd will refuse unless that's your actor", iss.Assignee)
+	}
+	return ""
 }
 
 // renderClaimConfirm returns the claim-confirm modal panel. View() composites
@@ -252,6 +413,7 @@ func (m Model) renderClaimConfirm() string {
 	textStyle := lipgloss.NewStyle().Foreground(t.Base.GetForeground())
 	keyStyle := lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
 	idStyle := lipgloss.NewStyle().Foreground(t.Secondary).Bold(true)
+	warnStyle := lipgloss.NewStyle().Foreground(t.Warning)
 
 	// Cap the panel to the terminal so it never overflows at scrunched widths
 	// (the user routinely runs 50-70 columns). Reserve a margin for borders +
@@ -270,8 +432,17 @@ func (m Model) renderClaimConfirm() string {
 	lineConfirm := keyStyle.Render("y") + textStyle.Render("/") + keyStyle.Render("enter") +
 		textStyle.Render(" confirm    ") + keyStyle.Render("esc") + textStyle.Render(" cancel")
 
-	innerW := lipgloss.Width(lineConfirm)
-	for _, l := range []string{lineWhat, lineTitle} {
+	lines := []string{lineWhat, lineTitle}
+	// Outcome prediction (bt-55n3s matrix, bt-oiaj.13 step 5): WARN only,
+	// from data bt already holds in m.data.issueMap - never a refusal, never
+	// a bd spawn. Empty prediction adds no line.
+	if prediction := predictClaimOutcome(m.data.issueMap[m.claimTargetID]); prediction != "" {
+		lines = append(lines, warnStyle.Render(truncateRunesHelper(prediction, titleMax, "...")))
+	}
+	lines = append(lines, lineConfirm)
+
+	innerW := 0
+	for _, l := range lines {
 		if w := lipgloss.Width(l); w > innerW {
 			innerW = w
 		}
@@ -283,10 +454,14 @@ func (m Model) renderClaimConfirm() string {
 	const sidePad = 4
 	panelWidth := innerW + 2 + sidePad
 	pad := strings.Repeat(" ", sidePad/2)
-	body := pad + centerLine(lineWhat, innerW) + pad + "\n" +
-		pad + centerLine(lineTitle, innerW) + pad + "\n" +
-		pad + centerLine(lineConfirm, innerW) + pad
-	content := "\n" + body + "\n"
+	var body strings.Builder
+	for i, l := range lines {
+		if i > 0 {
+			body.WriteString("\n")
+		}
+		body.WriteString(pad + centerLine(l, innerW) + pad)
+	}
+	content := "\n" + body.String() + "\n"
 
 	return RenderTitledPanel(content, PanelOpts{
 		Title:       "Claim?",

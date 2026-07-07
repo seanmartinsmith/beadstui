@@ -840,14 +840,19 @@ type Model struct {
 	// in .2-.9.
 	keys keys.AppKeys
 
-	// Claim-first write slice (bt-oiaj.10). claimTargetID/Title back the
-	// confirm modal; pendingClaims marks rows awaiting the watcher-driven
-	// settle (rendered as a per-row spinner); claimSpinner* drive that spinner.
+	// Claim-first write slice (bt-oiaj.10), generalized to all write kinds by
+	// bt-oiaj.13. claimTargetID/Title back the claim confirm modal
+	// specifically (field edits get no confirm modal - bt-oiaj.13 fork #5);
+	// pendingWrites marks rows awaiting the watcher-driven settle for ANY
+	// write kind (rendered as a per-row spinner via writeSpinner*), keyed by
+	// issue ID. v1 simplification: one pending write per issue - a second
+	// write request on a row with a pending write is refused (requestClaim),
+	// not queued.
 	claimTargetID      string
 	claimTargetTitle   string
-	pendingClaims      map[string]bool
-	claimSpinnerIdx    int
-	claimSpinnerActive bool
+	pendingWrites      map[string]pendingWrite
+	writeSpinnerIdx    int
+	writeSpinnerActive bool
 
 	// routeTable is the launch-time write-routing table (bt-scc35): resolves
 	// which directory (or --global) a bd claim/write should target, given
@@ -1418,8 +1423,8 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		}(),
 		// Tutorial integration (bv-8y31)
 		tutorialModel: NewTutorialModel(theme),
-		// Claim-first write slice (bt-oiaj.10)
-		pendingClaims: make(map[string]bool),
+		// Claim-first write slice (bt-oiaj.10), generalized by bt-oiaj.13
+		pendingWrites: make(map[string]pendingWrite),
 		// Write-routing table (bt-scc35)
 		routeTable: routeTable,
 	}
@@ -1718,11 +1723,11 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case FileChangedMsg:
 		return m.handleFileChanged(msg)
 
-	case claimResultMsg:
-		return m.handleClaimResult(msg)
+	case writeResultMsg:
+		return m.handleWriteResult(msg)
 
-	case claimSpinnerTickMsg:
-		return m.handleClaimSpinnerTick()
+	case writeSpinnerTickMsg:
+		return m.handleWriteSpinnerTick()
 
 	case tea.KeyPressMsg:
 		m, cmd = m.handleKeyPress(msg)

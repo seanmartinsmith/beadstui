@@ -10,13 +10,14 @@ package ui
 // variant) a Dolt sql-server.
 //
 // The claim path is deliberately mode-agnostic: the executor shells `bd update
-// <id> --claim` (bd routes to whichever backend), and settlePendingClaims is
-// hooked into BOTH reload consumers (handleSnapshotReady for the worker-driven
-// embedded+server refresh, handleDataSourceReload for force refresh). This test
-// proves the FULL pending -> settled flow rides the existing per-mode refresh
-// machinery: a real worker (manifest watch for embedded, SQL poll for server)
-// re-exports after the claim commits, its snapshot flows through the real
-// handleSnapshotReady, and settlePendingClaims clears the pending marker.
+// <id> --claim` (bd routes to whichever backend), and settlePendingWrites
+// (bt-oiaj.13, generalized from settlePendingClaims) is hooked into BOTH
+// reload consumers (handleSnapshotReady for the worker-driven embedded+server
+// refresh, handleDataSourceReload for force refresh). This test proves the
+// FULL pending -> settled flow rides the existing per-mode refresh machinery:
+// a real worker (manifest watch for embedded, SQL poll for server) re-exports
+// after the claim commits, its snapshot flows through the real
+// handleSnapshotReady, and settlePendingWrites clears the pending marker.
 
 import (
 	"context"
@@ -47,8 +48,8 @@ func runBdUIAllow(bdPath, dir string, args ...string) ([]byte, error) {
 	return cmd.CombinedOutput()
 }
 
-// isClaimed matches the settlePendingClaims predicate: a claim moves the bead
-// off open and/or sets an assignee.
+// isClaimed matches writeSettled's writeClaim predicate (settlePendingWrites):
+// a claim moves the bead off open and/or sets an assignee.
 func isClaimed(is model.Issue) bool {
 	return is.Status != model.StatusOpen || is.Assignee != ""
 }
@@ -165,21 +166,21 @@ func verifyClaimSlice(t *testing.T, mode, root, beadsDir string, src datasource.
 	stopped = true
 
 	// Drive the captured snapshot through the REAL handleSnapshotReady on a model
-	// that has both beads marked pending: settlePendingClaims must clear them.
+	// that has both beads marked pending: settlePendingWrites must clear them.
 	m := newSizedModel(t, []model.Issue{
 		{ID: btBead, Title: "bt claim target", Status: model.StatusOpen, Priority: 1},
 		{ID: extBead, Title: "external claim target", Status: model.StatusOpen, Priority: 2},
 	}, 120, 32)
-	m.pendingClaims[btBead] = true
-	m.pendingClaims[extBead] = true
+	m.pendingWrites[btBead] = pendingWrite{Kind: writeClaim, StartedAt: time.Now()}
+	m.pendingWrites[extBead] = pendingWrite{Kind: writeClaim, StartedAt: time.Now()}
 
 	updated, _ := m.Update(SnapshotReadyMsg{Snapshot: claimedSnap, SentAt: time.Now()})
 	m = updated.(Model)
 
-	if m.pendingClaims[btBead] {
+	if _, pending := m.pendingWrites[btBead]; pending {
 		t.Errorf("bt-initiated claim %s did not settle through handleSnapshotReady", btBead)
 	}
-	if m.pendingClaims[extBead] {
+	if _, pending := m.pendingWrites[extBead]; pending {
 		t.Errorf("external claim %s did not settle through handleSnapshotReady", extBead)
 	}
 }
@@ -255,30 +256,30 @@ func TestClaimLive_Server(t *testing.T) {
 	verifyClaimSlice(t, "server", root, beadsDir, src)
 }
 
-// drainClaimResult executes cmd and returns the claimResultMsg it produces.
+// drainClaimResult executes cmd and returns the writeResultMsg it produces.
 // confirmClaim batches the claim dispatch together with the spinner-tick cmd
 // whenever the spinner isn't already active (the common case: the first claim
 // in a session), so cmd() may yield a tea.BatchMsg ([]tea.Cmd, not yet
-// executed) rather than the claimResultMsg directly - this unwraps that case
+// executed) rather than the writeResultMsg directly - this unwraps that case
 // by running each sub-command until it finds the one that produced it.
-func drainClaimResult(t *testing.T, cmd tea.Cmd) claimResultMsg {
+func drainClaimResult(t *testing.T, cmd tea.Cmd) writeResultMsg {
 	t.Helper()
 	msg := cmd()
 	switch v := msg.(type) {
-	case claimResultMsg:
+	case writeResultMsg:
 		return v
 	case tea.BatchMsg:
 		for _, sub := range v {
 			if sub == nil {
 				continue
 			}
-			if res, ok := sub().(claimResultMsg); ok {
+			if res, ok := sub().(writeResultMsg); ok {
 				return res
 			}
 		}
 	}
-	t.Fatalf("cmd() did not yield a claimResultMsg (got %T)", msg)
-	return claimResultMsg{}
+	t.Fatalf("cmd() did not yield a writeResultMsg (got %T)", msg)
+	return writeResultMsg{}
 }
 
 // firstOpenIssueViaWorker inits a throwaway bd project at root, creates one
@@ -397,7 +398,7 @@ func TestClaimLive_WorkspaceMultiProject(t *testing.T) {
 	if cmd != nil {
 		t.Error("confirmClaim on an unmapped prefix must not dispatch a claim command")
 	}
-	if m.pendingClaims[orphan.ID] {
+	if _, pending := m.pendingWrites[orphan.ID]; pending {
 		t.Error("an unmappable claim must never enter the pending state")
 	}
 }
@@ -436,8 +437,8 @@ func TestClaimLive_SingleProjectUnchanged(t *testing.T) {
 
 // assertClaimedInProject re-reads dir's project through the real
 // BackgroundWorker plumbing and fails the test unless id is claimed (status
-// moved off open, or an assignee is set - the same predicate settlePendingClaims
-// uses).
+// moved off open, or an assignee is set - the same predicate writeSettled's
+// writeClaim branch uses).
 func assertClaimedInProject(t *testing.T, dir, id string) {
 	t.Helper()
 	beadsDir := filepath.Join(dir, ".beads")
