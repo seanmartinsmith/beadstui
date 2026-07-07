@@ -81,6 +81,7 @@ const (
 	focusFieldSelect  // Field-select hub modal (bt-oiaj.5)
 	focusFieldPicker  // Enum picker sub-modal: status/priority (bt-oiaj.5)
 	focusFieldInput   // Textinput sub-modal: title/assignee (bt-oiaj.5)
+	focusLongformEdit // Textarea sub-modal: description/design/comment/notes/acceptance (bt-oiaj.6)
 )
 
 // ViewMode represents which primary view is active. Only one view mode
@@ -139,6 +140,7 @@ const (
 	ModalFieldSelect                         // Field-select hub: status/priority/title/assignee (bt-oiaj.5)
 	ModalFieldPicker                         // Enum picker sub-modal: status/priority (bt-oiaj.5)
 	ModalFieldInput                          // Textinput sub-modal: title/assignee (bt-oiaj.5)
+	ModalLongformEdit                        // Textarea sub-modal: description/design/comment/notes/acceptance (bt-oiaj.6)
 )
 
 // ModalTab identifies which tab the shared alerts/notifications modal is
@@ -877,6 +879,17 @@ type Model struct {
 	fieldSelect       FieldSelectModal
 	fieldPicker       FieldPickerModal
 	fieldInput        FieldInputModal
+
+	// Long-form field-edit slice (bt-oiaj.6, Slice C, pkg/ui/longform_edit.go):
+	// the textarea sub-modal for description/design/comment/append-notes/
+	// acceptance, opened from the same field-select hub via
+	// fieldEditTargetID above. longformDrafts is the session-memory draft
+	// cache keyed by (issue, field) - discarded and failed long-form buffers
+	// survive modal close and prefill the next open; a successful write
+	// clears its entry (semantics table at the top of longform_edit.go's
+	// draft-cache section). Memory only, never persisted to disk (fence).
+	longformEdit   LongformEditModal
+	longformDrafts map[longformDraftKey]string
 }
 
 // labelCount is a simple label->count pair for display
@@ -1442,6 +1455,8 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		tutorialModel: NewTutorialModel(theme),
 		// Claim-first write slice (bt-oiaj.10), generalized by bt-oiaj.13
 		pendingWrites: make(map[string]pendingWrite),
+		// Long-form session draft cache (bt-oiaj.6)
+		longformDrafts: make(map[longformDraftKey]string),
 		// Write-routing table (bt-scc35)
 		routeTable: routeTable,
 	}
@@ -1745,6 +1760,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case writeSpinnerTickMsg:
 		return m.handleWriteSpinnerTick()
+
+	case longformEditorFinishedMsg:
+		return m.handleLongformEditorFinished(msg)
 
 	case tea.KeyPressMsg:
 		m, cmd = m.handleKeyPress(msg)

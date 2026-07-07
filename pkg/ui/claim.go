@@ -247,6 +247,14 @@ func (m Model) handleWriteResult(msg writeResultMsg) (Model, tea.Cmd) {
 	}
 	past, _ := writeKindVerb(msg.kind)
 	m.setStatus(fmt.Sprintf("%s %s; awaiting refresh", past, msg.id))
+	// A successful long-form write retires the session draft for this
+	// (issue, field): reopening the editor must show the (soon-to-reload)
+	// new field value, not the stale pre-commit draft (bt-oiaj.6 draft
+	// cache - see longform_edit.go). No-op for claim and for the
+	// single-line fields, which never populate the cache.
+	if msg.kind == writeFieldEdit {
+		m.clearLongformDraft(msg.id, msg.field)
+	}
 	return m, nil
 }
 
@@ -313,12 +321,23 @@ func (m *Model) pendingWriteIDs() map[string]bool {
 //     moves the bead off open and/or sets an assignee. bt cannot predict the
 //     actor string bd will resolve, so claim cannot target-compare assignee.
 //   - writeFieldEdit target-compares the named field's canonical string
-//     (captured at write time as pw.Target) against its current value.
+//     (captured at write time as pw.Target) against its current value - EXCEPT
+//     the "comment" field (bt-oiaj.6/Slice C step 5), which has no scalar
+//     Issue field to compare against (bd comments add appends to a list, not
+//     a replaceable value). Comment callers always register Target == "" and
+//     settle on the very next reload after a successful write, unconditionally
+//     - there is nothing more precise to check without re-reading bd's
+//     comment list. This is a third, explicit predicate case (not the
+//     fieldValue default-"" fallthrough the comment above this used to rely
+//     on implicitly - see fieldValue's doc comment for why that was wrong).
 func writeSettled(pw pendingWrite, iss *model.Issue) bool {
 	switch pw.Kind {
 	case writeClaim:
 		return iss.Status != model.StatusOpen || iss.Assignee != ""
 	case writeFieldEdit:
+		if pw.Field == "comment" {
+			return true
+		}
 		return fieldValue(iss, pw.Field) == pw.Target
 	default:
 		return false
@@ -326,11 +345,28 @@ func writeSettled(pw pendingWrite, iss *model.Issue) bool {
 }
 
 // fieldValue returns the canonical string form of the named field on iss, for
-// settle-time target-compare. The field-edit callers land in bt-oiaj.5/.6;
-// this slice only needs the compare to exist and be correct so those
-// callers can register a pendingWrite{Kind: writeFieldEdit, ...} against a
-// mechanism already proven by unit tests. Unknown field names return "" and
-// can only settle via the writeSettleTimeout path.
+// settle-time target-compare. bt-oiaj.5 wires status/priority/title/assignee;
+// bt-oiaj.6 (Slice C) adds description/design/acceptance/notes - all five are
+// full-replace fields where the write's Target is the new value verbatim, so
+// an exact string compare against the reloaded field is meaningful. "comment"
+// deliberately has NO case here: bd comments add appends to a list rather
+// than replacing a scalar, so there is no canonical string to target-compare
+// against - see writeSettled's explicit third predicate case instead, which
+// settles unconditionally on the next reload rather than consulting this
+// function's default branch.
+//
+// CORRECTION (bt-oiaj.6 review): this doc comment previously claimed unknown
+// field names "can only settle via the writeSettleTimeout path" - that was
+// wrong. The default branch below returns "", so any caller that registered a
+// pendingWrite with an unmapped Field AND an empty Target (""=="") would have
+// settled on the very first reload, not the 45s timeout - the timeout only
+// fires for an unmapped field with a NON-empty Target. This never surfaced as
+// a bug because every writeFieldEdit caller before this slice used one of the
+// four mapped fields below. Slice C's comment field is exactly the "unmapped
+// field, empty Target" shape the old comment mis-described - which is why it
+// now gets an EXPLICIT case in writeSettled instead of being left to fall
+// through here implicitly. Any future field-edit caller adding a new field
+// name should add a real case below, not rely on this "" fallthrough.
 func fieldValue(iss *model.Issue, field string) string {
 	switch field {
 	case "status":
@@ -341,6 +377,14 @@ func fieldValue(iss *model.Issue, field string) string {
 		return iss.Title
 	case "assignee":
 		return iss.Assignee
+	case "description":
+		return iss.Description
+	case "design":
+		return iss.Design
+	case "acceptance":
+		return iss.AcceptanceCriteria
+	case "notes":
+		return iss.Notes
 	default:
 		return ""
 	}

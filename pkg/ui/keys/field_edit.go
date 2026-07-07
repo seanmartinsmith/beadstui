@@ -13,12 +13,11 @@ import "charm.land/bubbles/v2/key"
 // Cancel (not Esc) avoids that check, mirroring every other picker's field
 // name (RecipePickerKeys.Cancel, RepoPickerKeys.Cancel).
 //
-// Accelerators (Status/Priority/Title/Assignee) can't collide with anything -
-// the modal intercepts every key while open (bt-oiaj plan resolved fork #4).
-// Slice C (bt-oiaj.6) adds five more accelerators here (description, design,
-// comment, notes, acceptance - keys d/g/c/n/A per the keybind table in
-// docs/plans/2026-07-07-bt-edits-wave-oiaj13-5-6.md); this slice wires only
-// the first four rows.
+// Accelerators (Status/Priority/Title/Assignee/Description/Design/Comment/
+// Notes/Acceptance) can't collide with anything - the modal intercepts every
+// key while open (bt-oiaj plan resolved fork #4). Slice C (bt-oiaj.6) added
+// the five long-form accelerators (d/g/c/n/A) that open the textarea modal
+// (pkg/ui/longform_edit.go) instead of the enum-picker/textinput sub-modals.
 type FieldSelectKeys struct {
 	// Nav
 	Up   key.Binding
@@ -30,6 +29,14 @@ type FieldSelectKeys struct {
 	Priority key.Binding
 	Title    key.Binding
 	Assignee key.Binding
+
+	// Long-form accelerators (bt-oiaj.6, Slice C) - open the textarea modal
+	// (pkg/ui/longform_edit.go) rather than an enum picker or textinput.
+	Description key.Binding
+	Design      key.Binding
+	Comment     key.Binding
+	Notes       key.Binding
+	Acceptance  key.Binding // uppercase A - lowercase a is Assignee
 
 	// Exit
 	Cancel key.Binding
@@ -66,6 +73,26 @@ func NewFieldSelectKeys() FieldSelectKeys {
 			key.WithKeys("a"),
 			key.WithHelp("a", "edit assignee"),
 		),
+		Description: key.NewBinding(
+			key.WithKeys("d"),
+			key.WithHelp("d", "edit description"),
+		),
+		Design: key.NewBinding(
+			key.WithKeys("g"),
+			key.WithHelp("g", "edit design"),
+		),
+		Comment: key.NewBinding(
+			key.WithKeys("c"),
+			key.WithHelp("c", "add comment"),
+		),
+		Notes: key.NewBinding(
+			key.WithKeys("n"),
+			key.WithHelp("n", "append notes"),
+		),
+		Acceptance: key.NewBinding(
+			key.WithKeys("A"),
+			key.WithHelp("A", "edit acceptance criteria"),
+		),
 		Cancel: key.NewBinding(
 			key.WithKeys("esc"),
 			key.WithHelp("esc", "cancel edit"),
@@ -79,11 +106,12 @@ func (k FieldSelectKeys) ShortHelp() []key.Binding {
 }
 
 // FullHelp returns column-grouped bindings for the ; sidebar and ? overlay.
-// Columns: Navigate / Accelerators / Exit.
+// Columns: Navigate / Accelerators / Long-form / Exit.
 func (k FieldSelectKeys) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.Open},
 		{k.Status, k.Priority, k.Title, k.Assignee},
+		{k.Description, k.Design, k.Comment, k.Notes, k.Acceptance},
 		{k.Cancel},
 	}
 }
@@ -171,5 +199,70 @@ func (k FieldInputKeys) ShortHelp() []key.Binding {
 func (k FieldInputKeys) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Apply, k.Cancel},
+	}
+}
+
+// LongformEditKeys are the bindings for the textarea modal (bt-oiaj.6, Slice
+// C): description/design/comment/append-notes/acceptance. Unlike
+// FieldPickerKeys/FieldInputKeys this modal has no picker cursor - Up/Down
+// arrow-key navigation is owned entirely by the textarea component itself,
+// so no Up/Down fields are declared here (nothing to route around
+// TestUniversalNav_ConsistentAcrossViews for). handleLongformEditKeys
+// (pkg/ui/longform_edit.go) forwards any unmatched key to
+// textarea.Model.Update, the same convention as FieldInputKeys' default
+// branch forwarding to textinput.Model.Update.
+//
+// Commit and Escalate are new binding names with no universal-nav
+// counterpart. Cancel (not Esc) mirrors FieldPickerKeys/FieldInputKeys'
+// established dodge of TestUniversalNav_ConsistentAcrossViews (see their
+// comments) - Cancel is dirty-guard gated here (tkhq #3 Variant A), unlike
+// the immediate step-back the other two sub-modals use.
+type LongformEditKeys struct {
+	// Commit submits the buffer (ctrl+s, not enter - enter is the textarea's
+	// own insert-newline binding, so multiline editing needs a key Enter
+	// doesn't already own; tkhq Q5 ratified this as part of the hybrid model).
+	Commit key.Binding
+
+	// Escalate hands the current buffer to $EDITOR/$VISUAL via tea.ExecProcess
+	// (tkhq Q5). Bound to uppercase E ONLY inside this modal - the global `E`
+	// binding elsewhere in bt stays Epics (list.go); this binding intercepts
+	// before the textarea would otherwise insert the literal character.
+	Escalate key.Binding
+
+	// Cancel is dirty-guard gated (handleLongformEscape, longform_edit.go):
+	// on a clean buffer it steps back to the field-select hub immediately,
+	// matching FieldPickerKeys/FieldInputKeys; on a dirty buffer the first
+	// press arms a 3s discard window (tkhq #3 Variant A) and the second
+	// press within it discards and steps back.
+	Cancel key.Binding
+}
+
+// NewLongformEditKeys returns the default textarea-modal keymap.
+func NewLongformEditKeys() LongformEditKeys {
+	return LongformEditKeys{
+		Commit: key.NewBinding(
+			key.WithKeys("ctrl+s"),
+			key.WithHelp("ctrl+s", "commit edit"),
+		),
+		Escalate: key.NewBinding(
+			key.WithKeys("E"),
+			key.WithHelp("E", "escalate to $EDITOR"),
+		),
+		Cancel: key.NewBinding(
+			key.WithKeys("esc"),
+			key.WithHelp("esc", "back / discard (esc-esc if unsaved)"),
+		),
+	}
+}
+
+// ShortHelp returns the bindings shown in the status-bar L1 hint slot.
+func (k LongformEditKeys) ShortHelp() []key.Binding {
+	return []key.Binding{k.Commit, k.Escalate, k.Cancel}
+}
+
+// FullHelp returns column-grouped bindings for the ; sidebar and ? overlay.
+func (k LongformEditKeys) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{k.Commit, k.Escalate, k.Cancel},
 	}
 }

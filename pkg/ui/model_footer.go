@@ -777,6 +777,8 @@ func (m Model) modalKeyMap() help.KeyMap {
 		return m.keys.FieldPicker
 	case ModalFieldInput:
 		return m.keys.FieldInput
+	case ModalLongformEdit:
+		return m.keys.LongformEdit
 	}
 	// Other modals (help, alerts, tutorial, quit-confirm, agent prompt, …)
 	// carry their own internal footers; the L1 slot stays empty for them.

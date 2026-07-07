@@ -609,6 +609,19 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		}
 		return m.handleFieldInputKeys(msg)
 	}
+	// Long-form textarea sub-modal (bt-oiaj.6, Slice C): same early-return
+	// shape as the three blocks above, placed immediately after them and
+	// still before Help per the plan's pinned insertion point. ctrl+c force-
+	// quits even mid-edit (tkhq #4: bd is fast, no mid-flight cancellation to
+	// worry about, and this mirrors every other modal's ctrl+c escape hatch)
+	// - everything else goes to handleLongformEditKeys, which owns Esc's
+	// dirty-guard state machine plus forwarding typed keys into the textarea.
+	if m.activeModal == ModalLongformEdit {
+		if msg.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
+		return m.handleLongformEditKeys(msg)
+	}
 
 	// Handle help overlay toggle (? or F1)
 	if key.Matches(msg, m.keys.Global.Help) && m.list.FilterState() != list.Filtering {

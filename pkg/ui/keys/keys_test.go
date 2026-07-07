@@ -49,6 +49,9 @@ func allMaps() map[string]help.KeyMap {
 		"FieldSelect": NewFieldSelectKeys(),
 		"FieldPicker": NewFieldPickerKeys(),
 		"FieldInput":  NewFieldInputKeys(),
+
+		// Long-form field-edit Map (bt-oiaj.6, Slice C)
+		"LongformEdit": NewLongformEditKeys(),
 	}
 }
 

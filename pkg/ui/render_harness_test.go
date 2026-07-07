@@ -292,6 +292,22 @@ func TestRenderDump(t *testing.T) {
 		nm, _ := m.openFieldPickerOrInput("assignee")
 		*m = nm
 	}
+	// Long-form textarea modals (bt-oiaj.6, Slice C). bt-0qzp carries
+	// populated description/design/acceptance/notes so the prefilled
+	// scenarios show real multi-line content; the comment scenario shows the
+	// empty add-only starting state (fieldPickerStatus's sibling shape).
+	longformDescription := func(m *Model) {
+		harnessSelect(m, "bt-0qzp")
+		m.requestFieldEdit()
+		nm, _ := m.openFieldPickerOrInput("description")
+		*m = nm
+	}
+	longformComment := func(m *Model) {
+		harnessSelect(m, "bt-0qzp")
+		m.requestFieldEdit()
+		nm, _ := m.openFieldPickerOrInput("comment")
+		*m = nm
+	}
 
 	scenarios := []struct {
 		name  string
@@ -357,6 +373,13 @@ func TestRenderDump(t *testing.T) {
 		{"modal_fieldinput_title_100x16", 100, 16, fieldInputTitle},
 		{"modal_fieldinput_assignee_120x30", 120, 30, fieldInputAssignee},
 		{"modal_fieldinput_assignee_100x16", 100, 16, fieldInputAssignee},
+
+		// Long-form textarea modal (bt-oiaj.6, Slice C), at 120x30 and the
+		// ~100x16 scrunched size per the plan's pinned render-harness sizes.
+		{"modal_longform_description_120x30", 120, 30, longformDescription},
+		{"modal_longform_description_100x16", 100, 16, longformDescription},
+		{"modal_longform_comment_120x30", 120, 30, longformComment},
+		{"modal_longform_comment_100x16", 100, 16, longformComment},
 
 		// Modal overlays — composited by View() over the (dimmed) background via
 		// activeModal. Proves popups render in-position in the harness. The dim

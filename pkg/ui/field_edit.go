@@ -46,6 +46,13 @@ var fieldEditEntries = []fieldEditEntry{
 	{Field: "priority", Label: "Priority", Key: "p"},
 	{Field: "title", Label: "Title", Key: "t"},
 	{Field: "assignee", Label: "Assignee", Key: "a"},
+	// Long-form fields (bt-oiaj.6, Slice C) - route to the textarea modal
+	// (longform_edit.go) instead of an enum picker or textinput.
+	{Field: "description", Label: "Description", Key: "d"},
+	{Field: "design", Label: "Design", Key: "g"},
+	{Field: "comment", Label: "Add Comment", Key: "c"},
+	{Field: "notes", Label: "Append Notes", Key: "n"},
+	{Field: "acceptance", Label: "Acceptance Criteria", Key: "A"},
 }
 
 // renderFieldModalLines composes lines into a titled panel using the same
@@ -496,17 +503,40 @@ func (m Model) openFieldPickerOrInput(field string) (Model, tea.Cmd) {
 		m.openModal(ModalFieldInput)
 		m.focused = focusFieldInput
 		return m, m.fieldInput.Focus()
+	// Long-form fields (bt-oiaj.6, Slice C): the textarea modal
+	// (longform_edit.go). description/design/acceptance prefill from the
+	// bead's current value (full-replace fields, same as title/assignee
+	// above); comment/notes open empty - they're add-only (bd comments add
+	// appends a new comment; --append-notes appends to the existing notes
+	// rather than replacing them), so prefilling from the current value
+	// would invite committing a duplicate of it. No terminal-status fence
+	// here (unlike status above): the plan doesn't fence long-form fields on
+	// closed/tombstoned beads, so they stay editable throughout.
+	case "description":
+		return m.openLongformEditModal("description", "Description", iss.Description)
+	case "design":
+		return m.openLongformEditModal("design", "Design", iss.Design)
+	case "comment":
+		return m.openLongformEditModal("comment", "Add Comment", "")
+	case "notes":
+		return m.openLongformEditModal("notes", "Append Notes", "")
+	case "acceptance":
+		return m.openLongformEditModal("acceptance", "Acceptance Criteria", iss.AcceptanceCriteria)
 	}
 	return m, nil
 }
 
-// commitFieldEdit is the shared commit path for all four fields (plan step
-// 5): Resolve pre-flight, refusal = setFailure + close + zero bd spawns;
-// success = register a pendingWrite and dispatch writeCmd. Copies
-// confirmClaim's block shape (claim.go) verbatim. target is the canonical
-// settle-compare string captured at write time (pendingWrite.Target — fork
-// #3: field edits target-compare exactly, unlike claim's status/assignee
-// heuristic).
+// commitFieldEdit is the shared commit path for every field edit - the
+// original four single-line fields (plan step 5) AND the five long-form
+// fields Slice C adds (commitLongformEdit, longform_edit.go, builds the
+// argv/target tuple per field's transport and calls this verbatim): Resolve
+// pre-flight, refusal = setFailure + close + zero bd spawns; success =
+// register a pendingWrite and dispatch writeCmd. Copies confirmClaim's block
+// shape (claim.go) verbatim. target is the canonical settle-compare string
+// captured at write time (pendingWrite.Target — fork #3: field edits
+// target-compare exactly, unlike claim's status/assignee heuristic; "comment"
+// is the one exception, with Target always "" - see writeSettled's explicit
+// third predicate case in claim.go).
 func (m Model) commitFieldEdit(field, target string, args []string) (Model, tea.Cmd) {
 	id := m.fieldEditTargetID
 	m.fieldEditTargetID = ""
@@ -568,6 +598,16 @@ func (m Model) handleFieldSelectKeys(msg tea.KeyMsg) (Model, tea.Cmd) {
 		return m.openFieldPickerOrInput("title")
 	case key.Matches(msg, kk.Assignee):
 		return m.openFieldPickerOrInput("assignee")
+	case key.Matches(msg, kk.Description):
+		return m.openFieldPickerOrInput("description")
+	case key.Matches(msg, kk.Design):
+		return m.openFieldPickerOrInput("design")
+	case key.Matches(msg, kk.Comment):
+		return m.openFieldPickerOrInput("comment")
+	case key.Matches(msg, kk.Notes):
+		return m.openFieldPickerOrInput("notes")
+	case key.Matches(msg, kk.Acceptance):
+		return m.openFieldPickerOrInput("acceptance")
 	case key.Matches(msg, kk.Open):
 		return m.openFieldPickerOrInput(m.fieldSelect.SelectedField())
 	}

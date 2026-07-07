@@ -111,6 +111,9 @@ func (m Model) View() tea.View {
 		// Handled as overlay after background renders (below)
 	case ModalFieldInput:
 		// Handled as overlay after background renders (below)
+	case ModalLongformEdit:
+		// Handled as overlay after background renders (below) — dimmed
+		// backdrop like the other field-edit modals (bt-oiaj.6).
 	case ModalAgentPrompt:
 		// Handled as overlay after background renders (below)
 	case ModalCassSession:
@@ -282,6 +285,9 @@ func (m Model) View() tea.View {
 	}
 	if m.activeModal == ModalFieldInput {
 		body = OverlayCenterDimBackdrop(body, m.fieldInput.View(), m.width, m.height-1)
+	}
+	if m.activeModal == ModalLongformEdit {
+		body = OverlayCenterDimBackdrop(body, m.longformEdit.View(), m.width, m.height-1)
 	}
 
 	footer := m.renderFooter()
