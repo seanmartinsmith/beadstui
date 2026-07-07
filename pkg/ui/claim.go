@@ -439,7 +439,7 @@ func predictClaimOutcome(iss *model.Issue) string {
 		return ""
 	}
 	switch iss.Status {
-	case model.StatusClosed, model.StatusBlocked:
+	case model.StatusClosed, model.StatusBlocked, model.StatusTombstone:
 		return fmt.Sprintf("not claimable: status %s", iss.Status)
 	}
 	if iss.Assignee != "" {

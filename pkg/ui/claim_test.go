@@ -366,6 +366,26 @@ func TestRenderClaimConfirm_PredictsNotClaimable_Closed(t *testing.T) {
 	}
 }
 
+// TestRenderClaimConfirm_PredictsNotClaimable_Tombstone mirrors the closed-bead
+// case above: field_edit.go's status-picker fence (~line 480) treats closed
+// AND tombstone as terminal/destructive, so the claim prediction must match
+// for symmetry. Defensive-only in practice - the datasource filters
+// tombstones from every load - but the sibling surface defends anyway.
+func TestRenderClaimConfirm_PredictsNotClaimable_Tombstone(t *testing.T) {
+	issues := claimTestIssues()
+	issues[0].Status = model.StatusTombstone
+	m := newSizedModel(t, issues, 120, 32)
+	if !m.selectIssueByID("zz-target") {
+		t.Fatal("zz-target not found in the list after tombstoning")
+	}
+	m.requestClaim()
+
+	out := ansi.Strip(m.View().Content)
+	if !strings.Contains(out, "not claimable: status tombstone") {
+		t.Errorf("confirm modal missing tombstone-status prediction; view:\n%s", out)
+	}
+}
+
 // TestRenderClaimConfirm_PredictsAssignedToOther verifies the assigned-bead
 // branch of the bt-55n3s matrix: bd will refuse unless the actor matches.
 func TestRenderClaimConfirm_PredictsAssignedToOther(t *testing.T) {
