@@ -114,14 +114,28 @@ reference implementation.
 For the inline-edit consumers (bt-oiaj.5 single-line fields, bt-oiaj.6
 long-form modals), additionally:
 
-- **Single-line fields** (title, assignee): in-TUI textinput → argv. This
-  is Unicode-safe from bt (see cp1252 note below).
-- **Multi-line fields** (description/design/acceptance/notes/comments):
-  tempfile + `--body-file` family regardless — for multiline/size
-  robustness, not codepage fear. Tempfiles under `.bt/tmp/edits/` per
-  bt-oiaj.6.
+- **Single-line fields** (title, assignee, status, priority): in-TUI
+  textinput/picker → argv. This is Unicode-safe from bt (see cp1252 note
+  below).
+- **Long-form fields split by whether bd has a `*-file` flag** (bt-oiaj.6,
+  verified against installed bd 1.0.5 - resolution #9; do NOT assume the
+  whole family is tempfile-backed):
+  - **description** → tempfile + `--body-file`.
+  - **design** → tempfile + `--design-file`.
+  - **comment** → tempfile + `bd comments add <id> -f <file>` (canonical
+    subcommand; NOT `bd comment --file`, which doesn't exist).
+  - **acceptance** → **inline** `--acceptance` argv. There is no
+    `--acceptance-file` flag on bd 1.0.5 - don't hunt for one.
+  - **notes** → **inline** `--append-notes` argv.
+  The tempfile family exists for multiline/size robustness where bd offers a
+  file flag, not codepage fear (argv itself is Unicode-safe end-to-end, per
+  the note below) - fields without a file flag go inline like title/assignee.
+  Tempfiles under `.bt/tmp/edits/<session-pid>/` per bt-oiaj.6, swept lazily
+  on first long-form-modal open (pkg/ui/longform_edit.go).
 - **$EDITOR**: escalation only (Shift+E) via `tea.ExecProcess`, per the
   tkhq-ratified hybrid (bt-oiaj decision table 2026-05-19, resolution #5).
+  Bound only inside a long-form textarea modal (never globally - `E` stays
+  the Epics binding elsewhere).
 - Field-edit UI per docs/design/tui-bead-edit-patterns.md (modal picker
   canon + optional cycle keys).
 
@@ -147,4 +161,5 @@ not a constraint on bt itself.
 | `beads_global` `--global` routing | follow-up | Resolve refuses with actionable message today |
 | `bdexec.Result.Dir` receipts | bt-oiaj.11 | one-field addition |
 | Actor policy (`--actor`) | bt-oiaj.14 | bdroute stays argv-agnostic |
-| Inline-edit consumers | bt-oiaj.5 / bt-oiaj.6 | contract bound above, implementation deferred |
+| Single-line field-edit consumer | shipped | pkg/ui/field_edit.go (bt-oiaj.5) |
+| Long-form field-edit consumer | shipped | pkg/ui/longform_edit.go (bt-oiaj.6) |

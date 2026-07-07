@@ -104,6 +104,16 @@ func (m Model) View() tea.View {
 	case ModalClaimConfirm:
 		// Handled as overlay after background renders (below) — dimmed
 		// backdrop like the other confirm modals (bt-oiaj.10).
+	case ModalFieldSelect:
+		// Handled as overlay after background renders (below) — dimmed
+		// backdrop like the other modals (bt-oiaj.5).
+	case ModalFieldPicker:
+		// Handled as overlay after background renders (below)
+	case ModalFieldInput:
+		// Handled as overlay after background renders (below)
+	case ModalLongformEdit:
+		// Handled as overlay after background renders (below) — dimmed
+		// backdrop like the other field-edit modals (bt-oiaj.6).
 	case ModalAgentPrompt:
 		// Handled as overlay after background renders (below)
 	case ModalCassSession:
@@ -265,6 +275,19 @@ func (m Model) View() tea.View {
 	if m.activeModal == ModalEpicCard {
 		// Dim the overview/list behind the tier-2 epic focus card (bt-gfxhz.3).
 		body = OverlayCenterDimBackdrop(body, m.renderEpicCard(), m.width, m.height-1)
+	}
+	if m.activeModal == ModalFieldSelect {
+		// Dim the background behind the field-select hub (bt-oiaj.5).
+		body = OverlayCenterDimBackdrop(body, m.fieldSelect.View(), m.width, m.height-1)
+	}
+	if m.activeModal == ModalFieldPicker {
+		body = OverlayCenterDimBackdrop(body, m.fieldPicker.View(), m.width, m.height-1)
+	}
+	if m.activeModal == ModalFieldInput {
+		body = OverlayCenterDimBackdrop(body, m.fieldInput.View(), m.width, m.height-1)
+	}
+	if m.activeModal == ModalLongformEdit {
+		body = OverlayCenterDimBackdrop(body, m.longformEdit.View(), m.width, m.height-1)
 	}
 
 	footer := m.renderFooter()

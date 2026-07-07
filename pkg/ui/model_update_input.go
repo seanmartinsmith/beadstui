@@ -582,6 +582,47 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		}
 	}
 
+	// Handle field-edit modals (bt-oiaj.5): field-select hub, then the two
+	// sub-modals (enum picker, textinput). Each owns its keys fully and
+	// returns before any global key (Help, Tutorial, ...) can steal a
+	// collision-prone letter like s/p/t/a — mirrors the early-return shape of
+	// the repo/recipe/label/BQL picker blocks above. Placed immediately after
+	// ModalClaimConfirm and before Help per the plan's pinned insertion point
+	// (docs/plans/2026-07-07-bt-edits-wave-oiaj13-5-6.md Slice B step 7):
+	// later placement lets digit/letter keys inside these modals get
+	// swallowed by global bindings first.
+	if m.activeModal == ModalFieldSelect {
+		if msg.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
+		return m.handleFieldSelectKeys(msg)
+	}
+	if m.activeModal == ModalFieldPicker {
+		if msg.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
+		return m.handleFieldPickerKeys(msg)
+	}
+	if m.activeModal == ModalFieldInput {
+		if msg.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
+		return m.handleFieldInputKeys(msg)
+	}
+	// Long-form textarea sub-modal (bt-oiaj.6, Slice C): same early-return
+	// shape as the three blocks above, placed immediately after them and
+	// still before Help per the plan's pinned insertion point. ctrl+c force-
+	// quits even mid-edit (tkhq #4: bd is fast, no mid-flight cancellation to
+	// worry about, and this mirrors every other modal's ctrl+c escape hatch)
+	// - everything else goes to handleLongformEditKeys, which owns Esc's
+	// dirty-guard state machine plus forwarding typed keys into the textarea.
+	if m.activeModal == ModalLongformEdit {
+		if msg.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
+		return m.handleLongformEditKeys(msg)
+	}
+
 	// Handle help overlay toggle (? or F1)
 	if key.Matches(msg, m.keys.Global.Help) && m.list.FilterState() != list.Filtering {
 		if m.activeModal == ModalHelp {
@@ -1461,7 +1502,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			case key.Matches(msg,
 				ln.CopyID, ln.CopyIssue, ln.OpenInEditor, ln.RecipeTriage,
 				ln.TimeTravelInput, ln.EpicCard,
-				ln.SelfUpdate, ln.CassSession, ln.Claim,
+				ln.SelfUpdate, ln.CassSession, ln.Claim, ln.FieldEdit,
 				ln.SplitFocusToggle, ln.SplitShrinkLeft, ln.SplitShrinkRight):
 				m = m.handleListKeys(msg)
 				return m, nil

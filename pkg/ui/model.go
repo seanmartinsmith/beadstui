@@ -78,6 +78,10 @@ const (
 	focusUpdateModal  // Self-update modal (bv-182)
 	focusBQLQuery     // BQL composable search modal
 	focusClaimConfirm // Claim-first write confirm modal (bt-oiaj.10)
+	focusFieldSelect  // Field-select hub modal (bt-oiaj.5)
+	focusFieldPicker  // Enum picker sub-modal: status/priority (bt-oiaj.5)
+	focusFieldInput   // Textinput sub-modal: title/assignee (bt-oiaj.5)
+	focusLongformEdit // Textarea sub-modal: description/design/comment/notes/acceptance (bt-oiaj.6)
 )
 
 // ViewMode represents which primary view is active. Only one view mode
@@ -133,6 +137,10 @@ const (
 	ModalLabelGraphAnalysis                  // Label graph analysis
 	ModalEpicCard                            // Tier-2 epic focus card (bt-gfxhz.3)
 	ModalClaimConfirm                        // Claim-first write confirm (bt-oiaj.10)
+	ModalFieldSelect                         // Field-select hub: status/priority/title/assignee (bt-oiaj.5)
+	ModalFieldPicker                         // Enum picker sub-modal: status/priority (bt-oiaj.5)
+	ModalFieldInput                          // Textinput sub-modal: title/assignee (bt-oiaj.5)
+	ModalLongformEdit                        // Textarea sub-modal: description/design/comment/notes/acceptance (bt-oiaj.6)
 )
 
 // ModalTab identifies which tab the shared alerts/notifications modal is
@@ -840,14 +848,19 @@ type Model struct {
 	// in .2-.9.
 	keys keys.AppKeys
 
-	// Claim-first write slice (bt-oiaj.10). claimTargetID/Title back the
-	// confirm modal; pendingClaims marks rows awaiting the watcher-driven
-	// settle (rendered as a per-row spinner); claimSpinner* drive that spinner.
+	// Claim-first write slice (bt-oiaj.10), generalized to all write kinds by
+	// bt-oiaj.13. claimTargetID/Title back the claim confirm modal
+	// specifically (field edits get no confirm modal - bt-oiaj.13 fork #5);
+	// pendingWrites marks rows awaiting the watcher-driven settle for ANY
+	// write kind (rendered as a per-row spinner via writeSpinner*), keyed by
+	// issue ID. v1 simplification: one pending write per issue - a second
+	// write request on a row with a pending write is refused (requestClaim),
+	// not queued.
 	claimTargetID      string
 	claimTargetTitle   string
-	pendingClaims      map[string]bool
-	claimSpinnerIdx    int
-	claimSpinnerActive bool
+	pendingWrites      map[string]pendingWrite
+	writeSpinnerIdx    int
+	writeSpinnerActive bool
 
 	// routeTable is the launch-time write-routing table (bt-scc35): resolves
 	// which directory (or --global) a bd claim/write should target, given
@@ -855,6 +868,28 @@ type Model struct {
 	// in via NewModel; nil-safe (bdroute.Table.Resolve refuses gracefully on
 	// a nil receiver).
 	routeTable *bdroute.Table
+
+	// Field-edit slice (bt-oiaj.5, pkg/ui/field_edit.go): the first consumer
+	// of the generic write machinery above besides claim. fieldEditTargetID
+	// backs all three field-edit modals (select -> picker/input); it stays
+	// set across the select -> sub-modal transition (Esc from a sub-modal
+	// returns to the select hub without losing the target) and is cleared on
+	// full cancel or commit.
+	fieldEditTargetID string
+	fieldSelect       FieldSelectModal
+	fieldPicker       FieldPickerModal
+	fieldInput        FieldInputModal
+
+	// Long-form field-edit slice (bt-oiaj.6, Slice C, pkg/ui/longform_edit.go):
+	// the textarea sub-modal for description/design/comment/append-notes/
+	// acceptance, opened from the same field-select hub via
+	// fieldEditTargetID above. longformDrafts is the session-memory draft
+	// cache keyed by (issue, field) - discarded and failed long-form buffers
+	// survive modal close and prefill the next open; a successful write
+	// clears its entry (semantics table at the top of longform_edit.go's
+	// draft-cache section). Memory only, never persisted to disk (fence).
+	longformEdit   LongformEditModal
+	longformDrafts map[longformDraftKey]string
 }
 
 // labelCount is a simple label->count pair for display
@@ -1418,8 +1453,10 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		}(),
 		// Tutorial integration (bv-8y31)
 		tutorialModel: NewTutorialModel(theme),
-		// Claim-first write slice (bt-oiaj.10)
-		pendingClaims: make(map[string]bool),
+		// Claim-first write slice (bt-oiaj.10), generalized by bt-oiaj.13
+		pendingWrites: make(map[string]pendingWrite),
+		// Long-form session draft cache (bt-oiaj.6)
+		longformDrafts: make(map[longformDraftKey]string),
 		// Write-routing table (bt-scc35)
 		routeTable: routeTable,
 	}
@@ -1718,11 +1755,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case FileChangedMsg:
 		return m.handleFileChanged(msg)
 
-	case claimResultMsg:
-		return m.handleClaimResult(msg)
+	case writeResultMsg:
+		return m.handleWriteResult(msg)
 
-	case claimSpinnerTickMsg:
-		return m.handleClaimSpinnerTick()
+	case writeSpinnerTickMsg:
+		return m.handleWriteSpinnerTick()
+
+	case longformEditorFinishedMsg:
+		return m.handleLongformEditorFinished(msg)
 
 	case tea.KeyPressMsg:
 		m, cmd = m.handleKeyPress(msg)

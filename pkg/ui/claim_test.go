@@ -80,13 +80,16 @@ func stubClaimRunnerCapturingDir(t *testing.T, res bdexec.Result, gotDir *string
 
 func TestClaimCmd_BuildsClaimArgv(t *testing.T) {
 	got := stubClaimRunner(t, bdexec.Result{ExitCode: 0})
-	msg := claimCmd(bdroute.WriteTarget{Dir: "some/dir"}, "zz-target")()
-	res, ok := msg.(claimResultMsg)
+	msg := writeCmd(bdroute.WriteTarget{Dir: "some/dir"}, "zz-target", writeClaim, "", []string{"update", "zz-target", "--claim"})()
+	res, ok := msg.(writeResultMsg)
 	if !ok {
-		t.Fatalf("claimCmd msg type = %T, want claimResultMsg", msg)
+		t.Fatalf("writeCmd msg type = %T, want writeResultMsg", msg)
 	}
 	if res.id != "zz-target" {
 		t.Errorf("result id = %q, want zz-target", res.id)
+	}
+	if res.kind != writeClaim {
+		t.Errorf("result kind = %v, want writeClaim", res.kind)
 	}
 	want := []string{"update", "zz-target", "--claim"}
 	if !slices.Equal(*got, want) {
@@ -95,16 +98,16 @@ func TestClaimCmd_BuildsClaimArgv(t *testing.T) {
 }
 
 // TestClaimCmd_GlobalTargetAppendsFlag verifies the WriteTarget.Global branch
-// (bt-scc35 follow-up wiring): claimCmd appends --global and runs with no
+// (bt-scc35 follow-up wiring): writeCmd appends --global and runs with no
 // checkout directory, rather than requiring Dir. Resolve does not produce a
 // Global target yet (beads_global is refused pre-flight), so this exercises
-// the claimCmd branch directly via the executor stub.
+// the writeCmd branch directly via the executor stub.
 func TestClaimCmd_GlobalTargetAppendsFlag(t *testing.T) {
 	var gotDir string
 	got := stubClaimRunnerCapturingDir(t, bdexec.Result{ExitCode: 0}, &gotDir)
-	msg := claimCmd(bdroute.WriteTarget{Global: true}, "zz-target")()
-	if _, ok := msg.(claimResultMsg); !ok {
-		t.Fatalf("claimCmd msg type = %T, want claimResultMsg", msg)
+	msg := writeCmd(bdroute.WriteTarget{Global: true}, "zz-target", writeClaim, "", []string{"update", "zz-target", "--claim"})()
+	if _, ok := msg.(writeResultMsg); !ok {
+		t.Fatalf("writeCmd msg type = %T, want writeResultMsg", msg)
 	}
 	want := []string{"update", "zz-target", "--claim", "--global"}
 	if !slices.Equal(*got, want) {
@@ -142,8 +145,8 @@ func TestConfirmClaim_MarksPendingAndRendersSpinner(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("confirmClaim returned nil cmd (expected claim dispatch)")
 	}
-	if !m.pendingClaims["zz-target"] {
-		t.Fatalf("zz-target not marked pending: %v", m.pendingClaims)
+	if _, pending := m.pendingWrites["zz-target"]; !pending {
+		t.Fatalf("zz-target not marked pending: %v", m.pendingWrites)
 	}
 	if m.activeModal != ModalNone {
 		t.Errorf("modal still open after confirm: %v", m.activeModal)
@@ -151,7 +154,7 @@ func TestConfirmClaim_MarksPendingAndRendersSpinner(t *testing.T) {
 	// The pending row swaps its selection caret for the spinner frame, so the
 	// current frame glyph must appear in the rendered list.
 	out := ansi.Strip(m.View().Content)
-	if !strings.Contains(out, claimSpinnerFrame(m.claimSpinnerIdx)) {
+	if !strings.Contains(out, claimSpinnerFrame(m.writeSpinnerIdx)) {
 		t.Errorf("pending spinner not rendered in list; view:\n%s", out)
 	}
 }
@@ -164,23 +167,42 @@ func TestCancelClaim_ClosesWithoutDispatch(t *testing.T) {
 	if m.activeModal != ModalNone {
 		t.Errorf("modal still open after cancel: %v", m.activeModal)
 	}
-	if len(m.pendingClaims) != 0 {
-		t.Errorf("cancel should not mark anything pending: %v", m.pendingClaims)
+	if len(m.pendingWrites) != 0 {
+		t.Errorf("cancel should not mark anything pending: %v", m.pendingWrites)
 	}
 	if len(*got) != 0 {
 		t.Errorf("cancel should not invoke the executor; got %v", *got)
 	}
 }
 
+// TestRequestClaim_RefusesWhenAlreadyPending verifies the v1 double-dispatch
+// guard (bt-oiaj.13 step 1): a second write request on a row that already
+// has a pending write is refused with a notice, not queued.
+func TestRequestClaim_RefusesWhenAlreadyPending(t *testing.T) {
+	m := newSizedModel(t, claimTestIssues(), 120, 32)
+	m.pendingWrites["zz-target"] = pendingWrite{Kind: writeClaim, StartedAt: time.Now()}
+	m.requestClaim()
+	if m.activeModal != ModalNone {
+		t.Errorf("activeModal = %v, want ModalNone (refused, not opened)", m.activeModal)
+	}
+	if m.statusSeverity != SeverityNotice {
+		t.Errorf("statusSeverity = %v, want SeverityNotice", m.statusSeverity)
+	}
+	if !strings.Contains(m.statusMsg, "write already pending for zz-target") {
+		t.Errorf("notice = %q, want it to name the pending write", m.statusMsg)
+	}
+}
+
 func TestHandleClaimResult_SuccessKeepsPending(t *testing.T) {
 	m := newSizedModel(t, claimTestIssues(), 120, 32)
-	m.pendingClaims["zz-target"] = true
-	m2, _ := m.handleClaimResult(claimResultMsg{
+	m.pendingWrites["zz-target"] = pendingWrite{Kind: writeClaim, StartedAt: time.Now()}
+	m2, _ := m.handleWriteResult(writeResultMsg{
 		id:     "zz-target",
+		kind:   writeClaim,
 		result: bdexec.Result{Args: []string{"bd", "update", "zz-target", "--claim"}, ExitCode: 0},
 	})
 	m = m2
-	if !m.pendingClaims["zz-target"] {
+	if _, pending := m.pendingWrites["zz-target"]; !pending {
 		t.Error("success must keep the row pending until the watcher settles it")
 	}
 	if m.statusSeverity != SeveritySuccess {
@@ -190,9 +212,10 @@ func TestHandleClaimResult_SuccessKeepsPending(t *testing.T) {
 
 func TestHandleClaimResult_FailureClearsPendingWithStderr(t *testing.T) {
 	m := newSizedModel(t, claimTestIssues(), 120, 32)
-	m.pendingClaims["zz-target"] = true
-	m2, _ := m.handleClaimResult(claimResultMsg{
-		id: "zz-target",
+	m.pendingWrites["zz-target"] = pendingWrite{Kind: writeClaim, StartedAt: time.Now()}
+	m2, _ := m.handleWriteResult(writeResultMsg{
+		id:   "zz-target",
+		kind: writeClaim,
 		result: bdexec.Result{
 			Args:     []string{"bd", "update", "zz-target", "--claim"},
 			ExitCode: 1,
@@ -200,7 +223,7 @@ func TestHandleClaimResult_FailureClearsPendingWithStderr(t *testing.T) {
 		},
 	})
 	m = m2
-	if m.pendingClaims["zz-target"] {
+	if _, pending := m.pendingWrites["zz-target"]; pending {
 		t.Error("failure must clear the pending marker")
 	}
 	if m.statusSeverity != SeverityFailure {
@@ -211,50 +234,207 @@ func TestHandleClaimResult_FailureClearsPendingWithStderr(t *testing.T) {
 	}
 }
 
-func TestSettlePendingClaims(t *testing.T) {
+func TestSettlePendingWrites_ClaimHeuristic(t *testing.T) {
 	m := newSizedModel(t, claimTestIssues(), 120, 32)
-	m.pendingClaims["zz-target"] = true
-	m.pendingClaims["zz-other"] = true
+	m.pendingWrites["zz-target"] = pendingWrite{Kind: writeClaim, StartedAt: time.Now()}
+	m.pendingWrites["zz-other"] = pendingWrite{Kind: writeClaim, StartedAt: time.Now()}
 
 	// zz-target now reflects the claim (in_progress + assignee); zz-other is
 	// still open + unassigned and must stay pending.
 	m.data.issueMap["zz-target"].Status = model.StatusInProgress
 	m.data.issueMap["zz-target"].Assignee = "sms"
 
-	m.settlePendingClaims()
+	m.settlePendingWrites()
 
-	if m.pendingClaims["zz-target"] {
+	if _, pending := m.pendingWrites["zz-target"]; pending {
 		t.Error("claimed bead should have settled out of pending")
 	}
-	if !m.pendingClaims["zz-other"] {
+	if _, pending := m.pendingWrites["zz-other"]; !pending {
 		t.Error("still-open bead must remain pending")
 	}
 }
 
-func TestClaimSpinnerTick_SelfCancels(t *testing.T) {
+// TestSettlePendingWrites_FieldEditTargetHit exercises the writeFieldEdit
+// branch (bt-oiaj.13 step 3, fork #3): unlike claim, a field edit settles by
+// exact target-compare of the named field, not a status/assignee heuristic.
+// No field-edit caller exists yet (bt-oiaj.5) - this proves the generalized
+// mechanism is correct ahead of that consumer.
+func TestSettlePendingWrites_FieldEditTargetHit(t *testing.T) {
+	m := newSizedModel(t, claimTestIssues(), 120, 32)
+	m.pendingWrites["zz-target"] = pendingWrite{
+		Kind: writeFieldEdit, Field: "title", Target: "New title", StartedAt: time.Now(),
+	}
+	m.data.issueMap["zz-target"].Title = "New title"
+
+	m.settlePendingWrites()
+
+	if _, pending := m.pendingWrites["zz-target"]; pending {
+		t.Error("field edit matching its target should have settled out of pending")
+	}
+}
+
+// TestSettlePendingWrites_FieldEditTargetMiss verifies a field edit stays
+// pending when the reloaded value does not (yet) match the captured target.
+func TestSettlePendingWrites_FieldEditTargetMiss(t *testing.T) {
+	m := newSizedModel(t, claimTestIssues(), 120, 32)
+	m.pendingWrites["zz-target"] = pendingWrite{
+		Kind: writeFieldEdit, Field: "title", Target: "New title", StartedAt: time.Now(),
+	}
+	// issueMap still has the original title ("Claim target bead") - no match.
+
+	m.settlePendingWrites()
+
+	if _, pending := m.pendingWrites["zz-target"]; !pending {
+		t.Error("field edit not yet matching its target must remain pending")
+	}
+}
+
+// TestSettlePendingWrites_TimeoutAnnunciator forces a stuck pending write
+// (StartedAt far in the past, content never matches) through a settle pass
+// and verifies the discrepancy annunciator fires: the marker clears, a
+// Failure-severity toast names the id/field, and the events ring records it
+// (bt-oiaj.13 step 4 - never silent stale state).
+func TestSettlePendingWrites_TimeoutAnnunciator(t *testing.T) {
+	m := newSizedModel(t, claimTestIssues(), 120, 32)
+	m.pendingWrites["zz-target"] = pendingWrite{
+		Kind: writeFieldEdit, Field: "title", Target: "unreachable value",
+		StartedAt: time.Now().Add(-writeSettleTimeout - time.Second),
+	}
+	eventsBefore := m.events.Len()
+
+	m.settlePendingWrites()
+
+	if _, pending := m.pendingWrites["zz-target"]; pending {
+		t.Error("timed-out write must clear the pending marker, not stay stuck forever")
+	}
+	if m.statusSeverity != SeverityFailure {
+		t.Errorf("statusSeverity = %v, want SeverityFailure (no dedicated Warning severity exists)", m.statusSeverity)
+	}
+	if !strings.Contains(m.statusMsg, "zz-target") || !strings.Contains(m.statusMsg, "title") || !strings.Contains(m.statusMsg, "45s") {
+		t.Errorf("timeout toast = %q, want it to name the id, field, and 45s window", m.statusMsg)
+	}
+	if m.events.Len() != eventsBefore+1 {
+		t.Errorf("events ring len = %d, want %d (timeout must record an entry)", m.events.Len(), eventsBefore+1)
+	}
+}
+
+func TestWriteSpinnerTick_SelfCancels(t *testing.T) {
 	m := newSizedModel(t, claimTestIssues(), 120, 32)
 
-	// No pending claims: the tick clears the active flag and stops re-arming.
-	m.claimSpinnerActive = true
-	m2, cmd := m.handleClaimSpinnerTick()
+	// No pending writes: the tick clears the active flag and stops re-arming.
+	m.writeSpinnerActive = true
+	m2, cmd := m.handleWriteSpinnerTick()
 	m = m2
-	if m.claimSpinnerActive {
-		t.Error("spinner should deactivate with no pending claims")
+	if m.writeSpinnerActive {
+		t.Error("spinner should deactivate with no pending writes")
 	}
 	if cmd != nil {
-		t.Error("spinner should not re-arm with no pending claims")
+		t.Error("spinner should not re-arm with no pending writes")
 	}
 
-	// With a pending claim: the tick advances and re-arms.
-	m.pendingClaims["zz-target"] = true
-	before := m.claimSpinnerIdx
-	m2, cmd = m.handleClaimSpinnerTick()
+	// With a pending write: the tick advances and re-arms.
+	m.pendingWrites["zz-target"] = pendingWrite{Kind: writeClaim, StartedAt: time.Now()}
+	before := m.writeSpinnerIdx
+	m2, cmd = m.handleWriteSpinnerTick()
 	m = m2
-	if m.claimSpinnerIdx != before+1 {
-		t.Errorf("spinner idx = %d, want %d", m.claimSpinnerIdx, before+1)
+	if m.writeSpinnerIdx != before+1 {
+		t.Errorf("spinner idx = %d, want %d", m.writeSpinnerIdx, before+1)
 	}
 	if cmd == nil {
-		t.Error("spinner should re-arm while claims are pending")
+		t.Error("spinner should re-arm while writes are pending")
+	}
+}
+
+// TestRenderClaimConfirm_PredictsNotClaimable_Closed verifies the bt-55n3s
+// outcome prediction (bt-oiaj.13 step 5): a closed bead's confirm modal warns
+// it is not claimable, purely from loaded state (no bd spawn).
+func TestRenderClaimConfirm_PredictsNotClaimable_Closed(t *testing.T) {
+	issues := claimTestIssues()
+	issues[0].Status = model.StatusClosed
+	m := newSizedModel(t, issues, 120, 32)
+	// Closing zz-target moves it to the end of the open-first sort
+	// (replaceIssues); select it explicitly rather than relying on the
+	// default index-0 selection.
+	if !m.selectIssueByID("zz-target") {
+		t.Fatal("zz-target not found in the list after closing")
+	}
+	m.requestClaim()
+
+	out := ansi.Strip(m.View().Content)
+	if !strings.Contains(out, "not claimable: status closed") {
+		t.Errorf("confirm modal missing closed-status prediction; view:\n%s", out)
+	}
+}
+
+// TestRenderClaimConfirm_PredictsNotClaimable_Tombstone mirrors the closed-bead
+// case above: field_edit.go's status-picker fence (~line 480) treats closed
+// AND tombstone as terminal/destructive, so the claim prediction must match
+// for symmetry. Defensive-only in practice - the datasource filters
+// tombstones from every load - but the sibling surface defends anyway.
+func TestRenderClaimConfirm_PredictsNotClaimable_Tombstone(t *testing.T) {
+	issues := claimTestIssues()
+	issues[0].Status = model.StatusTombstone
+	m := newSizedModel(t, issues, 120, 32)
+	if !m.selectIssueByID("zz-target") {
+		t.Fatal("zz-target not found in the list after tombstoning")
+	}
+	m.requestClaim()
+
+	out := ansi.Strip(m.View().Content)
+	if !strings.Contains(out, "not claimable: status tombstone") {
+		t.Errorf("confirm modal missing tombstone-status prediction; view:\n%s", out)
+	}
+}
+
+// TestRenderClaimConfirm_PredictsAssignedToOther verifies the assigned-bead
+// branch of the bt-55n3s matrix: bd will refuse unless the actor matches.
+func TestRenderClaimConfirm_PredictsAssignedToOther(t *testing.T) {
+	issues := claimTestIssues()
+	issues[0].Assignee = "sms"
+	m := newSizedModel(t, issues, 120, 32)
+	if !m.selectIssueByID("zz-target") {
+		t.Fatal("zz-target not found in the list")
+	}
+	m.requestClaim()
+
+	out := ansi.Strip(m.View().Content)
+	if !strings.Contains(out, "assigned to sms") {
+		t.Errorf("confirm modal missing assignee prediction; view:\n%s", out)
+	}
+}
+
+// TestRenderClaimConfirm_PredictionScrunchedNoOverflow verifies the confirm
+// modal (now up to 4 lines with the prediction row) still renders cleanly at
+// the user's routine scrunched terminal size (~50x16 - project norm per
+// tui-dev-rendering-sop.md), rather than only at the 120x32 the other tests
+// use.
+func TestRenderClaimConfirm_PredictionScrunchedNoOverflow(t *testing.T) {
+	issues := claimTestIssues()
+	issues[0].Assignee = "sms"
+	m := newSizedModel(t, issues, 50, 16)
+	if !m.selectIssueByID("zz-target") {
+		t.Fatal("zz-target not found in the list")
+	}
+	m.requestClaim()
+
+	out := ansi.Strip(m.View().Content)
+	if !strings.Contains(out, "Claim?") {
+		t.Errorf("confirm modal not rendered at scrunched size; view:\n%s", out)
+	}
+	if !strings.Contains(out, "assigned to sms") {
+		t.Errorf("prediction line missing at scrunched size; view:\n%s", out)
+	}
+}
+
+// TestRenderClaimConfirm_NoWarningForOpenUnassigned is the control: the
+// common case (open + unassigned) must render no warning line at all.
+func TestRenderClaimConfirm_NoWarningForOpenUnassigned(t *testing.T) {
+	m := newSizedModel(t, claimTestIssues(), 120, 32)
+	m.requestClaim()
+
+	out := ansi.Strip(m.View().Content)
+	if strings.Contains(out, "not claimable") || strings.Contains(out, "assigned to") {
+		t.Errorf("open+unassigned bead should render no prediction warning; view:\n%s", out)
 	}
 }
 
@@ -338,7 +518,7 @@ func TestClaimKeypath_RefusalTeatest(t *testing.T) {
 		t.Fatalf("final model type = %T, want Model", final)
 	}
 
-	if fm.pendingClaims["zz-target"] {
+	if _, pending := fm.pendingWrites["zz-target"]; pending {
 		t.Error("a refused claim must never enter the pending state")
 	}
 	if fm.statusSeverity != SeverityFailure {
