@@ -44,6 +44,11 @@ func allMaps() map[string]help.KeyMap {
 		"BQLQuery":          NewBQLQueryKeys(),
 		"TimeTravelInput":   NewTimeTravelInputKeys(),
 		"RepoPicker":        NewRepoPickerKeys(),
+
+		// Field-edit Maps (bt-oiaj.5)
+		"FieldSelect": NewFieldSelectKeys(),
+		"FieldPicker": NewFieldPickerKeys(),
+		"FieldInput":  NewFieldInputKeys(),
 	}
 }
 

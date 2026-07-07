@@ -62,6 +62,13 @@ type AppKeys struct {
 	BQLQuery          BQLQueryKeys
 	TimeTravelInput   TimeTravelInputKeys
 	RepoPicker        RepoPickerKeys
+
+	// Field-edit Maps (bt-oiaj.5): FieldSelect is the Pattern-C hub; Picker
+	// backs the enum sub-modal (status/priority); Input backs the textinput
+	// sub-modal (title/assignee). See docs/plans/2026-07-07-bt-edits-wave-oiaj13-5-6.md.
+	FieldSelect FieldSelectKeys
+	FieldPicker FieldPickerKeys
+	FieldInput  FieldInputKeys
 }
 
 // NewAppKeys returns the default keymap for every view. Wire into NewModel.
@@ -95,5 +102,10 @@ func NewAppKeys() AppKeys {
 		BQLQuery:          NewBQLQueryKeys(),
 		TimeTravelInput:   NewTimeTravelInputKeys(),
 		RepoPicker:        NewRepoPickerKeys(),
+
+		// Field-edit Maps (bt-oiaj.5)
+		FieldSelect: NewFieldSelectKeys(),
+		FieldPicker: NewFieldPickerKeys(),
+		FieldInput:  NewFieldInputKeys(),
 	}
 }

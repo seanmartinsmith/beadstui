@@ -483,7 +483,9 @@ func TestHandleRecipePickerAndInsightsKeys(t *testing.T) {
 	m.insightsPanel = NewInsightsModel(ins, m.data.issueMap, m.theme)
 	m.focused = focusInsights
 	m = m.handleInsightsKeys(tea.KeyPressMsg{Code: 'l', Text: "l"})
-	m = m.handleInsightsKeys(tea.KeyPressMsg{Code: 'e', Text: "e"})
+	// Explanations moved from 'e' to 'X' (bt-oiaj.5 wave migration - 'e' is
+	// now the global field-edit binding).
+	m = m.handleInsightsKeys(tea.KeyPressMsg{Code: 'X', Text: "X"})
 	m = m.handleInsightsKeys(tea.KeyPressMsg{Code: 'x', Text: "x"})
 	m = m.handleInsightsKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
 

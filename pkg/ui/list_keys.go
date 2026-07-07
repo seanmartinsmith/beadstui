@@ -142,6 +142,11 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 		// First bt write (bt-oiaj.10): open the confirm modal for the selected
 		// bead. The confirm's accept path fires the claim (handleKeyPress).
 		m.requestClaim()
+	case key.Matches(msg, k.FieldEdit):
+		// Field edits (bt-oiaj.5): open the field-select modal for the
+		// selected bead. Mirrors requestClaim's guard shape (no selection /
+		// already-pending refusal).
+		m.requestFieldEdit()
 	case key.Matches(msg, k.CopyID):
 		// Copy ID to clipboard (consistent with board view - bv-yg39)
 		selectedItem := m.list.SelectedItem()

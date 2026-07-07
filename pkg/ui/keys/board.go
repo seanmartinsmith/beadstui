@@ -52,7 +52,7 @@ type BoardNormalKeys struct {
 
 	// Actions
 	ToggleExpand key.Binding // d: inline card expand/collapse
-	ToggleEmpty  key.Binding // e: cycle empty-column visibility
+	ToggleEmpty  key.Binding // z: cycle empty-column visibility (bt-oiaj.5 wave migration - was e; e is now the global field-edit binding, see docs/plans/2026-07-07-bt-edits-wave-oiaj13-5-6.md)
 	CycleSwim    key.Binding // s: cycle swimlane mode
 	CopyID       key.Binding // y: copy selected issue ID
 
@@ -156,8 +156,8 @@ func NewBoardNormalKeys() BoardNormalKeys {
 			key.WithHelp("d", "expand card"),
 		),
 		ToggleEmpty: key.NewBinding(
-			key.WithKeys("e"),
-			key.WithHelp("e", "toggle empty columns"),
+			key.WithKeys("z"),
+			key.WithHelp("z", "toggle empty columns"),
 		),
 		CycleSwim: key.NewBinding(
 			key.WithKeys("s"),

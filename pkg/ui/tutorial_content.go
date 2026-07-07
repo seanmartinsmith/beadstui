@@ -436,7 +436,7 @@ func structuredTutorialPages() []StructuredTutorialPage {
 				Section{Title: "Grouping Modes"},
 				KeyTable{Bindings: []KeyBinding{
 					{Key: "s", Desc: "Cycle: Status -> Priority -> Type"},
-					{Key: "e", Desc: "Toggle empty columns"},
+					{Key: "z", Desc: "Toggle empty columns"},
 					{Key: "d", Desc: "Inline card expansion"},
 				}},
 				Spacer{Lines: 1},

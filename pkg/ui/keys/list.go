@@ -49,6 +49,12 @@ type ListNormalKeys struct {
 	SplitShrinkLeft  key.Binding
 	SplitShrinkRight key.Binding
 
+	// Field edit (bt-oiaj.5). 'e' opens the field-select modal; it moved off
+	// EpicCard (bt-oiaj.13 wave key migration - see
+	// docs/plans/2026-07-07-bt-edits-wave-oiaj13-5-6.md) so 'e' is free for
+	// the ratified edit binding (tkhq #1: "e reserved globally for edit").
+	FieldEdit key.Binding
+
 	// Sort / triage
 	CycleSort        key.Binding
 	CycleSortReverse key.Binding
@@ -116,12 +122,16 @@ func NewListNormalKeys() ListNormalKeys {
 			key.WithHelp("⏎", "open detail"),
 		),
 		EpicCard: key.NewBinding(
-			key.WithKeys("e"),
-			key.WithHelp("e", "epic card"),
+			key.WithKeys("F"),
+			key.WithHelp("F", "epic card"),
 		),
 		SplitFocusToggle: key.NewBinding(
 			key.WithKeys("tab"),
 			key.WithHelp("⇥", "toggle split focus"),
+		),
+		FieldEdit: key.NewBinding(
+			key.WithKeys("e"),
+			key.WithHelp("e", "edit field"),
 		),
 		SplitShrinkLeft: key.NewBinding(
 			key.WithKeys("<"),
@@ -200,7 +210,7 @@ func (k ListNormalKeys) FullHelp() [][]key.Binding {
 		// Time travel
 		{k.TimeTravelInput},
 		// Actions
-		{k.CopyID, k.CopyIssue, k.OpenInEditor, k.CassSession, k.SelfUpdate, k.Claim},
+		{k.CopyID, k.CopyIssue, k.OpenInEditor, k.CassSession, k.SelfUpdate, k.Claim, k.FieldEdit},
 	}
 }
 

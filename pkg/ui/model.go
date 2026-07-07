@@ -78,6 +78,9 @@ const (
 	focusUpdateModal  // Self-update modal (bv-182)
 	focusBQLQuery     // BQL composable search modal
 	focusClaimConfirm // Claim-first write confirm modal (bt-oiaj.10)
+	focusFieldSelect  // Field-select hub modal (bt-oiaj.5)
+	focusFieldPicker  // Enum picker sub-modal: status/priority (bt-oiaj.5)
+	focusFieldInput   // Textinput sub-modal: title/assignee (bt-oiaj.5)
 )
 
 // ViewMode represents which primary view is active. Only one view mode
@@ -133,6 +136,9 @@ const (
 	ModalLabelGraphAnalysis                  // Label graph analysis
 	ModalEpicCard                            // Tier-2 epic focus card (bt-gfxhz.3)
 	ModalClaimConfirm                        // Claim-first write confirm (bt-oiaj.10)
+	ModalFieldSelect                         // Field-select hub: status/priority/title/assignee (bt-oiaj.5)
+	ModalFieldPicker                         // Enum picker sub-modal: status/priority (bt-oiaj.5)
+	ModalFieldInput                          // Textinput sub-modal: title/assignee (bt-oiaj.5)
 )
 
 // ModalTab identifies which tab the shared alerts/notifications modal is
@@ -860,6 +866,17 @@ type Model struct {
 	// in via NewModel; nil-safe (bdroute.Table.Resolve refuses gracefully on
 	// a nil receiver).
 	routeTable *bdroute.Table
+
+	// Field-edit slice (bt-oiaj.5, pkg/ui/field_edit.go): the first consumer
+	// of the generic write machinery above besides claim. fieldEditTargetID
+	// backs all three field-edit modals (select -> picker/input); it stays
+	// set across the select -> sub-modal transition (Esc from a sub-modal
+	// returns to the select hub without losing the target) and is cleared on
+	// full cancel or commit.
+	fieldEditTargetID string
+	fieldSelect       FieldSelectModal
+	fieldPicker       FieldPickerModal
+	fieldInput        FieldInputModal
 }
 
 // labelCount is a simple label->count pair for display

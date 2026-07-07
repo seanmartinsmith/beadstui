@@ -28,7 +28,7 @@ type InsightsKeys struct {
 	ScrollDetailUp   key.Binding
 
 	// Toggles
-	Explanations key.Binding
+	Explanations key.Binding // X: toggle explanations (bt-oiaj.5 wave migration - was e; e is now the global field-edit binding, see docs/plans/2026-07-07-bt-edits-wave-oiaj13-5-6.md)
 	Calculation  key.Binding
 	Heatmap      key.Binding
 
@@ -65,8 +65,8 @@ func NewInsightsKeys() InsightsKeys {
 			key.WithHelp("⌃k", "scroll detail up"),
 		),
 		Explanations: key.NewBinding(
-			key.WithKeys("e"),
-			key.WithHelp("e", "toggle explanations"),
+			key.WithKeys("X"),
+			key.WithHelp("X", "toggle explanations"),
 		),
 		Calculation: key.NewBinding(
 			key.WithKeys("x"),

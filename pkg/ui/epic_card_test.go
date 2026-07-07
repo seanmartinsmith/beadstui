@@ -102,14 +102,18 @@ func TestHandleEpicCardKeys_Drill(t *testing.T) {
 	}
 }
 
+// TestListKeys_EpicCard_OpensOnEpic verifies EpicCard's key-migration
+// regression (bt-oiaj.5 wave): 'F' opens the card now that 'e' moved to the
+// global field-edit binding, see
+// docs/plans/2026-07-07-bt-edits-wave-oiaj13-5-6.md.
 func TestListKeys_EpicCard_OpensOnEpic(t *testing.T) {
 	m := epicCardModel(epicCardFixture())
 	if !m.selectIssueByID("ep1") {
 		t.Fatal("setup: ep1 not in visible list")
 	}
-	m = m.handleListKeys(tea.KeyPressMsg{Code: 'e', Text: "e"})
+	m = m.handleListKeys(tea.KeyPressMsg{Code: 'F', Text: "F"})
 	if m.activeModal != ModalEpicCard {
-		t.Fatalf("e on an epic should open the card, activeModal=%v", m.activeModal)
+		t.Fatalf("F on an epic should open the card, activeModal=%v", m.activeModal)
 	}
 	if m.epicCardID != "ep1" {
 		t.Errorf("epicCardID=%q, want ep1", m.epicCardID)
@@ -121,9 +125,9 @@ func TestListKeys_EpicCard_NoopOnNonEpic(t *testing.T) {
 	if !m.selectIssueByID("task1") {
 		t.Fatal("setup: task1 not in visible list")
 	}
-	m = m.handleListKeys(tea.KeyPressMsg{Code: 'e', Text: "e"})
+	m = m.handleListKeys(tea.KeyPressMsg{Code: 'F', Text: "F"})
 	if m.activeModal == ModalEpicCard {
-		t.Fatal("e on a non-epic should not open the card")
+		t.Fatal("F on a non-epic should not open the card")
 	}
 }
 
