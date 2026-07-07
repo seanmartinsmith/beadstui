@@ -205,16 +205,17 @@ Open items:
 Full list: `bd list --status=open` (50 items)
 
 ### Stream 7: CRUD from TUI
-**Status**: Write routing shipped (2026-07-06) — claims route correctly in all three launch modes
+**Status**: Edits wave shipped (2026-07-07, draft PR from feat/bt-edits-wave) — all nine fields editable from the TUI via `e`; pending/settled semantics with discrepancy annunciator
 **Priority**: Active (write arc bt-oiaj.10—.14)
-**Bead**: bt-oiaj (umbrella); bt-oiaj.10 closed
+**Bead**: bt-oiaj (umbrella); bt-oiaj.10, .13, .5, .6 closed
 **Decision**: Shell out to `bd` for writes, poll Dolt for changes. No beads fork needed. Sequencing per bt-chbqq: claim-first vertical slice FIRST, foundations (bt-msxk, bt-3epf) extract from the live write rather than speculative design.
 
 This is the end goal - making bt interactive, not just a viewer. Multi-project write routing shipped as `internal/bdroute` (bt-scc35 / decision bt-2pk38, docs/design/write-routing.md); bt-s4b7 project navigation no longer owns that concern.
 
 - [x] **bt-oiaj.10** (2026-07-06, PR #5): claim slice end-to-end — `m` + confirm -> `internal/bdexec` executor -> `bd update --claim` -> pending spinner -> existing reload settles (both embedded and server modes, live-verified). Side-finding: server-mode poll freshness query is broken generally (bt-xcvxv, P1).
 - [x] **bt-scc35 + bt-2pk38** (2026-07-06): cross-DB write routing (= bt-oiaj.9's core mechanism) — launch-time route table `internal/bdroute` with per-mode trust models (single-project: cwd always; workspace: config-authored paths; global: settings.json `project_paths` cache + write-time metadata.json identity proof), pre-flight refusal with actionable toasts, zero bd spawns on refusal. Prefix registry demoted to History-view use only — first live dogfood (bt-sj8zw) had misrouted a claim into a bench temp dir via the polluted registry. Test-suite registry pollution fixed alongside (bt-fg7wa, TestMain snapshot/diff guards).
-- [ ] bt-oiaj.11 receipts pane, .12 --readonly safe mode, .13 pending/settled semantics, .14 write-actor identity — the trust-release tier (bt-mpt9d). Follow-ups from the routing wave: beads_global `--global` write routing (Resolve refuses actionably today), bt-ch1o9 production-side stamp guard.
+- [x] **bt-oiaj.13 + .5 + .6** (2026-07-07, edits wave, one commit per slice on feat/bt-edits-wave): pending/settled generalization (`pendingWrite`/`writeCmd`, per-kind settle predicates, 45s discrepancy annunciator, bt-55n3s outcome prediction in the claim confirm); field-select modal on `e` (status/priority pickers — closed AND tombstone excluded, reopen-from-closed fenced; title/assignee textinputs; EpicCard e→F, board e→z, insights e→X migrations); long-form textarea modal (description/design/comment/acceptance/append-notes, tempfile-where-bd-has-file-flags transport per write-routing.md Consumers, Esc-Esc dirty guard, session draft cache, `E` $EDITOR escalation, lazy tempfile sweep).
+- [ ] bt-oiaj.11 receipts pane, .12 --readonly safe mode, .14 write-actor identity — the trust-release tier (bt-mpt9d). Follow-ups from the routing wave: beads_global `--global` write routing (Resolve refuses actionably today), bt-ch1o9 production-side stamp guard. Follow-ups from the edits wave: bt-jv3mb lossless-on-error UX unification, bt-k0t59 tutorial p/s page rewrite.
 
 ### Stream 9: Release engineering (added 2026-04-22)
 **Status**: DONE — pre-tag gates cleared, binaries-only release path ready (2026-04-23)

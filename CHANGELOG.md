@@ -6,6 +6,30 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-07-07 — Edits wave: every field editable from the TUI (bt-oiaj.13, bt-oiaj.5, bt-oiaj.6)
+
+**Three sequential slices on `feat/bt-edits-wave` (one commit each, draft PR), executed subagent-driven from the 2026-07-06 plan (docs/plans/2026-07-07-bt-edits-wave-oiaj13-5-6.md, authored pc:bt:5f472206): Sonnet implementers, Opus per-slice reviews, Fable whole-branch review. bt goes from claim-only writes to full field editing — status, priority, title, assignee, description, design, acceptance, append-notes, and comments — all through the bt-2pk38 routing contract (`bdroute.Resolve` pre-flight on every write, zero bd spawns on refusal).**
+
+### Ships
+
+- **feat(tui): pending/settled write generalization + claim outcome prediction (bt-oiaj.13)** — `pendingClaims` becomes `pendingWrites map[string]pendingWrite` (`Kind`/`Field`/`Target`/`StartedAt`, one pending write per issue, double-dispatch refused with a notice); `claimCmd`/`claimResultMsg` generalize to `writeCmd`/`writeResultMsg`; settle switches per kind — claim keeps its shipped heuristic verbatim, field edits exact-compare the named field against the registered Target, comments settle on the next reload after exit 0 (explicit predicate case). Entries older than 45s clear with a discrepancy annunciator (footer toast + events ring — SeverityFailure, no warning tier exists). The claim confirm modal now predicts the bt-55n3s outcome matrix from data bt already holds (closed/blocked/tombstone -> "not claimable"; foreign assignee -> actor-mismatch warning; warn-only, `y` proceeds).
+- **feat(tui): field-select edit modal — status/priority/title/assignee (bt-oiaj.5)** — `e` on the selected bead (list or detail) opens a Pattern C field-select modal (bt-88qn A+C hybrid); accelerators `s/p/t/a` plus `d/g/c/n/A` for the long-form fields. Status picker offers the 7 workflow states — closed AND tombstone excluded, and reopen-from-closed fenced at the choke point (destructive transitions need bt-oiaj.2's reason forms; the plan's PAUSE-AND-FLAG fired on the 9-value Status set, resolution flagged on the bead). Priority displays P0-P4, wires numeric `-p`. Title/assignee are prefilled textinputs (empty title refused client-side). Keybind migrations per the ratified tkhq table: EpicCard `e`->`F`, board empty-cols `e`->`z`, insights explanations `e`->`X` — zero collisions, regression-tested.
+- **feat(tui): long-form field edits via textarea modal (bt-oiaj.6)** — description/design/comment/acceptance/append-notes in a textarea modal, transport per bd 1.0.5 flag reality (write-routing.md Consumers amended in-commit): tempfile + `--body-file`/`--design-file`/`comments add -f` where file flags exist; inline argv for `--acceptance`/`--append-notes` (argv is UTF-16-safe from Go; the cp1252 class was a bash-layer property). Tempfiles under `.bt/tmp/edits/<pid>/`, absolute paths in argv (cmd.Dir is the target checkout in workspace mode), swept lazily on first modal open. Esc-Esc dirty guard (3s window), session-memory draft cache (stash on dirty close, restore on reopen, clear on confirmed success — nothing long-form is ever lost), `E` escalates to $EDITOR via tea.ExecProcess. Comment/notes editors open empty (append-only transports). `--append-notes` separator verified live against a throwaway bd project (single `\n`).
+
+### Bead bookkeeping
+
+- Closed: bt-oiaj.13, bt-oiaj.5, bt-oiaj.6 (structured close reasons on each).
+- New follow-ups: **bt-jv3mb** (lossless-on-error edit UX unification: single-line input lost on Resolve refusal, tempfile-failure vs refusal modal disposition, focus-return to originating pane) and **bt-k0t59** (tutorial "Changing Priority/Status" page advertises never-shipped bare `p`/`s` keys; rewrite for the `e` flow).
+- Flag comment on bt-oiaj.5 (tombstone/status-set PAUSE-AND-FLAG resolution); markdown preview deferral noted in bt-oiaj.6's close.
+
+### Notes
+
+- **Tested:** full `go build`/`go vet`/`go test ./...` green per slice and re-verified independently by the final review; `BT_CLAIM_INTEGRATION=1` live-bd suite green after the machinery migration; teatest keypaths for claim/field/longform; refusal paths assert zero executor invocations; render-harness dumps for all new modals at 120x30 and 100x16 (eyeballed).
+- **Review:** per-slice Opus reviews (2 pre-review fixes: tombstone exclusion + reopen fence; 1 spec-gap fix: cross-close draft cache) + Fable whole-branch review — "Ready to merge: Yes", zero Critical/Important; one symmetry fix landed post-review (tombstone in `predictClaimOutcome`, 562943a0).
+- **Deferred by design:** cycle keys (bt-88qn P/O layer, letters unresolved vs bt-gf3d), markdown preview (glamour), close/reopen reason forms (bt-oiaj.2), labels write (LabelPickerModel stays read-only), receipts .11 / --readonly .12 / actor identity .14.
+
+---
+
 ## 2026-07-06 — Write-routing foundation: claim misroute fixed, registry demoted from the write path (bt-scc35, bt-fg7wa, bt-2pk38)
 
 **The first live dogfood of the claim write (bt-sj8zw) failed in workspace/global mode: the executor consulted the prefix registry (`~/.bt/projects.json`) and ran `bd update --claim` in a bench temp dir. Root cause was two-layered — the registry was polluted by non-isolated benches (proximate), and a launch-stamped prefix-keyed cache is structurally the wrong source for routing mutations (fundamental). This session shipped the designed fix (= bt-oiaj.9's core mechanism): a launch-time route table with per-mode trust models, consulted at write time, with pre-flight refusal. Dispatcher + two parallel Sonnet worktree agents; PR #6 merged first so the wave built on current main.**
