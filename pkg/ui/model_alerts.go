@@ -790,14 +790,22 @@ func formatNotificationRow(e events.Event, width int) string {
 	}
 	title := strings.ReplaceAll(e.Title, "\n", " ")
 	// System events (bt-9u39) carry no BeadID — render as "15:04 system • Title"
-	// without the empty id slot to avoid a double-space gap.
+	// without the empty id slot to avoid a double-space gap. NewSystemEvent
+	// (setFailure/setDegraded) stores its message in Summary and leaves Title
+	// empty, so fall back to Summary as the row headline; without this those
+	// notices render as a blank "15:04 system •" row (the text was visible only
+	// on the selected-row summary-expand line).
 	if e.Kind == events.EventSystem || idStr == "" {
+		headline := title
+		if headline == "" {
+			headline = strings.ReplaceAll(e.Summary, "\n", " ")
+		}
 		consumed := len(prefix) + len(timeStr) + 1 + len(kindStr) + 3
 		titleWidth := width - consumed
 		if titleWidth < 10 {
 			titleWidth = 10
 		}
-		return prefix + timeStr + " " + kindStr + " • " + truncate(title, titleWidth)
+		return prefix + timeStr + " " + kindStr + " • " + truncate(headline, titleWidth)
 	}
 	// timeStr(5) + " " + kindStr + " " + idStr + " • " (3) + optional prefix
 	consumed := len(prefix) + len(timeStr) + 1 + len(kindStr) + 1 + len(idStr) + 3
@@ -946,7 +954,12 @@ func (m Model) renderNotificationsTab() string {
 			// a single line (commit/comment summaries may include line breaks).
 			s := strings.ReplaceAll(active[i].Summary, "\n", " ")
 			s = strings.TrimSpace(s)
-			if s != "" {
+			// Skip the expand line when the row headline already IS the Summary:
+			// system/empty-id events with no Title fall back to Summary in
+			// formatNotificationRow, so rendering it again would duplicate it.
+			headlineIsSummary := active[i].Title == "" &&
+				(active[i].Kind == events.EventSystem || active[i].BeadID == "")
+			if s != "" && !headlineIsSummary {
 				sb.WriteString("    " + summaryStyle.Render(truncate(s, rowWidth-2)))
 				sb.WriteString("\n")
 				rowsWritten++

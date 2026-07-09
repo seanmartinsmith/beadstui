@@ -215,6 +215,40 @@ func TestKindRowStyle_DistinctActionTypes(t *testing.T) {
 	}
 }
 
+// TestFormatNotificationRow_SystemEventUsesSummaryWhenTitleEmpty pins the
+// fix for the blank-system-row bug: NewSystemEvent (setFailure/setDegraded)
+// stores its message in Summary and leaves Title empty, but the row renderer
+// keyed off Title, so those notifications drew as "HH:MM system •" with no
+// text. The row must fall back to Summary for system events with no Title.
+func TestFormatNotificationRow_SystemEventUsesSummaryWhenTitleEmpty(t *testing.T) {
+	e := events.NewSystemEvent("Dolt server unreachable (retrying in 5s)")
+	row := formatNotificationRow(e, 100)
+	if !strings.Contains(row, "Dolt server unreachable") {
+		t.Fatalf("system-event row must show its Summary when Title is empty, got:\n%q", row)
+	}
+}
+
+// TestRenderNotificationsTab_SystemEventShowsSummaryUnselected verifies the
+// message text of a NewSystemEvent is visible even when the row is NOT the
+// selected (cursor) row. Before the fix the text only appeared on the
+// selected-row summary-expand line, so unselected failure/degraded notices
+// rendered blank in the list.
+func TestRenderNotificationsTab_SystemEventShowsSummaryUnselected(t *testing.T) {
+	m := seedModel()
+	day := time.Date(2026, 5, 4, 10, 0, 0, 0, time.UTC)
+	// System event is older, so a newer bead event holds the cursor and the
+	// system row is unselected (no summary-expand line to mask the bug).
+	sys := events.NewSystemEvent("Semantic search unavailable")
+	sys.At = day
+	m.events.Append(sys)
+	m.events.Append(events.Event{ID: "b", Kind: events.EventCreated, BeadID: "bt-b", Title: "newer bead", At: day.Add(1 * time.Minute)})
+
+	out := m.renderNotificationsTab()
+	if !strings.Contains(out, "Semantic search unavailable") {
+		t.Fatalf("unselected system-event row must show its Summary, got:\n%s", out)
+	}
+}
+
 // TestRenderNotificationsTab_AppliesKindStyle verifies the rendered output
 // passes through kindRowStyle for each event row. Uses a profile-agnostic
 // shape check: when a TrueColor profile is active, the row contains an
