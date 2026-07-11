@@ -506,6 +506,13 @@ func (m *Model) applyFilter() {
 	m.rebuildTreeForCurrentFilter()
 	// Epics overview is a projection over the same scope/label filter (bt-ryi5z).
 	m.refreshEpicsForCurrentFilter()
+	// Priority hints are computed from the filtered set (bt-gcuv); only
+	// pay the recompute cost while the feature is actually visible, but
+	// keep it live so activeRepos/status/label filter changes don't leave
+	// stale out-of-scope recommendations on screen.
+	if m.ac.showPriorityHints {
+		m.recomputePriorityHints()
+	}
 
 	// Keep selection in bounds
 	if len(filteredItems) > 0 && m.list.Index() >= len(filteredItems) {
@@ -925,6 +932,13 @@ func (m *Model) applyRecipe(r *recipe.Recipe) {
 
 	// Update filter indicator
 	m.filter.currentFilter = "recipe:" + r.Name
+
+	// Priority hints are computed from the filtered set (bt-gcuv); this
+	// must run after currentFilter is updated above so
+	// filteredIssuesForActiveView() takes the recipe-active branch.
+	if m.ac.showPriorityHints {
+		m.recomputePriorityHints()
+	}
 
 	// Keep selection in bounds
 	if len(filteredItems) > 0 && m.list.Index() >= len(filteredItems) {

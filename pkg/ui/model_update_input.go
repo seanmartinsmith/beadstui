@@ -1141,8 +1141,18 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Global.PriorityHints):
 			// Toggle priority hints
 			m.ac.showPriorityHints = !m.ac.showPriorityHints
-			// Update delegate with new state
-			m.updateListDelegate()
+			if m.ac.showPriorityHints {
+				// Recompute from the current filter scope every time hints
+				// are turned on (bt-gcuv) - the cached Phase 2 hints may
+				// have been computed against a different project filter
+				// (or the full cross-project set), which would show
+				// arrows for issues the user has since filtered out.
+				// recomputePriorityHints also refreshes the list delegate.
+				m.recomputePriorityHints()
+			} else {
+				// Update delegate with new state
+				m.updateListDelegate()
+			}
 			// Show explanatory status message
 			if m.ac.showPriorityHints {
 				count := len(m.ac.priorityHints)
