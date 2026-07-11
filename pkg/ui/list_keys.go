@@ -153,10 +153,11 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 		if selectedItem == nil {
 			m.setNotice("No issue selected")
 		} else if issueItem, ok := selectedItem.(IssueItem); ok {
-			if err := clipboard.WriteAll(issueItem.Issue.ID); err != nil {
+			id := issueIDForClipboard(issueItem)
+			if err := clipboard.WriteAll(id); err != nil {
 				m.setNotice(fmt.Sprintf("Clipboard error: %v", err))
 			} else {
-				m.setStatus(fmt.Sprintf("Copied %s to clipboard", issueItem.Issue.ID))
+				m.setStatus(fmt.Sprintf("Copied %s to clipboard", id))
 			}
 		}
 	case key.Matches(msg, k.SplitFocusToggle):
@@ -192,4 +193,8 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 		}
 	}
 	return m
+}
+
+func issueIDForClipboard(item IssueItem) string {
+	return item.Issue.ID
 }

@@ -63,7 +63,7 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 
 	// Get all the data
 	icon, iconColor := t.GetTypeIcon(string(i.Issue.IssueType))
-	idStr := i.Issue.ID
+	idStr := CompactIssueID(i.Issue.ID, i.RepoPrefix)
 	title := i.Issue.Title
 	ageStr := FormatTimeRel(i.Issue.UpdatedAt)
 	commentCount := len(i.Issue.Comments)
@@ -254,10 +254,7 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 	}
 
 	// Title gets everything in between
-	titleWidth := width - leftFixedWidth - rightWidth - 2
-	if titleWidth < 5 {
-		titleWidth = 5
-	}
+	titleWidth := issueListTitleWidth(width, leftFixedWidth, rightWidth)
 
 	// Truncate title if needed
 	title = truncateRunesHelper(title, titleWidth, "…")
@@ -405,6 +402,14 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 	}
 
 	fmt.Fprint(w, row)
+}
+
+func issueListTitleWidth(width, leftFixedWidth, rightWidth int) int {
+	titleWidth := width - leftFixedWidth - rightWidth - 2
+	if titleWidth < 5 {
+		return 5
+	}
+	return titleWidth
 }
 
 // hasHumanLabel returns true if labels contains "human".
