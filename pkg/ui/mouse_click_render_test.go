@@ -86,7 +86,7 @@ func mouseTestModel(n int, w, h, listW, listH int) Model {
 func TestMouseClick_FormulaMatchesRender_Default(t *testing.T) {
 	m := mouseTestModel(3, 200, 40, 60, 30)
 	formulaY := m.splitViewListChromeHeight()
-	actualY := findRenderedItemY(m.View().Content, "bd-xaa")
+	actualY := findRenderedItemY(m.View().Content, "xaa title")
 	if formulaY != actualY {
 		t.Errorf("chrome height drifted: formula=%d actual=%d", formulaY, actualY)
 	}
@@ -97,7 +97,7 @@ func TestMouseClick_FormulaMatchesRender_WorkspaceMode(t *testing.T) {
 	m := mouseTestModel(3, 200, 40, 60, 30)
 	m.workspaceMode = true
 	formulaY := m.splitViewListChromeHeight()
-	actualY := findRenderedItemY(m.View().Content, "bd-xaa")
+	actualY := findRenderedItemY(m.View().Content, "xaa")
 	if formulaY != actualY {
 		t.Errorf("chrome height drifted in workspace mode: formula=%d actual=%d", formulaY, actualY)
 	}
@@ -108,7 +108,7 @@ func TestMouseClick_FormulaMatchesRender_WithPill(t *testing.T) {
 	m := mouseTestModel(3, 200, 40, 60, 30)
 	m.list.SetFilterText("xaa")
 	formulaY := m.splitViewListChromeHeight()
-	actualY := findRenderedItemY(m.View().Content, "bd-xaa")
+	actualY := findRenderedItemY(m.View().Content, "xaa title")
 	if formulaY != actualY {
 		t.Errorf("chrome height drifted with pill: formula=%d actual=%d", formulaY, actualY)
 	}
@@ -136,7 +136,7 @@ func TestMouseClick_FormulaMatchesRender_NarrowPane(t *testing.T) {
 	// Bound search to the list pane's column range — the detail pane's
 	// identity strip now contains the bead ID near its top (bt-2cvx) and
 	// would otherwise be matched first at narrow split ratios.
-	actualY := findRenderedItemYInPane(m.View().Content, "bd-xaa", m.list.Width())
+	actualY := findRenderedItemYInPane(m.View().Content, "xaa", m.list.Width())
 	if formulaY != actualY {
 		t.Errorf("chrome height drifted at narrow pane (listW=%d): formula=%d actual=%d",
 			m.list.Width(), formulaY, actualY)
@@ -146,7 +146,7 @@ func TestMouseClick_FormulaMatchesRender_NarrowPane(t *testing.T) {
 // Paginated list, still on page 0: click on rendered Y+2 must select index 2.
 func TestMouseClick_ResolvesThirdRowOnFirstPage(t *testing.T) {
 	m := mouseTestModel(200, 200, 40, 60, 10)
-	firstY := findRenderedItemY(m.View().Content, "bd-xaa")
+	firstY := findRenderedItemY(m.View().Content, "xaa")
 	clicked, _ := m.handleMouseClick(tea.MouseClickMsg{
 		X: 10, Y: firstY + 2, Button: tea.MouseLeft,
 	})
@@ -161,11 +161,13 @@ func TestMouseClick_ResolvesFirstRowAcrossPages(t *testing.T) {
 	m := mouseTestModel(200, 200, 40, 60, 10)
 	m.list.Select(25)
 	content := m.View().Content
-	firstY := findRenderedItemY(content, "bd-x")
+	expected := m.list.Paginator.Page * m.list.Paginator.PerPage
+	firstItem := m.list.Items()[expected].(IssueItem)
+	needle := CompactIssueID(firstItem.Issue.ID, firstItem.RepoPrefix)
+	firstY := findRenderedItemY(content, needle)
 	clicked, _ := m.handleMouseClick(tea.MouseClickMsg{
 		X: 10, Y: firstY, Button: tea.MouseLeft,
 	})
-	expected := m.list.Paginator.Page * m.list.Paginator.PerPage
 	if got := clicked.list.Index(); got != expected {
 		t.Errorf("click at page-%d first visible Y=%d: expected index %d, got %d",
 			m.list.Paginator.Page, firstY, expected, got)

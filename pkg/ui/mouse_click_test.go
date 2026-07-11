@@ -100,9 +100,9 @@ func TestHandleMouseClick_NonListModeIgnored(t *testing.T) {
 // in split view (bt-58yw regression fix; bt-fxbl chrome unification).
 //
 // Post bt-fxbl chrome rows are:
-//   1. RenderTitledPanel top border
-//   2. renderSearchRow (always 1 row, bridges all FilterStates)
-//   3. renderSplitView column header row
+//  1. RenderTitledPanel top border
+//  2. renderSearchRow (always 1 row, bridges all FilterStates)
+//  3. renderSplitView column header row
 //
 // The Bubbles phantom title row is gone — l.SetShowFilter(false) +
 // l.SetShowTitle(false) skips the titleView branch entirely in list.View().
@@ -709,8 +709,8 @@ func TestSinglePaneListRenderGeometry(t *testing.T) {
 	if !strings.Contains(lines[1], "TYPE") {
 		t.Fatalf("line 1 should be the column header, got %q", lines[1])
 	}
-	if !strings.Contains(lines[chrome], "bd-cc0") {
-		t.Fatalf("first list item (bd-cc0) should render on line %d (singlePaneListChromeHeight), got %q",
+	if !strings.Contains(lines[chrome], "cc0") {
+		t.Fatalf("first list item (cc0) should render on line %d (singlePaneListChromeHeight), got %q",
 			chrome, lines[chrome])
 	}
 }

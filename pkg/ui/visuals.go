@@ -192,3 +192,20 @@ func RenderRepoBadge(prefix string) string {
 		Bold(true).
 		Render("[" + display + "]")
 }
+
+// CompactIssueID removes the repository prefix from an issue ID for display.
+// The model's canonical ID remains unchanged for copy and other actions.
+func CompactIssueID(id, repoPrefix string) string {
+	if repoPrefix == "" {
+		return id
+	}
+
+	for _, separator := range []string{"-", ":", "_"} {
+		prefix := repoPrefix + separator
+		if len(id) > len(prefix) && strings.EqualFold(id[:len(prefix)], prefix) {
+			return id[len(prefix):]
+		}
+	}
+
+	return id
+}

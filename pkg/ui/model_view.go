@@ -422,10 +422,10 @@ func centerLine(s string, width int) string {
 //
 //   - Unfiltered:    discreet placeholder hint ("/  search   <count> beads")
 //   - Filtering:     live FilterInput rendered via m.list.FilterInput.View()
-//                    (with our own prompt + cursor shown); count of running
-//                    matches on the right.
+//     (with our own prompt + cursor shown); count of running
+//     matches on the right.
 //   - FilterApplied: committed query + match count on the right (the original
-//                    "search pill" behavior, bt-031h).
+//     "search pill" behavior, bt-031h).
 //
 // Why we own this rather than letting Bubbles render its titleView: Bubbles'
 // built-in title row sits BELOW our column header strip, and during Filtering
@@ -511,11 +511,18 @@ func (m Model) splitViewHeader() string {
 		Bold(true).
 		Width(listInnerWidth)
 
-	headerText := "  TYPE PRI STATUS      ID                     TITLE"
+	headerText := issueListColumnHeader(m.workspaceMode)
 	if listInnerWidth > 0 && len(headerText) > listInnerWidth {
 		headerText = headerText[:listInnerWidth]
 	}
 	return headerStyle.Render(headerText)
+}
+
+func issueListColumnHeader(workspaceMode bool) string {
+	if workspaceMode {
+		return "  REPO TYPE PRI STATUS      ID    TITLE"
+	}
+	return "  TYPE PRI STATUS      ID    TITLE"
 }
 
 func (m Model) renderListWithHeader() string {
@@ -540,11 +547,7 @@ func (m Model) renderListWithHeader() string {
 		Bold(true).
 		Width(headerWidth)
 
-	headerText := "  TYPE PRI STATUS      ID                                   TITLE"
-	if m.workspaceMode {
-		// Account for repo badges like [API] shown in workspace mode.
-		headerText = "  REPO TYPE PRI STATUS      ID                               TITLE"
-	}
+	headerText := issueListColumnHeader(m.workspaceMode)
 	if headerWidth > 0 && len(headerText) > headerWidth {
 		headerText = headerText[:headerWidth]
 	}
