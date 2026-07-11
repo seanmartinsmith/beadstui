@@ -1342,13 +1342,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			// Project picker overlay (multi-project mode), or wisp toggle (bt-9kdo)
 			if !m.workspaceMode || len(m.availableRepos) == 0 {
 				// bt-9kdo: toggle wisp (ephemeral) visibility
-				m.showWisps = !m.showWisps
-				m.applyFilter()
-				if m.showWisps {
-					m.setStatus("wisps: visible")
-				} else {
-					m.setStatus("wisps: hidden")
-				}
+				m.toggleWisps()
 				return m, nil
 			}
 			if m.activeModal == ModalRepoPicker {
@@ -1361,6 +1355,14 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				m.repoPicker.SetSize(m.width, m.height-1)
 				m.focused = focusRepoPicker
 			}
+			return m, nil
+
+		case key.Matches(msg, m.keys.Global.WispToggle):
+			// bt-8jds: in workspace/global mode `w` is claimed by the project
+			// picker (ProjectsOrWisps above), leaving wisp visibility
+			// unreachable there. Ctrl+W toggles wisps regardless of mode, so
+			// it doubles as a plain alias alongside `w` in single-project mode.
+			m.toggleWisps()
 			return m, nil
 
 		case key.Matches(msg, m.keys.Global.Export):
