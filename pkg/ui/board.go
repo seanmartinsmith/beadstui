@@ -172,10 +172,17 @@ func sortIssuesByPriorityAndDate(issues []model.Issue) {
 // Behavior depends on swimlane mode unless explicitly overridden:
 // - Status mode: shows all 4 columns (even empty) for workflow visibility
 // - Priority/Type modes: hides empty columns to save space
+//
+// Note: this does NOT auto-hide empty columns while a card is expanded.
+// An earlier revision did that (see git history), but it changed context
+// out from under the user (columns disappearing on 'd') and still isn't
+// enough on its own once >1 column is populated. Expanded-card width is
+// instead handled by redistributing space toward populated columns in
+// View's calcExpandedColumnWidths (bt-lgbz) - empty columns stay visible,
+// just narrower.
 func (b *BoardModel) updateActiveColumns() {
 	// Determine whether to show empty columns
-	// Auto-hide empty columns when a card is expanded to give it more width
-	showEmpty := b.shouldShowEmptyColumns() && !b.HasExpandedCard()
+	showEmpty := b.shouldShowEmptyColumns()
 
 	b.activeColIdx = nil
 	for i := 0; i < 4; i++ {
@@ -895,14 +902,15 @@ func (b *BoardModel) ToggleExpand() {
 		// Expand selected card (auto-collapses previous)
 		b.expandedCardID = selected.ID
 	}
-	// Recompute visible columns (empty cols auto-hide when expanded)
-	b.updateActiveColumns()
+	// Note: visible columns are intentionally left alone here - expanding
+	// no longer hides empty columns (bt-lgbz). View() gives the expanded
+	// card more room by redistributing width toward populated columns
+	// instead.
 }
 
 // CollapseExpanded collapses any currently expanded card
 func (b *BoardModel) CollapseExpanded() {
 	b.expandedCardID = ""
-	b.updateActiveColumns()
 }
 
 // IsCardExpanded returns true if the specified card is currently expanded
@@ -918,6 +926,55 @@ func (b *BoardModel) GetExpandedID() string {
 // HasExpandedCard returns true if any card is currently expanded
 func (b *BoardModel) HasExpandedCard() bool {
 	return b.expandedCardID != ""
+}
+
+// minExpandedEmptyColWidth is the smallest content width an empty column
+// may shrink to when calcExpandedColumnWidths redistributes board space
+// toward populated columns (bt-lgbz). Must stay wide enough that the
+// "(empty)" placeholder (plus its card margin) renders on one line
+// instead of wrapping - see cardWidth = colWidth - 4 in View().
+const minExpandedEmptyColWidth = 14
+
+// calcExpandedColumnWidths computes the column content widths to use while
+// a card is expanded on the board (bt-lgbz).
+//
+// The board's normal layout divides boardWidth equally across every
+// visible column, including empty ones (baseWidth = boardWidth/numCols).
+// That's fine for browsing, but it starves an expanded card of space when
+// most visible columns are empty - e.g. OPEN holds the expanded card
+// while IN_PROGRESS/BLOCKED/CLOSED are all at 0, capping the card to 1/4
+// of the board no matter how much of that board is actually unused.
+//
+// This redistributes boardWidth so populated columns split the space
+// among themselves, while empty columns shrink to a minimum footprint
+// (never hidden - see minExpandedEmptyColWidth). It falls back to
+// normalWidth for both results - i.e. no change from the existing
+// equal-division layout - when there is nothing to redistribute: no
+// populated columns at all (divide-by-zero guard) or every visible
+// column already holds cards.
+func calcExpandedColumnWidths(boardWidth, numCols, populatedCols, normalWidth, borderOverhead int) (populatedWidth, emptyWidth int) {
+	if populatedCols <= 0 || populatedCols >= numCols {
+		return normalWidth, normalWidth
+	}
+
+	emptyWidth = minExpandedEmptyColWidth
+	if emptyWidth > normalWidth {
+		emptyWidth = normalWidth
+	}
+
+	emptyCols := numCols - populatedCols
+	reserved := emptyCols * (emptyWidth + borderOverhead)
+	remaining := boardWidth - reserved
+
+	populatedWidth = remaining/populatedCols - borderOverhead
+	if populatedWidth < normalWidth {
+		// Never regress below what the equal-division layout already gave
+		// populated columns (e.g. a very narrow terminal with no slack to
+		// redistribute).
+		populatedWidth = normalWidth
+	}
+
+	return populatedWidth, emptyWidth
 }
 
 // View renders the Kanban board with adaptive columns
@@ -983,6 +1040,24 @@ func (b BoardModel) View(width, height int) string {
 		baseWidth--
 	}
 
+	// When a card is expanded, redistribute width toward populated columns
+	// so the expanded card isn't squeezed to a sliver by empty columns
+	// sharing the equal division (bt-lgbz: e.g. OPEN holds the expanded
+	// card while IN_PROGRESS/BLOCKED/CLOSED are all empty). Both values
+	// equal baseWidth (i.e. no-op, identical to today's layout) unless
+	// there's a genuine mix of populated/empty columns to redistribute
+	// across - the non-expanded layout is never affected.
+	populatedCols := 0
+	for _, colIdx := range b.activeColIdx {
+		if len(b.columns[colIdx]) > 0 {
+			populatedCols++
+		}
+	}
+	populatedColWidth, emptyColWidth := baseWidth, baseWidth
+	if b.HasExpandedCard() {
+		populatedColWidth, emptyColWidth = calcExpandedColumnWidths(boardWidth, numCols, populatedCols, baseWidth, borderOverhead)
+	}
+
 	colHeight := height - 4 // Account for title bar + column borders (header now in border title)
 	if colHeight < 8 {
 		colHeight = 8
@@ -1013,11 +1088,24 @@ func (b BoardModel) View(width, height int) string {
 	}
 
 	var renderedCols []string
+	var actualColumnsWidth int
 
 	for i, colIdx := range b.activeColIdx {
 		isFocused := b.focusedCol == i
 		issues := b.columns[colIdx]
 		issueCount := len(issues)
+
+		// Per-column width: normally baseWidth for every column (unchanged
+		// layout). While a card is expanded, populated columns widen and
+		// empty columns shrink per calcExpandedColumnWidths above (bt-lgbz).
+		colWidth := baseWidth
+		if b.HasExpandedCard() {
+			if issueCount > 0 {
+				colWidth = populatedColWidth
+			} else {
+				colWidth = emptyColWidth
+			}
+		}
 
 		// Compute column statistics (bv-nl8a)
 		stats := computeColumnStats(issues, b.issueMap)
@@ -1107,9 +1195,9 @@ func (b BoardModel) View(width, height int) string {
 		}
 
 		// Render cards
-		// Card width = baseWidth - 4 to fit inside column (border 2 + visual margin 2).
+		// Card width = colWidth - 4 to fit inside column (border 2 + visual margin 2).
 		// Clamp to minimum of 6.
-		cardWidth := baseWidth - 4
+		cardWidth := colWidth - 4
 		if cardWidth < 6 {
 			cardWidth = 6
 		}
@@ -1156,26 +1244,25 @@ func (b BoardModel) View(width, height int) string {
 		// Titled panel with header in border
 		column := RenderTitledPanel(content, PanelOpts{
 			Title:       headerText,
-			Width:       baseWidth + borderOverhead,
+			Width:       colWidth + borderOverhead,
 			Height:      colHeight + 2,
 			Focused:     isFocused,
 			BorderColor: colBorderColor,
 			TitleColor:  colTitleColor,
 		})
 		renderedCols = append(renderedCols, column)
+		actualColumnsWidth += colWidth + borderOverhead
 	}
 
 	// Join columns edge-to-edge (adjacent borders provide visual separation)
 	columnsView := lipgloss.JoinHorizontal(lipgloss.Top, renderedCols...)
 
-	// The actual rendered width of all columns combined. Use this for
-	// the title bar so it aligns exactly with the column borders below
-	// it, preventing box-drawing misalignment when the detail panel is
-	// visible (#116). Integer division in baseWidth can leave a
-	// remainder that would cause the title bar (set to boardWidth) to
-	// be wider than the columns.
-	actualColumnsWidth := numCols * (baseWidth + borderOverhead)
-
+	// actualColumnsWidth is accumulated per-column above (not
+	// numCols*(baseWidth+borderOverhead)) because columns can now have
+	// unequal widths while a card is expanded (bt-lgbz). Using the actual
+	// sum keeps the title bar aligned exactly with the column borders
+	// below it, preventing box-drawing misalignment when the detail panel
+	// is visible (#116).
 	// Build title bar with swimlane mode and hidden column indicator (bv-tf6j)
 	titleBar := b.renderTitleBar(actualColumnsWidth, t)
 
