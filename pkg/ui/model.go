@@ -797,6 +797,14 @@ type Model struct {
 	lastListClickAt  time.Time
 	lastListClickRow int
 
+	// Double-click detection for the tree view (bt-w8j8.2). Mirrors
+	// lastListClickAt/lastListClickRow above but kept as separate state so a
+	// click in ViewList just before switching to ViewTree (or vice versa)
+	// can never be misread as the first half of a double-click in the other
+	// view.
+	lastTreeClickAt  time.Time
+	lastTreeClickRow int
+
 	// Mouse-wheel speed ramp for the issue list (bt-citoc). Consecutive wheel
 	// ticks in the same direction within wheelRampWindow accelerate the
 	// rows-per-tick; a direction change or a pause resets to one row.

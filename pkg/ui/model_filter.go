@@ -367,6 +367,28 @@ func (m *Model) filteredIssuesForActiveView() []model.Issue {
 	return filtered
 }
 
+// reapplyActiveFilter re-runs whichever custom filter (BQL or recipe) is
+// currently active by dispatching to the same apply{BQL,Recipe} code paths
+// the interactive filter UI uses (the BQL modal, the recipe picker). Reload
+// paths that rebuild list items straight from the full m.data.issues (e.g.
+// replaceIssues) MUST call this afterward -- setListItems only preserves the
+// Bubbles `/` text filter and the workspace activeRepos filter, not BQL or
+// recipe state, so without this an active filter silently reverts to the
+// full unfiltered corpus on the next reload (bt-hhg1r.1).
+//
+// Mirrors the existing reapply pattern already used after other rebuild-from-
+// scratch paths (handleFileChanged, handlePhase2Ready, rebuildListWithDiffInfo).
+func (m *Model) reapplyActiveFilter() {
+	if m.filter.activeRecipe != nil {
+		m.applyRecipe(m.filter.activeRecipe)
+		return
+	}
+	if m.filter.activeBQLExpr != nil && strings.HasPrefix(m.filter.currentFilter, "bql:") {
+		queryStr := strings.TrimPrefix(m.filter.currentFilter, "bql:")
+		m.applyBQL(m.filter.activeBQLExpr, queryStr)
+	}
+}
+
 func (m *Model) refreshBoardAndGraphForCurrentFilter() {
 	if m.mode != ViewBoard && m.mode != ViewGraph {
 		return
@@ -430,6 +452,19 @@ func (m *Model) rebuildTreeForCurrentFilter() {
 	m.tree.Build(m.data.issues)
 }
 
+// toggleWisps flips ephemeral (wisp) issue visibility, re-applies the active
+// filter, and posts a status message. Shared by the single-project `w`
+// binding and the workspace/global-mode `ctrl+w` binding (bt-9kdo, bt-8jds).
+func (m *Model) toggleWisps() {
+	m.showWisps = !m.showWisps
+	m.applyFilter()
+	if m.showWisps {
+		m.setStatus("wisps: visible")
+	} else {
+		m.setStatus("wisps: hidden")
+	}
+}
+
 func (m *Model) applyFilter() {
 	var filteredItems []list.Item
 	var filteredIssues []model.Issue
@@ -484,6 +519,13 @@ func (m *Model) applyFilter() {
 	m.rebuildTreeForCurrentFilter()
 	// Epics overview is a projection over the same scope/label filter (bt-ryi5z).
 	m.refreshEpicsForCurrentFilter()
+	// Priority hints are computed from the filtered set (bt-gcuv); only
+	// pay the recompute cost while the feature is actually visible, but
+	// keep it live so activeRepos/status/label filter changes don't leave
+	// stale out-of-scope recommendations on screen.
+	if m.ac.showPriorityHints {
+		m.recomputePriorityHints()
+	}
 
 	// Keep selection in bounds
 	if len(filteredItems) > 0 && m.list.Index() >= len(filteredItems) {
@@ -903,6 +945,13 @@ func (m *Model) applyRecipe(r *recipe.Recipe) {
 
 	// Update filter indicator
 	m.filter.currentFilter = "recipe:" + r.Name
+
+	// Priority hints are computed from the filtered set (bt-gcuv); this
+	// must run after currentFilter is updated above so
+	// filteredIssuesForActiveView() takes the recipe-active branch.
+	if m.ac.showPriorityHints {
+		m.recomputePriorityHints()
+	}
 
 	// Keep selection in bounds
 	if len(filteredItems) > 0 && m.list.Index() >= len(filteredItems) {

@@ -1098,3 +1098,78 @@ func (t *TreeModel) ensureCursorVisible() {
 func (t *TreeModel) GetViewportOffset() int {
 	return t.viewportOffset
 }
+
+// TreeClick describes the result of mouse hit-testing in the tree view.
+// Used by Model.handleMouseClick to dispatch selection and expand-toggle
+// gestures without leaking tree layout knowledge outside this package
+// (bt-w8j8.2, modeled on HistoryModel.ClickAt in history.go).
+//
+// Index is the flatList index the click landed on, or -1 when the click
+// missed every visible row (out of bounds, or past the last rendered node).
+// OnExpandIndicator is true when the click landed on the node's
+// expand/collapse glyph column and the node has children -- leaf nodes
+// render a bullet in that column but have no expand affordance to hit.
+type TreeClick struct {
+	Index             int
+	OnExpandIndicator bool
+}
+
+// ClickAt maps an (x, y) coordinate (relative to the tree view's top-left)
+// to a TreeClick. Unlike HistoryModel.ClickAt there is no header row or
+// panel border to account for -- the tree body starts at y=0 (model_view.go
+// renders it as the full ViewTree body) and each node is exactly one line,
+// so y maps directly to a flatList index via the current viewport offset.
+func (t *TreeModel) ClickAt(x, y int) TreeClick {
+	if x < 0 || x >= t.width || y < 0 || y >= t.height {
+		return TreeClick{Index: -1}
+	}
+
+	index := t.viewportOffset + y
+	start, end := t.visibleRange()
+	if index < start || index >= end || index >= len(t.flatList) {
+		return TreeClick{Index: -1}
+	}
+
+	node := t.flatList[index]
+	if node == nil || node.Issue == nil {
+		return TreeClick{Index: -1}
+	}
+
+	onIndicator := false
+	if len(node.Children) > 0 {
+		prefixW := lipgloss.Width(t.buildTreePrefix(node))
+		indicatorW := lipgloss.Width(t.getExpandIndicator(node))
+		if x >= prefixW && x < prefixW+indicatorW {
+			onIndicator = true
+		}
+	}
+
+	return TreeClick{Index: index, OnExpandIndicator: onIndicator}
+}
+
+// SelectIndex moves the cursor to the given flatList index (clamped to
+// bounds) and adjusts the viewport so it stays visible. Used by mouse click
+// handling, which resolves an absolute row via ClickAt rather than the
+// relative single-step deltas MoveUp/MoveDown apply for keyboard nav.
+func (t *TreeModel) SelectIndex(i int) {
+	t.MoveCursorBy(i - t.cursor)
+}
+
+// MoveCursorBy moves the cursor by delta rows (negative = up, positive =
+// down), clamping to bounds and keeping the cursor visible. Used by the
+// mouse-wheel speed ramp (bt-w8j8.2), which advances more than one row per
+// tick during a fast scroll; MoveUp/MoveDown keep their single-step
+// semantics for the keyboard j/k bindings.
+func (t *TreeModel) MoveCursorBy(delta int) {
+	if len(t.flatList) == 0 {
+		return
+	}
+	t.cursor += delta
+	if t.cursor < 0 {
+		t.cursor = 0
+	}
+	if t.cursor >= len(t.flatList) {
+		t.cursor = len(t.flatList) - 1
+	}
+	t.ensureCursorVisible()
+}

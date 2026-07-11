@@ -40,19 +40,34 @@ func (m Model) handleTreeKeys(msg tea.KeyMsg) Model {
 		m.focused = focusList
 	case key.Matches(msg, k.SyncDetail):
 		// Toggle detail panel (sync selection and jump to detail)
-		if m.isSplitView {
-			if selected := m.tree.SelectedIssue(); selected != nil {
-				// Sync detail panel with tree selection
-				for i, item := range m.list.Items() {
-					if issueItem, ok := item.(IssueItem); ok && issueItem.Issue.ID == selected.ID {
-						m.list.Select(i)
-						break
-					}
-				}
-				m.updateViewportContent()
-				m.focused = focusDetail
-			}
+		m = m.syncTreeSelectionToDetail()
+	}
+	return m
+}
+
+// syncTreeSelectionToDetail moves the main list's selection to the tree
+// view's currently selected issue and focuses the detail pane. This is the
+// tree view's only "open a bead" action -- ViewTree has no full-screen
+// detail viewport of its own (that surface belongs to bt-krx1), so both the
+// SyncDetail key (Tab) and the mouse double-click gesture (bt-w8j8.2) route
+// through this shared helper rather than duplicating the lookup-and-focus
+// logic. No-op when split view is inactive, since there is no detail pane
+// to jump to.
+func (m Model) syncTreeSelectionToDetail() Model {
+	if !m.isSplitView {
+		return m
+	}
+	selected := m.tree.SelectedIssue()
+	if selected == nil {
+		return m
+	}
+	for i, item := range m.list.Items() {
+		if issueItem, ok := item.(IssueItem); ok && issueItem.Issue.ID == selected.ID {
+			m.list.Select(i)
+			break
 		}
 	}
+	m.updateViewportContent()
+	m.focused = focusDetail
 	return m
 }

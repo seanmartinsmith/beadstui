@@ -10,6 +10,7 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 
 	"charm.land/bubbles/v2/list"
+	"charm.land/lipgloss/v2"
 )
 
 // Build a minimal issue item used across delegate tests.
@@ -57,8 +58,11 @@ func TestIssueDelegate_RenderWorkspaceWithPriorityHints(t *testing.T) {
 	delegate.Render(&buf, l, 0, item)
 	out := buf.String()
 
-	if !strings.Contains(out, "api-123") {
-		t.Fatalf("render output missing issue id: %q", out)
+	if strings.Contains(out, "api-123") {
+		t.Fatalf("render output should omit redundant repo prefix: %q", out)
+	}
+	if !strings.Contains(out, "123") {
+		t.Fatalf("render output missing compact issue id: %q", out)
 	}
 	if !strings.Contains(out, "↑") {
 		t.Fatalf("render output missing priority hint arrow: %q", out)
@@ -71,6 +75,68 @@ func TestIssueDelegate_RenderWorkspaceWithPriorityHints(t *testing.T) {
 	}
 	if !strings.Contains(out, "💬1") {
 		t.Fatalf("render output missing comment count badge: %q", out)
+	}
+}
+
+func TestIssueDelegate_RenderSingleProjectUsesCompactIDWithoutBadge(t *testing.T) {
+	item := newTestIssueItem("portfolio-hhg1r.1")
+	item.RepoPrefix = "portfolio"
+	delegate := IssueDelegate{Theme: DefaultTheme()}
+
+	l := list.New([]list.Item{item}, delegate, 0, 0)
+	l.SetWidth(80)
+
+	var buf bytes.Buffer
+	delegate.Render(&buf, l, 0, item)
+	out := buf.String()
+
+	if strings.Contains(out, "portfolio-hhg1r.1") {
+		t.Fatalf("render output should omit project prefix: %q", out)
+	}
+	if !strings.Contains(out, "hhg1r.1") {
+		t.Fatalf("render output missing compact issue id: %q", out)
+	}
+	if strings.Contains(out, "[PORT]") {
+		t.Fatalf("single-project output should not contain repo badge: %q", out)
+	}
+	if got := issueIDForClipboard(item); got != "portfolio-hhg1r.1" {
+		t.Fatalf("clipboard ID = %q, want full canonical ID", got)
+	}
+}
+
+func TestIssueDelegate_CompactIDWidthFlowsToTitle(t *testing.T) {
+	const (
+		width           = 80
+		fixedWithoutID  = 20
+		rightWidth      = 10
+		canonicalID     = "portfolio-hhg1r.1"
+		compactID       = "hhg1r.1"
+		idCellSeparator = 1
+	)
+
+	fullLeftWidth := fixedWithoutID + lipgloss.Width(canonicalID) + idCellSeparator
+	compactLeftWidth := fixedWithoutID + lipgloss.Width(compactID) + idCellSeparator
+	fullTitleWidth := issueListTitleWidth(width, fullLeftWidth, rightWidth)
+	compactTitleWidth := issueListTitleWidth(width, compactLeftWidth, rightWidth)
+
+	wantGain := lipgloss.Width(canonicalID) - lipgloss.Width(compactID)
+	if got := compactTitleWidth - fullTitleWidth; got != wantGain {
+		t.Fatalf("title width gain = %d, want %d", got, wantGain)
+	}
+	if got := issueListTitleWidth(0, 100, 100); got != 5 {
+		t.Fatalf("minimum title width = %d, want 5", got)
+	}
+}
+
+func TestIssueListColumnHeaderUsesCompactIDCell(t *testing.T) {
+	for _, workspaceMode := range []bool{false, true} {
+		header := issueListColumnHeader(workspaceMode)
+		if !strings.Contains(header, "ID    TITLE") {
+			t.Fatalf("workspaceMode=%t header does not use compact ID cell: %q", workspaceMode, header)
+		}
+		if workspaceMode != strings.Contains(header, "REPO") {
+			t.Fatalf("workspaceMode=%t header repo column mismatch: %q", workspaceMode, header)
+		}
 	}
 }
 
