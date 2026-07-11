@@ -11,7 +11,9 @@ import (
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
+	"github.com/seanmartinsmith/beadstui/pkg/bql"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/recipe"
 	"github.com/seanmartinsmith/beadstui/pkg/ui/keys"
 )
 
@@ -445,6 +447,107 @@ func TestModalEscPreservesListFilter(t *testing.T) {
 				t.Errorf("filter value cleared by modal Esc (bt-65pt): got %q, want %q", got, "2h8")
 			}
 		})
+	}
+}
+
+// TestBQLFilterSurvivesDataSourceReload is the regression test for
+// bt-hhg1r.1: an active BQL filter (as applied via the `:` BQL modal, or by
+// bt --bql at launch) must survive a Dolt poll reload. Before the fix,
+// handleDataSourceReload -> replaceIssues rebuilt list items from the full
+// m.data.issues with no filter applied, silently reverting the view to the
+// full unfiltered corpus.
+func TestBQLFilterSurvivesDataSourceReload(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "proj-1", Title: "Match one", Status: model.StatusOpen, CreatedAt: time.Now()},
+		{ID: "proj-2", Title: "Match two", Status: model.StatusOpen, CreatedAt: time.Now()},
+		{ID: "proj-3", Title: "Unmatched", Status: model.StatusOpen, CreatedAt: time.Now()},
+	}
+	m := NewModel(issues, nil, "", nil, nil)
+
+	queryStr := `id in (proj-1, proj-2)`
+	parsed, err := bql.Parse(queryStr)
+	if err != nil {
+		t.Fatalf("bql.Parse: %v", err)
+	}
+	if err := bql.Validate(parsed); err != nil {
+		t.Fatalf("bql.Validate: %v", err)
+	}
+
+	// Mirror handleBQLQueryKeys: set activeBQLExpr then apply via the
+	// dedicated BQL path.
+	m.filter.activeBQLExpr = parsed
+	m.applyBQL(parsed, queryStr)
+
+	if got := len(m.FilteredIssues()); got != 2 {
+		t.Fatalf("precondition: BQL filter not applied, visible=%d", got)
+	}
+
+	// Simulate a Dolt poll reload handing back the full (unfiltered) corpus,
+	// as datasource.LoadFromSource does.
+	m2, _ := m.handleDataSourceReload(DataSourceReloadMsg{Issues: issues})
+
+	filtered := m2.FilteredIssues()
+	if len(filtered) != 2 {
+		t.Fatalf("BQL filter wiped by reload: expected 2 visible issues, got %d (%+v)", len(filtered), filtered)
+	}
+	got := map[string]bool{}
+	for _, iss := range filtered {
+		got[iss.ID] = true
+	}
+	if !got["proj-1"] || !got["proj-2"] {
+		t.Errorf("expected proj-1 and proj-2 after reload, got %+v", got)
+	}
+
+	// Filter UI state (footer indicator, `:` modal re-entry) must remain intact.
+	if m2.filter.activeBQLExpr == nil {
+		t.Error("activeBQLExpr cleared by reload")
+	}
+	if want := "bql:" + queryStr; m2.filter.currentFilter != want {
+		t.Errorf("currentFilter not preserved: got %q want %q", m2.filter.currentFilter, want)
+	}
+}
+
+// TestRecipeFilterSurvivesDataSourceReload is the recipe counterpart of
+// TestBQLFilterSurvivesDataSourceReload (bt-hhg1r.1 acceptance criteria:
+// "Recipes (activeRecipe) likewise survive reload").
+func TestRecipeFilterSurvivesDataSourceReload(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "proj-open-1", Status: model.StatusOpen, CreatedAt: time.Now()},
+		{ID: "proj-closed-1", Status: model.StatusClosed, CreatedAt: time.Now()},
+		{ID: "proj-closed-2", Status: model.StatusClosed, CreatedAt: time.Now()},
+	}
+	m := NewModel(issues, nil, "", nil, nil)
+
+	r := &recipe.Recipe{
+		Name: "closed-only",
+		Filters: recipe.FilterConfig{
+			Status: []string{"closed"},
+		},
+	}
+	m.setActiveRecipe(r)
+	m.applyRecipe(r)
+
+	if got := len(m.FilteredIssues()); got != 2 {
+		t.Fatalf("precondition: recipe filter not applied, visible=%d", got)
+	}
+
+	m2, _ := m.handleDataSourceReload(DataSourceReloadMsg{Issues: issues})
+
+	filtered := m2.FilteredIssues()
+	if len(filtered) != 2 {
+		t.Fatalf("recipe filter wiped by reload: expected 2 visible issues, got %d (%+v)", len(filtered), filtered)
+	}
+	for _, iss := range filtered {
+		if iss.Status != model.StatusClosed {
+			t.Errorf("non-closed issue %s leaked through recipe filter after reload", iss.ID)
+		}
+	}
+
+	if m2.filter.activeRecipe == nil {
+		t.Error("activeRecipe cleared by reload")
+	}
+	if want := "recipe:" + r.Name; m2.filter.currentFilter != want {
+		t.Errorf("currentFilter not preserved: got %q want %q", m2.filter.currentFilter, want)
 	}
 }
 

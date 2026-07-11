@@ -367,6 +367,28 @@ func (m *Model) filteredIssuesForActiveView() []model.Issue {
 	return filtered
 }
 
+// reapplyActiveFilter re-runs whichever custom filter (BQL or recipe) is
+// currently active by dispatching to the same apply{BQL,Recipe} code paths
+// the interactive filter UI uses (the BQL modal, the recipe picker). Reload
+// paths that rebuild list items straight from the full m.data.issues (e.g.
+// replaceIssues) MUST call this afterward -- setListItems only preserves the
+// Bubbles `/` text filter and the workspace activeRepos filter, not BQL or
+// recipe state, so without this an active filter silently reverts to the
+// full unfiltered corpus on the next reload (bt-hhg1r.1).
+//
+// Mirrors the existing reapply pattern already used after other rebuild-from-
+// scratch paths (handleFileChanged, handlePhase2Ready, rebuildListWithDiffInfo).
+func (m *Model) reapplyActiveFilter() {
+	if m.filter.activeRecipe != nil {
+		m.applyRecipe(m.filter.activeRecipe)
+		return
+	}
+	if m.filter.activeBQLExpr != nil && strings.HasPrefix(m.filter.currentFilter, "bql:") {
+		queryStr := strings.TrimPrefix(m.filter.currentFilter, "bql:")
+		m.applyBQL(m.filter.activeBQLExpr, queryStr)
+	}
+}
+
 func (m *Model) refreshBoardAndGraphForCurrentFilter() {
 	if m.mode != ViewBoard && m.mode != ViewGraph {
 		return

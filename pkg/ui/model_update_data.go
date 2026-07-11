@@ -449,6 +449,11 @@ func (m Model) handleDataSourceReload(msg DataSourceReloadMsg) (Model, tea.Cmd) 
 	// Filter state is preserved inside setListItems (bt-nzsy).
 	m.replaceIssues(msg.Issues)
 
+	// replaceIssues rebuilds items from the full corpus; re-apply any active
+	// BQL/recipe filter so a Dolt poll doesn't silently un-filter the view
+	// (bt-hhg1r.1).
+	m.reapplyActiveFilter()
+
 	// Settle any pending write whose reloaded state now reflects it
 	// (bt-oiaj.10, generalized to all write kinds by bt-oiaj.13).
 	m.settlePendingWrites()
