@@ -430,6 +430,19 @@ func (m *Model) rebuildTreeForCurrentFilter() {
 	m.tree.Build(m.data.issues)
 }
 
+// toggleWisps flips ephemeral (wisp) issue visibility, re-applies the active
+// filter, and posts a status message. Shared by the single-project `w`
+// binding and the workspace/global-mode `ctrl+w` binding (bt-9kdo, bt-8jds).
+func (m *Model) toggleWisps() {
+	m.showWisps = !m.showWisps
+	m.applyFilter()
+	if m.showWisps {
+		m.setStatus("wisps: visible")
+	} else {
+		m.setStatus("wisps: hidden")
+	}
+}
+
 func (m *Model) applyFilter() {
 	var filteredItems []list.Item
 	var filteredIssues []model.Issue

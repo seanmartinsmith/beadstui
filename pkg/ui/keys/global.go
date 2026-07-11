@@ -39,6 +39,7 @@ type GlobalKeys struct {
 	// Workspace
 	ProjectsOrWisps  key.Binding // w
 	WorkspaceHomeAll key.Binding // W
+	WispToggle       key.Binding // ctrl+w (wisp visibility; `w` is claimed by the project picker in workspace/global mode, see bt-8jds)
 	HybridPreset     key.Binding // H (gated on focusList + hybrid mode)
 
 	// Actions
@@ -142,6 +143,10 @@ func NewGlobalKeys() GlobalKeys {
 			key.WithKeys("W"),
 			key.WithHelp("W", "home / all projects"),
 		),
+		WispToggle: key.NewBinding(
+			key.WithKeys("ctrl+w"),
+			key.WithHelp("⌃w", "wisps"),
+		),
 		HybridPreset: key.NewBinding(
 			key.WithKeys("H"),
 			key.WithHelp("H", "hybrid preset"),
@@ -210,7 +215,7 @@ func (k GlobalKeys) FullHelp() [][]key.Binding {
 		// Views
 		{k.Board, k.Graph, k.Insights, k.History, k.Actionable, k.FlowMatrix, k.Tree, k.LabelDashboard, k.Attention, k.Epics},
 		// Workspace
-		{k.ProjectsOrWisps, k.WorkspaceHomeAll, k.HybridPreset},
+		{k.ProjectsOrWisps, k.WorkspaceHomeAll, k.WispToggle, k.HybridPreset},
 		// Actions
 		{k.Refresh, k.SearchMode, k.BQL, k.Recipes, k.Alerts, k.Notifications, k.SearchBounce, k.PriorityHints, k.Export, k.LabelPicker},
 	}
