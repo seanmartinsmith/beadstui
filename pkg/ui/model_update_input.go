@@ -1633,6 +1633,15 @@ func (m Model) handleMouseClick(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	// Tree view click handling (bt-w8j8.2): route to TreeModel.ClickAt,
+	// mirroring the ViewHistory branch above. A single click anywhere on a
+	// row selects it; a click on the expand/collapse glyph column of a node
+	// with children also toggles it; a second click on the same row within
+	// listDoubleClickWindow syncs the detail pane (the tree's "open" gesture,
+	// same as the Tab/SyncDetail key).
+	if m.mode == ViewTree {
+		return m.handleTreeMouseClick(mouse)
+	}
 	// Only the default list mode uses click-to-focus on list/detail. Other
 	// view modes (insights, board, graph, etc.) keep keyboard-only navigation.
 	if m.mode != ViewList {
@@ -1785,6 +1794,53 @@ func (m Model) clickListPane(mouse tea.Mouse, searchRowY, rowOffset int) (Model,
 	return m, nil
 }
 
+// handleTreeMouseClick processes a left-click while ViewTree is active
+// (bt-w8j8.2). Mirrors clickListPane above: hit-test via TreeModel.ClickAt,
+// then dispatch select / expand-toggle / double-click-sync-to-detail.
+func (m Model) handleTreeMouseClick(mouse tea.Mouse) (Model, tea.Cmd) {
+	// Clicks past the body (into the shortcuts sidebar, when shown) are not
+	// tree rows; bodyWidth already excludes the sidebar's reserved columns
+	// (same guard clickListPane applies in single-pane list layout).
+	if mouse.X >= m.bodyWidth() {
+		return m, nil
+	}
+	hit := m.tree.ClickAt(mouse.X, mouse.Y)
+	if hit.Index < 0 {
+		return m, nil
+	}
+	if m.focused != focusTree {
+		m.focused = focusTree
+	}
+	m.tree.SelectIndex(hit.Index)
+
+	if hit.OnExpandIndicator {
+		// A click on the expand glyph always toggles and never counts toward
+		// the double-click gesture below -- it reads as a standard tree-view
+		// disclosure triangle, not a row-open target, so rapid clicks here
+		// just flip expand/collapse rather than syncing the detail pane.
+		m.tree.ToggleExpand()
+		m.lastTreeClickAt = time.Time{}
+		return m, nil
+	}
+
+	// Double-click opens the bead (sync-to-detail equivalent of Enter),
+	// mirroring the list's lastListClickAt/lastListClickRow pattern: a
+	// second click on the same row within listDoubleClickWindow promotes to
+	// open. Keyed on row index rather than (X,Y), same as the list.
+	now := time.Now()
+	isDouble := !m.lastTreeClickAt.IsZero() &&
+		now.Sub(m.lastTreeClickAt) <= listDoubleClickWindow &&
+		m.lastTreeClickRow == hit.Index
+	m.lastTreeClickAt = now
+	m.lastTreeClickRow = hit.Index
+	if isDouble {
+		// Reset so an immediate third click doesn't re-trigger the sync.
+		m.lastTreeClickAt = time.Time{}
+		m = m.syncTreeSelectionToDetail()
+	}
+	return m, nil
+}
+
 // openSelectedRow opens the currently-selected list row, matching the Enter key
 // in handleListKeys (bt-f3zbz, double-click target). In single-pane it shows
 // the full-screen detail viewport; in split view the detail is already visible,
@@ -1912,7 +1968,12 @@ func (m Model) handleMouseWheel(msg tea.MouseWheelMsg) (Model, tea.Cmd) {
 		case focusGraph:
 			m.graphView.PageUp()
 		case focusTree:
-			m.tree.MoveUp()
+			// Speed ramp: a fast burst of up-ticks moves multiple nodes per
+			// tick (bt-w8j8.2), same treatment as focusList; an isolated
+			// tick still moves exactly one node.
+			var step int
+			m, step = m.rampedWheelStep(-1)
+			m.tree.MoveCursorBy(-step)
 		case focusActionable:
 			m.actionableView.MoveUp()
 		case focusHistory:
@@ -1957,7 +2018,12 @@ func (m Model) handleMouseWheel(msg tea.MouseWheelMsg) (Model, tea.Cmd) {
 		case focusGraph:
 			m.graphView.PageDown()
 		case focusTree:
-			m.tree.MoveDown()
+			// Speed ramp: a fast burst of down-ticks moves multiple nodes per
+			// tick (bt-w8j8.2), same treatment as focusList; an isolated
+			// tick still moves exactly one node.
+			var step int
+			m, step = m.rampedWheelStep(+1)
+			m.tree.MoveCursorBy(step)
 		case focusActionable:
 			m.actionableView.MoveDown()
 		case focusHistory:
