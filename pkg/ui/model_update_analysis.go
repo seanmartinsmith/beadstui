@@ -328,13 +328,10 @@ func (m Model) handlePhase2Ready(msg Phase2ReadyMsg) (Model, tea.Cmd) {
 	dataHash := fmt.Sprintf("v%s@%s#%d", triage.Meta.Version, triage.Meta.GeneratedAt.Format("15:04:05"), triage.Meta.IssueCount)
 	m.insightsPanel.SetRecommendations(triage.Recommendations, dataHash)
 
-	// Generate priority recommendations
+	// Generate priority recommendations, scoped to the currently filtered
+	// view (bt-gcuv) rather than the full cross-project m.data.issues.
 	recsStart := time.Now()
-	recommendations := m.data.analyzer.GenerateRecommendations()
-	m.ac.priorityHints = make(map[string]*analysis.PriorityRecommendation, len(recommendations))
-	for i := range recommendations {
-		m.ac.priorityHints[recommendations[i].IssueID] = &recommendations[i]
-	}
+	m.recomputePriorityHints()
 	debug.LogTiming("phase2.GenerateRecommendations", time.Since(recsStart))
 
 	// Refresh alerts with full Phase 2 metrics
@@ -406,6 +403,30 @@ func (m Model) handlePhase2Ready(msg Phase2ReadyMsg) (Model, tea.Cmd) {
 	debug.LogTiming("phase2.filter.reapply", time.Since(filterStart))
 
 	return m, nil
+}
+
+// recomputePriorityHints (re)generates the priority-hint recommendations
+// (the arrows shown when 'p' is toggled on) from the currently filtered/
+// visible issue set rather than the full cross-project m.data.issues
+// (bt-gcuv). GenerateRecommendations normalizes PageRank/Betweenness/etc.
+// against whatever issue set it's given, so a globally-built Analyzer would
+// surface "high impact" arrows for issues outside the active project
+// filter - building a fresh Analyzer over filteredIssuesForActiveView()
+// scopes the recommendations to what the user can actually see.
+//
+// Callers must also refresh the list delegate (done here) since
+// IssueDelegate.PriorityHints is a snapshot taken at SetDelegate time, not
+// a live reference to m.ac.priorityHints.
+func (m *Model) recomputePriorityHints() {
+	issues := m.filteredIssuesForActiveView()
+	analyzer := analysis.NewAnalyzer(issues)
+	recommendations := analyzer.GenerateRecommendations()
+	hints := make(map[string]*analysis.PriorityRecommendation, len(recommendations))
+	for i := range recommendations {
+		hints[recommendations[i].IssueID] = &recommendations[i]
+	}
+	m.ac.priorityHints = hints
+	m.updateListDelegate()
 }
 
 // handlePhase2Update processes BackgroundWorker Phase 2 completion notification.
