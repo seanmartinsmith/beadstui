@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,7 +17,9 @@ import (
 // EVERY source type rather than serving current data under a historical stamp
 // (bt-fyzll for embedded, generalized to server/JSONL/global by bt-mjsr9).
 // Embedded sources get the specific "embedded ... no server" message; every
-// other source gets the general "robot mode" refusal.
+// other source gets the general "robot mode" refusal. bt-s5zgk.3 additionally
+// requires every refusal to carry a *RobotError with a machine-parseable
+// code and supported_alternative.
 func TestCheckAsOfRobotSupport(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -24,6 +27,7 @@ func TestCheckAsOfRobotSupport(t *testing.T) {
 		source      *datasource.DataSource
 		wantErr     bool
 		wantErrHint string // substring the error must explain
+		wantCode    string // RobotError.Code, only checked when wantErr
 	}{
 		{
 			name:   "no as-of requested, embedded source",
@@ -41,6 +45,7 @@ func TestCheckAsOfRobotSupport(t *testing.T) {
 			source:      &datasource.DataSource{Type: datasource.SourceTypeEmbeddedDolt},
 			wantErr:     true,
 			wantErrHint: "embedded",
+			wantCode:    "AS_OF_NOT_SUPPORTED_EMBEDDED",
 		},
 		{
 			name:        "as-of against server-mode source: general robot refusal",
@@ -48,6 +53,7 @@ func TestCheckAsOfRobotSupport(t *testing.T) {
 			source:      &datasource.DataSource{Type: datasource.SourceTypeDolt},
 			wantErr:     true,
 			wantErrHint: "robot mode",
+			wantCode:    "AS_OF_NOT_SUPPORTED_ROBOT",
 		},
 		{
 			name:        "as-of against global source: general robot refusal",
@@ -55,6 +61,7 @@ func TestCheckAsOfRobotSupport(t *testing.T) {
 			source:      &datasource.DataSource{Type: datasource.SourceTypeDoltGlobal},
 			wantErr:     true,
 			wantErrHint: "robot mode",
+			wantCode:    "AS_OF_NOT_SUPPORTED_ROBOT",
 		},
 		{
 			name:        "as-of against jsonl fallback: general robot refusal",
@@ -62,6 +69,7 @@ func TestCheckAsOfRobotSupport(t *testing.T) {
 			source:      &datasource.DataSource{Type: datasource.SourceTypeJSONLFallback},
 			wantErr:     true,
 			wantErrHint: "robot mode",
+			wantCode:    "AS_OF_NOT_SUPPORTED_ROBOT",
 		},
 		{
 			name:        "as-of with no resolved source: general robot refusal, no panic",
@@ -69,6 +77,7 @@ func TestCheckAsOfRobotSupport(t *testing.T) {
 			source:      nil,
 			wantErr:     true,
 			wantErrHint: "robot mode",
+			wantCode:    "AS_OF_NOT_SUPPORTED_ROBOT",
 		},
 	}
 
@@ -78,8 +87,28 @@ func TestCheckAsOfRobotSupport(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("checkAsOfRobotSupport(%q, %+v) error = %v, wantErr %v", tt.asOf, tt.source, err, tt.wantErr)
 			}
-			if err != nil && !strings.Contains(err.Error(), tt.wantErrHint) {
+			if err == nil {
+				return
+			}
+			if !strings.Contains(err.Error(), tt.wantErrHint) {
 				t.Errorf("error should explain %q, got: %v", tt.wantErrHint, err)
+			}
+
+			var re *RobotError
+			if !errors.As(err, &re) {
+				t.Fatalf("checkAsOfRobotSupport(%q, %+v) error is not a *RobotError: %v (%T)", tt.asOf, tt.source, err, err)
+			}
+			if re.Code != tt.wantCode {
+				t.Errorf("RobotError.Code = %q, want %q", re.Code, tt.wantCode)
+			}
+			if re.Message != err.Error() {
+				t.Errorf("RobotError.Message = %q, want it to equal err.Error() %q", re.Message, err.Error())
+			}
+			if re.SupportedAlternative == "" {
+				t.Errorf("RobotError.SupportedAlternative is empty, want a concrete alternative")
+			}
+			if re.Doc == "" {
+				t.Errorf("RobotError.Doc is empty, want a bead/doc pointer")
 			}
 		})
 	}
@@ -149,5 +178,32 @@ func TestRobotAsOfRefusesOnEmbeddedProject(t *testing.T) {
 	}
 	if !strings.Contains(stderr.String(), "embedded") {
 		t.Errorf("stderr should explain the embedded-mode restriction, got: %s", stderr.String())
+	}
+
+	// bt-s5zgk.3: the refusal must also carry a machine-parseable structured
+	// envelope - "Error: " followed by a single-line JSON object with code,
+	// message, supported_alternative, and doc.
+	line := strings.TrimSpace(stderr.String())
+	const prefix = "Error: "
+	if !strings.HasPrefix(line, prefix) {
+		t.Fatalf("stderr does not start with %q: %q", prefix, line)
+	}
+	var envelope struct {
+		Code                 string `json:"code"`
+		Message              string `json:"message"`
+		SupportedAlternative string `json:"supported_alternative"`
+		Doc                  string `json:"doc"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimPrefix(line, prefix)), &envelope); err != nil {
+		t.Fatalf("stderr error line is not valid JSON after stripping %q: %v\nline: %s", prefix, err, line)
+	}
+	if envelope.Code != "AS_OF_NOT_SUPPORTED_EMBEDDED" {
+		t.Errorf("envelope.code = %q, want AS_OF_NOT_SUPPORTED_EMBEDDED", envelope.Code)
+	}
+	if envelope.SupportedAlternative == "" {
+		t.Errorf("envelope.supported_alternative is empty")
+	}
+	if envelope.Doc == "" {
+		t.Errorf("envelope.doc is empty")
 	}
 }
