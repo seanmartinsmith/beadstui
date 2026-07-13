@@ -127,14 +127,32 @@ func init() {
 // --global/--as-of mutual-exclusion check in rootPersistentPreRun. An empty
 // asOf is a no-op so callers can invoke this unconditionally after load. Real
 // per-mode temporal loading is tracked as bt-9kiy4.
+//
+// Both branches return a *RobotError (bt-s5zgk.3) so main() can render a
+// structured code + supported_alternative on stderr, in addition to the
+// plain-text message this function has always produced (err.Error() is
+// unchanged, so every existing errors.Is/strings.Contains(err.Error(), ...)
+// check keeps working).
 func checkAsOfRobotSupport(asOf string, source *datasource.DataSource) error {
 	if asOf == "" {
 		return nil
 	}
 	if source != nil && source.Type == datasource.SourceTypeEmbeddedDolt {
-		return fmt.Errorf("--as-of %q: %w", asOf, datasource.ErrAsOfNotSupportedForEmbedded)
+		cause := fmt.Errorf("--as-of %q: %w", asOf, datasource.ErrAsOfNotSupportedForEmbedded)
+		return newRobotError(
+			"AS_OF_NOT_SUPPORTED_EMBEDDED",
+			cause,
+			"none: embedded-mode projects have no Dolt server to query historically; migrate the project to Dolt server mode to enable point-in-time views",
+			"bt-fyzll",
+		)
 	}
-	return fmt.Errorf("--as-of %q: %w", asOf, datasource.ErrAsOfNotSupportedForRobot)
+	cause := fmt.Errorf("--as-of %q: %w", asOf, datasource.ErrAsOfNotSupportedForRobot)
+	return newRobotError(
+		"AS_OF_NOT_SUPPORTED_ROBOT",
+		cause,
+		"bt --as-of <ref> (interactive TUI)",
+		"bt-9kiy4",
+	)
 }
 
 // robotPreRun loads issues and applies common robot pre-processing (label scope, recipe, BQL).

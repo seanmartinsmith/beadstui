@@ -18,6 +18,38 @@ Every `bt robot` subcommand guarantees:
 
 This contract is enforced by `tests/e2e/robot_io_contract_test.go`, which runs every robot subcommand and asserts the three invariants plus an envelope check (see below). New robot subcommands must add an entry to that sweep at landing time.
 
+### Structured errors (bt-s5zgk.3)
+
+Refusals that an agent can reasonably act on (retry differently, fall back
+to another surface) additionally carry a machine-parseable JSON envelope on
+the same stderr line, after the `Error: ` prefix:
+
+```jsonc
+Error: {"code":"AS_OF_NOT_SUPPORTED_ROBOT","message":"--as-of \"HEAD~1\": --as-of is not yet supported in robot mode; use the interactive TUI 'bt --as-of' for point-in-time views (tracked as bt-9kiy4)","supported_alternative":"bt --as-of <ref> (interactive TUI)","doc":"bt-9kiy4"}
+```
+
+| Field | Meaning |
+|---|---|
+| `code` | Stable, machine-matchable identifier (`SCREAMING_SNAKE_CASE`). Switch on this, not on `message` prose. |
+| `message` | The same human-readable text the plain-error path would have produced. |
+| `supported_alternative` | The concrete action available today in place of the refused request (a flag, a different mode, or `"none: ..."` when nothing currently works). |
+| `doc` | A bead ID or doc anchor tracking the refusal or its eventual resolution. |
+
+To parse: strip the leading `Error: ` prefix, then `json.Unmarshal` the
+remainder. Errors without a structured form keep the plain `Error: <msg>`
+text unchanged - absence of the JSON shape is not itself an error.
+
+Current cases:
+
+| Code | Trigger | `supported_alternative` |
+|---|---|---|
+| `AS_OF_NOT_SUPPORTED_ROBOT` | `--as-of` against a server/JSONL/global-mode source in robot mode | `bt --as-of <ref>` (interactive TUI) |
+| `AS_OF_NOT_SUPPORTED_EMBEDDED` | `--as-of` against an embedded (in-process) Dolt project | none - embedded projects have no Dolt server to query historically; migrate to server mode |
+
+This is an add-only extension point, not a general error-code registry:
+other refusals may stay plain-text until an agent-facing use case for a
+structured form appears.
+
 ## Envelope and scope (bt-sdg2k)
 
 Every robot subcommand emits the same standard envelope:
@@ -63,7 +95,7 @@ Output shapes follow a strict add-only rule: **fields may be added, never rename
 - `compact` (schema `compact.v1`): index projection - `id`, `title`, `status`, `priority`, `type`, `labels`, relationship counts. Envelope carries `"schema": "compact.v1"`. Drill in via `bd show <id>`.
 - `full`: pre-compact shape with `description`, `design`, `acceptance_criteria`, `notes`, `comments`, `close_reason`. Envelope omits `schema` field.
 
-**Errors**: human-readable message to stderr, prefixed `Error:`. Non-zero exit code on any failure.
+**Errors**: human-readable message to stderr, prefixed `Error:`. Non-zero exit code on any failure. Some refusals additionally carry a machine-parseable envelope on that same stderr line - see "Structured errors" below.
 
 **Two-phase analysis**: Phase 1 (degree, topo sort, density, k-core, articulation, slack) is instant. Phase 2 (PageRank, betweenness, HITS, eigenvector, cycles) runs async with timeouts - check `status` flags in output to see which metrics were computed vs. skipped.
 
@@ -75,7 +107,7 @@ These flags apply to all `bt robot` subcommands unless noted otherwise:
 |---|---|
 | `--label <name>` | Scope analysis to a label's subgraph |
 | `--recipe <name>` | Apply named recipe filter (see `bt robot recipes`) |
-| `--as-of <ref>` | Point-in-time view. **Not yet supported in robot mode** - refuses explicitly rather than serving current data stamped as historical (bt-mjsr9). Use the interactive TUI `bt --as-of`; robot support tracked as bt-9kiy4. |
+| `--as-of <ref>` | Point-in-time view. **Not yet supported in robot mode** - refuses explicitly rather than serving current data stamped as historical (bt-mjsr9), with a structured `AS_OF_NOT_SUPPORTED_ROBOT` (or `AS_OF_NOT_SUPPORTED_EMBEDDED`) error on stderr - see "Structured errors" above. Use the interactive TUI `bt --as-of`; robot support tracked as bt-9kiy4. |
 | `--bql <query>` | BQL query to pre-filter issues before analysis |
 | `--shape compact\|full` | Output shape; aliases `--compact` / `--full` |
 | `--format json\|toon` | Output format (default: json) |

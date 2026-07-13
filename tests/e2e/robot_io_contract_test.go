@@ -208,3 +208,58 @@ func TestRobotIOContract_MissingRequiredArg(t *testing.T) {
 		t.Fatalf("missing required arg produced empty stderr")
 	}
 }
+
+// TestRobotIOContract_StructuredErrorEnvelope exercises the structured-error
+// negative path added by bt-s5zgk.3: a robot-mode refusal must still satisfy
+// the base contract (non-zero exit, empty stdout, "Error:"-prefixed stderr)
+// while additionally carrying a machine-parseable JSON envelope - code,
+// message, supported_alternative, doc - on that same stderr line. The
+// --as-of robot refusal (bt-mjsr9) is the first case; this fixture uses the
+// JSONL-fallback source (no Dolt server, no embedded config), which takes
+// the general "robot mode" branch of checkAsOfRobotSupport. The
+// embedded-specific branch (AS_OF_NOT_SUPPORTED_EMBEDDED) has its own
+// bd-spawning acceptance test gated behind BT_EMBEDDED_INTEGRATION=1
+// (cmd/bt/robot_asof_embedded_test.go), since it requires a real embedded
+// bd project rather than a bare JSONL fixture.
+func TestRobotIOContract_StructuredErrorEnvelope(t *testing.T) {
+	bt := buildBtBinary(t)
+	env := t.TempDir()
+	writeBeads(t, env, `{"id":"bt-A","title":"X","status":"open","priority":1,"issue_type":"task"}`)
+
+	stdout, stderr, exit := runRobotCapture(t, bt, env, "robot", "triage", "--as-of", "HEAD~1")
+
+	if exit == 0 {
+		t.Fatalf("--as-of robot refusal returned exit=0 (want non-zero)\nstdout: %s\nstderr: %s", string(stdout), string(stderr))
+	}
+	if len(bytes.TrimSpace(stdout)) != 0 {
+		t.Fatalf("--as-of robot refusal leaked to stdout (must be empty on the error path): %q", string(stdout))
+	}
+
+	line := strings.TrimSpace(string(stderr))
+	const prefix = "Error: "
+	if !strings.HasPrefix(line, prefix) {
+		t.Fatalf("stderr does not start with %q: %q", prefix, line)
+	}
+
+	var envelope struct {
+		Code                 string `json:"code"`
+		Message              string `json:"message"`
+		SupportedAlternative string `json:"supported_alternative"`
+		Doc                  string `json:"doc"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimPrefix(line, prefix)), &envelope); err != nil {
+		t.Fatalf("stderr error line is not valid JSON after stripping %q: %v\nline: %s", prefix, err, line)
+	}
+	if envelope.Code != "AS_OF_NOT_SUPPORTED_ROBOT" {
+		t.Errorf("envelope.code = %q, want AS_OF_NOT_SUPPORTED_ROBOT", envelope.Code)
+	}
+	if envelope.Message == "" {
+		t.Errorf("envelope.message is empty, want the human-readable refusal text")
+	}
+	if envelope.SupportedAlternative == "" {
+		t.Errorf("envelope.supported_alternative is empty, want a concrete alternative (e.g. the interactive TUI)")
+	}
+	if envelope.Doc == "" {
+		t.Errorf("envelope.doc is empty, want a bead/doc pointer")
+	}
+}
