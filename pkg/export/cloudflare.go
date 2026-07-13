@@ -7,8 +7,11 @@ package export
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -415,6 +418,39 @@ func EnsureCloudflareProject(projectName string, productionBranch string) error 
 	return nil
 }
 
+// verifyHTTPClient is used by VerifyCloudflareDeployment to fetch meta.json.
+// A dedicated client (rather than http.DefaultClient) keeps connection
+// establishment bounded by the per-request context deadline we set below,
+// independent of any global client the rest of the package might use.
+var verifyHTTPClient = &http.Client{}
+
+// fetchDeploymentMeta fetches metaURL with the given context, which bounds
+// both connection establishment (dial) and the response read - so a
+// non-routable or blackholed host fails fast once ctx's deadline elapses,
+// rather than hanging on the OS-level TCP timeout.
+func fetchDeploymentMeta(ctx context.Context, metaURL string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, metaURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("build request: %w", err)
+	}
+
+	resp, err := verifyHTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status: %s", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read body: %w", err)
+	}
+	return body, nil
+}
+
 // VerifyCloudflareDeployment polls the live site to verify deployment succeeded.
 func VerifyCloudflareDeployment(deployURL string, expectedIssueCount int, timeout time.Duration) error {
 	if timeout == 0 {
@@ -427,12 +463,26 @@ func VerifyCloudflareDeployment(deployURL string, expectedIssueCount int, timeou
 
 	fmt.Printf("  -> Verifying deployment at %s...\n", deployURL)
 
-	for time.Now().Before(deadline) {
-		cmd := exec.Command("curl", "-sf", "--max-time", "10", metaURL)
-		output, err := cmd.Output()
+	for {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			break
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), remaining)
+		output, err := fetchDeploymentMeta(ctx, metaURL)
+		cancel()
 		if err != nil {
 			lastErr = fmt.Errorf("fetch failed: %w", err)
-			time.Sleep(3 * time.Second)
+			// Respect the overall deadline for the retry backoff too - never
+			// sleep past the budget the caller asked for.
+			backoff := 3 * time.Second
+			if remaining := time.Until(deadline); remaining < backoff {
+				backoff = remaining
+			}
+			if backoff > 0 {
+				time.Sleep(backoff)
+			}
 			continue
 		}
 
@@ -442,7 +492,13 @@ func VerifyCloudflareDeployment(deployURL string, expectedIssueCount int, timeou
 		}
 		if err := json.Unmarshal(output, &meta); err != nil {
 			lastErr = fmt.Errorf("parse failed: %w", err)
-			time.Sleep(3 * time.Second)
+			backoff := 3 * time.Second
+			if remaining := time.Until(deadline); remaining < backoff {
+				backoff = remaining
+			}
+			if backoff > 0 {
+				time.Sleep(backoff)
+			}
 			continue
 		}
 
