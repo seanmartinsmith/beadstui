@@ -391,14 +391,16 @@ func (m Model) handlePhase2Ready(msg Phase2ReadyMsg) (Model, tea.Cmd) {
 		}
 	}
 
-	// Re-apply filters
+	// Re-apply filters. When nothing is active, refreshListItemsPhase2 is an
+	// in-place score refresh (avoids rebuilding the filtered set and losing
+	// selection); everything else (recipe, BQL, plain status/label) goes
+	// through the shared reapplyActiveFilter dispatcher so a BQL filter
+	// doesn't fall through to applyFilter() and zero out (bt-0iajg).
 	filterStart := time.Now()
-	if m.filter.activeRecipe != nil {
-		m.applyRecipe(m.filter.activeRecipe)
-	} else if m.filter.currentFilter == "" || m.filter.currentFilter == "all" {
+	if m.filter.currentFilter == "" || m.filter.currentFilter == "all" {
 		m.refreshListItemsPhase2()
 	} else {
-		m.applyFilter()
+		m.reapplyActiveFilter()
 	}
 	debug.LogTiming("phase2.filter.reapply", time.Since(filterStart))
 

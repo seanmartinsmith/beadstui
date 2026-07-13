@@ -367,17 +367,20 @@ func (m *Model) filteredIssuesForActiveView() []model.Issue {
 	return filtered
 }
 
-// reapplyActiveFilter re-runs whichever custom filter (BQL or recipe) is
-// currently active by dispatching to the same apply{BQL,Recipe} code paths
-// the interactive filter UI uses (the BQL modal, the recipe picker). Reload
-// paths that rebuild list items straight from the full m.data.issues (e.g.
-// replaceIssues) MUST call this afterward -- setListItems only preserves the
-// Bubbles `/` text filter and the workspace activeRepos filter, not BQL or
-// recipe state, so without this an active filter silently reverts to the
-// full unfiltered corpus on the next reload (bt-hhg1r.1).
+// reapplyActiveFilter re-runs whichever filter (recipe, BQL, or plain
+// status/label) is currently active by dispatching to the same apply*
+// code paths the interactive filter UI uses (the BQL modal, the recipe
+// picker, the status/label filter keys). Reload paths that rebuild list
+// items straight from the full m.data.issues (e.g. replaceIssues) MUST call
+// this afterward -- setListItems only preserves the Bubbles `/` text filter
+// and the workspace activeRepos filter, not BQL, recipe, or plain-filter
+// state, so without this an active filter silently reverts to the full
+// unfiltered corpus on the next reload (bt-hhg1r.1, bt-k9f6f).
 //
-// Mirrors the existing reapply pattern already used after other rebuild-from-
-// scratch paths (handleFileChanged, handlePhase2Ready, rebuildListWithDiffInfo).
+// This is the single reapply helper for every rebuild-from-scratch path
+// (handleDataSourceReload, handleFileChanged, handlePhase2Ready,
+// rebuildListWithDiffInfo) -- do not duplicate this recipe/BQL/plain
+// dispatch inline at a new call site; call this instead (bt-k9f6f).
 func (m *Model) reapplyActiveFilter() {
 	if m.filter.activeRecipe != nil {
 		m.applyRecipe(m.filter.activeRecipe)
@@ -386,7 +389,13 @@ func (m *Model) reapplyActiveFilter() {
 	if m.filter.activeBQLExpr != nil && strings.HasPrefix(m.filter.currentFilter, "bql:") {
 		queryStr := strings.TrimPrefix(m.filter.currentFilter, "bql:")
 		m.applyBQL(m.filter.activeBQLExpr, queryStr)
+		return
 	}
+	// No recipe or BQL active: fall back to the plain status/label filter
+	// path. applyFilter() reads m.filter.currentFilter/labelFilter directly
+	// against m.data.issues, so it's correct for "all" (no-op reapply) as
+	// well as "open"/"closed"/"ready"/"label:X" (bt-k9f6f).
+	m.applyFilter()
 }
 
 func (m *Model) refreshBoardAndGraphForCurrentFilter() {
