@@ -290,9 +290,17 @@ func (m Model) handlePhase2Ready(msg Phase2ReadyMsg) (Model, tea.Cmd) {
 	}
 	debug.LogTiming("phase2.graphView.setup", time.Since(graphStart))
 
-	// Generate triage for priority panel
+	// Generate triage for priority panel, scoped to the active workspace
+	// repo filter (bt-dcby.3) rather than the full cross-project corpus.
+	// Reusing the global analyzer/stats here wouldn't scope the result -
+	// TopPicks/Recommendations/QuickWins are ranked from the analyzer's own
+	// issueMap, not the trailing issues slice - so a fresh analyzer must be
+	// built over the workspace-filtered set (mirrors bt-gcuv's
+	// recomputePriorityHints; workspacePrefilter rather than
+	// filteredIssuesForActiveView so these list-row badges survive
+	// status/label filter toggles, matching openInsightsView's twin call).
 	triageStart := time.Now()
-	triage := analysis.ComputeTriageFromAnalyzer(m.data.analyzer, m.data.analysis, m.data.issues, analysis.TriageOptions{}, time.Now())
+	triage := analysis.ComputeTriageWithOptions(m.workspacePrefilter(m.data.issues), analysis.TriageOptions{WaitForPhase2: true})
 	debug.LogTiming("phase2.ComputeTriageFromAnalyzer", time.Since(triageStart))
 	triageScores := make(map[string]float64, len(triage.Recommendations))
 	triageReasons := make(map[string]analysis.TriageReasons, len(triage.Recommendations))
@@ -339,11 +347,13 @@ func (m Model) handlePhase2Ready(msg Phase2ReadyMsg) (Model, tea.Cmd) {
 	m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.data.issues, m.workspaceMode)
 	debug.LogTiming("phase2.computeAlerts", time.Since(alertsStart))
 
-	// Invalidate label health cache
+	// Invalidate label health cache. Scope the issue enumeration to the
+	// active workspace repo filter (bt-dcby.3), matching the toggle-key
+	// call site in model_update_input.go.
 	m.labelHealthCached = false
 	if m.focused == focusLabelDashboard {
 		cfg := analysis.DefaultLabelHealthConfig()
-		m.labelHealthCache = analysis.ComputeAllLabelHealth(m.data.issues, cfg, time.Now().UTC(), m.data.analysis)
+		m.labelHealthCache = analysis.ComputeAllLabelHealth(m.workspacePrefilter(m.data.issues), cfg, time.Now().UTC(), m.data.analysis)
 		m.labelHealthCached = true
 		m.labelDashboard.SetData(m.labelHealthCache.Labels)
 		m.setStatus(fmt.Sprintf("Labels: %d total • critical %d • warning %d", m.labelHealthCache.TotalLabels, m.labelHealthCache.CriticalCount, m.labelHealthCache.WarningCount))

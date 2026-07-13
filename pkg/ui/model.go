@@ -914,7 +914,9 @@ type labelFlowSummary struct {
 // getCrossFlowsForLabel returns outgoing cross-label dependency counts for a label
 func (m Model) getCrossFlowsForLabel(label string) labelFlowSummary {
 	cfg := analysis.DefaultLabelHealthConfig()
-	flow := analysis.ComputeCrossLabelFlow(m.data.issues, cfg)
+	// Scope to the active workspace repo filter (bt-dcby.3) so cross-label
+	// dependencies from other projects don't leak into the drilldown.
+	flow := analysis.ComputeCrossLabelFlow(m.workspacePrefilter(m.data.issues), cfg)
 	out := labelFlowSummary{}
 	inCounts := make(map[string]int)
 	outCounts := make(map[string]int)

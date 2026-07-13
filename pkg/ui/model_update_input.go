@@ -1083,8 +1083,10 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				m.focused = focusList
 			} else {
 				m.mode = ViewActionable
-				// Build execution plan
-				analyzer := analysis.NewAnalyzer(m.data.issues)
+				// Build execution plan from the filtered/visible issue set,
+				// not the full cross-project corpus (bt-dcby.3, mirrors
+				// bt-gcuv's recomputePriorityHints pattern).
+				analyzer := analysis.NewAnalyzer(m.filteredIssuesForActiveView())
 				plan := analyzer.GetExecutionPlan()
 				m.actionableView = NewActionableModel(plan, m.theme)
 				m.actionableView.SetSize(m.width, m.height-2)
@@ -1199,10 +1201,15 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.mode = ViewLabelDashboard
 			m.isSplitView = false
 			m.focused = focusLabelDashboard
-			// Compute label health (fast; phase1 metrics only needed) with caching
+			// Compute label health (fast; phase1 metrics only needed) with
+			// caching. Scope the issue enumeration to the active workspace
+			// repo filter (bt-dcby.3) so labels/counts from other projects
+			// don't leak in; keep reusing the global m.data.analysis stats
+			// pointer (cheap ID-keyed lookups) rather than forcing a fresh
+			// blocking Phase 2 recompute here.
 			if !m.labelHealthCached {
 				cfg := analysis.DefaultLabelHealthConfig()
-				m.labelHealthCache = analysis.ComputeAllLabelHealth(m.data.issues, cfg, time.Now().UTC(), m.data.analysis)
+				m.labelHealthCache = analysis.ComputeAllLabelHealth(m.workspacePrefilter(m.data.issues), cfg, time.Now().UTC(), m.data.analysis)
 				m.labelHealthCached = true
 			}
 			m.labelDashboard.SetData(m.labelHealthCache.Labels)
@@ -1217,13 +1224,16 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				m.focused = focusList
 				return m, nil
 			}
-			// Attention view: compute attention scores (cached) and render as text
+			// Attention view: compute attention scores (cached) and render as
+			// text, scoped to the active workspace repo filter (bt-dcby.3)
+			// so labels from other projects don't leak in.
+			scopedForAttention := m.workspacePrefilter(m.data.issues)
 			if !m.attentionCached {
 				cfg := analysis.DefaultLabelHealthConfig()
-				m.attentionCache = analysis.ComputeLabelAttentionScores(m.data.issues, cfg, time.Now().UTC())
+				m.attentionCache = analysis.ComputeLabelAttentionScores(scopedForAttention, cfg, time.Now().UTC())
 				m.attentionCached = true
 			}
-			attText, _ := ComputeAttentionView(m.data.issues, max(40, m.width-4))
+			attText, _ := ComputeAttentionView(scopedForAttention, max(40, m.width-4))
 			m.mode = ViewAttention
 			m.focused = focusInsights
 			m.insightsPanel = NewInsightsModel(analysis.Insights{}, m.data.issueMap, m.theme)
@@ -1245,12 +1255,15 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				m.focused = focusList
 				return m, nil
 			}
+			// Scope to the active workspace repo filter (bt-dcby.3) so
+			// cross-label dependencies from other projects don't leak in.
+			scopedForFlow := m.workspacePrefilter(m.data.issues)
 			cfg := analysis.DefaultLabelHealthConfig()
-			flow := analysis.ComputeCrossLabelFlow(m.data.issues, cfg)
+			flow := analysis.ComputeCrossLabelFlow(scopedForFlow, cfg)
 			m.mode = ViewFlowMatrix
 			m.focused = focusFlowMatrix
 			m.flowMatrix = NewFlowMatrixModel(m.theme)
-			m.flowMatrix.SetData(&flow, m.data.issues)
+			m.flowMatrix.SetData(&flow, scopedForFlow)
 			panelHeight := m.height - 2
 			if panelHeight < 3 {
 				panelHeight = 3
@@ -2746,8 +2759,23 @@ func (m *Model) openInsightsView() {
 	}
 	if hasInsights {
 		m.insightsPanel = NewInsightsModel(ins, m.data.issueMap, m.theme)
-		// Include priority triage (bv-91) - reuse existing analyzer/stats (bv-runn.12)
-		triage := analysis.ComputeTriageFromAnalyzer(m.data.analyzer, m.data.analysis, m.data.issues, analysis.TriageOptions{}, time.Now())
+		// Include priority triage (bv-91), scoped to the active workspace
+		// repo filter rather than the full cross-project corpus (bt-dcby.3).
+		// Use workspacePrefilter (project scope only, not the full
+		// status/label filter) so TopPicks/Recommendations stay consistent
+		// with the twin computation in handlePhase2Ready, which also feeds
+		// list-row badges that must survive status-filter toggles - see
+		// epics_view.go's refreshEpicsForCurrentFilter for the same
+		// "workspace-scoped, status-filter-independent" precedent.
+		//
+		// This can no longer reuse the global analyzer/stats (bv-runn.12)
+		// since TopPicks/Recommendations are ranked from the analyzer's own
+		// issueMap, not the issues slice passed to ComputeTriageFromAnalyzer
+		// - a filtered issues arg alone wouldn't scope the rankings. Build a
+		// fresh analyzer over the filtered set instead, mirroring bt-gcuv's
+		// recomputePriorityHints and the robot triage --label/--source path
+		// (cmd/bt/robot_triage.go).
+		triage := analysis.ComputeTriageWithOptions(m.workspacePrefilter(m.data.issues), analysis.TriageOptions{WaitForPhase2: true})
 		m.insightsPanel.SetTopPicks(triage.QuickRef.TopPicks)
 		// Set full recommendations with breakdown for priority radar (bv-93)
 		dataHash := fmt.Sprintf("v%s@%s#%d", triage.Meta.Version, triage.Meta.GeneratedAt.Format("15:04:05"), triage.Meta.IssueCount)
