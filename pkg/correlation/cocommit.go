@@ -144,14 +144,23 @@ type lineStats struct {
 	deletions  int
 }
 
-// getFilesChanged runs git show --name-status to get changed files
+// getFilesChanged runs git log --no-walk --name-status to get changed files.
+//
+// We deliberately use `git log --no-walk` rather than `git show`: for a merge
+// commit `git show` defaults to a combined diff (`--cc`), which emits the merge's
+// conflict-resolution files, whereas `git log --no-walk` emits nothing for a
+// merge. Merges must contribute no co-committed files -- both to match the
+// batched prefetch path (prefetchCoCommittedFiles, which is built on
+// `git log --no-walk`) and to stay consistent with the `--no-merges` policy the
+// rest of the correlation subsystem applies (temporal.go, reverse.go). For
+// non-merge commits the two commands produce byte-identical output. See bt-7qx80.
 func (c *CoCommitExtractor) getFilesChanged(sha string) ([]FileChange, error) {
-	cmd := gitCommand("git", "show", "--name-status", "--format=", sha)
+	cmd := gitCommand("git", "log", "--no-walk", "--name-status", "--format=", sha)
 	cmd.Dir = c.repoPath
 
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("git show --name-status failed: %w", err)
+		return nil, fmt.Errorf("git log --no-walk --name-status failed: %w", err)
 	}
 
 	var files []FileChange
@@ -191,14 +200,16 @@ func (c *CoCommitExtractor) getFilesChanged(sha string) ([]FileChange, error) {
 	return files, scanner.Err()
 }
 
-// getLineStats runs git show --numstat to get insertion/deletion counts
+// getLineStats runs git log --no-walk --numstat to get insertion/deletion counts.
+// Uses `git log --no-walk` for the same merge-handling reason as getFilesChanged:
+// merge commits yield no line stats, matching the batched prefetch path.
 func (c *CoCommitExtractor) getLineStats(sha string) (map[string]lineStats, error) {
-	cmd := gitCommand("git", "show", "--numstat", "--format=", sha)
+	cmd := gitCommand("git", "log", "--no-walk", "--numstat", "--format=", sha)
 	cmd.Dir = c.repoPath
 
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("git show --numstat failed: %w", err)
+		return nil, fmt.Errorf("git log --no-walk --numstat failed: %w", err)
 	}
 
 	stats := make(map[string]lineStats)
@@ -394,16 +405,17 @@ func shortSHA(sha string) string {
 
 // ExtractAllCoCommits extracts co-committed files for all events with status changes.
 //
-// Performance: rather than spawning two `git show` subprocesses per status-change
-// event (the historical per-event path), all unique SHAs are pre-fetched in two
-// batched `git log --no-walk` invocations -- one for --name-status, one for
+// Performance: rather than spawning two `git log --no-walk` subprocesses per
+// status-change event (the per-event path), all unique SHAs are pre-fetched in
+// two batched `git log --no-walk` invocations -- one for --name-status, one for
 // --numstat. This collapses O(N) subprocess spawns to O(1) regardless of event
 // count, which matters on Windows where each spawn is ~50-200ms.
 //
 // The batched path is byte-identical to the per-event path: same FileChange
-// list, same actions, same insertion/deletion counts, same rename normalization.
-// On batch failure the function falls back to the per-event path so a single
-// invalid SHA in the input cannot tank the whole report.
+// list, same actions, same insertion/deletion counts, same rename normalization,
+// and the same merge-commit handling (merges contribute nothing -- see
+// getFilesChanged). On batch failure the function falls back to the per-event
+// path so a single invalid SHA in the input cannot tank the whole report.
 func (c *CoCommitExtractor) ExtractAllCoCommits(events []BeadEvent) ([]CorrelatedCommit, error) {
 	// Early-return when no input event carries a non-empty CommitSHA --
 	// e.g. the Dolt-only extraction path (bt-08sh) where events have no
@@ -492,7 +504,9 @@ const batchSHAChunkSize = 200
 // prefetchCoCommittedFiles fetches name-status and numstat for all given SHAs
 // in O(1) git subprocess calls (modulo chunking) and returns a SHA-keyed map
 // of post-filter FileChange lists. The output for any given SHA is byte-identical
-// to what ExtractCoCommittedFiles would return for that SHA.
+// to what ExtractCoCommittedFiles would return for that SHA, including merge
+// commits: `git log --no-walk` emits no diff for a merge, so a merge SHA maps to
+// an empty FileChange list -- the same result the per-event path now produces.
 //
 // Returns nil with the underlying error if either batched git call fails;
 // callers should fall back to the per-event path on nil.

@@ -3,6 +3,7 @@ package correlation
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -503,45 +504,20 @@ func TestExtractNewPath_DoubleSlashBug(t *testing.T) {
 
 // TestPrefetchCoCommittedFiles_ByteIdenticalToPerEvent verifies that the
 // batched prefetch path (one git log per mode, regardless of SHA count)
-// produces byte-identical FileChange output to the per-event path
-// (two git show per SHA). This is the load-bearing acceptance criterion
-// for bt-h01q -- without it, the perf win is meaningless because callers
-// would observe behaviour drift.
+// produces byte-identical FileChange output to the per-event path.
+// This is the load-bearing acceptance criterion for bt-h01q -- without it,
+// the perf win is meaningless because callers would observe behaviour drift.
 //
-// Strategy: pull a handful of real SHAs from the ambient repo, run both
-// paths on each, assert reflect.DeepEqual on the FileChange slices.
+// Strategy: build a hermetic fixture repo covering the diff shapes that
+// matter (single-file commit, multi-file commit, rename, and a conflicted
+// --no-ff merge whose combined diff is non-empty), run both paths on every
+// SHA, assert equality. The fixture replaces the previous ambient-repo
+// sampling, which was coupled to live git history and diverged across
+// checkouts (bt-7qx80).
 func TestPrefetchCoCommittedFiles_ByteIdenticalToPerEvent(t *testing.T) {
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getwd: %v", err)
-	}
+	dir, shas, mergeSHA := buildCoCommitFixtureRepo(t)
 
-	// Walk up to repo root so git log sees the full history regardless of
-	// where the test binary is invoked from.
-	root := wd
-	for {
-		if _, err := os.Stat(root + "/.git"); err == nil {
-			break
-		}
-		parent := pathDir(root)
-		if parent == root {
-			t.Skip("not inside a git repo")
-		}
-		root = parent
-	}
-
-	// Pull 8 recent SHAs. Enough to cover varied diffs (renames, big commits,
-	// small commits) without making the test slow.
-	out, err := exec.Command("git", "-C", root, "log", "-n", "8", "--format=%H").Output()
-	if err != nil {
-		t.Skipf("git log failed: %v", err)
-	}
-	shas := strings.Fields(strings.TrimSpace(string(out)))
-	if len(shas) == 0 {
-		t.Skip("no commits in repo")
-	}
-
-	c := NewCoCommitExtractor(root)
+	c := NewCoCommitExtractor(dir)
 
 	// Per-event reference path: call ExtractCoCommittedFiles on each SHA.
 	want := make(map[string][]FileChange, len(shas))
@@ -563,10 +539,15 @@ func TestPrefetchCoCommittedFiles_ByteIdenticalToPerEvent(t *testing.T) {
 		w := want[sha]
 		g := got[sha]
 
-		// Order within a single SHA should already match (both pull from
-		// `git show` / `git log` for that commit, which produces files in
-		// stable order). But to be robust against any output-ordering
-		// surprise on Windows, sort by Path before comparing.
+		// Both paths legitimately produce no files for merge commits; treat
+		// nil and empty as equivalent whenever both sides agree on emptiness.
+		if len(w) == 0 && len(g) == 0 {
+			continue
+		}
+
+		// Order within a single SHA should already match. But to be robust
+		// against any output-ordering surprise on Windows, sort by Path
+		// before comparing.
 		sortByPath(w)
 		sortByPath(g)
 
@@ -574,6 +555,116 @@ func TestPrefetchCoCommittedFiles_ByteIdenticalToPerEvent(t *testing.T) {
 			t.Errorf("sha %s: mismatch\n  per-event: %#v\n  batched:   %#v", sha, w, g)
 		}
 	}
+
+	// Pin the merge-commit semantic explicitly: merges contribute no
+	// co-committed files on EITHER path (see getFilesChanged). If this ever
+	// changes, it must change on both paths together.
+	if n := len(want[mergeSHA]); n != 0 {
+		t.Errorf("per-event path returned %d files for merge commit %s, want 0", n, shortSHA(mergeSHA))
+	}
+	if n := len(got[mergeSHA]); n != 0 {
+		t.Errorf("batched path returned %d files for merge commit %s, want 0", n, shortSHA(mergeSHA))
+	}
+}
+
+// buildCoCommitFixtureRepo builds a small hermetic git repo whose history
+// covers the diff shapes the byte-identical contract must hold across:
+// a seed commit, a multi-file commit, a rename, a side-branch commit, and a
+// conflicted --no-ff merge (resolved by hand) whose combined diff is
+// non-empty -- exactly the shape where `git show` (combined diff) and
+// `git log --no-walk` (no diff) historically disagreed for merges (bt-7qx80).
+// Files use code extensions so they survive the isCodeFile filter. Returns
+// the repo dir, all commit SHAs oldest-first, and the merge commit's SHA.
+func buildCoCommitFixtureRepo(t *testing.T) (dir string, shas []string, mergeSHA string) {
+	t.Helper()
+
+	dir = t.TempDir()
+
+	git := func(args ...string) string {
+		t.Helper()
+		out, err := gitInFixture(dir, args...)
+		if err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+		return out
+	}
+	write := func(name, content string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+	head := func() string {
+		t.Helper()
+		return git("rev-parse", "HEAD")
+	}
+
+	if out, err := gitInFixture(dir, "init", "-q", "-b", "main"); err != nil {
+		t.Skipf("git not available or init failed: %v\n%s", err, out)
+	}
+	git("config", "user.name", "bt-test")
+	git("config", "user.email", "bt-test@example.invalid")
+
+	// A: seed commit.
+	write("a.go", "package fixture\n")
+	write("shared.go", "package fixture\n// base\n")
+	git("add", ".")
+	git("commit", "-q", "-m", "A: seed files")
+	shas = append(shas, head())
+	branchPoint := shas[0]
+
+	// B: multi-file commit.
+	write("a.go", "package fixture\n// edited\n")
+	write("b.go", "package fixture\n// bee\n")
+	git("add", ".")
+	git("commit", "-q", "-m", "B: touch two files")
+	shas = append(shas, head())
+
+	// C (main): rename plus an edit to shared.go so main and side diverge.
+	git("mv", "b.go", "renamed.go")
+	write("shared.go", "package fixture\n// left\n")
+	git("add", "shared.go")
+	git("commit", "-q", "-m", "C: rename b.go, edit shared.go")
+	shas = append(shas, head())
+
+	// D (side): conflicting edit to shared.go.
+	git("checkout", "-q", "-b", "side", branchPoint)
+	write("shared.go", "package fixture\n// right\n")
+	write("side.go", "package fixture\n// side\n")
+	git("add", ".")
+	git("commit", "-q", "-m", "D: side edit")
+	shas = append(shas, head())
+
+	// M: conflicted merge resolved by hand. Because the resolution differs
+	// from both parents, `git show`'s combined diff for M is non-empty.
+	git("checkout", "-q", "main")
+	if out, err := gitInFixture(dir, "merge", "-q", "--no-ff", "--no-commit", "side"); err == nil {
+		t.Fatalf("expected merge conflict on shared.go, got clean merge:\n%s", out)
+	}
+	write("shared.go", "package fixture\n// merged\n")
+	git("add", "shared.go")
+	git("commit", "-q", "--no-edit")
+	mergeSHA = head()
+	shas = append(shas, mergeSHA)
+
+	return dir, shas, mergeSHA
+}
+
+// gitInFixture runs git in dir with a hermetic identity and config
+// environment so fixture behavior does not depend on host git config.
+func gitInFixture(dir string, args ...string) (string, error) {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(),
+		"GIT_CONFIG_GLOBAL="+os.DevNull,
+		"GIT_CONFIG_SYSTEM="+os.DevNull,
+		"GIT_AUTHOR_NAME=bt-test",
+		"GIT_AUTHOR_EMAIL=bt-test@example.invalid",
+		"GIT_COMMITTER_NAME=bt-test",
+		"GIT_COMMITTER_EMAIL=bt-test@example.invalid",
+	)
+	out, err := cmd.CombinedOutput()
+	return strings.TrimSpace(string(out)), err
 }
 
 // TestPrefetchCoCommittedFiles_Empty exercises the empty-input fast path.
@@ -615,16 +706,6 @@ func TestIsCommitSHALine(t *testing.T) {
 // stable across paths whose ordering may vary between git invocations.
 func sortByPath(files []FileChange) {
 	sort.Slice(files, func(i, j int) bool { return files[i].Path < files[j].Path })
-}
-
-// pathDir is a tiny helper to avoid importing path/filepath just for one call.
-func pathDir(p string) string {
-	for i := len(p) - 1; i >= 0; i-- {
-		if p[i] == '/' || p[i] == '\\' {
-			return p[:i]
-		}
-	}
-	return p
 }
 
 func TestExtractNewPath_ComplexCases(t *testing.T) {
