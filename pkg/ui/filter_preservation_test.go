@@ -551,6 +551,141 @@ func TestRecipeFilterSurvivesDataSourceReload(t *testing.T) {
 	}
 }
 
+// TestPlainFilterSurvivesDataSourceReload is the regression test for
+// bt-k9f6f: an active plain status filter (applied via applyFilter(), e.g.
+// currentFilter == "closed") must survive a Dolt poll reload just like BQL
+// and recipe filters do (bt-hhg1r.1). Before the fix, reapplyActiveFilter()
+// only dispatched to applyRecipe/applyBQL and silently no-op'd for the plain
+// filter case, so handleDataSourceReload reverted the view to the full
+// unfiltered corpus on the next poll.
+func TestPlainFilterSurvivesDataSourceReload(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "proj-open-1", Status: model.StatusOpen, CreatedAt: time.Now()},
+		{ID: "proj-closed-1", Status: model.StatusClosed, CreatedAt: time.Now()},
+		{ID: "proj-closed-2", Status: model.StatusClosed, CreatedAt: time.Now()},
+	}
+	m := NewModel(issues, nil, "", nil, nil)
+
+	m.SetFilter("closed")
+
+	if got := len(m.FilteredIssues()); got != 2 {
+		t.Fatalf("precondition: plain filter not applied, visible=%d", got)
+	}
+
+	m2, _ := m.handleDataSourceReload(DataSourceReloadMsg{Issues: issues})
+
+	filtered := m2.FilteredIssues()
+	if len(filtered) != 2 {
+		t.Fatalf("plain filter wiped by reload: expected 2 visible issues, got %d (%+v)", len(filtered), filtered)
+	}
+	for _, iss := range filtered {
+		if iss.Status != model.StatusClosed {
+			t.Errorf("non-closed issue %s leaked through plain filter after reload", iss.ID)
+		}
+	}
+	if m2.filter.currentFilter != "closed" {
+		t.Errorf("currentFilter not preserved: got %q want %q", m2.filter.currentFilter, "closed")
+	}
+}
+
+// TestPlainFilterSurvivesPhase2Ready covers the same bt-k9f6f defect class
+// against the handlePhase2Ready reload path (consolidated onto
+// reapplyActiveFilter alongside handleDataSourceReload / handleFileChanged /
+// rebuildListWithDiffInfo).
+func TestPlainFilterSurvivesPhase2Ready(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "proj-open-1", Status: model.StatusOpen, CreatedAt: time.Now()},
+		{ID: "proj-closed-1", Status: model.StatusClosed, CreatedAt: time.Now()},
+		{ID: "proj-closed-2", Status: model.StatusClosed, CreatedAt: time.Now()},
+	}
+	m := NewModel(issues, nil, "", nil, nil)
+
+	m.SetFilter("closed")
+	if got := len(m.FilteredIssues()); got != 2 {
+		t.Fatalf("precondition: plain filter not applied, visible=%d", got)
+	}
+
+	ins := analysis.Insights{}
+	if m.data.analysis != nil {
+		ins = m.data.analysis.GenerateInsights(len(m.data.issues))
+	}
+	newM, _ := m.Update(Phase2ReadyMsg{Stats: m.data.analysis, Insights: ins})
+	m2, ok := newM.(Model)
+	if !ok {
+		t.Fatalf("Update returned wrong model type: %T", newM)
+	}
+
+	filtered := m2.FilteredIssues()
+	if len(filtered) != 2 {
+		t.Fatalf("plain filter wiped by Phase2Ready: expected 2 visible issues, got %d (%+v)", len(filtered), filtered)
+	}
+	for _, iss := range filtered {
+		if iss.Status != model.StatusClosed {
+			t.Errorf("non-closed issue %s leaked through plain filter after Phase2Ready", iss.ID)
+		}
+	}
+	if m2.filter.currentFilter != "closed" {
+		t.Errorf("currentFilter not preserved: got %q want %q", m2.filter.currentFilter, "closed")
+	}
+}
+
+// TestBQLFilterSurvivesPhase2Ready is the regression test for bt-0iajg: when
+// a BQL filter is active but no recipe, handlePhase2Ready fell through to
+// applyFilter() instead of applyBQL(). applyFilter() does not understand the
+// "bql:"-prefixed currentFilter value, so every issue was excluded and the
+// list went to zero matches once Phase 2 analysis landed.
+func TestBQLFilterSurvivesPhase2Ready(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "proj-1", Title: "Match one", Status: model.StatusOpen, CreatedAt: time.Now()},
+		{ID: "proj-2", Title: "Match two", Status: model.StatusOpen, CreatedAt: time.Now()},
+		{ID: "proj-3", Title: "Unmatched", Status: model.StatusOpen, CreatedAt: time.Now()},
+	}
+	m := NewModel(issues, nil, "", nil, nil)
+
+	queryStr := `id in (proj-1, proj-2)`
+	parsed, err := bql.Parse(queryStr)
+	if err != nil {
+		t.Fatalf("bql.Parse: %v", err)
+	}
+	if err := bql.Validate(parsed); err != nil {
+		t.Fatalf("bql.Validate: %v", err)
+	}
+	m.filter.activeBQLExpr = parsed
+	m.applyBQL(parsed, queryStr)
+
+	if got := len(m.FilteredIssues()); got != 2 {
+		t.Fatalf("precondition: BQL filter not applied, visible=%d", got)
+	}
+
+	ins := analysis.Insights{}
+	if m.data.analysis != nil {
+		ins = m.data.analysis.GenerateInsights(len(m.data.issues))
+	}
+	newM, _ := m.Update(Phase2ReadyMsg{Stats: m.data.analysis, Insights: ins})
+	m2, ok := newM.(Model)
+	if !ok {
+		t.Fatalf("Update returned wrong model type: %T", newM)
+	}
+
+	filtered := m2.FilteredIssues()
+	if len(filtered) != 2 {
+		t.Fatalf("BQL filter wiped by Phase2Ready (bt-0iajg): expected 2 visible issues, got %d (%+v)", len(filtered), filtered)
+	}
+	got := map[string]bool{}
+	for _, iss := range filtered {
+		got[iss.ID] = true
+	}
+	if !got["proj-1"] || !got["proj-2"] {
+		t.Errorf("expected proj-1 and proj-2 after Phase2Ready, got %+v", got)
+	}
+	if m2.filter.activeBQLExpr == nil {
+		t.Error("activeBQLExpr cleared by Phase2Ready")
+	}
+	if want := "bql:" + queryStr; m2.filter.currentFilter != want {
+		t.Errorf("currentFilter not preserved: got %q want %q", m2.filter.currentFilter, want)
+	}
+}
+
 // filterTestModel returns a minimal Model wired with two test issues and the
 // filter subsystem ready to use. Shared across filter preservation tests.
 func filterTestModel(t *testing.T) Model {

@@ -893,16 +893,12 @@ func (m Model) handleFileChanged(msg FileChangedMsg) (Model, tea.Cmd) {
 		}
 	}
 
-	// Re-apply recipe filter if active
-	if m.filter.activeRecipe != nil {
-		m.applyRecipe(m.filter.activeRecipe)
-	}
-
-	// Re-apply BQL filter if active
-	if m.filter.activeBQLExpr != nil && strings.HasPrefix(m.filter.currentFilter, "bql:") {
-		queryStr := strings.TrimPrefix(m.filter.currentFilter, "bql:")
-		m.applyBQL(m.filter.activeBQLExpr, queryStr)
-	}
+	// Re-apply the active filter (recipe, BQL, or plain status/label) -- the
+	// item rebuild above ran straight from the full m.data.issues with no
+	// filter applied (bt-k9f6f); reapplyActiveFilter is the single dispatch
+	// point shared with handleDataSourceReload/handlePhase2Ready/
+	// rebuildListWithDiffInfo.
+	m.reapplyActiveFilter()
 
 	// Keep the epics overview current on data reload, if it is the active
 	// view. Sourced from the filtered set, so no separate file load (bt-ryi5z).
