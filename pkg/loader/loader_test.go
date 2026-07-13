@@ -1012,8 +1012,28 @@ func TestGetBeadsDir_EmptyRepoPath_UsesCwd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	if result != expected {
-		t.Errorf("Empty repoPath should use cwd: got %s, want %s", result, expected)
+
+	// EvalSymlinks normalizes the macOS /var -> /private/var symlink (and
+	// similar) so the comparison is not sensitive to whether a given path
+	// form has been resolved. os.Getwd() (used by GetBeadsDir for the empty
+	// repoPath case) returns the OS-resolved physical path, while t.TempDir()
+	// returns the unresolved logical path, so the two must be normalized
+	// before comparing. Same pattern as pkg/ui/update_keys_test.go. The
+	// ".beads" leaf is never created on disk, so resolve the (existing)
+	// parent directory and rejoin the leaf rather than resolving the full
+	// path, since EvalSymlinks requires every path component to exist.
+	wantParent, err := filepath.EvalSymlinks(filepath.Dir(expected))
+	if err != nil {
+		t.Fatalf("EvalSymlinks(%q): %v", filepath.Dir(expected), err)
+	}
+	gotParent, err := filepath.EvalSymlinks(filepath.Dir(result))
+	if err != nil {
+		t.Fatalf("EvalSymlinks(%q): %v", filepath.Dir(result), err)
+	}
+	wantAbs := filepath.Join(wantParent, ".beads")
+	gotAbs := filepath.Join(gotParent, ".beads")
+	if gotAbs != wantAbs {
+		t.Errorf("Empty repoPath should use cwd: got %s, want %s", gotAbs, wantAbs)
 	}
 }
 

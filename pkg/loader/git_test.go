@@ -2,10 +2,12 @@ package loader
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -17,30 +19,98 @@ func parseJSONL(data []byte) ([]model.Issue, error) {
 	return ParseIssues(bytes.NewReader(data))
 }
 
-// setupTestGitRepo creates a temporary git repo with beads files
+// TestMain removes the shared read-only git fixture (see sharedGitRepo)
+// once every test in the package has finished running.
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if sharedRepoDir != "" {
+		os.RemoveAll(sharedRepoDir)
+	}
+	os.Exit(code)
+}
+
+var (
+	sharedRepoOnce sync.Once
+	sharedRepoDir  string
+	sharedRepoErr  error
+)
+
+// sharedGitRepo returns a single 2-commit git fixture, built once (via
+// sync.Once) and reused across every read-only GitLoader test. Building the
+// fixture shells out to real git 5+ times and sleeps 1.5s to force a
+// distinct commit timestamp, so rebuilding it per-test (as setupTestGitRepo
+// does) dominated the package's runtime (bt-vvel8).
+//
+// Only tests that never write to the returned directory or run mutating git
+// commands (add/commit/etc.) against it may use this helper - anything that
+// mutates the repo must call setupTestGitRepo for a private, disposable
+// copy instead.
+func sharedGitRepo(t *testing.T) string {
+	t.Helper()
+	sharedRepoOnce.Do(func() {
+		sharedRepoDir, sharedRepoErr = buildGitFixture()
+	})
+	if sharedRepoErr != nil {
+		t.Fatalf("failed to build shared git fixture: %v", sharedRepoErr)
+	}
+	return sharedRepoDir
+}
+
+// setupTestGitRepo creates a private temporary git repo with beads files.
+// Use this (not sharedGitRepo) for any test that mutates the repo.
 func setupTestGitRepo(t *testing.T) (string, func()) {
 	t.Helper()
 
-	// Create temp directory
-	tmpDir, err := os.MkdirTemp("", "git-loader-test-*")
+	tmpDir, err := buildGitFixture()
 	if err != nil {
-		t.Fatalf("failed to create temp dir: %v", err)
+		t.Fatalf("failed to build git fixture: %v", err)
 	}
 
 	cleanup := func() {
 		os.RemoveAll(tmpDir)
 	}
 
+	return tmpDir, cleanup
+}
+
+// buildGitFixture creates a temporary git repo with two commits touching
+// .beads/beads.base.jsonl (2 issues, then 3). It is the shared build path
+// for both the once-built read-only fixture and per-test private fixtures.
+func buildGitFixture() (string, error) {
+	tmpDir, err := os.MkdirTemp("", "git-loader-test-*")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp dir: %w", err)
+	}
+
+	run := func(args ...string) error {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = tmpDir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("git %v failed: %w\noutput: %s", args, err, out)
+		}
+		return nil
+	}
+
+	fail := func(err error) (string, error) {
+		os.RemoveAll(tmpDir)
+		return "", err
+	}
+
 	// Initialize git repo
-	runGit(t, tmpDir, "init")
-	runGit(t, tmpDir, "config", "user.email", "test@test.com")
-	runGit(t, tmpDir, "config", "user.name", "Test User")
+	if err := run("init"); err != nil {
+		return fail(err)
+	}
+	if err := run("config", "user.email", "test@test.com"); err != nil {
+		return fail(err)
+	}
+	if err := run("config", "user.name", "Test User"); err != nil {
+		return fail(err)
+	}
 
 	// Create .beads directory and initial file
 	beadsDir := filepath.Join(tmpDir, ".beads")
 	if err := os.MkdirAll(beadsDir, 0755); err != nil {
-		cleanup()
-		t.Fatalf("failed to create .beads dir: %v", err)
+		return fail(fmt.Errorf("failed to create .beads dir: %w", err))
 	}
 
 	// Write initial beads file
@@ -49,13 +119,16 @@ func setupTestGitRepo(t *testing.T) (string, func()) {
 `
 	beadsFile := filepath.Join(beadsDir, "beads.base.jsonl")
 	if err := os.WriteFile(beadsFile, []byte(initialContent), 0644); err != nil {
-		cleanup()
-		t.Fatalf("failed to write beads file: %v", err)
+		return fail(fmt.Errorf("failed to write beads file: %w", err))
 	}
 
 	// Commit initial state
-	runGit(t, tmpDir, "add", ".")
-	runGit(t, tmpDir, "commit", "-m", "Initial commit")
+	if err := run("add", "."); err != nil {
+		return fail(err)
+	}
+	if err := run("commit", "-m", "Initial commit"); err != nil {
+		return fail(err)
+	}
 	// Ensure subsequent commits have a distinct timestamp for deterministic date-based resolution
 	time.Sleep(1500 * time.Millisecond)
 
@@ -65,14 +138,17 @@ func setupTestGitRepo(t *testing.T) (string, func()) {
 {"id":"ISSUE-3","title":"Third issue","status":"open","priority":3,"issue_type":"task"}
 `
 	if err := os.WriteFile(beadsFile, []byte(updatedContent), 0644); err != nil {
-		cleanup()
-		t.Fatalf("failed to update beads file: %v", err)
+		return fail(fmt.Errorf("failed to update beads file: %w", err))
 	}
 
-	runGit(t, tmpDir, "add", ".")
-	runGit(t, tmpDir, "commit", "-m", "Add third issue")
+	if err := run("add", "."); err != nil {
+		return fail(err)
+	}
+	if err := run("commit", "-m", "Add third issue"); err != nil {
+		return fail(err)
+	}
 
-	return tmpDir, cleanup
+	return tmpDir, nil
 }
 
 func runGit(t *testing.T, dir string, args ...string) {
@@ -114,8 +190,8 @@ func TestNewGitLoaderWithCacheTTL(t *testing.T) {
 }
 
 func TestGitLoader_LoadAt_HEAD(t *testing.T) {
-	repoDir, cleanup := setupTestGitRepo(t)
-	defer cleanup()
+	t.Parallel()
+	repoDir := sharedGitRepo(t)
 
 	loader := NewGitLoader(repoDir)
 	issues, err := loader.LoadAt("HEAD")
@@ -129,8 +205,8 @@ func TestGitLoader_LoadAt_HEAD(t *testing.T) {
 }
 
 func TestGitLoader_LoadAt_OlderCommit(t *testing.T) {
-	repoDir, cleanup := setupTestGitRepo(t)
-	defer cleanup()
+	t.Parallel()
+	repoDir := sharedGitRepo(t)
 
 	loader := NewGitLoader(repoDir)
 	issues, err := loader.LoadAt("HEAD~1")
@@ -144,8 +220,8 @@ func TestGitLoader_LoadAt_OlderCommit(t *testing.T) {
 }
 
 func TestGitLoader_ResolveRevision(t *testing.T) {
-	repoDir, cleanup := setupTestGitRepo(t)
-	defer cleanup()
+	t.Parallel()
+	repoDir := sharedGitRepo(t)
 
 	loader := NewGitLoader(repoDir)
 
@@ -160,8 +236,8 @@ func TestGitLoader_ResolveRevision(t *testing.T) {
 }
 
 func TestGitLoader_ResolveRevision_DateString(t *testing.T) {
-	repoDir, cleanup := setupTestGitRepo(t)
-	defer cleanup()
+	t.Parallel()
+	repoDir := sharedGitRepo(t)
 
 	loader := NewGitLoader(repoDir)
 
@@ -196,8 +272,8 @@ func TestParseDateStringUsesLocalForDateOnly(t *testing.T) {
 }
 
 func TestRevisionCacheExpires(t *testing.T) {
-	repoDir, cleanup := setupTestGitRepo(t)
-	defer cleanup()
+	t.Parallel()
+	repoDir := sharedGitRepo(t)
 
 	// Use a generous TTL/sleep gap to avoid timing flake on slow clocks.
 	loader := NewGitLoaderWithCacheTTL(repoDir, 50*time.Millisecond)
@@ -255,8 +331,8 @@ func TestGetCommitsBetween(t *testing.T) {
 }
 
 func TestGitLoader_Cache(t *testing.T) {
-	repoDir, cleanup := setupTestGitRepo(t)
-	defer cleanup()
+	t.Parallel()
+	repoDir := sharedGitRepo(t)
 
 	loader := NewGitLoader(repoDir)
 
@@ -284,8 +360,8 @@ func TestGitLoader_Cache(t *testing.T) {
 }
 
 func TestGitLoader_ClearCache(t *testing.T) {
-	repoDir, cleanup := setupTestGitRepo(t)
-	defer cleanup()
+	t.Parallel()
+	repoDir := sharedGitRepo(t)
 
 	loader := NewGitLoader(repoDir)
 
@@ -305,8 +381,8 @@ func TestGitLoader_ClearCache(t *testing.T) {
 }
 
 func TestGitLoader_ListRevisions(t *testing.T) {
-	repoDir, cleanup := setupTestGitRepo(t)
-	defer cleanup()
+	t.Parallel()
+	repoDir := sharedGitRepo(t)
 
 	loader := NewGitLoader(repoDir)
 
@@ -332,8 +408,8 @@ func TestGitLoader_ListRevisions(t *testing.T) {
 }
 
 func TestGitLoader_HasBeadsAtRevision(t *testing.T) {
-	repoDir, cleanup := setupTestGitRepo(t)
-	defer cleanup()
+	t.Parallel()
+	repoDir := sharedGitRepo(t)
 
 	loader := NewGitLoader(repoDir)
 
@@ -348,8 +424,8 @@ func TestGitLoader_HasBeadsAtRevision(t *testing.T) {
 }
 
 func TestGitLoader_InvalidRevision(t *testing.T) {
-	repoDir, cleanup := setupTestGitRepo(t)
-	defer cleanup()
+	t.Parallel()
+	repoDir := sharedGitRepo(t)
 
 	loader := NewGitLoader(repoDir)
 
