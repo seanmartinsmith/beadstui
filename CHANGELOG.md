@@ -6,6 +6,30 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-07-14 — Picker & pane overhaul: Waves 1-2 + ADR-002 spine retired (bt-5r6gn, bt-z1pzj, bt-9lpib, bt-6ltx9, bt-530vn, bt-xavk.2)
+
+**Live dogfood/design session on the bt TUI. A PM session dispatched worktree subagents for the early waves; a follow-up session shipped Wave 2 plus this housekeeping. All merged to main. This entry also retires ADR-002 as the "active spine" — see Notes.**
+
+### Ships
+
+- **feat(tui): atlas display alias (bt-z1pzj, Wave 1a, PR #18)** — the cross-cutting `beads_global` namespace now renders as `atlas` everywhere (display-only via `DisplayRepoName`/`IsAtlasNamespace`; raw keys unchanged for filtering/routing).
+- **feat(tui): btop-style per-pane fullscreen (bt-530vn, Wave 1b, PR #19)** — `2` maximizes the issues pane, `3` the details pane, `esc`/`q` exits; badges + any-width reachability.
+- **fix(tui): shortcuts sidebar full-height + distribute entries (bt-xavk.2, PR #20)**.
+- **feat(tui): project picker overhaul (Wave 2, PR #21)** — pinned `atlas` row at the top of the picker (bt-z1pzj part); `/` search with two-mode nav/search key routing mirroring the label picker (bt-9lpib core); page indicator + `←/→` full-page paging on overflow (bt-6ltx9). Splits `RepoPickerKeys` into `RepoPickerNav` + `RepoPickerSearch` sub-states.
+
+### Bead bookkeeping
+
+- Closed: bt-530vn (Wave 1b), bt-6ltx9 (pagination).
+- Open / in progress: bt-z1pzj (pinned row shipped; broader `beads_global` surfacing decision remains), bt-9lpib (search core shipped; Tab-autocomplete + comma multi-select flow deferred — overlaps the held bt-s4b7 redesign), bt-xavk.2 (broader sidebar redesign remains).
+- New beads: **bt-5r6gn** (dogfood session plan/handoff), **bt-566fk** (make `2`/`3` two-stage: focus first, fullscreen on repeat — dogfood feedback).
+
+### Notes
+
+- **Tested:** `go build` / `go vet` / `go test ./...` green (incl. the `keys` universal-nav consistency + allMaps registration tests). Wave 2 render-dump reviewed at 80x14 / 90x24 / mid-search / 70x16.
+- **ADR-002 retired as the active spine.** `docs/adr/002-stabilize-and-ship.md` is now `status: superseded`. Since ~2026-06-19 every development wave has been tracked through **beads + `docs/plans/`**, not ADR-002 streams; its only recently-touched stream (7, CRUD) is fully bead-tracked (bt-oiaj.*), so nothing is stranded. Planning now lives in beads + `docs/plans/`; the `docs/adr/` directory keeps decision records only. (Per repo convention, ADRs are marked Superseded in place, never archived.)
+
+---
+
 ## 2026-07-07 — Edits wave: every field editable from the TUI (bt-oiaj.13, bt-oiaj.5, bt-oiaj.6)
 
 **Three sequential slices on `feat/bt-edits-wave` (one commit each, draft PR), executed subagent-driven from the 2026-07-06 plan (docs/plans/2026-07-07-bt-edits-wave-oiaj13-5-6.md, authored pc:bt:5f472206): Sonnet implementers, Opus per-slice reviews, Fable whole-branch review. bt goes from claim-only writes to full field editing — status, priority, title, assignee, description, design, acceptance, append-notes, and comments — all through the bt-2pk38 routing contract (`bdroute.Resolve` pre-flight on every write, zero bd spawns on refusal).**
