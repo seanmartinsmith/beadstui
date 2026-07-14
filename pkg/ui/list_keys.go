@@ -192,9 +192,10 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 			m.recalculateSplitPaneSizes()
 		}
 	case key.Matches(msg, k.PaneFullscreenIssues):
-		// btop-style per-pane fullscreen toggle (bt-530vn). Works at any
-		// width - the same key restores the prior layout; Esc/q also exit
-		// (dispatcher cascade, model_update_input.go).
+		// Two-stage per-pane focus/fullscreen (bt-566fk, refining bt-530vn):
+		// in split view first press focuses the pane, second maximizes it,
+		// third exits; at narrow width it's a direct btop-style toggle. Esc/q
+		// also exit (dispatcher cascade, model_update_input.go).
 		m.toggleFullscreenPane(fullscreenIssues)
 	case key.Matches(msg, k.PaneFullscreenDetails):
 		m.toggleFullscreenPane(fullscreenDetails)
