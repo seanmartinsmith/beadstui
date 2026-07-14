@@ -24,6 +24,14 @@ type ShortcutsSidebar struct {
 	groups       [][]key.Binding // FullHelp() groups for the active view/modal
 }
 
+// sidebarDistributeMinHeight is the minimum sidebar box height (s.height,
+// matching the adjacent view body's height) at or above which View()
+// distributes spare vertical space between help groups rather than
+// top-stacking them. Below this, the panel is treated as cramped (the user's
+// small 14-30 row terminals) and falls back to the compact top-stack so
+// entries don't get spread apart awkwardly (bt-xavk.2).
+const sidebarDistributeMinHeight = 20
+
 // NewShortcutsSidebar creates a new shortcuts sidebar
 func NewShortcutsSidebar(theme Theme) ShortcutsSidebar {
 	return ShortcutsSidebar{
@@ -97,15 +105,17 @@ func (s *ShortcutsSidebar) View() string {
 		Foreground(t.Secondary).
 		Italic(true)
 
-	// Build content from the active key.Map's FullHelp() groups: each group is a
-	// vertical section (one binding per row, key + desc columns) rendered as a
-	// custom vertical layout (help.FullHelpView's horizontal columns are
-	// illegible at this 34-col width, per ADR-004 Decision 1). Groups are
-	// separated by a blank line. Disabled bindings and bindings without help
-	// text are skipped so the surface stays truthful to the active state. The
+	// Build rows per group from the active key.Map's FullHelp() groups: each
+	// group is a vertical section (one binding per row, key + desc columns)
+	// rendered as a custom vertical layout (help.FullHelpView's horizontal
+	// columns are illegible at this 34-col width, per ADR-004 Decision 1).
+	// Disabled bindings and bindings without help text are skipped so the
+	// surface stays truthful to the active state. Groups are kept as separate
+	// row-slices (rather than immediately flattened) so the layout below can
+	// distribute spare vertical space BETWEEN groups instead of always
+	// top-stacking them with dead space at the bottom (bt-xavk.2). The
 	// "Shortcuts" title lives in the panel's top border (RenderTitledPanel).
-	var sb strings.Builder
-	firstGroup := true
+	var groupRows [][]string
 	for _, group := range s.groups {
 		rows := make([]string, 0, len(group))
 		for _, b := range group {
@@ -118,27 +128,10 @@ func (s *ShortcutsSidebar) View() string {
 			}
 			rows = append(rows, keyStyle.Render(h.Key)+descStyle.Render(h.Desc))
 		}
-		if len(rows) == 0 {
-			continue
-		}
-		if !firstGroup {
-			sb.WriteString("\n") // blank line between groups
-		}
-		firstGroup = false
-		for _, r := range rows {
-			sb.WriteString(r + "\n")
+		if len(rows) > 0 {
+			groupRows = append(groupRows, rows)
 		}
 	}
-
-	fullContent := strings.TrimRight(sb.String(), "\n")
-	if strings.TrimSpace(fullContent) == "" {
-		// Empty view (e.g. Attention / LabelDashboard): no view-specific bindings.
-		// Show a fallback directing to ? for global shortcuts (bt-dx7k).
-		fullContent = dimStyle.Render("no actions here") + "\n" +
-			dimStyle.Render("press ? for global")
-	}
-	lines := strings.Split(fullContent, "\n")
-	totalLines := len(lines)
 
 	// Reserve rows for the panel's top + bottom border (2) and the scroll/hide
 	// footer hint (1).
@@ -146,6 +139,56 @@ func (s *ShortcutsSidebar) View() string {
 	if availableHeight < 5 {
 		availableHeight = 5
 	}
+
+	var lines []string
+	if len(groupRows) == 0 {
+		// Empty view (e.g. Attention / LabelDashboard): no view-specific bindings.
+		// Show a fallback directing to ? for global shortcuts (bt-dx7k).
+		lines = []string{
+			dimStyle.Render("no actions here"),
+			dimStyle.Render("press ? for global"),
+		}
+	} else {
+		totalContentLines := 0
+		for _, rows := range groupRows {
+			totalContentLines += len(rows)
+		}
+		// gapSizes[i] is the blank-line count before groupRows[i+1]. Compact
+		// baseline: exactly 1 blank line between groups (matches the previous
+		// top-stacked layout).
+		gapSizes := make([]int, len(groupRows)-1)
+		for i := range gapSizes {
+			gapSizes[i] = 1
+		}
+
+		// When there's spare vertical space AND the panel is tall enough for
+		// spread-out spacing to read as intentional rather than broken,
+		// distribute the extra space evenly across the gaps between groups
+		// instead of leaving it all as dead space below the last entry. Below
+		// sidebarDistributeMinHeight (the user's small 14-30 row terminals),
+		// keep the compact top-stack.
+		extra := availableHeight - totalContentLines - len(gapSizes)
+		if extra > 0 && len(gapSizes) > 0 && s.height >= sidebarDistributeMinHeight {
+			base := extra / len(gapSizes)
+			rem := extra % len(gapSizes)
+			for i := range gapSizes {
+				gapSizes[i] += base
+				if i < rem {
+					gapSizes[i]++
+				}
+			}
+		}
+
+		for i, rows := range groupRows {
+			if i > 0 {
+				for g := 0; g < gapSizes[i-1]; g++ {
+					lines = append(lines, "")
+				}
+			}
+			lines = append(lines, rows...)
+		}
+	}
+	totalLines := len(lines)
 
 	maxScroll := totalLines - availableHeight
 	if maxScroll < 0 {

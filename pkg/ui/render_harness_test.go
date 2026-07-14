@@ -229,6 +229,26 @@ func TestRenderDump(t *testing.T) {
 			m.graphView.SelectByID(id)
 		}
 	}
+	// enterTreeSidebar / enterHistorySidebar mirror the real E-key / h-key entry
+	// paths (tree_mouse_test.go's treeMouseTestModel, history_focus_test.go's
+	// createRichHistoryReport) so the ; sidebar height/distribution fix
+	// (bt-xavk.2) has ground-truth dumps for the views the dogfood complaint
+	// named (board/history/tree/flow-matrix render via m.height-1 bodies; the
+	// sidebar previously joined at m.height-2).
+	enterTreeSidebar := func(m *Model) {
+		m.mode = ViewTree
+		m.focused = focusTree
+		m.tree.Build(m.data.issues)
+		m.showShortcutsSidebar = true
+	}
+	enterHistorySidebar := func(m *Model) {
+		m.historyView = NewHistoryModel(createRichHistoryReport(), m.theme)
+		m.mode = ViewHistory
+		m.focused = focusHistory
+		m.historyLoading = false
+		m.historyDoltOnly = false
+		m.showShortcutsSidebar = true
+	}
 	// enterActionable / enterFlowMatrix / enterInsights mirror the real toggle
 	// handlers so the footer-pin audit (bt-yyked follow-up) has ground-truth
 	// dumps for the views the resume note flagged as m.height-2 suspects.
@@ -416,6 +436,27 @@ func TestRenderDump(t *testing.T) {
 		{"sidebar_attention_100x32", 100, 32, func(m *Model) {
 			m.mode = ViewAttention
 			m.focused = focusInsights
+			m.showShortcutsSidebar = true
+		}},
+
+		// Sidebar height + distribution fix (bt-xavk.2): board/history/tree at a
+		// normal size (room to distribute groups down the column) and a small
+		// size (100x16, the user's scrunched-terminal floor - compact top-stack
+		// fallback, not stretched-apart entries). Full-height box in both cases.
+		{"sidebar_board_120x32", 120, 32, func(m *Model) {
+			enterBoard(m)
+			m.showShortcutsSidebar = true
+		}},
+		{"sidebar_board_100x16", 100, 16, func(m *Model) {
+			enterBoard(m)
+			m.showShortcutsSidebar = true
+		}},
+		{"sidebar_history_120x32", 120, 32, enterHistorySidebar},
+		{"sidebar_history_100x16", 100, 16, enterHistorySidebar},
+		{"sidebar_tree_120x32", 120, 32, enterTreeSidebar},
+		{"sidebar_tree_100x16", 100, 16, enterTreeSidebar},
+		{"sidebar_flowmatrix_120x32", 120, 32, func(m *Model) {
+			enterFlowMatrix(m)
 			m.showShortcutsSidebar = true
 		}},
 		{"modal_labelpicker_120x36", 120, 36, func(m *Model) { m.openModal(ModalLabelPicker) }},
