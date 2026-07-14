@@ -296,15 +296,28 @@ func (k TimeTravelInputKeys) FullHelp() [][]key.Binding {
 	}
 }
 
-// RepoPickerKeys are the bindings for the repo picker overlay (workspace mode).
-// handleRepoPickerKeys dispatches against these via key.Matches.
+// RepoPickerNavKeys are the bindings for the repo picker nav sub-state --
+// when the search input is NOT focused. handleRepoPickerNavKeys dispatches
+// against these via key.Matches.
 //
-// Up/Down field names match the universal-nav consistency test.
+// Per the LabelPicker precedent (ADR-004 Decision 7), the repo picker splits
+// into Nav + Search sub-states (Wave 2, bt-9lpib): letters are nav no-ops in
+// nav mode; they type into the search bar in search mode. The dispatcher
+// selects the active Map via m.repoPicker.IsSearchFocused().
+//
+// Up/Down field names match the universal-nav consistency test. PageUp/PageDown
+// use dedicated field names (like LabelPickerNavKeys) so the ←/→ help strings
+// do not trip the universal-nav Left/Right check.
 // Close covers the additional exit keys q and w alongside Cancel (esc).
-type RepoPickerKeys struct {
+type RepoPickerNavKeys struct {
 	// Nav
-	Up   key.Binding
-	Down key.Binding
+	Up       key.Binding
+	Down     key.Binding
+	PageUp   key.Binding
+	PageDown key.Binding
+
+	// Mode
+	FocusSearch key.Binding
 
 	// Selection
 	Toggle    key.Binding
@@ -318,9 +331,9 @@ type RepoPickerKeys struct {
 	Cancel key.Binding
 }
 
-// NewRepoPickerKeys returns the default repo picker keymap.
-func NewRepoPickerKeys() RepoPickerKeys {
-	return RepoPickerKeys{
+// NewRepoPickerNavKeys returns the default repo picker nav-mode keymap.
+func NewRepoPickerNavKeys() RepoPickerNavKeys {
+	return RepoPickerNavKeys{
 		Up: key.NewBinding(
 			key.WithKeys("up", "k"),
 			key.WithHelp("↑/k", "move up"),
@@ -328,6 +341,18 @@ func NewRepoPickerKeys() RepoPickerKeys {
 		Down: key.NewBinding(
 			key.WithKeys("down", "j"),
 			key.WithHelp("↓/j", "move down"),
+		),
+		PageUp: key.NewBinding(
+			key.WithKeys("left", "pgup"),
+			key.WithHelp("←/pgup", "page up"),
+		),
+		PageDown: key.NewBinding(
+			key.WithKeys("right", "pgdown"),
+			key.WithHelp("→/pgdn", "page down"),
+		),
+		FocusSearch: key.NewBinding(
+			key.WithKeys("/"),
+			key.WithHelp("/", "enter search"),
 		),
 		Toggle: key.NewBinding(
 			key.WithKeys("space"),
@@ -352,19 +377,74 @@ func NewRepoPickerKeys() RepoPickerKeys {
 	}
 }
 
-// ShortHelp returns the status-bar hint for the repo picker.
-func (k RepoPickerKeys) ShortHelp() []key.Binding {
-	return []key.Binding{k.Up, k.Down, k.Toggle, k.Apply, k.Cancel}
+// ShortHelp returns the status-bar hint for the repo picker (nav mode).
+func (k RepoPickerNavKeys) ShortHelp() []key.Binding {
+	return []key.Binding{k.Up, k.Down, k.Toggle, k.Apply, k.FocusSearch, k.Cancel}
 }
 
 // FullHelp returns column-grouped bindings for the ; sidebar and ? overlay.
-func (k RepoPickerKeys) FullHelp() [][]key.Binding {
+func (k RepoPickerNavKeys) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		// Nav
-		{k.Up, k.Down},
+		{k.Up, k.Down, k.PageUp, k.PageDown},
 		// Selection
 		{k.Toggle, k.ToggleAll},
-		// Apply / exit
-		{k.Apply, k.Close, k.Cancel},
+		// Mode / apply / exit
+		{k.FocusSearch, k.Apply, k.Close, k.Cancel},
+	}
+}
+
+// RepoPickerSearchKeys are the bindings for the repo picker search sub-state --
+// when the search input IS focused. Letter keys and printable characters are
+// forwarded to the text input; only control keys are matched here.
+//
+// Dispatcher selects it when m.repoPicker.IsSearchFocused(). ResultUp/ResultDown
+// use different field names from Up/Down to avoid the universal-nav consistency
+// test (their Help.Key strings include context text not found in the nav
+// siblings).
+type RepoPickerSearchKeys struct {
+	// Result navigation (field names distinct from Up/Down to avoid
+	// universal-nav consistency test)
+	ResultUp   key.Binding
+	ResultDown key.Binding
+
+	// Resolve
+	Apply      key.Binding
+	BlurSearch key.Binding
+}
+
+// NewRepoPickerSearchKeys returns the default repo picker search-mode keymap.
+func NewRepoPickerSearchKeys() RepoPickerSearchKeys {
+	return RepoPickerSearchKeys{
+		ResultUp: key.NewBinding(
+			key.WithKeys("up", "ctrl+p"),
+			key.WithHelp("↑/⌃p", "prev result"),
+		),
+		ResultDown: key.NewBinding(
+			key.WithKeys("down", "ctrl+n"),
+			key.WithHelp("↓/⌃n", "next result"),
+		),
+		Apply: key.NewBinding(
+			key.WithKeys("enter"),
+			key.WithHelp("⏎", "apply project filter"),
+		),
+		BlurSearch: key.NewBinding(
+			key.WithKeys("esc"),
+			key.WithHelp("esc", "exit search"),
+		),
+	}
+}
+
+// ShortHelp returns the status-bar hint during repo picker search mode.
+func (k RepoPickerSearchKeys) ShortHelp() []key.Binding {
+	return []key.Binding{k.ResultUp, k.ResultDown, k.Apply, k.BlurSearch}
+}
+
+// FullHelp returns column-grouped bindings for the ; sidebar and ? overlay
+// during repo picker search mode.
+func (k RepoPickerSearchKeys) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{k.ResultUp, k.ResultDown},
+		{k.Apply, k.BlurSearch},
 	}
 }

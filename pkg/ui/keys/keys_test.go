@@ -43,7 +43,8 @@ func allMaps() map[string]help.KeyMap {
 		"RecipePicker":      NewRecipePickerKeys(),
 		"BQLQuery":          NewBQLQueryKeys(),
 		"TimeTravelInput":   NewTimeTravelInputKeys(),
-		"RepoPicker":        NewRepoPickerKeys(),
+		"RepoPickerNav":     NewRepoPickerNavKeys(),
+		"RepoPickerSearch":  NewRepoPickerSearchKeys(),
 
 		// Field-edit Maps (bt-oiaj.5)
 		"FieldSelect": NewFieldSelectKeys(),

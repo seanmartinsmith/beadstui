@@ -2528,6 +2528,14 @@ func (m Model) handleRepoPickerModalClick(mouse tea.Mouse) (Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// Search input row: focus the search input on click (mouse equivalent of "/").
+	if m.repoPicker.IsSearchRow(my) {
+		if !m.repoPicker.IsSearchFocused() {
+			m.repoPicker.FocusSearch()
+		}
+		return m, nil
+	}
+
 	idx, ok := m.repoPicker.ItemAtPanelY(my)
 	if !ok {
 		return m, nil
