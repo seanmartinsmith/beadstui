@@ -472,25 +472,67 @@ func (m Model) Issues() []model.Issue {
 	return m.data.issues
 }
 
-// toggleFullscreenPane switches the on-demand per-pane fullscreen toggle
-// (bt-530vn): pressing the key for the pane that's already maximized turns
-// fullscreen off (mirrors btop pressing the same number again); pressing the
-// other pane's key switches directly to it without requiring an exit first.
-// Reachable at any terminal width - orthogonal to isSplitView (bt-9a3wv's
-// width-driven auto-collapse).
+// toggleFullscreenPane drives the two-stage per-pane focus/fullscreen model
+// (bt-566fk, refining bt-530vn). In split view a number key first focuses its
+// pane; only a second press (pane already focused) maximizes it, and a third
+// press exits back to the focused split. Pressing the *other* pane's key while
+// one is fullscreen exits fullscreen and focuses that pane in the restored
+// split - it needs its own second press to maximize. One consistent rule: a
+// number always focuses its pane before it maximizes it.
+//
+// At narrow width there is no split, so the single visible pane already fills
+// the body and the focus stage has nothing to distinguish. There the key keeps
+// the direct btop-style toggle: press to maximize, the other key swaps straight
+// over, re-press exits. So this composes with isSplitView (bt-9a3wv's
+// width-driven auto-collapse) rather than being orthogonal to it: the wide case
+// two-stages, the narrow case collapses to a direct toggle.
 func (m *Model) toggleFullscreenPane(target fullscreenPane) {
+	// Re-pressing the maximized pane's key exits fullscreen, keeping focus on
+	// that pane (mirrors the Esc/q dispatcher cascade). Applies at any width.
 	if m.fullscreen == target {
 		m.exitFullscreenPane()
 		return
 	}
-	m.fullscreen = target
-	switch target {
-	case fullscreenIssues:
-		m.focused = focusList
-	case fullscreenDetails:
-		m.focused = focusDetail
+
+	// Narrow width (no split): the lone visible pane already fills the body, so
+	// "focus" has no second pane to read against. Keep the direct toggle -
+	// press the target to maximize it, and pressing the other key while one is
+	// maximized swaps straight over (bt-566fk Q3).
+	if !m.isSplitView {
+		m.fullscreen = target
+		m.focused = focusForPane(target)
+		m.refreshFullscreenLayout()
+		return
 	}
+
+	// Split view, a *different* pane is fullscreen: exit fullscreen and focus
+	// the target in the restored split. A second press then maximizes it
+	// (bt-566fk Q1 - a number focuses first, even coming out of a fullscreen).
+	if m.fullscreen != fullscreenNone {
+		m.focused = focusForPane(target)
+		m.exitFullscreenPane()
+		return
+	}
+
+	// Split view, nothing fullscreen. Stage 1: focus the target if it isn't
+	// already focused - both panes stay visible, only the highlighted border
+	// moves, so no resize/content refresh is needed (View() re-reads m.focused).
+	if m.focused != focusForPane(target) {
+		m.focused = focusForPane(target)
+		return
+	}
+
+	// Stage 2: target already focused -> maximize it.
+	m.fullscreen = target
 	m.refreshFullscreenLayout()
+}
+
+// focusForPane maps a fullscreenPane target to the focus value for that pane.
+func focusForPane(target fullscreenPane) focus {
+	if target == fullscreenDetails {
+		return focusDetail
+	}
+	return focusList
 }
 
 // exitFullscreenPane restores the width-driven split/single-pane layout.

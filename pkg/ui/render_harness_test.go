@@ -354,17 +354,38 @@ func TestRenderDump(t *testing.T) {
 		{"detail_70x20", 70, 20, openDetail("bt-0qzp")},
 		{"detail_epic_90x28", 90, 28, openDetail("bt-evuf")},
 
-		// On-demand per-pane fullscreen toggle (bt-530vn), btop-style "2"/"3"
-		// keys. Same 120x32 width as split_120x32 above so the three dumps are
-		// directly comparable: normal split -> issues maximized -> details
-		// maximized. toggleFullscreenPane mirrors the real keypress path
-		// (list_keys.go) rather than poking m.fullscreen directly.
+		// Two-stage per-pane focus/fullscreen (bt-566fk, refining bt-530vn),
+		// "2"/"3" keys. Same 120x32 width as split_120x32 above so the dumps are
+		// directly comparable. toggleFullscreenPane mirrors the real keypress
+		// path (list_keys.go) rather than poking m.fullscreen directly. The list
+		// is focused by default, so one "3" (details) only FOCUSES the detail
+		// pane (border moves, no maximize); a second "3" maximizes it. One "2"
+		// (issues, already focused) maximizes on the first press.
 		{"panefs_normal_120x32", 120, 32, splitOn("bt-0qzp")},
 		{"panefs_issues_120x32", 120, 32, func(m *Model) {
 			splitOn("bt-0qzp")(m)
-			m.toggleFullscreenPane(fullscreenIssues)
+			m.toggleFullscreenPane(fullscreenIssues) // issues already focused -> maximize
+		}},
+		{"panefs_details_focus_120x32", 120, 32, func(m *Model) {
+			splitOn("bt-0qzp")(m)
+			m.toggleFullscreenPane(fullscreenDetails) // stage 1: focus detail, still split
 		}},
 		{"panefs_details_120x32", 120, 32, func(m *Model) {
+			splitOn("bt-0qzp")(m)
+			m.toggleFullscreenPane(fullscreenDetails) // stage 1: focus detail
+			m.toggleFullscreenPane(fullscreenDetails) // stage 2: maximize detail
+		}},
+		// Q1: from details fullscreen, pressing "2" exits to the split with the
+		// issues pane focused (needs a 2nd "2" to maximize) - NOT a direct swap.
+		{"panefs_switch_to_issues_120x32", 120, 32, func(m *Model) {
+			splitOn("bt-0qzp")(m)
+			m.toggleFullscreenPane(fullscreenDetails) // focus detail
+			m.toggleFullscreenPane(fullscreenDetails) // maximize detail
+			m.toggleFullscreenPane(fullscreenIssues)  // exit -> focus issues in split
+		}},
+		// Q3: narrow width (no split) collapses the focus stage - one "3"
+		// maximizes the detail pane directly. Below SplitViewThreshold (100).
+		{"panefs_narrow_details_90x24", 90, 24, func(m *Model) {
 			splitOn("bt-0qzp")(m)
 			m.toggleFullscreenPane(fullscreenDetails)
 		}},
