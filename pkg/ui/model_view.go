@@ -229,7 +229,14 @@ func (m Model) View() tea.View {
 		// consumes the same key.Map source as the L1 footer and ? overlay
 		// (bt-ift6.10).
 		m.shortcutsSidebar.SetBindings(m.sidebarHelpGroups())
-		m.shortcutsSidebar.SetSize(m.shortcutsSidebar.Width(), m.height-2)
+		// Match the body height convention every view above sizes to
+		// (m.height-1, reserving 1 row for the footer) rather than m.height-2.
+		// The mismatch left the sidebar's panel box 1 row short of the body
+		// it's joined against (lipgloss.JoinHorizontal(Top, ...) then pads the
+		// shorter column with a blank row rather than growing the box), so the
+		// sidebar's bottom border sat one row above the true bottom edge on
+		// board/history/tree/flow-matrix (bt-xavk.2).
+		m.shortcutsSidebar.SetSize(m.shortcutsSidebar.Width(), m.height-1)
 		sidebar := m.shortcutsSidebar.View()
 		body = lipgloss.JoinHorizontal(lipgloss.Top, body, sidebar)
 	}
