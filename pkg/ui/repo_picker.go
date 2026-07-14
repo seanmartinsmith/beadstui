@@ -3,6 +3,8 @@ package ui
 import (
 	"strings"
 
+	"github.com/seanmartinsmith/beadstui/pkg/model"
+
 	"charm.land/lipgloss/v2"
 )
 
@@ -379,7 +381,11 @@ func (m *RepoPickerModel) View() string {
 				indicator = checkStyle.Render("✓ ")
 			}
 
-			line := centering + cursor + indicator + nameStyle.Render(repo)
+			// DisplayRepoName aliases beads_global to "atlas" for display
+			// (bt-z1pzj); m.repos/m.selected keep the raw key so selection
+			// and filtering are untouched. First-class pinned-row treatment
+			// for the namespace is a later wave (bt-z1pzj follow-up).
+			line := centering + cursor + indicator + nameStyle.Render(model.DisplayRepoName(repo))
 			lines = append(lines, line)
 		}
 

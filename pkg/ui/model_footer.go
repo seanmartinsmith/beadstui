@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/seanmartinsmith/beadstui/pkg/drift"
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/search"
 	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
 	"github.com/seanmartinsmith/beadstui/pkg/watcher"
@@ -378,7 +379,14 @@ func (m *Model) footerData() FooterData {
 	// Repo filter
 	if m.workspaceMode && m.activeRepos != nil && len(m.activeRepos) > 0 {
 		active := sortedRepoKeys(m.activeRepos)
-		fd.RepoFilterLabel = formatRepoList(active, 3)
+		displayed := make([]string, len(active))
+		for i, k := range active {
+			// DisplayRepoName aliases beads_global to "atlas" for display
+			// (bt-z1pzj); the underlying activeRepos filter keys stay
+			// "beads_global" unchanged.
+			displayed[i] = model.DisplayRepoName(k)
+		}
+		fd.RepoFilterLabel = formatRepoList(displayed, 3)
 	}
 
 	// Key hints

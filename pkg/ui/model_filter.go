@@ -1380,7 +1380,7 @@ func buildPropertyBlockANSI(item model.Issue) string {
 		rows = append(rows, metaRow{"Assignee", "@" + item.Assignee})
 	}
 	if item.SourceRepo != "" {
-		rows = append(rows, metaRow{"Source", item.SourceRepo})
+		rows = append(rows, metaRow{"Source", model.DisplayRepoName(item.SourceRepo)})
 	}
 	rows = append(rows, metaRow{"Created", FormatTimeAbs(item.CreatedAt)})
 	rows = append(rows, metaRow{"Updated", FormatTimeAbs(item.UpdatedAt)})
