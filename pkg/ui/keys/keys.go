@@ -28,7 +28,8 @@ package keys
 // Graph; bt-ift6.5 adds Insights; bt-ift6.6 adds HistoryNormal +
 // HistorySearch + HistoryFileTree; bt-ift6.7 adds Actionable; bt-ift6.8
 // adds FlowMatrix. bt-ift6.9 adds modal Maps (LabelPickerNav,
-// LabelPickerSearch, RecipePicker, BQLQuery, TimeTravelInput, RepoPicker).
+// LabelPickerSearch, RecipePicker, BQLQuery, TimeTravelInput). Wave 2 splits
+// the repo picker into RepoPickerNav + RepoPickerSearch sub-states (bt-9lpib).
 type AppKeys struct {
 	Global     GlobalKeys
 	Tree       TreeKeys
@@ -61,7 +62,11 @@ type AppKeys struct {
 	RecipePicker      RecipePickerKeys
 	BQLQuery          BQLQueryKeys
 	TimeTravelInput   TimeTravelInputKeys
-	RepoPicker        RepoPickerKeys
+
+	// RepoPicker splits into Nav + Search sub-states (Wave 2, bt-9lpib), same
+	// pattern as LabelPicker. Dispatcher selects via m.repoPicker.IsSearchFocused().
+	RepoPickerNav    RepoPickerNavKeys
+	RepoPickerSearch RepoPickerSearchKeys
 
 	// Field-edit Maps (bt-oiaj.5): FieldSelect is the Pattern-C hub; Picker
 	// backs the enum sub-modal (status/priority); Input backs the textinput
@@ -105,7 +110,8 @@ func NewAppKeys() AppKeys {
 		RecipePicker:      NewRecipePickerKeys(),
 		BQLQuery:          NewBQLQueryKeys(),
 		TimeTravelInput:   NewTimeTravelInputKeys(),
-		RepoPicker:        NewRepoPickerKeys(),
+		RepoPickerNav:     NewRepoPickerNavKeys(),
+		RepoPickerSearch:  NewRepoPickerSearchKeys(),
 
 		// Field-edit Maps (bt-oiaj.5)
 		FieldSelect: NewFieldSelectKeys(),

@@ -776,7 +776,10 @@ func (m Model) modalKeyMap() help.KeyMap {
 	case ModalTimeTravelInput:
 		return m.keys.TimeTravelInput
 	case ModalRepoPicker:
-		return m.keys.RepoPicker
+		if m.repoPicker.IsSearchFocused() {
+			return m.keys.RepoPickerSearch
+		}
+		return m.keys.RepoPickerNav
 	case ModalEpicCard:
 		return m.keys.EpicCard
 	case ModalFieldSelect:

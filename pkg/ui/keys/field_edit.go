@@ -11,7 +11,7 @@ import "charm.land/bubbles/v2/key"
 // Up/Down field names and Help.Key strings match ListNormalKeys / EpicCardKeys
 // for the universal-nav consistency test (TestUniversalNav_ConsistentAcrossViews).
 // Cancel (not Esc) avoids that check, mirroring every other picker's field
-// name (RecipePickerKeys.Cancel, RepoPickerKeys.Cancel).
+// name (RecipePickerKeys.Cancel, RepoPickerNavKeys.Cancel).
 //
 // Accelerators (Status/Priority/Title/Assignee/Description/Design/Comment/
 // Notes/Acceptance) can't collide with anything - the modal intercepts every
