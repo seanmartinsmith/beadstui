@@ -6,9 +6,9 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
-## 2026-07-14 — Picker & pane overhaul: Waves 1-2 + ADR-002 spine retired (bt-5r6gn, bt-z1pzj, bt-9lpib, bt-6ltx9, bt-530vn, bt-xavk.2)
+## 2026-07-14 — Picker & pane overhaul: Waves 1-2 + two-stage panes + ADR-002 spine retired (bt-5r6gn, bt-z1pzj, bt-9lpib, bt-6ltx9, bt-530vn, bt-566fk, bt-xavk.2)
 
-**Live dogfood/design session on the bt TUI. A PM session dispatched worktree subagents for the early waves; a follow-up session shipped Wave 2 plus this housekeeping. All merged to main. This entry also retires ADR-002 as the "active spine" — see Notes.**
+**Live dogfood/design session on the bt TUI. A PM session dispatched worktree subagents for the early waves; a follow-up session shipped Wave 2 plus this housekeeping; a further session shipped the two-stage pane refinement (bt-566fk, PR #23) after a design gate on its three open questions. All merged to main. This entry also retires ADR-002 as the "active spine" — see Notes.**
 
 ### Ships
 
@@ -16,16 +16,17 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 - **feat(tui): btop-style per-pane fullscreen (bt-530vn, Wave 1b, PR #19)** — `2` maximizes the issues pane, `3` the details pane, `esc`/`q` exits; badges + any-width reachability.
 - **fix(tui): shortcuts sidebar full-height + distribute entries (bt-xavk.2, PR #20)**.
 - **feat(tui): project picker overhaul (Wave 2, PR #21)** — pinned `atlas` row at the top of the picker (bt-z1pzj part); `/` search with two-mode nav/search key routing mirroring the label picker (bt-9lpib core); page indicator + `←/→` full-page paging on overflow (bt-6ltx9). Splits `RepoPickerKeys` into `RepoPickerNav` + `RepoPickerSearch` sub-states.
+- **feat(tui): two-stage `2`/`3` pane keys (bt-566fk, PR #23)** — refines Wave 1b's per-pane fullscreen into two stages. In split view the first press of `2`/`3` *focuses* the target pane (highlighted border, both panes stay visible, no maximize), the second maximizes it, the third exits back to the focused split. Pressing the other number while a pane is fullscreen exits and focuses that pane in the split — one consistent rule: a number always focuses before it maximizes. At narrow width there is no split, so the focus stage collapses to the prior direct btop-style toggle (byte-identical to Wave 1b there). Design calls (Q1 focus-first-out-of-fullscreen, Q2 exit-keep-focus, Q3 narrow-direct) resolved with the user before build.
 
 ### Bead bookkeeping
 
-- Closed: bt-530vn (Wave 1b), bt-6ltx9 (pagination).
+- Closed: bt-530vn (Wave 1b), bt-6ltx9 (pagination), bt-566fk (two-stage panes, PR #23).
 - Open / in progress: bt-z1pzj (pinned row shipped; broader `beads_global` surfacing decision remains), bt-9lpib (search core shipped; Tab-autocomplete + comma multi-select flow deferred — overlaps the held bt-s4b7 redesign), bt-xavk.2 (broader sidebar redesign remains).
-- New beads: **bt-5r6gn** (dogfood session plan/handoff), **bt-566fk** (make `2`/`3` two-stage: focus first, fullscreen on repeat — dogfood feedback).
+- New beads: **bt-5r6gn** (dogfood session plan/handoff). **bt-566fk** (make `2`/`3` two-stage) was filed and shipped within this arc — see Closed / Ships above.
 
 ### Notes
 
-- **Tested:** `go build` / `go vet` / `go test ./...` green (incl. the `keys` universal-nav consistency + allMaps registration tests). Wave 2 render-dump reviewed at 80x14 / 90x24 / mid-search / 70x16.
+- **Tested:** `go build` / `go vet` / `go test ./...` green (incl. the `keys` universal-nav consistency + allMaps registration tests). Wave 2 render-dump reviewed at 80x14 / 90x24 / mid-search / 70x16. bt-566fk adds `pkg/ui/fullscreen_pane_test.go` (4 unit tests: split two-stage, focused-pane-immediate, Q1 other-key-out-of-fullscreen, Q3 narrow-direct) plus render-harness scenarios (`panefs_details_focus`, `panefs_switch_to_issues`, `panefs_narrow_details`); full `go test ./...` re-verified green and the ANSI dump confirms the stage-1 focus border moves between panes.
 - **ADR-002 retired as the active spine.** `docs/adr/002-stabilize-and-ship.md` is now `status: superseded`. Since ~2026-06-19 every development wave has been tracked through **beads + `docs/plans/`**, not ADR-002 streams; its only recently-touched stream (7, CRUD) is fully bead-tracked (bt-oiaj.*), so nothing is stranded. Planning now lives in beads + `docs/plans/`; the `docs/adr/` directory keeps decision records only. (Per repo convention, ADRs are marked Superseded in place, never archived.)
 
 ---
