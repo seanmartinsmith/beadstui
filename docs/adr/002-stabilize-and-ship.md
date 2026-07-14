@@ -1,8 +1,8 @@
 ---
 title: "ADR-002: Stabilize and ship"
-status: active
+status: superseded
 date: 2026-04-03
-updated: 2026-04-14
+updated: 2026-07-14
 decision-makers: [seanmartinsmith]
 ---
 
@@ -10,7 +10,7 @@ decision-makers: [seanmartinsmith]
 
 ## Status
 
-**Active** - this is the current project spine. Supersedes [ADR-001](001-btui-fork-takeover.md) (fork takeover, completed).
+**Superseded (retired as the active spine, 2026-07-14).** This was the project spine from 2026-04 through mid-2026; it supersedes [ADR-001](001-btui-fork-takeover.md) (fork takeover, completed). Since ~2026-06-19 planning moved to **beads (`bd`) + `docs/plans/`**, and every wave since has been tracked there rather than through the streams below. Nothing replaced it as an ADR — the streams' open remnants are all bead-tracked (Stream 6/7/8 bead IDs). The stream statuses below are a frozen mid-2026 snapshot kept for history; do not treat them as current. For live work, use `bd list` / `bd ready` and `docs/plans/`.
 
 ## Context
 
