@@ -334,6 +334,21 @@ func TestRenderDump(t *testing.T) {
 		{"detail_70x20", 70, 20, openDetail("bt-0qzp")},
 		{"detail_epic_90x28", 90, 28, openDetail("bt-evuf")},
 
+		// On-demand per-pane fullscreen toggle (bt-530vn), btop-style "2"/"3"
+		// keys. Same 120x32 width as split_120x32 above so the three dumps are
+		// directly comparable: normal split -> issues maximized -> details
+		// maximized. toggleFullscreenPane mirrors the real keypress path
+		// (list_keys.go) rather than poking m.fullscreen directly.
+		{"panefs_normal_120x32", 120, 32, splitOn("bt-0qzp")},
+		{"panefs_issues_120x32", 120, 32, func(m *Model) {
+			splitOn("bt-0qzp")(m)
+			m.toggleFullscreenPane(fullscreenIssues)
+		}},
+		{"panefs_details_120x32", 120, 32, func(m *Model) {
+			splitOn("bt-0qzp")(m)
+			m.toggleFullscreenPane(fullscreenDetails)
+		}},
+
 		// Phase 3 per-view center meaning: detail = bead id + position (above),
 		// board = cols/cards, graph = nodes/edges. 70-col proves the override
 		// degrades without wrapping at the user's scrunched width.

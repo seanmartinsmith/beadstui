@@ -471,3 +471,53 @@ func (m Model) CurrentFilter() string {
 func (m Model) Issues() []model.Issue {
 	return m.data.issues
 }
+
+// toggleFullscreenPane switches the on-demand per-pane fullscreen toggle
+// (bt-530vn): pressing the key for the pane that's already maximized turns
+// fullscreen off (mirrors btop pressing the same number again); pressing the
+// other pane's key switches directly to it without requiring an exit first.
+// Reachable at any terminal width - orthogonal to isSplitView (bt-9a3wv's
+// width-driven auto-collapse).
+func (m *Model) toggleFullscreenPane(target fullscreenPane) {
+	if m.fullscreen == target {
+		m.exitFullscreenPane()
+		return
+	}
+	m.fullscreen = target
+	switch target {
+	case fullscreenIssues:
+		m.focused = focusList
+	case fullscreenDetails:
+		m.focused = focusDetail
+	}
+	m.refreshFullscreenLayout()
+}
+
+// exitFullscreenPane restores the width-driven split/single-pane layout.
+// Called both by re-pressing the active pane's key and by the Esc/q
+// dispatcher cascade (model_update_input.go).
+func (m *Model) exitFullscreenPane() {
+	m.fullscreen = fullscreenNone
+	m.refreshFullscreenLayout()
+}
+
+// refreshFullscreenLayout resizes list/viewport for the current fullscreen
+// state (or the restored split/single layout on exit) and immediately
+// re-renders the detail markdown at the new width. Mirrors
+// recalculateSplitPaneSizes' on-demand (non-debounced) refresh: a single
+// deliberate toggle doesn't need the resize-drag debounce bt-kfkrb exists
+// for. Also stamps lastHeavyWidth so the next real WindowSizeMsg's
+// applyWindowSizeHeavy short-circuit doesn't skip a render this toggle
+// already performed under a different (fullscreen-vs-not) branch at the same
+// bodyW.
+func (m *Model) refreshFullscreenLayout() {
+	bodyW := m.bodyWidth()
+	bodyHeight := m.height - 1
+	if bodyHeight < 5 {
+		bodyHeight = 5
+	}
+	m.applyListDetailSizing(bodyW, bodyHeight)
+	m.renderer.SetWidthWithTheme(m.viewport.Width(), m.theme)
+	m.updateViewportContent()
+	m.lastHeavyWidth = bodyW
+}

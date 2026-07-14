@@ -103,6 +103,21 @@ const (
 	ViewAttention                      // Attention scores view
 )
 
+// fullscreenPane identifies which ViewList pane (if any) is currently
+// maximized to fill the full body area via the on-demand fullscreen toggle
+// (bt-530vn, "2"/"3" keys). Orthogonal to isSplitView, which is the
+// width-driven auto-collapse hardened by bt-9a3wv: fullscreenPane is a
+// deliberate override reachable at any terminal width and composes with
+// either isSplitView state (it takes priority over both split and
+// single-pane rendering in View()).
+type fullscreenPane int
+
+const (
+	fullscreenNone fullscreenPane = iota
+	fullscreenIssues
+	fullscreenDetails
+)
+
 // insightsCursor remembers where the user was inside the insights view so
 // re-entering via `i` restores the focused pane and selected row instead of
 // resetting to the default. Captured on insights-leave (Enter that jumps to a
@@ -653,9 +668,10 @@ type Model struct {
 	focusBeforeSearch        focus // Stores focus before / entered search from a non-list pane (bt-cd3x)
 	filterEntryCursor        int   // Cursor index captured just before filter-begin runs (bt-qka1)
 	isSplitView              bool
-	splitPaneRatio           float64 // Ratio of list pane width (0.2-0.8), default 0.4
+	splitPaneRatio           float64        // Ratio of list pane width (0.2-0.8), default 0.4
 	showDetails              bool
-	helpScroll               int // Scroll offset for help overlay
+	fullscreen               fullscreenPane // bt-530vn: on-demand per-pane fullscreen (2/3 keys), any width
+	helpScroll               int            // Scroll offset for help overlay
 	ready                    bool
 	width                    int
 	height                   int
@@ -1875,14 +1891,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.focusBeforeSearch != focusList && m.list.FilterState() == list.Unfiltered {
 			m.focused = m.focusBeforeSearch
 			m.focusBeforeSearch = focusList
-			if m.isSplitView && m.focused == focusDetail {
+			if (m.isSplitView || m.fullscreen != fullscreenNone) && m.focused == focusDetail {
 				m.updateViewportContent()
 			}
 		}
 	}
 
-	// Update viewport if list selection changed in split view
-	if m.isSplitView && m.focused == focusList {
+	// Update viewport if list selection changed in split view, or while a
+	// fullscreen pane is active (bt-530vn) so the details pane is ready with
+	// current content whenever the user toggles to it, even at widths where
+	// isSplitView is false.
+	if (m.isSplitView || m.fullscreen != fullscreenNone) && m.focused == focusList {
 		m.updateViewportContent()
 	}
 
