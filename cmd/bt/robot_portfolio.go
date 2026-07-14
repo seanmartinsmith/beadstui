@@ -62,6 +62,11 @@ func (rc *robotCtx) runPortfolio() {
 //
 // Global mode: group by SourceRepo. Empty SourceRepo maps to "unknown" —
 // logged at debug so noisy environments can investigate; never dropped.
+// The beads_global namespace (upstream `bd --global`, bt-z1pzj) is excluded
+// entirely: it is a cross-cutting namespace, not a project, so its
+// open/blocked/velocity counts would produce a bogus per-project health
+// score. This is a soft contract change for `bt robot portfolio --global`:
+// a beads_global record, if ever populated, no longer appears in `projects`.
 //
 // Single-project mode: everything is one group keyed by rc.repoName; falling
 // back to the uniform SourceRepo if repoName is empty; "local" as a final
@@ -82,17 +87,28 @@ func groupIssuesByProject(issues []model.Issue, global bool, repoName string) ma
 
 	out := make(map[string][]model.Issue)
 	unknownCount := 0
+	atlasCount := 0
 	for i := range issues {
 		project := issues[i].SourceRepo
-		if project == "" {
+		switch {
+		case project == "":
 			project = "unknown"
 			unknownCount++
+		case model.IsAtlasNamespace(project):
+			// Cross-cutting namespace, not a project - exclude from
+			// portfolio health entirely rather than emit a bogus row.
+			atlasCount++
+			continue
 		}
 		out[project] = append(out[project], issues[i])
 	}
 	if unknownCount > 0 {
 		slog.Debug("portfolio: issues with empty SourceRepo grouped under 'unknown'",
 			"count", unknownCount)
+	}
+	if atlasCount > 0 {
+		slog.Debug("portfolio: excluded beads_global (atlas) issues from health aggregation",
+			"count", atlasCount)
 	}
 	return out
 }

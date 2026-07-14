@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"testing"
+
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
 // runPortfolioFixture invokes the built bt binary in the list fixture project.
@@ -140,6 +142,49 @@ func TestRobotPortfolio_ProjectsSortedByName(t *testing.T) {
 			t.Errorf("projects not sorted: %q > %q at index %d",
 				payload.Projects[i-1].Project, payload.Projects[i].Project, i)
 		}
+	}
+}
+
+// TestGroupIssuesByProject_ExcludesAtlasNamespace guards bt-z1pzj: under
+// --global, issues whose SourceRepo is the beads_global cross-cutting
+// namespace (either raw-name spelling) must be dropped entirely rather than
+// grouped into a "beads_global" (or aliased) portfolio record - it is a
+// namespace, not a project, so its health/velocity numbers would be bogus.
+// Ordinary projects, including one that merely contains "global" as a
+// substring, must still appear.
+func TestGroupIssuesByProject_ExcludesAtlasNamespace(t *testing.T) {
+	issues := []model.Issue{
+		{ID: "bt-1", SourceRepo: "beadstui"},
+		{ID: "global-1", SourceRepo: "beads_global"},
+		{ID: "global-2", SourceRepo: "BEADS_GLOBAL"}, // mixed-case, still excluded
+		{ID: "unknown-1", SourceRepo: ""},
+		{ID: "gz-1", SourceRepo: "globalize"}, // substring collision, must NOT be excluded
+	}
+
+	groups := groupIssuesByProject(issues, true, "")
+
+	if _, ok := groups["beads_global"]; ok {
+		t.Errorf("groups contains excluded beads_global key: %+v", groups)
+	}
+	if _, ok := groups["BEADS_GLOBAL"]; ok {
+		t.Errorf("groups contains excluded BEADS_GLOBAL key: %+v", groups)
+	}
+	if got := groups["beadstui"]; len(got) != 1 {
+		t.Errorf("groups[beadstui] = %d issues, want 1", len(got))
+	}
+	if got := groups["unknown"]; len(got) != 1 {
+		t.Errorf("groups[unknown] = %d issues, want 1", len(got))
+	}
+	if got := groups["globalize"]; len(got) != 1 {
+		t.Errorf("groups[globalize] = %d issues, want 1 (substring collision must not exclude)", len(got))
+	}
+
+	total := 0
+	for _, v := range groups {
+		total += len(v)
+	}
+	if want := len(issues) - 2; total != want {
+		t.Errorf("total grouped issues = %d, want %d (2 beads_global issues excluded)", total, want)
 	}
 }
 

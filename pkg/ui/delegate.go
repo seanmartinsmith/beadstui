@@ -168,8 +168,11 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 	// Repo badge width (workspace mode)
 	var repoBadge string
 	if d.WorkspaceMode && i.RepoPrefix != "" {
-		// Create a compact repo badge like [API] or [WEB]
-		repoBadge = RenderRepoBadge(i.RepoPrefix)
+		// Create a compact repo badge like [API] or [WEB]. DisplayRepoName
+		// aliases the beads_global namespace's bare ID-prefix "global" to
+		// "atlas" for display (bt-z1pzj) - RepoPrefix is always ID-derived
+		// (ExtractRepoPrefix), so this is the only place it can surface.
+		repoBadge = RenderRepoBadge(model.DisplayRepoName(i.RepoPrefix))
 		leftFixedWidth += lipgloss.Width(repoBadge) + 1
 	}
 

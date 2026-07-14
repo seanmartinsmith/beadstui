@@ -104,6 +104,31 @@ func TestIssueDelegate_RenderSingleProjectUsesCompactIDWithoutBadge(t *testing.T
 	}
 }
 
+// TestIssueDelegate_RenderAliasesAtlasNamespaceBadge guards bt-z1pzj: the
+// beads_global namespace's bare ID-prefix "global" (RepoPrefix is always
+// ID-derived, see ExtractRepoPrefix) must render as the "atlas" display
+// alias in the workspace-mode repo badge, not the raw "beads_global" or
+// "global" spelling.
+func TestIssueDelegate_RenderAliasesAtlasNamespaceBadge(t *testing.T) {
+	item := newTestIssueItem("global-42")
+	item.RepoPrefix = "global"
+	delegate := IssueDelegate{Theme: DefaultTheme(), WorkspaceMode: true}
+
+	l := list.New([]list.Item{item}, delegate, 0, 0)
+	l.SetWidth(120)
+
+	var buf bytes.Buffer
+	delegate.Render(&buf, l, 0, item)
+	out := buf.String()
+
+	if strings.Contains(out, "[GLOB") {
+		t.Fatalf("render output should not show raw beads_global badge: %q", out)
+	}
+	if !strings.Contains(out, "[ATLA]") {
+		t.Fatalf("render output missing aliased atlas badge [ATLA]: %q", out)
+	}
+}
+
 func TestIssueDelegate_CompactIDWidthFlowsToTitle(t *testing.T) {
 	const (
 		width           = 80

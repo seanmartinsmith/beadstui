@@ -47,3 +47,37 @@ func isAlphanumericRepoPrefix(s string) bool {
 	}
 	return len(s) > 0
 }
+
+// atlasDisplayName is the display alias for beads' cross-cutting shared
+// namespace (upstream `bd --global`, DB name "beads_global", PR #3270; see
+// bt-z1pzj). Display-only — SourceRepo values, activeRepos filter keys, and
+// internal/bdroute.BeadsGlobalDB all keep the raw "beads_global" spelling so
+// filtering/write-routing logic is untouched.
+const atlasDisplayName = "atlas"
+
+// IsAtlasNamespace reports whether key refers to the beads_global namespace,
+// under either spelling RepoKey can produce: "beads_global" (SourceRepo,
+// lowercased) or the bare ID-prefix fallback "global" (used when SourceRepo
+// is empty). Callers that need to exclude the namespace from per-project
+// aggregation (e.g. portfolio health, where it isn't a project and its
+// counts/velocity numbers are meaningless) should check this rather than
+// comparing against DisplayRepoName's output string.
+func IsAtlasNamespace(key string) bool {
+	switch strings.ToLower(key) {
+	case "beads_global", "global":
+		return true
+	default:
+		return false
+	}
+}
+
+// DisplayRepoName maps a repo key to its display label. The only alias today
+// is the beads_global namespace -> "atlas" (bt-z1pzj); every other key passes
+// through unchanged. Presentation-only: never use the return value as a
+// filter/map key — see RepoKey and IsAtlasNamespace.
+func DisplayRepoName(key string) string {
+	if IsAtlasNamespace(key) {
+		return atlasDisplayName
+	}
+	return key
+}
