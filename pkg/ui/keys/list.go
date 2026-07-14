@@ -49,6 +49,14 @@ type ListNormalKeys struct {
 	SplitShrinkLeft  key.Binding
 	SplitShrinkRight key.Binding
 
+	// Pane fullscreen (bt-530vn): btop-style per-pane maximize toggle,
+	// reachable at any terminal width - distinct from the width-driven
+	// single-pane auto-collapse (bt-9a3wv). Pressing the same key again (or
+	// Esc/q) restores the prior layout; the dispatcher cascade lives in
+	// model_update_input.go, not here.
+	PaneFullscreenIssues  key.Binding
+	PaneFullscreenDetails key.Binding
+
 	// Field edit (bt-oiaj.5). 'e' opens the field-select modal; it moved off
 	// EpicCard (bt-oiaj.13 wave key migration - see
 	// docs/plans/2026-07-07-bt-edits-wave-oiaj13-5-6.md) so 'e' is free for
@@ -141,6 +149,14 @@ func NewListNormalKeys() ListNormalKeys {
 			key.WithKeys(">"),
 			key.WithHelp(">", "expand list pane"),
 		),
+		PaneFullscreenIssues: key.NewBinding(
+			key.WithKeys("2"),
+			key.WithHelp("2", "fullscreen issues pane"),
+		),
+		PaneFullscreenDetails: key.NewBinding(
+			key.WithKeys("3"),
+			key.WithHelp("3", "fullscreen details pane"),
+		),
 
 		CycleSort: key.NewBinding(
 			key.WithKeys("s"),
@@ -204,7 +220,7 @@ func (k ListNormalKeys) FullHelp() [][]key.Binding {
 		// Filter
 		{k.FilterOpen, k.FilterClosed, k.FilterReady},
 		// Detail & pane
-		{k.Enter, k.EpicCard, k.SplitFocusToggle, k.SplitShrinkLeft, k.SplitShrinkRight},
+		{k.Enter, k.EpicCard, k.SplitFocusToggle, k.SplitShrinkLeft, k.SplitShrinkRight, k.PaneFullscreenIssues, k.PaneFullscreenDetails},
 		// Sort / triage
 		{k.CycleSort, k.CycleSortReverse, k.RecipeTriage},
 		// Time travel

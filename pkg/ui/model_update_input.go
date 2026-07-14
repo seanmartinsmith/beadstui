@@ -932,6 +932,13 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.Global.Back):
 			// q: context-aware cascade. Single binding, single Help.Desc;
 			// the cascade lives here in the dispatcher (ADR-004 Decision 1).
+			if m.fullscreen != fullscreenNone {
+				// Exit the on-demand fullscreen pane first (bt-530vn) so q
+				// mirrors its own escape hatch instead of falling through to
+				// quit-confirm while a pane is maximized.
+				m.exitFullscreenPane()
+				return m, nil
+			}
 			if m.showDetails && !m.isSplitView {
 				m.showDetails = false
 				m.focused = focusList
@@ -974,6 +981,11 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 		case key.Matches(msg, m.keys.Global.Cancel):
 			// esc: context-aware cascade closing modals and going back.
+			if m.fullscreen != fullscreenNone {
+				// Exit the on-demand fullscreen pane first (bt-530vn).
+				m.exitFullscreenPane()
+				return m, nil
+			}
 			if m.showDetails && !m.isSplitView {
 				m.showDetails = false
 				m.focused = focusList
@@ -1528,7 +1540,8 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				ln.CopyID, ln.CopyIssue, ln.OpenInEditor, ln.RecipeTriage,
 				ln.TimeTravelInput, ln.EpicCard,
 				ln.SelfUpdate, ln.CassSession, ln.Claim, ln.FieldEdit,
-				ln.SplitFocusToggle, ln.SplitShrinkLeft, ln.SplitShrinkRight):
+				ln.SplitFocusToggle, ln.SplitShrinkLeft, ln.SplitShrinkRight,
+				ln.PaneFullscreenIssues, ln.PaneFullscreenDetails):
 				m = m.handleListKeys(msg)
 				return m, nil
 			}
@@ -2052,6 +2065,55 @@ func (m Model) handleMouseWheel(msg tea.MouseWheelMsg) (Model, tea.Cmd) {
 	return m, nil
 }
 
+// applyListDetailSizing sizes m.list and m.viewport for the current ViewList
+// layout. An on-demand fullscreen pane (bt-530vn, any width) takes priority
+// over the width-driven split/single-pane layout (bt-9a3wv auto-collapse):
+// while either pane is maximized, list and viewport are BOTH sized to fill
+// the full body. Only one of them actually renders at a time
+// (model_view.go's fullscreen branch), but sizing both the same way keeps
+// direct 2<->3 switching and the eventual exit-to-split/single transition
+// simple, since nothing needs special-casing based on which pane was
+// visible. Shared by handleWindowSize (on resize) and
+// refreshFullscreenLayout (on-demand toggle, model_modes.go) so the two
+// entry points can never disagree about dimensions.
+func (m *Model) applyListDetailSizing(bodyW, bodyHeight int) {
+	if m.fullscreen != fullscreenNone {
+		innerWidth := bodyW - 4
+		if innerWidth < 10 {
+			innerWidth = 10
+		}
+		listHeight := bodyHeight - 4
+		if listHeight < 3 {
+			listHeight = 3
+		}
+		m.list.SetSize(innerWidth, listHeight)
+		m.viewport = viewport.New(viewport.WithWidth(innerWidth), viewport.WithHeight(bodyHeight-2))
+		return
+	}
+
+	if m.isSplitView {
+		availWidth := bodyW - 8
+		if availWidth < 10 {
+			availWidth = 10
+		}
+		listInnerWidth := int(float64(availWidth) * m.splitPaneRatio)
+		detailInnerWidth := availWidth - listInnerWidth
+		listHeight := bodyHeight - 4
+		if listHeight < 3 {
+			listHeight = 3
+		}
+		m.list.SetSize(listInnerWidth, listHeight)
+		m.viewport = viewport.New(viewport.WithWidth(detailInnerWidth), viewport.WithHeight(bodyHeight-2))
+	} else {
+		listHeight := bodyHeight - 2
+		if listHeight < 3 {
+			listHeight = 3
+		}
+		m.list.SetSize(bodyW, listHeight)
+		m.viewport = viewport.New(viewport.WithWidth(bodyW), viewport.WithHeight(bodyHeight-1))
+	}
+}
+
 // handleWindowSize processes terminal resize events using a two-phase debounce
 // (bt-kfkrb). Phase 1 (this function) runs on every WindowSizeMsg and applies
 // cheap layout changes immediately: dimensions, split-view flag, list size,
@@ -2080,27 +2142,7 @@ func (m Model) handleWindowSize(msg tea.WindowSizeMsg) (Model, tea.Cmd) {
 	// SetWidthWithTheme (Glamour), insightsPanel.SetSize, and
 	// updateViewportContent are deferred to phase 2 so per-event cost during
 	// a drag is negligible.
-	if m.isSplitView {
-		availWidth := bodyW - 8
-		if availWidth < 10 {
-			availWidth = 10
-		}
-		listInnerWidth := int(float64(availWidth) * m.splitPaneRatio)
-		detailInnerWidth := availWidth - listInnerWidth
-		listHeight := bodyHeight - 4
-		if listHeight < 3 {
-			listHeight = 3
-		}
-		m.list.SetSize(listInnerWidth, listHeight)
-		m.viewport = viewport.New(viewport.WithWidth(detailInnerWidth), viewport.WithHeight(bodyHeight-2))
-	} else {
-		listHeight := bodyHeight - 2
-		if listHeight < 3 {
-			listHeight = 3
-		}
-		m.list.SetSize(bodyW, listHeight)
-		m.viewport = viewport.New(viewport.WithWidth(bodyW), viewport.WithHeight(bodyHeight-1))
-	}
+	m.applyListDetailSizing(bodyW, bodyHeight)
 	m.updateListDelegate()
 	m.labelDashboard.SetSize(bodyW, bodyHeight)
 	m.labelPicker.SetSize(m.width, bodyHeight)
@@ -2142,7 +2184,14 @@ func (m Model) applyWindowSizeHeavy() Model {
 	}
 
 	rendererStart := time.Now()
-	if m.isSplitView {
+	switch {
+	case m.fullscreen != fullscreenNone:
+		// A fullscreen pane (bt-530vn) always fills the body; applyListDetailSizing
+		// (phase 1, same resize event) already resized m.viewport to match, so
+		// its current width is the correct render target regardless of which
+		// pane is actually visible.
+		m.renderer.SetWidthWithTheme(m.viewport.Width(), m.theme)
+	case m.isSplitView:
 		availWidth := bodyW - 8
 		if availWidth < 10 {
 			availWidth = 10
@@ -2150,7 +2199,7 @@ func (m Model) applyWindowSizeHeavy() Model {
 		listInnerWidth := int(float64(availWidth) * m.splitPaneRatio)
 		detailInnerWidth := availWidth - listInnerWidth
 		m.renderer.SetWidthWithTheme(detailInnerWidth, m.theme)
-	} else {
+	default:
 		m.renderer.SetWidthWithTheme(bodyW, m.theme)
 	}
 	debug.LogTiming("applyHeavy.renderer.SetWidthWithTheme", time.Since(rendererStart))

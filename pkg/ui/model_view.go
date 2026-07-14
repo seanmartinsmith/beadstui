@@ -201,12 +201,23 @@ func (m Model) View() tea.View {
 				m.labelDashboard.SetSize(bodyW, m.height-1)
 				body = m.labelDashboard.View()
 			default: // ViewList
-				if m.isSplitView {
-					body = m.renderSplitView()
-				} else if m.showDetails {
-					body = m.viewport.View()
-				} else {
-					body = m.renderListWithHeader()
+				// An on-demand fullscreen pane (bt-530vn) takes priority over
+				// the width-driven split/single-pane layout at any width;
+				// exiting it (same key again, or Esc/q) falls back to
+				// whichever of the branches below applied before toggling.
+				switch m.fullscreen {
+				case fullscreenIssues:
+					body = m.renderFullscreenIssues()
+				case fullscreenDetails:
+					body = m.renderFullscreenDetails()
+				default:
+					if m.isSplitView {
+						body = m.renderSplitView()
+					} else if m.showDetails {
+						body = m.viewport.View()
+					} else {
+						body = m.renderListWithHeader()
+					}
 				}
 			}
 		}
@@ -618,19 +629,29 @@ func (m Model) renderListWithHeader() string {
 		Render(content)
 }
 
-func (m Model) renderSplitView() string {
+// issuesPaneBadge and detailsPaneBadge are the small btop-style superscript-
+// digit badges rendered on each ViewList pane's border/title (bt-530vn),
+// making the "2"/"3" fullscreen toggle (keys.ListNormalKeys.
+// PaneFullscreenIssues/PaneFullscreenDetails) discoverable whether or not the
+// pane is currently maximized. Plain text, not styled substrings: PanelOpts.
+// Title/RightLabel width math (RenderTitledPanel) measures runes, and an
+// embedded ANSI style would throw that off. The panel's existing
+// focus-driven title/border coloring already applies uniformly, so the
+// badge needs no color of its own (no hardcoded colors).
+const (
+	issuesPaneBadge  = "²Issues"
+	detailsPaneBadge = "³Details"
+)
+
+// renderIssuesPanel renders the issues/list pane as a titled panel at the
+// given outer width. Shared by the side-by-side split view (renderSplitView)
+// and the on-demand issues-fullscreen view (renderFullscreenIssues,
+// bt-530vn) so both stay pixel-identical in everything but width.
+func (m Model) renderIssuesPanel(outerWidth, panelHeight int, focused bool) string {
 	t := m.theme
 
-	// m.list.Width() is the inner width (set in Update)
+	// m.list.Width() is the inner width (set by applyListDetailSizing).
 	listInnerWidth := m.list.Width()
-	// Reserve exactly 1 row for the footer, matching handleWindowSize's
-	// bodyHeight (m.height-1) which sizes the list/viewport content. Using
-	// m.height-2 here left the panel frame one row shorter than the content was
-	// sized for, so finalStyle.Height(m.height) padded the deficit *below* the
-	// footer — the bottom gap. Aligning to m.height-1 pins the footer flush to
-	// the window's bottom edge.
-	panelHeight := m.height - 1
-
 	header := m.splitViewHeader()
 
 	// Page info for list
@@ -674,29 +695,66 @@ func (m Model) renderSplitView() string {
 	splitParts := []string{searchRow, header, m.list.View(), pageLine}
 	listContent := lipgloss.JoinVertical(lipgloss.Left, splitParts...)
 
+	// The badge is rendered as the right-side label (bt-fxbl precedent) —
+	// moves the title from top-left to top-right so the panel chrome doesn't
+	// compete visually with the column header right below it. PanelOpts.
+	// RightLabel + empty Title achieves this without growing the PanelOpts API.
+	return RenderTitledPanel(listContent, PanelOpts{
+		RightLabel: issuesPaneBadge,
+		Width:      outerWidth,
+		Height:     panelHeight,
+		Focused:    focused,
+	})
+}
+
+// renderDetailsPanel renders the details pane as a titled panel at the given
+// outer width. Shared by renderSplitView and renderFullscreenDetails
+// (bt-530vn).
+func (m Model) renderDetailsPanel(outerWidth, panelHeight int, focused bool) string {
+	return RenderTitledPanel(m.viewport.View(), PanelOpts{
+		Title:   detailsPaneBadge,
+		Width:   outerWidth,
+		Height:  panelHeight,
+		Focused: focused,
+	})
+}
+
+func (m Model) renderSplitView() string {
+	// Reserve exactly 1 row for the footer, matching handleWindowSize's
+	// bodyHeight (m.height-1) which sizes the list/viewport content. Using
+	// m.height-2 here left the panel frame one row shorter than the content was
+	// sized for, so finalStyle.Height(m.height) padded the deficit *below* the
+	// footer — the bottom gap. Aligning to m.height-1 pins the footer flush to
+	// the window's bottom edge.
+	panelHeight := m.height - 1
+
 	// Titled panel dimensions: outer width includes the 2 border chars
-	listOuterWidth := listInnerWidth + 4 // content + padding + borders
+	listOuterWidth := m.list.Width() + 4 // content + padding + borders
 	detailOuterWidth := m.viewport.Width() + 4
 
-	// "Issues" rendered as the right-side label (bt-fxbl) — moves the title
-	// from top-left to top-right so the panel chrome doesn't compete visually
-	// with the column header right below it. PanelOpts.RightLabel + empty
-	// Title achieves this without growing the PanelOpts API.
-	listView := RenderTitledPanel(listContent, PanelOpts{
-		RightLabel: "Issues",
-		Width:      listOuterWidth,
-		Height:     panelHeight,
-		Focused:    m.focused == focusList,
-	})
-
-	detailView := RenderTitledPanel(m.viewport.View(), PanelOpts{
-		Title:   "Details",
-		Width:   detailOuterWidth,
-		Height:  panelHeight,
-		Focused: m.focused == focusDetail,
-	})
+	listView := m.renderIssuesPanel(listOuterWidth, panelHeight, m.focused == focusList)
+	detailView := m.renderDetailsPanel(detailOuterWidth, panelHeight, m.focused == focusDetail)
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, listView, detailView)
+}
+
+// renderFullscreenIssues renders the issues pane alone at full body width -
+// the on-demand fullscreen toggle (bt-530vn), reachable at any terminal
+// width via the "2" key (keys.ListNormalKeys.PaneFullscreenIssues). Distinct
+// from the width-driven single-pane auto-collapse (bt-9a3wv): this is a
+// deliberate override that composes with either isSplitView state.
+func (m Model) renderFullscreenIssues() string {
+	outerWidth := m.list.Width() + 4
+	panelHeight := m.height - 1
+	return m.renderIssuesPanel(outerWidth, panelHeight, true)
+}
+
+// renderFullscreenDetails mirrors renderFullscreenIssues for the details pane
+// ("3" key, keys.ListNormalKeys.PaneFullscreenDetails).
+func (m Model) renderFullscreenDetails() string {
+	outerWidth := m.viewport.Width() + 4
+	panelHeight := m.height - 1
+	return m.renderDetailsPanel(outerWidth, panelHeight, true)
 }
 
 // helpRow is one display row in the ? overlay: key token on the left,
