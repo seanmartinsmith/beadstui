@@ -86,7 +86,9 @@ Two findings are load-bearing and reshaped the design:
 2. **Memories is a bd-only payload.** gc bundles beadslib but its Store
    interface exposes no config/kv/memory methods and gc never reads/writes
    `kv.memory.*`; there is no `/v0` memories endpoint and no `gc beads`
-   memories subcommand. A gc city's memory namespace is empty. Therefore
+   memories subcommand (gc *does* expose `/v0/city/{city}/config`, but that
+   serves its own `city.toml` pack config, not beads kv). A gc city's memory
+   namespace is empty. Therefore
    "memories across everything" was never going to include gc, which is
    exactly why memories cleanly proves the *bd half* of the resolver and gc
    correctly lives behind its own (later) lens.
@@ -106,9 +108,13 @@ Two findings are load-bearing and reshaped the design:
 - **Two fragmented registries:** `~/.bt/projects.json` (prefix->path, reads /
   History view, weak `.git`-only validation) and `~/.bt/settings.json`
   `project_paths` (db-name->path, writes). Neither records `dolt_mode`.
-- **Dolt modes** are discovered in `internal/datasource/source.go`
-  `DiscoverSource()` (embedded first via `ReadEmbeddedConfig`; then per-project
-  server via `db.Ping`; then shared-server via port discovery; JSONL fallback).
+- **Dolt modes** are discovered in two distinct places (the resolver leans on
+  this split): `internal/datasource/source.go` `DiscoverSource()` handles the
+  *local* project only -- embedded (via `ReadEmbeddedConfig`, detected first to
+  avoid the server-attach deadlock) -> per-project server (`tryDoltSource` /
+  `db.Ping`) -> JSONL fallback. **Shared-server discovery is a SEPARATE path**
+  (`DiscoverSharedServer`, `global_dolt.go`) invoked from `loadIssues`'
+  `--global` / auto-global branches, NOT from `DiscoverSource()`.
 - **Zero Gas City awareness.** No rig/town/city handling; the prefix-scoped
   single-store model was explicitly rejected as "not our path"
   (`docs/archive/plans/2026-04-03-global-hub-design.md`).
@@ -144,7 +150,8 @@ scope discovery ── candidate scopes
   registry. (Workspace-JSONL remains its own path for now; unifying it is
   future work, not v1.)
 - **Detector** — classifies each candidate into a `SourceKind`. Two entry
-  points (both required; see 4.3):
+  points, *not* co-equal (filesystem primary; DB-enum a cheap defensive guard --
+  see 4.3):
   - *Filesystem path:* walk up from a source's directory to the nearest
     `city.toml` → gascity; else `.beads/` + `metadata.json` `dolt_mode` →
     bd-embedded/bd-server.
@@ -173,25 +180,46 @@ scope discovery ── candidate scopes
 - **Shape:** master/detail — a left list of memory keys grouped by origin
   project, a right reading pane with the full body. Justification: memory
   bodies are 162–514-char single-paragraph prose with **no** metadata column
-  (no timestamps/recency — upstream #4605 not landed), so a flat one-line list
+  (no timestamps/recency available today), so a flat one-line list
   would truncate to uselessness and there is nothing else to put in columns.
 - **Search:** across keys + bodies, within the current scope.
 - **Not beads:** no status/priority/deps/graph; do not route memories through
   the issue-list machinery.
-- **Recency:** deferred. A "last-referenced" affordance waits on upstream #4605
-  (per-key timestamps) / #3539 (validity windows); bt cannot source it today.
+- **Recency:** deferred. A "last-referenced" affordance waits on upstream per-key-timestamp / validity-window
+  work (issue refs #4605/#3539 from earlier recon, unverified offline); bt
+  cannot source recency today regardless.
 
 ### 4.3 Gas City detection-and-exclusion (the only gc-facing v1 work)
 The single correctness requirement: gc sources must not silently flood the
-bd-centric views. This has two entry points because detection context differs:
-- **Filesystem discovery** (cwd/registry): a gascity *rig* has its own
-  `.beads/` that looks identical to a standalone bd project in isolation —
-  so the detector must **walk up** to find an ancestor `city.toml` to know it
-  is gc-managed.
-- **Shared-server enumeration:** bt may enumerate a city's Dolt server and see
-  `hq` + per-rig databases with no filesystem context. Here the detector marks
-  a database gascity via an in-store signal (`hq` name, or `gc.*` metadata on
-  its beads) and excludes it from bd aggregation.
+bd-centric views. Detection has two entry points, but they are NOT co-equal:
+
+- **Filesystem (primary, and the real gc encounter).** A gascity *rig* has its
+  own `.beads/` that looks identical to a standalone bd project in isolation,
+  so the detector must **walk up** to the nearest ancestor `city.toml` to know
+  it is gc-managed. This is decidable by `os.Stat` alone (no DB connection),
+  and it is how bt actually meets a gc source: cwd inside a gc rig, or a gc rig
+  previously stamped into `~/.bt/projects.json`.
+- **Shared-server enumeration (defensive, near-dead in practice).** bt
+  enumerates only its OWN shared server (`~/.beads/shared-server`); a gascity
+  city runs a *separate* per-city Dolt server on a dynamic WSL port that bt
+  never connects to, so under normal topology bt's enumeration never sees gc
+  databases. This path only fires if a gc rig were deliberately
+  `bd init --shared-server`'d onto bt's shared server (unusual), and it is NOT
+  read-free (it needs a live connection + `SHOW DATABASES`). Build it as at
+  most a **cheap defensive `hq`-name guard**, not co-equal machinery; child
+  bead #1's scope is narrowed accordingly.
+
+**Detection is heuristic, not authoritative -- optimize against false-positive
+exclusion.** Every signal is individually weak: `city.toml` is a plain filename
+anyone can create; `hq` is not a reserved database name and collides with any
+project literally named `hq`; `gc.*` metadata is stamped contextually
+(routing / sessions), never at bead creation, so un-routed beads carry none.
+For v1 detect-and-*exclude*, a **false positive** (hiding a real bd project
+named `hq`) is more harmful than a false negative (a gc source leaking into the
+bd view). So the detector must lean toward *not* excluding on a lone weak
+signal, prefer combining signals, and rely on the section 8 "N Gas City sources
+hidden" note as the safety net that makes any mistaken exclusion visible and
+recoverable.
 
 Excluded gc sources are *remembered* (surfaced later by the gc lens), not
 discarded.
@@ -210,7 +238,10 @@ discarded.
 Reuse bt's existing posture — do NOT invent a new selector. Cross-project is
 already bt's default (shared-server enumeration + the projects registry), so
 the memories view inherits the scope the user is already in, and the existing
-repo-picker (`pkg/ui/repo_picker.go`) filters which origins are shown. This
+repo-picker component (`pkg/ui/repo_picker.go`) is reused to filter which
+origins are shown -- though it is currently workspace-mode-wired
+(`SetActiveRepos`), so wiring it to memory origins is real integration work,
+not free. This
 keeps memories consistent with how beads are already scoped and avoids a second
 scope mechanism.
 
@@ -255,7 +286,11 @@ exclude.
 - Proof payload: **memories** (bd-only) — cleanly proves the bd half; gc is
   proven later by the beads/graph payload, where it belongs.
 - gc lens depth: **detect + route now, view later** — keeps cross-OS transport
-  off the memories critical path.
+  off the memories critical path. (That transport is a *discovery* problem, not
+  just reachability: gc's Dolt server binds `127.0.0.1` in WSL on a dynamic port
+  derived from the city path, so a Windows bt reader cannot even discover the
+  port without a WSL-side artifact -- the later gc-adapter bead must scope port
+  *discovery*, not just connection.)
 - Gas Town: **free rider only.**
 
 ## 11. Staging toward the north star
