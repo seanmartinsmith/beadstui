@@ -6,6 +6,25 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-07-15 — Cross-project read layer: memories payload + multi-source aggregation (bt-2ea7t.3)
+
+**Third child of the bt-2ea7t epic. Rides directly on .2's `Adapter`/`Memory`/`MemoriesResult` seam to add the payload abstraction and the aggregator that consumes it: the piece that turns "N independent per-source reads" into "one origin-tagged memories result a view can render." Built TDD-first against the design spec §4.1, §4.2, §5, §8, §10. No existing file touched.**
+
+### Ships
+
+- **feat(data): memories payload + multi-source aggregation (bt-2ea7t.3)** — two new files in `internal/source`. `Payload{Supports(SourceKind) bool}` is the payload seam (§4.1); `MemoriesPayload` declares support for exactly the four bd-managed kinds (`bd-embedded`, `bd-server`, `bd-shared`, `beads-global`) via an explicit map — gascity is absent from that declaration, which IS the skip-by-construction mechanism the design calls for (§10), not an `if gascity` branch anywhere in the aggregator. `AggregateMemories(ctx, []Adapter, Payload) MemoriesAggregate` runs the memories read on every source the payload supports and whose `Origin` is not `Excluded()`; a source failing either check lands in `MemoriesAggregate.Excluded` with `ListMemories` never called on it (verified by test — a fake gascity adapter's call flag stays false). A source whose read fails lands in `Unavailable` (Origin + Err) without aborting the rest of the aggregation (§8); sources with zero memories simply contribute nothing — `MemoriesAggregate` has no `Err` field at all, so an all-empty result is the ordinary success case, not a degraded one. `SelectAdapter(Origin, repoRoot, dsn) Adapter` closes the "adapter select" box from the §4.1 diagram: maps a `SourceKind` to its `New*Adapter` constructor, defaulting unknown/gascity kinds to the detect-only `gascityAdapter` seam so it never panics.
+- **Scope decision:** live scope discovery (cwd via `DetectPath` + `datasource.DiscoverSource`, the shared server via `DiscoverSharedServer` + `DetectSharedDB`, the `~/.bt/projects.json` registry) was intentionally NOT wired into a convenience entry point here — the task brief marked that wiring optional and best-effort, scoped to `.4` instead. `.3`'s tested core is the pure aggregator (fixture adapters only, no live server anywhere), matching `.4`'s stated dependency on `AggregateMemories`/`MemoriesAggregate`/`SelectAdapter`, not on any live-discovery glue.
+
+### Bead bookkeeping
+
+- Closed: **bt-2ea7t.3** — unblocks **bt-2ea7t.4** (memories master/detail view), which renders `MemoriesAggregate` directly.
+
+### Notes
+
+- **Tested (TDD):** 14 new tests in `internal/source` (46 total in the package) — multi-source origin-tagged aggregation, the gascity-never-queried guarantee, unavailable-source surfacing, empty-source and all-empty handling, a no-sources degenerate case, `Payload.Supports` correctness, and `SelectAdapter`'s kind→constructor mapping (including the beads-global vs bd-shared `global` flag distinction). `go build` / `go vet` clean; `gofmt -l` on the two new source files and two new test files is empty (the package-wide `gofmt -l` still flags the same pre-existing CRLF-materialized `.1`/`.2` files documented in the `.2` entry — zero content diff, not touched by this change). `go test $(go list ./... | grep -vE 'cmd/bt$|/tests')` is green across all 34 listed packages; `cmd/bt` and `tests/e2e` remain excluded (pre-existing Dolt/TTY hang in headless runs, same as `.1`/`.2`).
+
+---
+
 ## 2026-07-15 — Cross-project read layer: bd source adapters + memories read (bt-2ea7t.2)
 
 **Second child of the bt-2ea7t epic. Rides directly on .1's `internal/source` foundation (`SourceKind`, `Origin`, the detector) to add the actual read side: a small `Adapter` interface plus one implementation per bd-managed `SourceKind` (embedded, per-project server, shared-server, beads_global), and the memories read (`bd memories --json`) bt could not see before this epic. Built TDD-first against the design spec §4.1, §4.2, §8, §9. Wraps bt's existing `internal/datasource` readers rather than duplicating them; no existing file touched.**
