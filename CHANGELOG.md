@@ -6,6 +6,25 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-07-15 — Cross-project read layer: source resolver foundation (bt-2ea7t.1)
+
+**First child of the bt-2ea7t epic (cross-project read layer + memories). Delivers the classification foundation the rest of the epic rides on — the `SourceKind` enum, the additive `Origin` model, and the two-entry-point detector — in a new, self-contained `internal/source` package. Built TDD-first against the design spec (docs/design/2026-07-15-cross-project-read-layer-and-memories.md §4.1, §4.3). Purely additive: no existing file touched and the package is imported by nothing yet, so the regression surface is zero.**
+
+### Ships
+
+- **feat(data): SourceKind enum + Origin model + source detector (bt-2ea7t.1)** — new `internal/source` package. `SourceKind` names the five source kinds (`bd-embedded`, `bd-server`, `bd-shared`, `beads-global`, `gascity`) with `IsBD()` / `IsGasCity()` helpers. `Origin{SourceKind, Scope, Prefix, DisplayName}` is a purely ADDITIVE superset of `issue.SourceRepo`: `Origin.SourceRepo()` returns `Scope` (the db name), so existing SourceRepo consumers (e.g. `model.RepoKey`) stay untouched; `Excluded()` gates gascity out of bd aggregation. The detector has two NON-co-equal entry points (§4.3): `DetectPath` (PRIMARY, filesystem — walks up to the nearest ancestor `city.toml` → gascity, else classifies `.beads/metadata.json` by `dolt_mode`; decidable by `os.Stat` alone, the real gc encounter) and `DetectSharedDB` (DEFENSIVE, near-dead — a cheap exact-`hq`-name guard for the shared-server enum, deliberately not co-equal `gc.*`-metadata machinery). Detection is heuristic and biased against false-positive exclusion: on disk only an ancestor `city.toml` excludes (a real bd project whose db is literally named `hq` is NOT hidden), and at the enum layer only the exact name `hq` fires (`hquarters` / `HQ` do not).
+
+### Bead bookkeeping
+
+- Closed: **bt-2ea7t.1** — unblocks **bt-2ea7t.2** (bd source adapters for the 4 Dolt modes + memories read).
+
+### Notes
+
+- **Tested (TDD):** 12 unit tests in `internal/source` — enum wire strings + `IsBD`/`IsGasCity`; `Origin` lossless-superset via a `model.RepoKey` round-trip + `Excluded`; detector coverage per spec §9 (standalone embedded/server, a gc rig under an ancestor `city.toml`, the false-positive-bias cases, `beads_global`-by-name, no-source, and the DB-enum `hq` guard). `go build` / `go vet` / `gofmt` clean; `go install ./cmd/bt/` OK; neighbors (`pkg/model`, `internal/bdroute`, `pkg/view`, `internal/datasource`) green. The `cmd/bt` + `tests/e2e` integration suites time out on Dolt/TTY in this headless run — environmental, and since the new package is unimported it cannot affect them.
+- **Scope boundary:** .1 is the classification core (enum + Origin + detector). Scope-discovery orchestration and adapter-select wiring land with the adapters in bt-2ea7t.2, where they need bt's existing readers.
+
+---
+
 ## 2026-07-14 — Picker & pane overhaul: Waves 1-2 + two-stage panes + ADR-002 spine retired (bt-5r6gn, bt-z1pzj, bt-9lpib, bt-6ltx9, bt-530vn, bt-566fk, bt-xavk.2)
 
 **Live dogfood/design session on the bt TUI. A PM session dispatched worktree subagents for the early waves; a follow-up session shipped Wave 2 plus this housekeeping; a further session shipped the two-stage pane refinement (bt-566fk, PR #23) after a design gate on its three open questions. All merged to main. This entry also retires ADR-002 as the "active spine" — see Notes.**
