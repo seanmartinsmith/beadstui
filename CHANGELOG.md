@@ -6,6 +6,26 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-07-15 — Cross-project read layer: bd source adapters + memories read (bt-2ea7t.2)
+
+**Second child of the bt-2ea7t epic. Rides directly on .1's `internal/source` foundation (`SourceKind`, `Origin`, the detector) to add the actual read side: a small `Adapter` interface plus one implementation per bd-managed `SourceKind` (embedded, per-project server, shared-server, beads_global), and the memories read (`bd memories --json`) bt could not see before this epic. Built TDD-first against the design spec §4.1, §4.2, §8, §9. Wraps bt's existing `internal/datasource` readers rather than duplicating them; no existing file touched.**
+
+### Ships
+
+- **feat(data): bd source adapters + memories read (bt-2ea7t.2)** — new files in `internal/source`. `Adapter{Origin, ListBeads, ListMemories}` is the uniform read surface; `BeadsResult`/`MemoriesResult` carry a per-source `Err` so an unreachable source degrades to "unavailable" rather than failing the whole read (§8). `embeddedAdapter` wraps `datasource.EmbeddedReader` (`bd export`, never a server attach — bt-qrt2u); `serverAdapter` wraps `datasource.DoltReader`; `sharedDBAdapter` (behind both `NewSharedAdapter` and `NewGlobalAdapter`) wraps `datasource.GlobalDoltReader` scoped to one database via `RepoFilter` — bd-shared and beads-global are mechanically identical for beads (one DB on the shared server), differing only in whether the memories shell-out adds `--global`. Memories are read uniformly across all four modes by shelling `bd memories --json` via `internal/bdexec` and parsing the flat `{key: body}` map with `ParseMemoriesJSON`, which skips the `schema_version` integer sibling (and defensively any other non-string sibling). `gascityAdapter` (`NewGasCityAdapter`) is a detect-only stub per §4.3 — both methods return `ErrGasCityNotImplemented`; real callers gate on `Origin().Excluded()`, never on adapter errors.
+- Live-verified beyond the task's stated facts: `bd --global memories --json` still requires an anchor directory with *some* resolvable `.beads/` project (fails "no beads database found" from a directory with none at all) — it just substitutes `beads_global` for that anchor's own database. `NewGlobalAdapter` therefore takes a `repoRoot` argument rather than being directory-independent.
+
+### Bead bookkeeping
+
+- Closed: **bt-2ea7t.2** — unblocks **bt-2ea7t.3** (memories payload parse + multi-source aggregation), the intended consumer of the `Memory`/`BeadsResult`/`MemoriesResult` types and the `Adapter` interface defined here.
+
+### Notes
+
+- **Tested (TDD):** 24 new tests in `internal/source` — the memories parser (schema_version skip, both empty-namespace shapes, origin tagging, non-string-sibling defensive skip, invalid-JSON error) and the four bd adapters (origin tagging; injected-runner memories wiring with args/dir assertions; unreachable-source coverage via a garbage DSN for beads reads and a PATH-hiding trick for the `bd`-missing case — no live Dolt/bd server needed anywhere). `go build` / `go vet` clean. `gofmt -l` on the touched packages flags only pre-existing files materialized with CRLF by this machine's `core.autocrlf=true` (verified via `git diff --stat` showing zero content diff on e.g. `.1`'s `kind.go`); all new files are gofmt-clean standalone. `go test` is green on every package except `cmd/bt` and `tests/e2e`, both of which hang on Dolt/TTY in this headless run — the same pre-existing, environmental condition `.1`'s entry documented.
+- **Scope boundary:** adapter construction here takes its DSN/directory inputs directly (callers already know what source they're reading); wiring scope-discovery to auto-select and construct the right adapter for every candidate source is aggregation/orchestration work that belongs to .3.
+
+---
+
 ## 2026-07-15 — Cross-project read layer: source resolver foundation (bt-2ea7t.1)
 
 **First child of the bt-2ea7t epic (cross-project read layer + memories). Delivers the classification foundation the rest of the epic rides on — the `SourceKind` enum, the additive `Origin` model, and the two-entry-point detector — in a new, self-contained `internal/source` package. Built TDD-first against the design spec (docs/design/2026-07-15-cross-project-read-layer-and-memories.md §4.1, §4.3). Purely additive: no existing file touched and the package is imported by nothing yet, so the regression surface is zero.**
