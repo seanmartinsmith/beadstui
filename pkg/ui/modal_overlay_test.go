@@ -452,6 +452,73 @@ func TestOverlayCenter_RowWidthInvariant(t *testing.T) {
 	}
 }
 
+// TestOverlayBottomRight_RowWidthInvariant mirrors TestOverlayCenter_RowWidthInvariant
+// for the bottom-right positioning variant (bt-kuvzj): both share the same
+// sliceBgRow slicing pattern, so both must hold the row-width invariant
+// across uneven bg rows, and the fg must anchor to the bottom-right corner
+// (offset by the given margins) rather than centering.
+func TestOverlayBottomRight_RowWidthInvariant(t *testing.T) {
+	const bgWidth = 60
+	const bgHeight = 8
+	const marginRight = 2
+	const marginBottom = 1
+
+	bgLines := []string{
+		strings.Repeat("x", 60),
+		strings.Repeat("x", 25),
+		strings.Repeat("x", 60),
+		strings.Repeat("x", 10),
+		strings.Repeat("x", 60),
+		strings.Repeat("x", 40),
+		strings.Repeat("x", 60),
+		strings.Repeat("x", 60),
+	}
+	bg := strings.Join(bgLines, "\n")
+
+	const fgInnerWidth = 16
+	fg := "╭" + strings.Repeat("─", fgInnerWidth) + "╮\n" +
+		"│" + strings.Repeat(" ", fgInnerWidth) + "│\n" +
+		"╰" + strings.Repeat("─", fgInnerWidth) + "╯"
+
+	out := OverlayBottomRight(bg, fg, bgWidth, bgHeight, marginRight, marginBottom)
+	outRows := strings.Split(out, "\n")
+	if len(outRows) != bgHeight {
+		t.Fatalf("expected %d output rows, got %d", bgHeight, len(outRows))
+	}
+
+	for i, r := range outRows {
+		stripped := ansi.Strip(r)
+		if w := ansi.StringWidth(stripped); w != bgWidth {
+			t.Errorf("row %d visible width = %d, want %d; stripped=%q",
+				i, w, bgWidth, stripped)
+		}
+	}
+
+	// The fg must land anchored to the bottom-right corner: its bottom row is
+	// bgHeight-1-marginBottom, and its right edge is bgWidth-1-marginRight.
+	fgWidth := fgInnerWidth + 2 // + the two border columns
+	fgHeight := 3
+	wantBottomRow := bgHeight - marginBottom - 1
+	wantRightCol := bgWidth - marginRight - 1
+	wantLeftCol := wantRightCol - fgWidth + 1
+	wantTopRow := wantBottomRow - fgHeight + 1
+
+	topRow := ansi.Strip(outRows[wantTopRow])
+	if c := runeAt(topRow, wantLeftCol); c != '╭' {
+		t.Errorf("top-left corner at row %d col %d = %q, want '╭'", wantTopRow, wantLeftCol, string(c))
+	}
+	if c := runeAt(topRow, wantRightCol); c != '╮' {
+		t.Errorf("top-right corner at row %d col %d = %q, want '╮'", wantTopRow, wantRightCol, string(c))
+	}
+	bottomRow := ansi.Strip(outRows[wantBottomRow])
+	if c := runeAt(bottomRow, wantLeftCol); c != '╰' {
+		t.Errorf("bottom-left corner at row %d col %d = %q, want '╰'", wantBottomRow, wantLeftCol, string(c))
+	}
+	if c := runeAt(bottomRow, wantRightCol); c != '╯' {
+		t.Errorf("bottom-right corner at row %d col %d = %q, want '╯'", wantBottomRow, wantRightCol, string(c))
+	}
+}
+
 // TestOverlay_MidGlyphCutDoesNotShortenRow is the bt-3ykii regression guard.
 // When the modal's left cut column (startCol) or right cut column
 // (startCol+fgWidth) falls INSIDE a multi-cell glyph in the bg row,

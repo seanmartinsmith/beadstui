@@ -1259,33 +1259,13 @@ func (fd FooterData) Render() string {
 
 	keysSection := renderKeys(fd.Width - nonKeyWidth() - bellWidth)
 
-	// Toast override (Phase 4): an active inline toast borrows the right zone,
-	// replacing the key hints; it yields back when the toast clears.
+	// Right zone: key hints only. The Phase 4 embedded-toast override that
+	// used to borrow this zone for an active inline toast (replacing the key
+	// hints, then ansi.Truncate-ing anything wider than the remaining
+	// columns — the bt-8scek truncation root cause) has moved to a floating
+	// bubble overlay (bt-kuvzj, toast_bubble.go). The footer no longer
+	// renders notification content at all; it keeps only the bell.
 	rightZone := keysSection
-	if fd.StatusMsg != "" && fd.StatusIsInline {
-		glyph := fd.StatusSeverity.glyph()
-		text := fd.StatusMsg
-		if glyph != "" {
-			text = glyph + " " + text
-		}
-		var toastStyle lipgloss.Style
-		switch fd.StatusSeverity {
-		case SeverityFailure:
-			toastStyle = lipgloss.NewStyle().Foreground(ColorPrioCritical).Bold(true).Padding(0, 1)
-		case SeverityDegraded:
-			toastStyle = lipgloss.NewStyle().Foreground(ColorWarning).Bold(true).Padding(0, 1)
-		case SeverityNotice:
-			toastStyle = lipgloss.NewStyle().Foreground(ColorMuted).Padding(0, 1)
-		default: // Success
-			toastStyle = lipgloss.NewStyle().Foreground(ColorSuccess).Padding(0, 1)
-		}
-		avail := fd.Width - nonKeyWidth() - bellWidth
-		toast := toastStyle.Render(text)
-		if avail > 0 && lipgloss.Width(toast) > avail {
-			toast = ansi.Truncate(toast, avail, "")
-		}
-		rightZone = toast
-	}
 
 	// Filler pushes the count + key hints to the right edge.
 	remaining := fd.Width - nonKeyWidth() - lipgloss.Width(rightZone) - lipgloss.Width(bellSection)
