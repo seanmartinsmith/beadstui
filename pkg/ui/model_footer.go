@@ -643,9 +643,20 @@ func (m *Model) extractDatasetWarning() (string, DatasetLevel) {
 	return m.data.snapshot.LargeDatasetWarning, level
 }
 
+// extractAlertCounts feeds the footer attention badge. total is every visible
+// alert (the modal's own tally); critical/warning are the ANOMALY-typed subset
+// only. Per-issue advisories (staleness, high-leverage) stay browsable in the
+// modal but are excluded from the badge input regardless of their severity, so
+// a normal backlog - which generates hundreds of "stale warning" advisories as
+// its steady state - no longer floods a four-digit count into the footer at
+// fleet scale (bt-jhzat). The badge lights only for genuine anomalies: new
+// cycles (critical), baseline drift deltas, and abandoned P0/P1 claims (warning).
 func (m *Model) extractAlertCounts() (total, critical, warning int) {
 	for _, a := range m.visibleAlerts() {
 		total++
+		if !a.Type.IsAnomaly() {
+			continue
+		}
 		switch a.Severity {
 		case drift.SeverityCritical:
 			critical++
@@ -1391,6 +1402,9 @@ func (fd FooterData) renderWorkerBadge() string {
 // longer sits there as a permanent total (the "51 (!)" the dogfood pass flagged).
 // The count shown is the attention-worthy subset (critical + warning), not the
 // AlertCount total (which still tallies info toward the modal's own count).
+// bt-jhzat narrows that input further upstream in extractAlertCounts to
+// ANOMALY-typed alerts, so per-issue advisories (staleness, high-leverage)
+// never light the badge even at warning severity - they stay in the modal.
 func (fd FooterData) renderAlertsBadge() string {
 	attention := fd.CriticalCount + fd.WarningCount
 	if attention == 0 {
