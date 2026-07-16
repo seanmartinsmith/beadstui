@@ -50,12 +50,13 @@ type GlyphSet struct {
 	StReview     string
 	StUnknown    string
 
-	// --- Footer actionable stat marks (scoped counts) ---
-	StatOpen    string // open count dot
-	StatReady   string // ready count dot
-	StatBlocked string // blocked count dot
-	StatClosed  string // closed count dot
-	Phase2Dot   string // "metrics pending" marker
+	// --- Footer actionable triad (bt-p8y2f: default center-zone content,
+	// lens-scoped ready/in-flight/blocked; replaces the deleted per-status
+	// stat dots) ---
+	TriadReady    string // actionable/unblocked segment (fa-check)
+	TriadInFlight string // in_progress segment (fa-play)
+	TriadBlocked  string // graph-blocked segment (fa-ban)
+	Phase2Dot     string // "metrics pending" marker
 
 	// --- Priority ---
 	PrCritical string
@@ -200,11 +201,10 @@ var nerdfontGlyphs = GlyphSet{
 	StReview:     "◑",
 	StUnknown:    "◌",
 
-	StatOpen:    "○",
-	StatReady:   "◉",
-	StatBlocked: "◈",
-	StatClosed:  "●",
-	Phase2Dot:   "◌",
+	TriadReady:    "", // fa-check
+	TriadInFlight: "", // fa-play
+	TriadBlocked:  "", // fa-ban
+	Phase2Dot:     "◌",
 
 	PrCritical: "", // fa-fire
 	PrHigh:     "", // fa-bolt
@@ -338,11 +338,10 @@ var asciiGlyphs = GlyphSet{
 	StReview:     ":",
 	StUnknown:    "?",
 
-	StatOpen:    "o",
-	StatReady:   "+",
-	StatBlocked: "!",
-	StatClosed:  "x",
-	Phase2Dot:   ".",
+	TriadReady:    "ready ",
+	TriadInFlight: "in-flight ",
+	TriadBlocked:  "blocked ",
+	Phase2Dot:     ".",
 
 	PrCritical: "!",
 	PrHigh:     "^",

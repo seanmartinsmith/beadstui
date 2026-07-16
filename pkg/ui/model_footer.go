@@ -201,11 +201,11 @@ type FooterData struct {
 	// Context-aware label/hint line
 	HintText string
 
-	// Issue counts
-	CountOpen    int
-	CountReady   int
-	CountBlocked int
-	CountClosed  int
+	// Issue counts: the footer's default center-zone content (bt-p8y2f) — the
+	// actionable triad scoped to the active lens. See footer_triad.go.
+	CountReady    int
+	CountInFlight int
+	CountBlocked  int
 
 	// Time travel (overrides normal stats when active)
 	TimeTravelActive bool
@@ -331,11 +331,10 @@ func (m *Model) footerData() FooterData {
 	// Hint text
 	fd.HintText = m.extractHintText()
 
-	// Issue counts
-	fd.CountOpen = m.ac.countOpen
+	// Issue counts (footer center triad, bt-p8y2f)
 	fd.CountReady = m.ac.countReady
+	fd.CountInFlight = m.ac.countInFlight
 	fd.CountBlocked = m.ac.countBlocked
-	fd.CountClosed = m.ac.countClosed
 
 	// Time travel
 	if m.timeTravelMode && m.timeTravelDiff != nil {
@@ -470,11 +469,15 @@ func (m *Model) populateLens(fd *FooterData) {
 }
 
 // footerCenter supplies the center-zone string for views whose "what am I
-// looking at" summary is more useful than the default scoped status counts
-// (Phase 3). Detail = bead id + position, graph = nodes/edges, board = visible
-// columns + cards. Returns "" for views (list, tree, insights, …) that keep the
-// scoped counts. Mirrors viewKeyMap(); detail is a sub-state of ViewList rather
-// than its own mode, so it is handled before the mode switch.
+// looking at" summary is more useful than the default actionable triad
+// (Phase 3, amended bt-p8y2f): detail = bead id + position, memories = memory
+// + project counts. Board and graph do NOT override — a view counting its
+// own visible elements is low information (maintainer read-through
+// 2026-07-16, "cards" vocabulary rejected; see bt-p8y2f comment) — so they
+// fall through to the default triad like every other view. Returns "" for
+// views (list, board, graph, tree, insights, …) that keep the default.
+// Mirrors viewKeyMap(); detail is a sub-state of ViewList rather than its own
+// mode, so it is handled before the mode switch.
 func (m *Model) footerCenter() string {
 	// A modal overlays the underlying view; keep that view's default counts.
 	if m.activeModal != ModalNone {
@@ -493,18 +496,13 @@ func (m *Model) footerCenter() string {
 		return sel.Issue.ID
 	}
 
-	switch m.mode {
-	case ViewGraph:
+	if m.mode == ViewMemories {
 		return fmt.Sprintf("%s %s %s",
-			countLabel(m.graphView.TotalCount(), "node"),
+			memoriesLabel(m.memories.memoryRowCount()),
 			activeGlyphs.Sep,
-			countLabel(m.graphView.EdgeCount(), "edge"))
-	case ViewBoard:
-		return fmt.Sprintf("%s %s %s",
-			countLabel(m.board.VisibleColumnCount(), "col"),
-			activeGlyphs.Sep,
-			countLabel(m.board.TotalCount(), "card"))
+			countLabel(m.memories.VisibleProjectCount(), "project"))
 	}
+
 	return ""
 }
 
@@ -515,6 +513,15 @@ func countLabel(n int, word string) string {
 		return fmt.Sprintf("1 %s", word)
 	}
 	return fmt.Sprintf("%d %ss", n, word)
+}
+
+// memoriesLabel formats "N memory"/"N memories" — unlike countLabel's
+// regular "+s" pluralization, "memory" has an irregular plural.
+func memoriesLabel(n int) string {
+	if n == 1 {
+		return "1 memory"
+	}
+	return fmt.Sprintf("%d memories", n)
 }
 
 // --- Extract helpers (Model methods that compute FooterData fields) ---
@@ -906,9 +913,17 @@ func (fd FooterData) Render() string {
 	// are advanced by the degradation cascade further down. The killed left
 	// badges (and the [19] workspace badge) fold into the lens's scope + chips.
 
-	// Stats section — built via a closure so the degradation engine can rebuild
-	// it at a denser tier (skip zero-count segments) before dropping it whole.
-	buildStats := func(skipZeros bool) string {
+	// Stats section — the default center-zone content (bt-p8y2f): the
+	// actionable triad (ready/in-flight/blocked), scoped to the active lens.
+	// Dark cockpit is UNCONDITIONAL here (doc: "zero-count segments never
+	// render"), not just a width-pressure fallback — a zero segment is
+	// dropped even at the widest terminal. The remaining degradation lever is
+	// dropping the whole triad (see the reductions cascade below), keeping
+	// only the total. NF renders glyph+N (tight, like the retired stat dots);
+	// ascii renders the doc's literal words ("ready 41") — the ascii glyph
+	// values carry their own trailing space so the same "%s%d" format works
+	// for both tiers.
+	buildStats := func() string {
 		if fd.TimeTravelActive {
 			return lipgloss.NewStyle().
 				Background(ColorPrioHighBg).
@@ -921,17 +936,16 @@ func (fd FooterData) Render() string {
 			Foreground(ColorText).
 			Padding(0, 1)
 		seg := func(style lipgloss.Style, glyph string, n int) string {
-			if skipZeros && n == 0 {
+			if n == 0 {
 				return ""
 			}
 			return fmt.Sprintf("%s%d", style.Render(glyph), n)
 		}
 		var segs []string
 		for _, s := range []string{
-			seg(lipgloss.NewStyle().Foreground(ColorStatusOpen), activeGlyphs.StatOpen, fd.CountOpen),
-			seg(lipgloss.NewStyle().Foreground(ColorSuccess), activeGlyphs.StatReady, fd.CountReady),
-			seg(lipgloss.NewStyle().Foreground(ColorWarning), activeGlyphs.StatBlocked, fd.CountBlocked),
-			seg(lipgloss.NewStyle().Foreground(ColorMuted), activeGlyphs.StatClosed, fd.CountClosed),
+			seg(lipgloss.NewStyle().Foreground(ColorSuccess), activeGlyphs.TriadReady, fd.CountReady),
+			seg(lipgloss.NewStyle().Foreground(ColorInfo), activeGlyphs.TriadInFlight, fd.CountInFlight),
+			seg(lipgloss.NewStyle().Foreground(ColorWarning), activeGlyphs.TriadBlocked, fd.CountBlocked),
 		} {
 			if s != "" {
 				segs = append(segs, s)
@@ -940,16 +954,18 @@ func (fd FooterData) Render() string {
 		if len(segs) == 0 {
 			return ""
 		}
-		return statsStyle.Render(strings.Join(segs, " "))
+		return statsStyle.Render(strings.Join(segs, " "+activeGlyphs.Sep+" "))
 	}
-	statsSection := buildStats(false)
+	statsSection := buildStats()
 
-	// Per-view center override (Phase 3): detail/graph/board replace the scoped
-	// status stats with view-specific meaning ("bt-0qzp · 3/169",
-	// "47 nodes · 61 edges", "4 cols · 169 cards"). It occupies the same center
-	// slot as the stats and degrades the same way (dropped wholesale under
-	// extreme width pressure). Time travel keeps precedence — its diff is a
-	// corpus-wide signal that out-ranks per-view counts.
+	// Per-view center override (Phase 3, amended bt-p8y2f): detail and
+	// memories replace the default actionable triad with view-specific
+	// meaning ("bt-0qzp · 3/169", "127 memories · 10 projects") — granted only
+	// where the view cannot show the information itself. Board and graph keep
+	// the default triad (no override). It occupies the same center slot as the
+	// stats and degrades the same way (dropped wholesale under extreme width
+	// pressure). Time travel keeps precedence — its diff is a corpus-wide
+	// signal that out-ranks per-view counts.
 	hasCenterOverride := fd.CenterOverride != "" && !fd.TimeTravelActive
 	if hasCenterOverride {
 		statsSection = lipgloss.NewStyle().
@@ -1092,11 +1108,13 @@ func (fd FooterData) Render() string {
 	bellWidth := lipgloss.Width(bellSection)
 
 	// Degradation cascade (bt-2vshd drop order): lens placeholders -> daemon /
-	// degraded badges -> triad segments (total survives) -> hint labels -> lens
-	// filter words (scope survives) -> last resort scope · total · ? ; · !N. The
+	// degraded badges -> triad (total survives) -> hint labels -> lens filter
+	// words (scope survives) -> last resort scope · total · ? ; · !N. The
 	// engine shape is unchanged: reduce in order until the content fits; a final
 	// ansi truncate makes wrapping impossible. lensLvl and hintsCompact are the
-	// lens/right-zone density knobs the cascade advances.
+	// lens/right-zone density knobs the cascade advances. The triad's zero-count
+	// segments never render at any width (dark cockpit, bt-p8y2f — buildStats
+	// skips them unconditionally), so the cascade drops the triad whole.
 	lensLvl := lensFull
 	hintsCompact := false
 
@@ -1116,12 +1134,9 @@ func (fd FooterData) Render() string {
 	reductions := []func(){
 		func() { lensLvl = lensNoPlace }, // 1. lens placeholders (lb:- , /-)
 		func() { dropTier(3) },           // 2. daemon / degraded badges
-		func() { // 3a. triad: skip zero-count segments (total survives via countBadge)
-			if !hasCenterOverride {
-				statsSection = buildStats(true)
-			}
-		},
-		func() { // 3b. triad drops whole
+		func() { // 3. triad drops whole; total survives via countBadge. A
+			// detail/memories center override is the most protected content
+			// and yields only at the cascade's last resort.
 			if !hasCenterOverride {
 				statsSection = ""
 			}

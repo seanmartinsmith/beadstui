@@ -19,10 +19,9 @@ func richLensFixture(width int) FooterData {
 		StatusFilter:    "open",
 		LabelFilterText: "area:tui",
 		OrderLabel:      "updated",
-		CountOpen:       120,
 		CountReady:      14,
+		CountInFlight:   7,
 		CountBlocked:    9,
-		CountClosed:     26,
 		TotalItems:      169,
 		BellCount:       4,
 	}
