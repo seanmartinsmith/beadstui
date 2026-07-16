@@ -1523,3 +1523,65 @@ func TestAllAlertTypesHaveDefinitions(t *testing.T) {
 		t.Errorf("AlertTypeDefinition(unknown) = %q, want fallback to type string", got)
 	}
 }
+
+// TestAlertTypeAnomalyClassification locks the anomaly-vs-advisory taxonomy the
+// footer attention badge relies on (bt-jhzat). Anomalies are cycles, baseline
+// drift deltas, and abandoned claims; per-issue advisories (staleness,
+// high-leverage, duplicate suspects) are NOT anomalies, so they never light the
+// badge regardless of severity. IsAdvisory must be the exact complement.
+func TestAlertTypeAnomalyClassification(t *testing.T) {
+	anomalies := []AlertType{
+		AlertDependencyLoop,
+		AlertCouplingGrowth,
+		AlertIssueCountChange,
+		AlertDependencyChange,
+		AlertBlockedIncrease,
+		AlertActionableChange,
+		AlertCentralityChange,
+		AlertVelocityDrop,
+		AlertAbandonedClaim,
+	}
+	advisories := []AlertType{
+		AlertStale,
+		AlertHighLeverage,
+		AlertHighImpactUnblock,
+		AlertPotentialDuplicate,
+	}
+
+	for _, at := range anomalies {
+		if !at.IsAnomaly() {
+			t.Errorf("%s should be an anomaly (feeds the footer badge)", at)
+		}
+		if at.IsAdvisory() {
+			t.Errorf("%s must not also be an advisory", at)
+		}
+	}
+	for _, at := range advisories {
+		if at.IsAnomaly() {
+			t.Errorf("%s must NOT be an anomaly (it would flood the badge at fleet scale)", at)
+		}
+		if !at.IsAdvisory() {
+			t.Errorf("%s should be an advisory", at)
+		}
+	}
+
+	// abandoned_claim is the one per-issue type that stays an anomaly - it is
+	// the "someone dropped the ball" signal the badge exists for.
+	if !AlertAbandonedClaim.IsAnomaly() {
+		t.Error("abandoned_claim must remain an anomaly")
+	}
+
+	// Every canonical alert type must be classified as exactly one of the two,
+	// and IsAdvisory must be the strict complement of IsAnomaly.
+	for _, at := range AllAlertTypes() {
+		if at.IsAnomaly() == at.IsAdvisory() {
+			t.Errorf("%s: IsAnomaly and IsAdvisory must be mutually exclusive", at)
+		}
+	}
+
+	// Unknown/future types default to advisory (quiet) so a newly-added
+	// per-issue advisory can never silently flood the badge.
+	if AlertType("some_future_type").IsAnomaly() {
+		t.Error("unknown types must default to advisory, not anomaly")
+	}
+}

@@ -10,6 +10,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/seanmartinsmith/beadstui/internal/datasource"
+	"github.com/seanmartinsmith/beadstui/pkg/drift"
 	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
 )
 
@@ -397,6 +398,77 @@ func TestFooterAlertsBadge_DarkCockpit(t *testing.T) {
 	}
 	if strings.Contains(out, "51") {
 		t.Errorf("the info-inclusive total must not camp in the badge; got %q", out)
+	}
+}
+
+// TestExtractAlertCounts_AdvisoriesExcludedFromBadge locks bt-jhzat's
+// badge-input composition at fleet scale: extractAlertCounts (the step that
+// turns m.alerts into the badge's Critical/Warning input) must exclude
+// per-issue advisories (staleness, high-leverage) regardless of their severity,
+// while still counting genuine anomalies (cycles, abandoned claims). Advisory
+// volume stays in m.alerts (browsable in the modal via visibleAlerts) but never
+// feeds the footer badge - so a fleet-scale backlog of stale warnings boots to
+// a quiet strip, and a single real anomaly lights it with an honest count.
+func TestExtractAlertCounts_AdvisoriesExcludedFromBadge(t *testing.T) {
+	// 1000 stale advisories at WARNING severity, zero anomalies.
+	stale := make([]drift.Alert, 0, 1001)
+	for i := 0; i < 1000; i++ {
+		stale = append(stale, drift.Alert{
+			Type:     drift.AlertStale,
+			Severity: drift.SeverityWarning,
+			IssueID:  fmt.Sprintf("bt-%d", i),
+		})
+	}
+
+	m := Model{alerts: stale}
+	total, critical, warning := m.extractAlertCounts()
+	if total != 1000 {
+		t.Fatalf("advisories must still be visible/countable in the modal total; got total=%d", total)
+	}
+	if critical+warning != 0 {
+		t.Fatalf("1000 stale warnings must not feed the badge; got critical=%d warning=%d", critical, warning)
+	}
+	// With a zero anomaly count the badge is dark.
+	if out := (FooterData{AlertCount: total, CriticalCount: critical, WarningCount: warning}).renderAlertsBadge(); out != "" {
+		t.Fatalf("advisory-only fleet must produce a dark badge; got %q", out)
+	}
+
+	// Now add exactly one genuine anomaly (a new cycle) to the same 1000.
+	withCycle := append(append([]drift.Alert(nil), stale...), drift.Alert{
+		Type:     drift.AlertDependencyLoop,
+		Severity: drift.SeverityCritical,
+		Message:  "1 new cycle(s) detected",
+	})
+	m = Model{alerts: withCycle}
+	total, critical, warning = m.extractAlertCounts()
+	if critical != 1 || warning != 0 {
+		t.Fatalf("one cycle among 1000 advisories must yield critical=1 warning=0; got critical=%d warning=%d", critical, warning)
+	}
+	out := ansi.Strip((FooterData{AlertCount: total, CriticalCount: critical, WarningCount: warning}).renderAlertsBadge())
+	if !strings.Contains(out, "1 (!)") {
+		t.Fatalf("a genuine anomaly must light the badge with an honest count of 1; got %q", out)
+	}
+
+	// High-leverage is also advisory; an abandoned P0/P1 claim is an anomaly.
+	// A fleet of high-leverage warnings plus one abandoned-claim warning must
+	// badge exactly 1.
+	mixed := make([]drift.Alert, 0, 501)
+	for i := 0; i < 500; i++ {
+		mixed = append(mixed, drift.Alert{
+			Type:     drift.AlertHighLeverage,
+			Severity: drift.SeverityWarning,
+			IssueID:  fmt.Sprintf("bt-hl-%d", i),
+		})
+	}
+	mixed = append(mixed, drift.Alert{
+		Type:     drift.AlertAbandonedClaim,
+		Severity: drift.SeverityWarning,
+		IssueID:  "bt-abandoned",
+	})
+	m = Model{alerts: mixed}
+	_, critical, warning = m.extractAlertCounts()
+	if critical != 0 || warning != 1 {
+		t.Fatalf("500 high-leverage advisories + 1 abandoned claim must yield warning=1; got critical=%d warning=%d", critical, warning)
 	}
 }
 

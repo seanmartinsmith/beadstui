@@ -102,6 +102,50 @@ func AlertTypeDefinition(t AlertType) string {
 	return string(t)
 }
 
+// anomalyAlertTypes is the set of alert types that represent a genuine fleet
+// anomaly - a condition that warrants attention right now: a new dependency
+// cycle, a graph metric that drifted materially from the baseline, or a
+// claimed issue that stalled. Every OTHER emitted type is a per-issue
+// advisory: steady-state triage/opportunity data (staleness, high-leverage
+// candidates, duplicate suspects) whose volume scales with backlog size, not
+// with how healthy the fleet is.
+//
+// Only anomalies feed the footer attention badge (bt-jhzat); advisories stay
+// fully browsable in the alerts modal but never camp a four-digit count in the
+// footer at fleet scale. This is deliberately a whitelist so a future
+// per-issue advisory type defaults to advisory (quiet) rather than silently
+// flooding the badge - the failure mode that motivated this bead.
+//
+// abandoned_claim is intentionally an anomaly, not an advisory: a stalled
+// P0/P1 claim is exactly the "someone dropped the ball" signal the badge
+// exists to surface.
+var anomalyAlertTypes = map[AlertType]bool{
+	AlertDependencyLoop:   true, // new cycle(s) - critical
+	AlertCouplingGrowth:   true, // density drift vs baseline
+	AlertIssueCountChange: true, // node-count drift vs baseline
+	AlertDependencyChange: true, // edge-count drift vs baseline
+	AlertBlockedIncrease:  true, // blocked-count drift vs baseline
+	AlertActionableChange: true, // actionable-count drift vs baseline
+	AlertCentralityChange: true, // PageRank drift vs baseline
+	AlertVelocityDrop:     true, // close-rate drift vs baseline
+	AlertAbandonedClaim:   true, // claimed but inactive (P0/P1 warning)
+}
+
+// IsAnomaly reports whether an alert type is a genuine fleet anomaly (a new
+// cycle, a baseline drift delta, or an abandoned claim) rather than a per-issue
+// advisory. The footer attention badge counts only anomaly-typed alerts; see
+// anomalyAlertTypes for the rationale.
+func (t AlertType) IsAnomaly() bool {
+	return anomalyAlertTypes[t]
+}
+
+// IsAdvisory is the complement of IsAnomaly: per-issue triage/opportunity data
+// (staleness, high-leverage, duplicate suspects) that remains browsable in the
+// alerts modal but does not feed the footer attention badge.
+func (t AlertType) IsAdvisory() bool {
+	return !anomalyAlertTypes[t]
+}
+
 // Alert represents a single drift detection alert
 type Alert struct {
 	Type        AlertType `json:"type"`
