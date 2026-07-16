@@ -894,6 +894,12 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			}
 			m = m.handleBoardKeys(msg)
 			return m, nil
+		case m.mode == ViewMemories && m.memories.IsSearchActive():
+			if msg.String() == "ctrl+c" {
+				return m, tea.Quit
+			}
+			m = m.handleMemoriesKeys(msg)
+			return m, nil
 		}
 	}
 
@@ -977,6 +983,12 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				m.focused = focusList
 				return m, nil
 			}
+			if m.mode == ViewMemories {
+				m.mode = ViewList
+				m.isSplitView = true // restore split view cleared on entry (mirrors ViewLabelDashboard, bt-2ea7t.4)
+				m.focused = focusList
+				return m, nil
+			}
 			return m, tea.Quit
 
 		case key.Matches(msg, m.keys.Global.Cancel):
@@ -1035,6 +1047,12 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			if m.mode == ViewLabelDashboard {
 				m.mode = ViewList
 				m.isSplitView = true
+				m.focused = focusList
+				return m, nil
+			}
+			if m.mode == ViewMemories {
+				m.mode = ViewList
+				m.isSplitView = true // restore split view cleared on entry (bt-2ea7t.4)
 				m.focused = focusList
 				return m, nil
 			}
@@ -1298,6 +1316,23 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.refreshEpicsForCurrentFilter()
 			return m, nil
 
+		case key.Matches(msg, m.keys.Global.Memories):
+			// Toggle Memories master/detail view (bt-2ea7t.4). Second press
+			// returns to the list. Async dispatch (mirrors History, bt-uizm):
+			// entering the view sets a loading state and returns a tea.Cmd
+			// that discovers+aggregates sources off the event loop, since
+			// ListMemories shells out to `bd` (and shared/global sources open
+			// live Dolt connections) - too slow for the keypress handler.
+			m.clearAttentionOverlay()
+			if m.mode == ViewMemories {
+				m.mode = ViewList
+				m.isSplitView = true
+				m.focused = focusList
+				return m, nil
+			}
+			m.isSplitView = false
+			return m, m.enterMemoriesView()
+
 		case key.Matches(msg, m.keys.Global.Alerts):
 			// Open alerts modal on alerts tab (closed → open). Open-already
 			// behavior (switch/close) lives in the modal block at line ~213.
@@ -1505,6 +1540,9 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 		case focusFlowMatrix:
 			m = m.handleFlowMatrixKeys(msg)
+
+		case focusMemories:
+			m = m.handleMemoriesKeys(msg)
 
 		case focusList:
 			m = m.handleListKeys(msg)

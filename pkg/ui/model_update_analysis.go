@@ -473,6 +473,21 @@ func (m Model) handleHistoryLoaded(msg HistoryLoadedMsg) Model {
 	return m
 }
 
+// handleMemoriesLoaded processes background memories discovery+aggregation
+// completion (bt-2ea7t.4). Unlike handleHistoryLoaded there is no error
+// branch: MemoriesLoadedMsg has no Error field - per-source failures are
+// already folded into Aggregate.Unavailable by AggregateMemories (design
+// spec S8), so installing the aggregate is always the right thing to do,
+// even when every source came back empty or unreachable.
+func (m Model) handleMemoriesLoaded(msg MemoriesLoadedMsg) Model {
+	m.memoriesLoading = false
+	m.memories.SetAggregate(msg.Aggregate)
+	if m.width > 0 && m.height > 0 {
+		m.memories.SetSize(m.bodyWidth(), m.height-1)
+	}
+	return m
+}
+
 // handleAgentFileCheck processes the AGENTS.md integration check result.
 func (m Model) handleAgentFileCheck(msg AgentFileCheckMsg) Model {
 	if msg.ShouldPrompt && msg.FilePath != "" {

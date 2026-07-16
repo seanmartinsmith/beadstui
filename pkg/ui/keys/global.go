@@ -35,6 +35,11 @@ type GlobalKeys struct {
 	LabelDashboard key.Binding // [ / f3
 	Attention      key.Binding // ] / f4
 	Epics          key.Binding // E
+	Memories       key.Binding // u / f6 (bt-2ea7t.4 - "m" collides with the
+	// focusList claim shortcut and the focusInsights heatmap toggle, both of
+	// which the Global switch would shadow; "u" was verified free across
+	// every keys/*.go binding and every literal msg.String() comparison in
+	// pkg/ui, see bt-2ea7t.4 close notes)
 
 	// Workspace
 	ProjectsOrWisps  key.Binding // w
@@ -133,6 +138,10 @@ func NewGlobalKeys() GlobalKeys {
 			key.WithKeys("E"),
 			key.WithHelp("E", "epics"),
 		),
+		Memories: key.NewBinding(
+			key.WithKeys("u", "f6"),
+			key.WithHelp("u", "memories"),
+		),
 
 		// Workspace
 		ProjectsOrWisps: key.NewBinding(
@@ -213,7 +222,7 @@ func (k GlobalKeys) FullHelp() [][]key.Binding {
 		// Help & Chrome
 		{k.Help, k.Sidebar, k.SidebarScrollDown, k.SidebarScrollUp, k.Tutorial, k.Quit, k.Back, k.Cancel},
 		// Views
-		{k.Board, k.Graph, k.Insights, k.History, k.Actionable, k.FlowMatrix, k.Tree, k.LabelDashboard, k.Attention, k.Epics},
+		{k.Board, k.Graph, k.Insights, k.History, k.Actionable, k.FlowMatrix, k.Tree, k.LabelDashboard, k.Attention, k.Epics, k.Memories},
 		// Workspace
 		{k.ProjectsOrWisps, k.WorkspaceHomeAll, k.WispToggle, k.HybridPreset},
 		// Actions

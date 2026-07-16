@@ -13,6 +13,7 @@ import (
 
 	"github.com/seanmartinsmith/beadstui/internal/bdroute"
 	"github.com/seanmartinsmith/beadstui/internal/datasource"
+	"github.com/seanmartinsmith/beadstui/internal/source"
 	"github.com/seanmartinsmith/beadstui/pkg/agents"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/bql"
@@ -22,6 +23,7 @@ import (
 	"github.com/seanmartinsmith/beadstui/pkg/instance"
 	"github.com/seanmartinsmith/beadstui/pkg/loader"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
+	"github.com/seanmartinsmith/beadstui/pkg/projects"
 	"github.com/seanmartinsmith/beadstui/pkg/recipe"
 	"github.com/seanmartinsmith/beadstui/pkg/search"
 	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
@@ -82,6 +84,7 @@ const (
 	focusFieldPicker  // Enum picker sub-modal: status/priority (bt-oiaj.5)
 	focusFieldInput   // Textinput sub-modal: title/assignee (bt-oiaj.5)
 	focusLongformEdit // Textarea sub-modal: description/design/comment/notes/acceptance (bt-oiaj.6)
+	focusMemories     // Memories master/detail view (bt-2ea7t.4)
 )
 
 // ViewMode represents which primary view is active. Only one view mode
@@ -101,6 +104,7 @@ const (
 	ViewFlowMatrix                     // Cross-label flow matrix
 	ViewLabelDashboard                 // Label health dashboard
 	ViewAttention                      // Attention scores view
+	ViewMemories                       // Memories master/detail view (bt-2ea7t.4)
 )
 
 // fullscreenPane identifies which ViewList pane (if any) is currently
@@ -554,6 +558,114 @@ func LoadHistoryCmd(repoPath, beadsPath string, issues []model.Issue, ds *dataso
 	}
 }
 
+// MemoriesLoadedMsg is sent when the background memories discovery+
+// aggregation (LoadMemoriesCmd) completes. No Error field: per-source
+// failures degrade into Aggregate.Unavailable rather than failing the whole
+// load (design spec S8) - an aggregate where every source was empty (or
+// unreachable) is still a legitimate, renderable result.
+type MemoriesLoadedMsg struct {
+	Aggregate source.MemoriesAggregate
+}
+
+// LoadMemoriesCmd returns a command that discovers every reachable bd source
+// and aggregates their memories in the background (design spec S4-S5, the
+// "live discovery orchestrator" bt-2ea7t.4 builds on top of the bt-2ea7t.1-3
+// resolver/adapter/aggregator seam).
+//
+// repoRoot is the current project's directory, pre-resolved on the calling
+// goroutine (mirrors LoadHistoryCmd/resolveHistoryRepoPath - the closure
+// runs off the tea event loop and must not touch main-goroutine state like
+// os.Getwd). It is the ONE mandatory source: every other source below is
+// best-effort and non-fatal, so the current project's own memories always
+// render even when the registry or shared server are unavailable.
+//
+//   - Current project (mandatory): DetectPath(repoRoot) -> SelectAdapter.
+//   - Projects registry (best-effort): every ~/.bt/projects.json entry,
+//     DetectPath'd and adapted the same way, deduplicated against the cwd
+//     source by (SourceKind, Scope).
+//   - Shared Dolt server (best-effort): DiscoverSharedServer + a transient
+//     enumeration connection (EnumerateDatabases) to find every database,
+//     DetectSharedDB'd and adapted with the cwd project as the memories
+//     shell-out anchor (sharedDBAdapter.ListMemories needs *some*
+//     bd-managed directory to run `bd memories --json` from - see
+//     internal/source/bd_adapter.go's sharedDBAdapter doc comment).
+//
+// Any failure in the registry or shared-server steps (no registry file, no
+// shared server running, enumeration error) silently contributes zero extra
+// adapters rather than failing the load - this is the "STRETCH - async,
+// best-effort, non-fatal" behavior the design calls for.
+func LoadMemoriesCmd(repoRoot string) tea.Cmd {
+	return func() tea.Msg {
+		ctx := context.Background()
+		var adapters []source.Adapter
+		seen := map[string]bool{} // "<SourceKind>|<Scope>" dedup key
+
+		markSeen := func(o source.Origin) { seen[string(o.SourceKind)+"|"+o.Scope] = true }
+		addAdapter := func(origin source.Origin, dir, dsn string) {
+			key := string(origin.SourceKind) + "|" + origin.Scope
+			if seen[key] {
+				return
+			}
+			seen[key] = true
+			adapters = append(adapters, source.SelectAdapter(origin, dir, dsn))
+		}
+
+		// 1. Current project - mandatory (the guaranteed dogfood path: bt's
+		// own memories must always render regardless of registry/shared-
+		// server availability).
+		if repoRoot != "" {
+			if origin, ok := source.DetectPath(repoRoot); ok {
+				addAdapter(origin, repoRoot, "")
+				markSeen(origin)
+			}
+		}
+
+		// 2. Projects registry - best-effort. Any failure (no file, corrupt
+		// file) yields an empty registry (see pkg/projects.Load); the loop
+		// below is then simply a no-op.
+		if regPath, err := projects.ResolvedPath(); err == nil {
+			if reg, err := projects.Load(regPath); err == nil {
+				for _, entry := range reg {
+					if entry.Path == "" || entry.Path == repoRoot {
+						continue
+					}
+					origin, ok := source.DetectPath(entry.Path)
+					if !ok {
+						continue
+					}
+					addAdapter(origin, entry.Path, "")
+				}
+			}
+		}
+
+		// 3. Shared Dolt server - best-effort. DiscoverSharedServer fails
+		// fast (no port file / no listener) when no shared server is
+		// configured, which is the common case; that failure just skips
+		// this step rather than failing the load.
+		if host, port, err := datasource.DiscoverSharedServer(); err == nil {
+			dsn := datasource.NewGlobalDataSource(host, port).Path
+			if db, openErr := sql.Open("mysql", dsn); openErr == nil {
+				if pingErr := db.Ping(); pingErr == nil {
+					if names, enumErr := datasource.EnumerateDatabases(db, ""); enumErr == nil {
+						for _, name := range names {
+							origin := source.DetectSharedDB(name)
+							// repoRoot anchors the `bd memories --json` shell-out
+							// for shared/global sources (bd_adapter.go
+							// sharedDBAdapter doc comment) - it need not be the
+							// same project as origin, just some bd-managed dir.
+							addAdapter(origin, repoRoot, dsn)
+						}
+					}
+				}
+				_ = db.Close()
+			}
+		}
+
+		agg := source.AggregateMemories(ctx, adapters, source.MemoriesPayload{})
+		return MemoriesLoadedMsg{Aggregate: agg}
+	}
+}
+
 // DoltState holds Dolt connection lifecycle state. Embedded in Model
 // so field access (m.doltConnected) stays unchanged.
 type DoltState struct {
@@ -705,6 +817,15 @@ type Model struct {
 	// correlator. Phase 1 of bt-ydjw; collapses into RepoStatus.JSONLTracked
 	// once bt-08sh.4 lands.
 	historyDoltOnly bool
+
+	// Memories view (bt-2ea7t.4): master/detail over `bd remember` memories,
+	// aggregated across every reachable bd source. Async-loaded like History
+	// - memoriesLoading gates the loading screen in View() until
+	// MemoriesLoadedMsg arrives. Per-source failures degrade into
+	// MemoriesAggregate.Unavailable (design spec S8), not a top-level error,
+	// so there is no memoriesLoadFailed flag to mirror historyLoadFailed.
+	memories        MemoriesModel
+	memoriesLoading bool // True while memories are being discovered+aggregated in background
 
 	// Filter, sort, search, recipe, BQL state
 	filter *FilterState
@@ -1461,6 +1582,7 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		statusMsg:      initialStatus,
 		statusSeverity: initialStatusSeverity,
 		historyLoading:      len(issues) > 0, // Will be loaded in Init()
+		memories:            NewMemoriesModel(theme),
 		// Alerts panel (bv-168)
 		alerts:          alerts,
 		alertsCritical:  alertsCritical,
@@ -1771,6 +1893,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case HistoryLoadedMsg:
 		m = m.handleHistoryLoaded(msg)
+
+	case MemoriesLoadedMsg:
+		m = m.handleMemoriesLoaded(msg)
 
 	case AgentFileCheckMsg:
 		m = m.handleAgentFileCheck(msg)
