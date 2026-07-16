@@ -33,6 +33,7 @@ import (
 	"github.com/seanmartinsmith/beadstui/internal/datasource"
 	"github.com/seanmartinsmith/beadstui/internal/source"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
+	"github.com/seanmartinsmith/beadstui/pkg/drift"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
 )
@@ -131,6 +132,21 @@ func harnessSelect(m *Model, id string) {
 			return
 		}
 	}
+}
+
+// statusHeaderScenario injects a datasource + a mix of anomaly/advisory drift so
+// the alerts-modal status header (bt-2nepr) renders every section in a dump.
+func statusHeaderScenario(m *Model) {
+	m.data.dataSource = &datasource.DataSource{Type: datasource.SourceTypeEmbeddedDolt}
+	m.lastDoltVerified = time.Now().Add(-12 * time.Second)
+	m.alerts = []drift.Alert{
+		{Type: drift.AlertDependencyLoop, Severity: drift.SeverityCritical, Message: "1 new cycle(s) detected", Details: []string{"bt-0qzp -> bt-dx7k -> bt-0qzp"}},
+		{Type: drift.AlertAbandonedClaim, Severity: drift.SeverityWarning, Message: "Issue bt-0qzp claimed but inactive for 6 days", IssueID: "bt-0qzp"},
+		{Type: drift.AlertStale, Severity: drift.SeverityWarning, Message: "bt-dx7k stale 4d", IssueID: "bt-dx7k"},
+		{Type: drift.AlertHighLeverage, Severity: drift.SeverityInfo, Message: "bt-evuf unblocks 3", IssueID: "bt-evuf"},
+	}
+	m.activeTab = TabAlerts
+	m.openModal(ModalAlerts)
 }
 
 func TestRenderDump(t *testing.T) {
@@ -544,6 +560,13 @@ func TestRenderDump(t *testing.T) {
 		{"modal_labelpicker_120x36", 120, 36, func(m *Model) { m.openModal(ModalLabelPicker) }},
 		{"modal_recipepicker_120x36", 120, 36, func(m *Model) { m.openModal(ModalRecipePicker) }},
 		{"modal_alerts_120x36", 120, 36, func(m *Model) { m.openModal(ModalAlerts) }},
+
+		// Alerts modal "bt status report" header (bt-2nepr): a datasource + a
+		// mix of anomaly/advisory drift so the header shows badge reconciliation,
+		// Dolt mode, per-source counts, and corpus scale. The 100x16 case proves
+		// the header caps to line 1 on a scrunched terminal.
+		{"modal_alerts_status_120x36", 120, 36, statusHeaderScenario},
+		{"modal_alerts_status_100x16", 100, 16, statusHeaderScenario},
 
 		// Notifications tab with kind chips (click-to-filter summary row):
 		// unfiltered vs kind-filtered — the filtered dump must keep all chips
