@@ -21,10 +21,10 @@ with every evicted piece of chrome given an explicit new home.
 ## The line (mockups, ASCII default)
 
 ```
-160| ALL(19) . st:open . lb:- . /- . by:updated    ready 214 . in-flight 41 . blocked 87 . 1903    enter open . o issues . c copy . ? help    !4 *383
-100| bt . st:open . by:updated          ready 41 . in-flight 4 . blocked 12 . 169          ? help   !4 *9
- 70| bt . open           ready 41 . blocked 12 . 169           ?   !4
- 50| bt . open      169      ?  !4
+160| ALL(19) . st:open . lb:- . /- . by:updated     ready 214 . in-flight 41 . blocked 87 . 1903     ? help . ; keys    !4 *383
+100| bt . st:open . by:updated        ready 41 . in-flight 4 . blocked 12 . 169        ? . ;    !4 *9
+ 70| bt . open         ready 41 . blocked 12 . 169         ? ;   !4
+ 50| bt . open       169       ? ;   !4
 ```
 
 (Separator rendered as a middle dot at display time; shown as `.` here to keep this
@@ -55,15 +55,21 @@ Reads as a sentence: where am I -> what's filtered -> how it's ordered.
 - Default: **actionable triad scoped to the lens**: `ready N . in-flight N .
   blocked N . total`. Answers "what can I do right now", not "what exists".
   Zero-count segments never render. Raw per-status tallies (o1903 etc.) die.
-- **Per-view meaning overrides** (existing CenterOverride mechanism): detail =
-  `bt-0qzp . 3/169`, board = `4 cols . 169 cards`, graph = `47 nodes . 61 edges`,
-  memories = `127 memories . 10 projects`.
+- **Per-view meaning overrides** (existing CenterOverride mechanism), granted only
+  when the view cannot show the information itself: detail = `bt-0qzp . 3/169`
+  (list position), memories = `127 memories . 10 projects`. Board and graph keep
+  the default triad - a view counting its own visible elements is low information
+  (maintainer read-through 2026-07-16; "cards" vocabulary rejected).
 - Toasts borrow this slot briefly and give it back (Phase 4 semantics unchanged).
 
 ## Zone 3 - Right (affordances + signal)
 
-- Per-view key hints from `ShortHelp()`: labels degrade to bare keys, then drop from
-  the middle; `?` pinned last.
+- Static discoverability pair: `? help . ; keys` - the help overlay and shortcuts
+  sidebar are the two surfaces that actually teach navigation (maintainer call,
+  2026-07-16). Per-view action pills are GONE from the chrome; the per-view
+  `key.Map`s feed `?` and `;` only. Wide widths show labels, narrow degrades to
+  bare `? ;`. This deletes the footer's hint-pill degradation machinery and gives
+  the reclaimed width to the lens and triad.
 - **Anomaly badge `!N`**: absent at zero (dark cockpit). Traceable: activating it
   opens the alerts modal filtered to exactly those N anomalies.
 - **Bell `*N`**: unread events (ring buffer). Exact ASCII sigils (`!`, `*`) are
@@ -71,9 +77,14 @@ Reads as a sentence: where am I -> what's filtered -> how it's ordered.
 
 ## Glyph system (cross-cutting, applies TUI-wide)
 
-- One config switch: `ascii` (default) / `nerdfont` (opt-in). Single glyph table
-  both tiers read from: status marks, scope marks, bell, anomaly, tree/graph
-  connectors - all chrome glyphs.
+- One glyph table, two tiers: **nerdfont (DEFAULT)** / ascii (fallback). Single
+  table all chrome glyphs read from: status marks, scope marks, bell, anomaly,
+  tree/graph connectors. Amended 2026-07-16 after the NF preview: maintainer wants
+  nerd font as the default experience. No terminal API reports installed fonts, so
+  "detect nerd fonts" is impossible - the shape is starship/yazi precedent: NF on
+  by default, `BT_GLYPHS=ascii` (env or config) as the graceful fallback. The
+  toggle joins the configurable-knob list (bt-ey2hh) for the settings screen epic
+  (bt-fd3k). The doc's mockups show the ASCII tier to stay greppable.
 - **Emoji tier: deleted from the codebase**, not defaulted off. Maintainer signal
   (2026-07-16, repeated from earlier sessions): emoji break layout math by
   rendering double-width; get away from them entirely.
@@ -113,8 +124,8 @@ status report header. (Resolves bt-d5wr's branding question.)
 
 - Engine unchanged (never wraps; ansi-aware truncate as safety net).
 - Drop order: lens placeholders -> daemon/degraded-state badges (only present when
-  degraded anyway) -> triad segments (keep total) -> hint labels -> keys from the
-  middle -> lens filter words (scope survives) -> last: `scope . total . ? . !N`.
+  degraded anyway) -> triad segments (keep total) -> hint labels (`? help . ; keys`
+  -> `? ;`) -> lens filter words (scope survives) -> last: `scope . total . ? ; . !N`.
 - **Expansion is deliberate** (new): as width grows, hints regain labels, the triad
   regains segments, lens placeholders reappear. What expands is specified, not
   incidental.
