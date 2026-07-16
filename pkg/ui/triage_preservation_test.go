@@ -116,16 +116,12 @@ func TestDataSnapshotPreservesTriageWhenPhase1(t *testing.T) {
 	}
 
 	snapshot := &DataSnapshot{
-		Issues:       m.data.issues,
-		IssueMap:     m.data.issueMap,
-		Analyzer:     m.data.analyzer,
-		Analysis:     m.data.analysis,
-		Insights:     m.data.analysis.GenerateInsights(len(m.data.issues)),
-		CountOpen:    m.ac.countOpen,
-		CountReady:   m.ac.countReady,
-		CountBlocked: m.ac.countBlocked,
-		CountClosed:  m.ac.countClosed,
-		ListItems:    listItems,
+		Issues:    m.data.issues,
+		IssueMap:  m.data.issueMap,
+		Analyzer:  m.data.analyzer,
+		Analysis:  m.data.analysis,
+		Insights:  m.data.analysis.GenerateInsights(len(m.data.issues)),
+		ListItems: listItems,
 		// Phase 1 snapshot: no triage data yet.
 		TriageScores:  map[string]float64{},
 		TriageReasons: map[string]analysis.TriageReasons{},

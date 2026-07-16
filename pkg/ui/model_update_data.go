@@ -119,10 +119,12 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 	m.data.issueMap = msg.Snapshot.IssueMap
 	m.data.analyzer = msg.Snapshot.Analyzer
 	m.data.analysis = msg.Snapshot.Analysis
-	m.ac.countOpen = msg.Snapshot.CountOpen
-	m.ac.countReady = msg.Snapshot.CountReady
-	m.ac.countBlocked = msg.Snapshot.CountBlocked
-	m.ac.countClosed = msg.Snapshot.CountClosed
+	// Transient: setListItems (called below on every code path that rebuilds
+	// list items) immediately recomputes m.ac.count* scoped to the lens via
+	// lensTriad. This corpus-wide value only covers the brief window before
+	// that happens (bt-p8y2f; see footer_triad.go).
+	corpusTriad := computeFooterTriad(msg.Snapshot.Issues, msg.Snapshot.Analyzer)
+	m.ac.countReady, m.ac.countInFlight, m.ac.countBlocked = corpusTriad.Ready, corpusTriad.InFlight, corpusTriad.Blocked
 	if len(m.data.pooledIssues) > 0 {
 		go loader.ReturnIssuePtrsToPool(m.data.pooledIssues)
 		m.data.pooledIssues = nil
@@ -714,37 +716,14 @@ func (m Model) handleFileChanged(msg FileChangedMsg) (Model, tea.Cmd) {
 	// Clear stale priority hints (will be repopulated after Phase 2)
 	m.ac.priorityHints = make(map[string]*analysis.PriorityRecommendation)
 
-	// Recompute stats
+	// Recompute the footer's actionable triad (bt-p8y2f) against the fresh
+	// analyzer just built above (see footer_triad.go).
 	var statsStart time.Time
 	if profileRefresh {
 		statsStart = time.Now()
 	}
-	m.ac.countOpen, m.ac.countReady, m.ac.countBlocked, m.ac.countClosed = 0, 0, 0, 0
-	for i := range m.data.issues {
-		issue := &m.data.issues[i]
-		if isClosedLikeStatus(issue.Status) {
-			m.ac.countClosed++
-			continue
-		}
-		m.ac.countOpen++
-		if issue.Status == model.StatusBlocked {
-			m.ac.countBlocked++
-			continue
-		}
-		isBlocked := false
-		for _, dep := range issue.Dependencies {
-			if dep == nil || !dep.Type.IsBlocking() {
-				continue
-			}
-			if blocker, exists := m.data.issueMap[dep.DependsOnID]; exists && !isClosedLikeStatus(blocker.Status) {
-				isBlocked = true
-				break
-			}
-		}
-		if !isBlocked {
-			m.ac.countReady++
-		}
-	}
+	triad := computeFooterTriad(m.data.issues, m.data.analyzer)
+	m.ac.countReady, m.ac.countInFlight, m.ac.countBlocked = triad.Ready, triad.InFlight, triad.Blocked
 	if profileRefresh {
 		recordTiming("counts", time.Since(statsStart))
 	}

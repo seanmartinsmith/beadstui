@@ -215,8 +215,8 @@ func TestRenderDump(t *testing.T) {
 		enterEpics(m)
 	}
 	// enterBoard / enterGraph mirror the real toggle handlers (refresh from the
-	// current filter) so the Phase 3 footer center zone shows live counts
-	// ("4 cols · N cards", "N nodes · M edges").
+	// current filter). Board/graph carry no footer center override (bt-p8y2f
+	// amendment) — the footer shows the default actionable triad in both.
 	enterBoard := func(m *Model) {
 		m.mode = ViewBoard
 		m.focused = focusBoard
@@ -439,9 +439,10 @@ func TestRenderDump(t *testing.T) {
 			m.toggleFullscreenPane(fullscreenDetails)
 		}},
 
-		// Phase 3 per-view center meaning: detail = bead id + position (above),
-		// board = cols/cards, graph = nodes/edges. 70-col proves the override
-		// degrades without wrapping at the user's scrunched width.
+		// Phase 3 per-view center meaning: detail = bead id + position (above);
+		// board/graph carry no override (bt-p8y2f amendment) and show the
+		// default actionable triad instead. 70-col proves it degrades without
+		// wrapping at the user's scrunched width.
 		{"board_100x32", 100, 32, enterBoard},
 		{"board_70x20", 70, 20, enterBoard},
 		{"graph_100x32", 100, 32, enterGraph("bt-0qzp")},
@@ -641,14 +642,14 @@ func TestRenderDump(t *testing.T) {
 			},
 		}},
 		{"footer_retier_healthy_quiet", FooterData{
-			FilterText:   "bt",
-			FilterIcon:   "📂",
-			HintText:     "l:labels",
-			TotalItems:   169,
-			CountOpen:    163,
-			CountReady:   2,
-			CountBlocked: 4,
-			AlertCount:   44, // all info-level: dark cockpit keeps the strip quiet
+			FilterText:    "bt",
+			FilterIcon:    "📂",
+			HintText:      "l:labels",
+			TotalItems:    169,
+			CountReady:    163,
+			CountInFlight: 2,
+			CountBlocked:  4,
+			AlertCount:    44, // all info-level: dark cockpit keeps the strip quiet
 			Hints: []FooterHint{
 				{Key: "⏎", Desc: "open"}, {Key: "o", Desc: "issues"}, {Key: "?", Desc: "help"},
 			},

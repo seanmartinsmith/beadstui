@@ -392,6 +392,21 @@ func (m MemoriesModel) memoryRowCount() int {
 	return n
 }
 
+// VisibleProjectCount returns the number of distinct Origin.Scope values
+// among the memories currently visible in m.rows (post search-filter) — the
+// lens-scoped project count feeding the footer's memories CenterOverride
+// (bt-p8y2f: "N memories · M projects"). Mirrors memoryRowCount's rows-based
+// scoping rather than OriginScopes' unfiltered aggregate.Memories scoping.
+func (m MemoriesModel) VisibleProjectCount() int {
+	seen := map[string]bool{}
+	for _, r := range m.rows {
+		if r.kind == memoriesRowMemory {
+			seen[r.memory.Origin.Scope] = true
+		}
+	}
+	return len(seen)
+}
+
 // --- rendering ---
 
 // renderEmptyState is the full-screen empty state shown only when every
