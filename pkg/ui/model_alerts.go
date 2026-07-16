@@ -79,18 +79,10 @@ func (m Model) visibleAlertsAllSeverities() []drift.Alert {
 func (m Model) filteredAlerts(applySeverity bool) []drift.Alert {
 	var out []drift.Alert
 	for _, a := range m.alerts {
-		if m.dismissedAlerts[alertKey(a)] {
+		// Base scope: dismissed state + active-repo scope (shared with the
+		// status-header reconciliation via passesAlertBaseScope).
+		if !m.passesAlertBaseScope(a) {
 			continue
-		}
-		// Filter by active repo when in workspace mode with a project filter
-		if m.workspaceMode && m.activeRepos != nil && a.IssueID != "" {
-			issue, ok := m.data.issueMap[a.IssueID]
-			if ok {
-				repoKey := IssueRepoKey(*issue)
-				if repoKey != "" && !m.activeRepos[repoKey] {
-					continue
-				}
-			}
 		}
 		// Stackable filters (bt-46p6.5)
 		if applySeverity && m.alertFilterSeverity != "" && string(a.Severity) != m.alertFilterSeverity {
@@ -104,6 +96,15 @@ func (m Model) filteredAlerts(applySeverity bool) []drift.Alert {
 			if !ok || IssueRepoKey(*issue) != m.alertFilterProject {
 				continue
 			}
+		}
+		// Anomaly/advisory class filter (traceable badge, bt-2nepr). "anomaly"
+		// shows exactly the footer badge's attention anomalies; "advisory" is the
+		// complement.
+		if m.alertFilterClass == "anomaly" && !isAttentionAnomaly(a) {
+			continue
+		}
+		if m.alertFilterClass == "advisory" && isAttentionAnomaly(a) {
+			continue
 		}
 		out = append(out, a)
 	}
@@ -286,6 +287,7 @@ func (m *Model) resetAlertFilters() {
 	m.alertFilterSeverity = ""
 	m.alertFilterType = ""
 	m.alertFilterProject = ""
+	m.alertFilterClass = ""
 	m.alertSortOrder = 0
 }
 
@@ -477,6 +479,24 @@ func (m Model) renderAlertsTab() string {
 
 	var sb strings.Builder
 
+	// Persistent "bt status report" header (bt-2nepr): reconciles the footer
+	// anomaly badge (line 1) and hosts the evicted daemon chrome (Dolt mode,
+	// per-source counts, watcher/freshness, corpus scale). Rendered on both the
+	// populated and empty branches so it is truly persistent; its row count is
+	// mirrored by alertsHeaderRows() for the mouse hit-test geometry.
+	headerLines := m.alertsHeaderLines(innerWidth)
+	headerRows := len(headerLines)
+	if headerRows > 0 {
+		headerRows++ // trailing blank separator (see below)
+	}
+	for _, hl := range headerLines {
+		sb.WriteString(hl)
+		sb.WriteString("\n")
+	}
+	if len(headerLines) > 0 {
+		sb.WriteString("\n")
+	}
+
 	if len(visibleAlerts) == 0 {
 		sb.WriteString(lipgloss.NewStyle().Foreground(ColorSuccess).Render(" No active alerts"))
 		sb.WriteString("\n")
@@ -528,8 +548,13 @@ func (m Model) renderAlertsTab() string {
 			filterLabel = "filter: " + strings.Join(filterParts, " • ")
 		}
 
-		// Page-aligned visible window (cursor position determines page)
-		pageSize := m.alertsVisibleLines()
+		// Page-aligned visible window (cursor position determines page). The
+		// status header consumes headerRows from the page budget so the body
+		// still fits the fixed panel height (bt-2nepr).
+		pageSize := m.alertsVisibleLines() - headerRows
+		if pageSize < 1 {
+			pageSize = 1
+		}
 		start := (m.alertsCursor / pageSize) * pageSize
 		end := start + pageSize
 		if end > len(visibleAlerts) {
@@ -683,7 +708,7 @@ func (m Model) renderAlertsTab() string {
 
 	// Footer: centered help text (with breathing room above)
 	helpStyle := lipgloss.NewStyle().Foreground(t.Muted).Italic(true)
-	helpText := helpStyle.Render("filter: s/t/p/o (\u21e7:prev) reset: r • open: enter clear: c (\u21e7:all)")
+	helpText := helpStyle.Render("filter: s/t/p/o/a (\u21e7:prev) reset: r • open: enter clear: c (\u21e7:all)")
 	helpW := lipgloss.Width(helpText)
 	helpPad := (innerWidth - helpW) / 2
 	if helpPad < 0 {

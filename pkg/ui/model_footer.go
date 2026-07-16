@@ -170,15 +170,6 @@ const (
 	WorkerLevelCritical             // dead worker, persistent error, stale
 )
 
-// DatasetLevel indicates the severity of the dataset size warning.
-type DatasetLevel int
-
-const (
-	DatasetLevelNone DatasetLevel = iota
-	DatasetLevelWarning
-	DatasetLevelCritical
-)
-
 // FooterData contains all data needed to render the footer, decoupled from Model.
 type FooterData struct {
 	Width int
@@ -232,10 +223,6 @@ type FooterData struct {
 
 	// Self-update badge
 	UpdateTag string // "" = no update
-
-	// Dataset warning
-	DatasetWarning string
-	DatasetLevel   DatasetLevel
 
 	// Alerts
 	AlertCount    int
@@ -371,9 +358,6 @@ func (m *Model) footerData() FooterData {
 	if m.updateAvailable {
 		fd.UpdateTag = m.updateTag
 	}
-
-	// Dataset warning
-	fd.DatasetWarning, fd.DatasetLevel = m.extractDatasetWarning()
 
 	// Alerts
 	fd.AlertCount, fd.CriticalCount, fd.WarningCount = m.extractAlertCounts()
@@ -714,17 +698,6 @@ func (m *Model) extractWatcherBadge() string {
 	return label
 }
 
-func (m *Model) extractDatasetWarning() (string, DatasetLevel) {
-	if m.data.snapshot == nil || m.data.snapshot.LargeDatasetWarning == "" {
-		return "", DatasetLevelNone
-	}
-	level := DatasetLevelWarning
-	if m.data.snapshot.DatasetTier == datasetTierHuge {
-		level = DatasetLevelCritical
-	}
-	return m.data.snapshot.LargeDatasetWarning, level
-}
-
 // extractAlertCounts feeds the footer attention badge. total is every visible
 // alert (the modal's own tally); critical/warning are the ANOMALY-typed subset
 // only. Per-issue advisories (staleness, high-leverage) stay browsable in the
@@ -736,7 +709,10 @@ func (m *Model) extractDatasetWarning() (string, DatasetLevel) {
 func (m *Model) extractAlertCounts() (total, critical, warning int) {
 	for _, a := range m.visibleAlerts() {
 		total++
-		if !a.Type.IsAnomaly() {
+		// isAttentionAnomaly == anomaly-typed AND critical/warning severity —
+		// the same predicate the alerts-modal status header reconciles against
+		// (bt-2nepr), so the badge and the header's "N anomalies" always agree.
+		if !isAttentionAnomaly(a) {
 			continue
 		}
 		switch a.Severity {
@@ -1017,21 +993,6 @@ func (fd FooterData) Render() string {
 		updateSection = updateStyle.Render(fmt.Sprintf("%s %s", activeGlyphs.Star, fd.UpdateTag))
 	}
 
-	// Dataset warning
-	datasetSection := ""
-	if fd.DatasetWarning != "" {
-		bg, fg := ColorPrioHighBg, ColorWarning
-		if fd.DatasetLevel == DatasetLevelCritical {
-			bg, fg = ColorPrioCriticalBg, ColorPrioCritical
-		}
-		datasetStyle := lipgloss.NewStyle().
-			Background(bg).
-			Foreground(fg).
-			Bold(true).
-			Padding(0, 1)
-		datasetSection = datasetStyle.Render(fd.DatasetWarning)
-	}
-
 	// Alerts badge
 	alertsSection := fd.renderAlertsBadge()
 
@@ -1083,9 +1044,9 @@ func (fd FooterData) Render() string {
 
 	// Daemon chrome is the only remaining droppable badge group now that the
 	// scope / mode / label chips live in the lens (bt-2vshd). It stays tier 3 —
-	// bt's own telemetry, dropped first under width pressure — and the large-
-	// dataset notice rides with it (its relocation to the alerts header is a
-	// later-phase bead).
+	// bt's own telemetry, dropped first under width pressure. The large-dataset
+	// badge was retired outright (bt-2nepr / bt-ajbxw reframe): corpus size is a
+	// status fact in the alerts-modal status header, never a footer warning.
 	type footerBadge struct {
 		content string
 		tier    int
@@ -1097,7 +1058,6 @@ func (fd FooterData) Render() string {
 		"sessionSection":  {sessionSection, 3},
 		"updateSection":   {updateSection, 3},
 		"phase2Section":   {phase2Section, 3},
-		"datasetSection":  {datasetSection, 3},
 	}
 	optionalWidth := func() int {
 		w := 0
@@ -1237,7 +1197,6 @@ func (fd FooterData) Render() string {
 		}
 	}
 	addIf(lensSection)
-	addIf(optional["datasetSection"].content)
 	addIf(statsSection)
 	addIf(optional["phase2Section"].content)
 	addIf(optional["watcherSection"].content)
