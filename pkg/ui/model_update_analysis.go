@@ -18,7 +18,7 @@ import (
 
 // handleUpdateMsg processes a version update notification.
 //
-// In addition to flagging the footer ⭐ badge state, this routes the
+// In addition to flagging the footer star badge state, this routes the
 // "update available" signal into the notifications ring buffer so it
 // participates in the existing dismiss/scrollback affordances (bt-9u39).
 // The detail-pane "Update Available" inline block was removed in the

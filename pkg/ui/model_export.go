@@ -91,11 +91,11 @@ func (m *Model) exportToMarkdown() {
 	// Export the issues
 	err := export.SaveMarkdownToFile(m.data.issues, filename)
 	if err != nil {
-		m.setFailure(fmt.Sprintf("❌ Export failed: %v", err))
+		m.setFailure(fmt.Sprintf("%s Export failed: %v", activeGlyphs.Cross, err))
 		return
 	}
 
-	m.setStatus(fmt.Sprintf("✅ Exported %d issues to %s", len(m.data.issues), filename))
+	m.setStatus(fmt.Sprintf("%s Exported %d issues to %s", activeGlyphs.Success, len(m.data.issues), filename))
 }
 
 // generateExportFilename creates a smart filename based on project and date
@@ -122,13 +122,13 @@ func (m *Model) generateExportFilename() string {
 func (m *Model) copyIssueToClipboard() {
 	selectedItem := m.list.SelectedItem()
 	if selectedItem == nil {
-		m.setNotice("❌ No issue selected")
+		m.setNotice(activeGlyphs.Cross + " No issue selected")
 		return
 	}
 
 	issueItem, ok := selectedItem.(IssueItem)
 	if !ok {
-		m.setNotice("❌ Invalid item type")
+		m.setNotice(activeGlyphs.Cross + " Invalid item type")
 		return
 	}
 	issue := issueItem.Issue
@@ -176,11 +176,11 @@ func (m *Model) copyIssueToClipboard() {
 	// Copy to clipboard
 	err := clipboard.WriteAll(sb.String())
 	if err != nil {
-		m.setNotice(fmt.Sprintf("❌ Clipboard error: %v", err))
+		m.setNotice(fmt.Sprintf("%s Clipboard error: %v", activeGlyphs.Cross, err))
 		return
 	}
 
-	m.setStatus(fmt.Sprintf("📋 Copied %s to clipboard", issue.ID))
+	m.setStatus(fmt.Sprintf("%s Copied %s to clipboard", activeGlyphs.Clipboard, issue.ID))
 }
 
 // showCassSessionModal shows the cass session preview modal for the selected issue (bv-5bqh)
@@ -202,7 +202,7 @@ func (m *Model) showCassSessionModal() {
 		// Initialize correlator lazily
 		detector := cass.NewDetector()
 		if detector.Check() != cass.StatusHealthy {
-			m.setStatus("⚠️ cass not available (install it for session correlation)")
+			m.setStatus(activeGlyphs.Warning + " cass not available (install it for session correlation)")
 			return
 		}
 		searcher := cass.NewSearcher(detector)

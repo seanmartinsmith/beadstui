@@ -73,7 +73,7 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			if err := agents.AppendBlurbToFile(filePath); err != nil {
 				m.setFailure("Failed to update " + filepath.Base(filePath) + ": " + err.Error())
 			} else {
-				m.setStatus("✓ Added beads instructions to " + filepath.Base(filePath))
+				m.setStatus(activeGlyphs.Success + " Added beads instructions to " + filepath.Base(filePath))
 				// Record acceptance
 				_ = agents.RecordAccept(m.workDir)
 			}

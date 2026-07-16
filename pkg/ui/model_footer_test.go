@@ -16,10 +16,10 @@ import (
 
 func TestStatusSeverityGlyph(t *testing.T) {
 	cases := map[StatusSeverity]string{
-		SeveritySuccess:  "✓",
+		SeveritySuccess:  activeGlyphs.Success,
 		SeverityNotice:   "",
-		SeverityFailure:  "✗",
-		SeverityDegraded: "⚠",
+		SeverityFailure:  activeGlyphs.Cross,
+		SeverityDegraded: activeGlyphs.Warning,
 	}
 	for sev, want := range cases {
 		if got := sev.glyph(); got != want {
@@ -74,7 +74,7 @@ func TestFooterToastRightZone(t *testing.T) {
 		Hints:          []FooterHint{{Key: "⏎", Desc: "open"}, {Key: "?", Desc: "help"}},
 	}
 	out := ansiStripForTest(fd.Render())
-	if !strings.Contains(out, "✗ write failed: db locked") {
+	if !strings.Contains(out, activeGlyphs.Cross+" write failed: db locked") {
 		t.Errorf("failure toast (with ✗) should appear; got %q", out)
 	}
 	if strings.Contains(out, "open") {
@@ -86,16 +86,16 @@ func TestFooterBellBadge(t *testing.T) {
 	withN := FooterData{Width: 100, FilterText: "ALL", FilterIcon: "🌐", BellCount: 3,
 		Hints: []FooterHint{{Key: "?", Desc: "help"}}}
 	out := ansiStripForTest(withN.Render())
-	if !strings.Contains(out, "🔔3") {
+	if !strings.Contains(out, activeGlyphs.Bell+"3") {
 		t.Errorf("bell should show 🔔3; got %q", out)
 	}
 	zero := withN
 	zero.BellCount = 0
 	out0 := ansiStripForTest(zero.Render())
-	if !strings.Contains(out0, "🔔") {
+	if !strings.Contains(out0, activeGlyphs.Bell) {
 		t.Errorf("bell glyph should always render; got %q", out0)
 	}
-	if strings.Contains(out0, "🔔0") {
+	if strings.Contains(out0, activeGlyphs.Bell+"0") {
 		t.Errorf("zero count should render bare 🔔, not 🔔0; got %q", out0)
 	}
 }
@@ -1100,7 +1100,7 @@ func TestFooterNotificationsNeverWrap(t *testing.T) {
 				if got := lipgloss.Width(m.renderFooter()); got > w {
 					t.Errorf("footer width %d exceeds terminal %d", got, w)
 				}
-				if !strings.Contains(footer, "🔔") {
+				if !strings.Contains(footer, activeGlyphs.Bell) {
 					t.Errorf("bell must always render (pinned, last to drop) at width %d state %s; got %q", w, name, footer)
 				}
 			})
@@ -1140,7 +1140,7 @@ func TestFooterToastBellCenterOverrideNeverWrap(t *testing.T) {
 		if got := lipgloss.Width(out); got > w {
 			t.Fatalf("width=%d: toast+bell+center-override footer overran width %d: %q", w, got, ansi.Strip(out))
 		}
-		if !strings.Contains(ansi.Strip(out), "🔔") {
+		if !strings.Contains(ansi.Strip(out), activeGlyphs.Bell) {
 			t.Errorf("width=%d: bell must always render (pinned, last to drop) alongside the toast; got %q", w, ansi.Strip(out))
 		}
 	}

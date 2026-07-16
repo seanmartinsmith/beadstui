@@ -599,7 +599,7 @@ func TestTutorialTOCProgressCheckmarks(t *testing.T) {
 	view := m.View()
 
 	// Should contain checkmark for viewed page
-	if !strings.Contains(view, "✓") {
+	if !strings.Contains(view, activeGlyphs.Success) {
 		t.Error("TOC should show checkmark for viewed pages")
 	}
 }

@@ -213,7 +213,7 @@ func (m LabelDashboardModel) renderLabelCell(lh analysis.LabelHealth) string {
 	if lh.HealthLevel == analysis.HealthLevelCritical {
 		indicator = " !"
 	} else if lh.Blocked > 0 {
-		indicator = " ⛔"
+		indicator = " " + activeGlyphs.NoEntry
 	}
 	return lh.Label + indicator
 }

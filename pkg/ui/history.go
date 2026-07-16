@@ -1766,7 +1766,7 @@ func (h *HistoryModel) buildTimeline(hist correlation.BeadHistory) []TimelineEnt
 		entries = append(entries, TimelineEntry{
 			Timestamp: hist.Milestones.Closed.Timestamp,
 			EntryType: timelineEntryEvent,
-			Label:     "✓ Closed",
+			Label:     activeGlyphs.Success + " Closed",
 			Detail:    "",
 			EventType: "closed",
 		})
@@ -1789,7 +1789,7 @@ func (h *HistoryModel) buildTimeline(hist correlation.BeadHistory) []TimelineEnt
 			entries = append(entries, TimelineEntry{
 				Timestamp:           session.Timestamp,
 				EntryType:           timelineEntrySession,
-				Label:               fmt.Sprintf("📎 %s session", capitalizeFirst(session.Agent)),
+				Label:               fmt.Sprintf("%s %s session", activeGlyphs.Paperclip, capitalizeFirst(session.Agent)),
 				Detail:              session.Title,
 				SessionAgent:        session.Agent,
 				SessionMessageCount: 0, // Message count not available from SearchResult
@@ -2049,7 +2049,7 @@ func formatDuration(d time.Duration) string {
 }
 
 // renderCompactTimeline generates a single-line timeline visualization (bv-1x6o)
-// Example: ○──●──├──├──├──✓  5d cycle, 3 commits
+// Example: ○──●──├──├──├──v  5d cycle, 3 commits
 func (h *HistoryModel) renderCompactTimeline(hist correlation.BeadHistory, maxWidth int) string {
 	t := h.theme
 
@@ -2085,7 +2085,7 @@ func (h *HistoryModel) renderCompactTimeline(hist correlation.BeadHistory, maxWi
 
 	// Add close marker
 	if hist.Milestones.Closed != nil {
-		markers = append(markers, "✓")
+		markers = append(markers, activeGlyphs.Success)
 		endTime = hist.Milestones.Closed.Timestamp
 	}
 
@@ -2492,7 +2492,7 @@ func (h *HistoryModel) renderBeadLine(idx int, hist correlation.BeadHistory, wid
 	statusIcon := "○"
 	switch hist.Status {
 	case "closed":
-		statusIcon = "✓"
+		statusIcon = activeGlyphs.Success
 	case "in_progress":
 		statusIcon = "●"
 	}
@@ -2520,7 +2520,7 @@ func (h *HistoryModel) renderBeadLine(idx int, hist correlation.BeadHistory, wid
 	// truncated mid-ID and produced the "dotfil" stub.
 	const idDisplayWidth = 12
 	coreWidth := len(indicator) + len(statusIcon) + 1 + idDisplayWidth // +1 for space after icon
-	remaining := width - coreWidth - 1                                  // -1 for trailing space safety
+	remaining := width - coreWidth - 1                                 // -1 for trailing space safety
 
 	showCount := remaining >= len(commitCount)+eventBadgeWidth+1
 	titleBudget := 0
@@ -2725,7 +2725,7 @@ func (h *HistoryModel) renderDetailPanel(width, height int) string {
 	statusIcon := "○"
 	switch hist.Status {
 	case "closed":
-		statusIcon = "✓"
+		statusIcon = activeGlyphs.Success
 	case "in_progress":
 		statusIcon = "●"
 	}
@@ -3326,25 +3326,25 @@ func commitTypeIndicator(msg string) string {
 	if cc.IsConventional {
 		switch cc.Type {
 		case "feat":
-			return "✨" // sparkles for feature
+			return activeGlyphs.TypeFeature // feature
 		case "fix":
-			return "🐛" // bug for fix
+			return activeGlyphs.TypeBug // fix
 		case "docs":
-			return "📝" // docs
+			return activeGlyphs.Memo // docs
 		case "refactor":
-			return "♻" // refactor
+			return activeGlyphs.Refresh // refactor
 		case "perf":
-			return "⚡" // performance
+			return activeGlyphs.Bolt // performance
 		case "test":
-			return "🧪" // test
+			return activeGlyphs.TestTube // test
 		case "chore":
-			return "🔧" // chore
+			return activeGlyphs.Wrench // chore
 		case "ci":
-			return "🔄" // CI
+			return activeGlyphs.Refresh // ci
 		case "build":
-			return "📦" // build
+			return activeGlyphs.Package // build
 		case "style":
-			return "💄" // style
+			return activeGlyphs.Pencil // style
 		}
 	}
 
@@ -3422,15 +3422,15 @@ func fileActionIcon(action string) string {
 func eventTypeIcon(et correlation.EventType) string {
 	switch et {
 	case correlation.EventCreated:
-		return "🆕"
+		return activeGlyphs.New
 	case correlation.EventClaimed:
-		return "👤"
+		return activeGlyphs.User
 	case correlation.EventClosed:
-		return "✓"
+		return activeGlyphs.Success
 	case correlation.EventReopened:
 		return "↺"
 	case correlation.EventModified:
-		return "✎"
+		return activeGlyphs.Pencil
 	default:
 		return "•"
 	}
@@ -3522,7 +3522,7 @@ func (h *HistoryModel) renderEventsSection(events []correlation.BeadEvent, width
 		// Author initials
 		initials := authorInitials(event.Author)
 
-		// Build event line: "│ ✓ 2d ago JD"
+		// Build event line: "│ v 2d ago JD"
 		// Use unicode box drawing for timeline
 		connector := "│"
 		if i == 0 {
@@ -3569,7 +3569,7 @@ func renderCompactEventBadge(eventCount int, t Theme) string {
 	badgeStyle := lipgloss.NewStyle().
 		Foreground(t.Secondary)
 
-	return badgeStyle.Render(fmt.Sprintf("⚡%d", eventCount))
+	return badgeStyle.Render(fmt.Sprintf("%s%d", activeGlyphs.Bolt, eventCount))
 }
 
 // Git Mode rendering functions (bv-tl3n)
@@ -3691,7 +3691,7 @@ func (h *HistoryModel) renderGitDetailPanel(width, height int) string {
 				title = hist.Title
 				switch hist.Status {
 				case "closed":
-					statusIcon = "✓"
+					statusIcon = activeGlyphs.Success
 				case "in_progress":
 					statusIcon = "●"
 				}
@@ -3926,7 +3926,7 @@ func (h *HistoryModel) renderGitBeadListPanel(width, height int) string {
 				title = hist.Title
 				switch hist.Status {
 				case "closed":
-					statusIcon = "✓"
+					statusIcon = activeGlyphs.Success
 				case "in_progress":
 					statusIcon = "●"
 				}

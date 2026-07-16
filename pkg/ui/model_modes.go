@@ -299,7 +299,7 @@ func (m *Model) enterMemoriesView() tea.Cmd {
 func (m *Model) enterTimeTravelMode(revision string) {
 	cwd, err := os.Getwd()
 	if err != nil {
-		m.setFailure("❌ Time-travel failed: cannot get working directory")
+		m.setFailure(activeGlyphs.Cross + " Time-travel failed: cannot get working directory")
 		return
 	}
 
@@ -307,21 +307,21 @@ func (m *Model) enterTimeTravelMode(revision string) {
 
 	// Check if we're in a git repo first
 	if _, err := gitLoader.ResolveRevision("HEAD"); err != nil {
-		m.setFailure("❌ Time-travel requires a git repository")
+		m.setFailure(activeGlyphs.Cross + " Time-travel requires a git repository")
 		return
 	}
 
 	// Check if beads files exist at the revision
 	hasBeads, err := gitLoader.HasBeadsAtRevision(revision)
 	if err != nil || !hasBeads {
-		m.setFailure(fmt.Sprintf("❌ No beads history at %s (try fewer commits back)", revision))
+		m.setFailure(fmt.Sprintf("%s No beads history at %s (try fewer commits back)", activeGlyphs.Cross, revision))
 		return
 	}
 
 	// Load historical issues
 	historicalIssues, err := gitLoader.LoadAt(revision)
 	if err != nil {
-		m.setFailure(fmt.Sprintf("❌ Time-travel failed: %v", err))
+		m.setFailure(fmt.Sprintf("%s Time-travel failed: %v", activeGlyphs.Cross, err))
 		return
 	}
 
@@ -351,8 +351,8 @@ func (m *Model) enterTimeTravelMode(revision string) {
 	m.timeTravelSince = revision
 
 	// Success feedback
-	m.setStatus(fmt.Sprintf("⏱️ Time-travel: comparing with %s (+%d ✅%d ~%d)",
-		revision, diff.Summary.IssuesAdded, diff.Summary.IssuesClosed, diff.Summary.IssuesModified))
+	m.setStatus(fmt.Sprintf("%s Time-travel: comparing with %s (+%d %s%d ~%d)",
+		activeGlyphs.Clock, revision, diff.Summary.IssuesAdded, activeGlyphs.Success, diff.Summary.IssuesClosed, diff.Summary.IssuesModified))
 
 	// Rebuild list items with diff info
 	m.rebuildListWithDiffInfo()
@@ -368,7 +368,7 @@ func (m *Model) exitTimeTravelMode() {
 	m.modifiedIssueIDs = nil
 
 	// Feedback
-	m.setStatus("⏱️ Time-travel mode disabled")
+	m.setStatus(activeGlyphs.Clock + " Time-travel mode disabled")
 
 	// Rebuild list without diff info
 	m.rebuildListWithDiffInfo()

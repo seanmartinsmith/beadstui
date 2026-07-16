@@ -21,9 +21,9 @@ const (
 func (s DiffStatus) Badge() string {
 	switch s {
 	case DiffStatusNew:
-		return "🆕"
+		return activeGlyphs.New
 	case DiffStatusClosed:
-		return "✅"
+		return activeGlyphs.Success
 	case DiffStatusModified:
 		return "~"
 	default:
@@ -66,7 +66,7 @@ func (i IssueItem) Title() string {
 }
 
 func (i IssueItem) Description() string {
-	return fmt.Sprintf("%s %s • %s", i.Issue.ID, i.Issue.Status, i.Issue.Assignee)
+	return fmt.Sprintf("%s %s %s %s", i.Issue.ID, i.Issue.Status, activeGlyphs.Bullet, i.Issue.Assignee)
 }
 
 func (i IssueItem) FilterValue() string {

@@ -147,28 +147,29 @@ func naturalIDKey(id string) string {
 	return sb.String()
 }
 
-// statusGlyph returns a Unicode geometric shape representing the issue
-// status — used in the detail-pane Epic Progress list. Shapes (not emojis)
-// keep the btop/lazygit aesthetic: visual distinction without color
-// dependency, and they survive glamour's markdown rendering as plain text.
+// statusGlyph returns a chrome mark representing the issue status — used in the
+// detail-pane Epic Progress list. Routed through the glyph table (bt-5f3bo):
+// shapes/nerdfont marks (not emojis) keep the btop/lazygit aesthetic, visual
+// distinction without color dependency, and survive glamour's markdown
+// rendering as plain text.
 func statusGlyph(s model.Status) string {
 	switch s {
 	case model.StatusClosed, model.StatusTombstone:
-		return "✓"
+		return activeGlyphs.StClosed
 	case model.StatusInProgress:
-		return "◐"
+		return activeGlyphs.StInProgress
 	case model.StatusBlocked:
-		return "⊘"
+		return activeGlyphs.StBlocked
 	case model.StatusDeferred:
-		return "❄"
+		return activeGlyphs.StDeferred
 	case model.StatusPinned:
-		return "◆"
+		return activeGlyphs.StPinned
 	case model.StatusReview:
-		return "◇"
+		return activeGlyphs.StReview
 	case model.StatusHooked:
-		return "◈"
+		return activeGlyphs.StHooked
 	default: // open
-		return "○"
+		return activeGlyphs.StOpen
 	}
 }
 
@@ -361,7 +362,7 @@ func padRight(s string, width int) string {
 
 // truncate truncates string s to maxRunes
 func truncate(s string, maxRunes int) string {
-	return truncateRunesHelper(s, maxRunes, "…")
+	return truncateRunesHelper(s, maxRunes, activeGlyphs.Ellipsis)
 }
 
 // DependencyNode represents a visual node in the dependency tree
@@ -566,51 +567,52 @@ func statusTreeStyle(status string) lipgloss.Style {
 func getDepTypeIcon(depType string) string {
 	switch depType {
 	case "root":
-		return "📍"
+		return activeGlyphs.DepRoot
 	case "blocks":
-		return "⛔"
+		return activeGlyphs.DepBlocks
 	case "related":
-		return "🔗"
+		return activeGlyphs.DepRelated
 	case "parent-child", "child":
-		return "📦"
+		return activeGlyphs.DepChild
 	case "discovered-from":
-		return "🔍"
+		return activeGlyphs.DepDiscovered
 	default:
-		return "•"
+		return activeGlyphs.Bullet
 	}
 }
 
-// GetStatusIcon returns a colored icon for a status
+// GetStatusIcon returns a status mark (colored by the caller's row style where
+// present; the marks are shape-distinct so they read without color too).
 func GetStatusIcon(s string) string {
 	switch s {
 	case "open":
-		return "🟢"
+		return activeGlyphs.StOpen
 	case "in_progress":
-		return "🔵"
+		return activeGlyphs.StInProgress
 	case "blocked":
-		return "🔴"
+		return activeGlyphs.StBlocked
 	case "closed":
-		return "⚫"
+		return activeGlyphs.StClosed
 	case "deferred":
-		return "❄"
+		return activeGlyphs.StDeferred
 	default:
-		return "⚪"
+		return activeGlyphs.StUnknown
 	}
 }
 
-// GetPriorityIcon returns the emoji for a priority level
+// GetPriorityIcon returns the glyph-table mark for a priority level.
 func GetPriorityIcon(priority int) string {
 	switch priority {
 	case 0:
-		return "🔥" // Critical
+		return activeGlyphs.PrCritical
 	case 1:
-		return "⚡" // High
+		return activeGlyphs.PrHigh
 	case 2:
-		return "🔹" // Medium
+		return activeGlyphs.PrMedium
 	case 3:
-		return "☕" // Low
+		return activeGlyphs.PrLow
 	case 4:
-		return "💤" // Backlog
+		return activeGlyphs.PrBacklog
 	default:
 		return "  "
 	}
@@ -646,7 +648,7 @@ func GetAgeColor(t time.Time) color.Color {
 	}
 }
 
-// FormatAgeBadge returns a compact age string with timer emoji (e.g., "3d ⏱")
+// FormatAgeBadge returns a compact age string (e.g., "3d")
 func FormatAgeBadge(t time.Time) string {
 	if t.IsZero() {
 		return ""

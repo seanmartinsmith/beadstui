@@ -45,6 +45,14 @@ Most have a CLI flag that takes precedence (`--format`, `--shape`, `--compact`, 
 | `TOON_KEY_FOLDING` | (encoder default) | string | TOON key folding mode passthrough. | `cmd/bt/robot_output.go` |
 | `TOON_INDENT` | (encoder default) | int (`0`-`16`) | TOON indentation level. Clamped to `[0, 16]`. | `cmd/bt/robot_output.go` |
 
+## Appearance
+
+The TUI draws all chrome glyphs (status/scope/filter marks, type/priority icons, footer signals, separators, tree/braille connectors) from a single glyph table with two tiers. There is no font auto-detection (no terminal API reports installed fonts), so the tier is chosen explicitly, resolved once at startup. Unknown/empty values fall back to `nerdfont`.
+
+| Variable | Default | Type | Purpose | Read at |
+|---|---|---|---|---|
+| `BT_GLYPHS` | `nerdfont` | string (`nerdfont`/`ascii`) | Glyph tier for TUI chrome. `nerdfont` (default) uses Nerd Font PUA icons plus non-emoji unicode marks (circle status dots, braille progress cells, middle-dot separators, return arrow) — all single-width. `ascii` uses pure ASCII for every chrome glyph (`o`/`*`/`!`/`x` status marks, `.` separators, `...` truncation, etc.); set it when your terminal font has no Nerd Font glyphs and you see boxes/tofu. There is no emoji tier — emoji render double-width and break the footer/list layout math. | `pkg/ui/glyphs.go` (`resolveGlyphs`) |
+
 ## Test / safety
 
 Browser opening is gated by either flag — both treat any non-empty value as "on".

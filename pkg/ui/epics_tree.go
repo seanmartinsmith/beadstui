@@ -57,15 +57,15 @@ const (
 
 // epicTreeRow is one rendered line in the flattened, expansion-aware list.
 type epicTreeRow struct {
-	kind     epicTreeRowKind
-	depth    int          // indent level: project=0, epic=1, child=2, ...
-	project  string       // lane key (ID prefix); set on every row
-	issue    *model.Issue // nil for rowProjectHeader
-	counts    epicCounts  // rollup: header (lane) or epic (own children)
-	lastKid   []bool      // per-level "is last child" flags -> connector glyphs
-	expanded  bool        // header/epic: is it expanded?
-	hasKids   bool        // epic/header: does it have something to expand?
-	laneEpics int         // rowProjectHeader: count of root epics in the lane
+	kind      epicTreeRowKind
+	depth     int          // indent level: project=0, epic=1, child=2, ...
+	project   string       // lane key (ID prefix); set on every row
+	issue     *model.Issue // nil for rowProjectHeader
+	counts    epicCounts   // rollup: header (lane) or epic (own children)
+	lastKid   []bool       // per-level "is last child" flags -> connector glyphs
+	expanded  bool         // header/epic: is it expanded?
+	hasKids   bool         // epic/header: does it have something to expand?
+	laneEpics int          // rowProjectHeader: count of root epics in the lane
 }
 
 // epicLane is a project swimlane: its root epics plus a rollup of their counts.
@@ -698,7 +698,7 @@ func (e *EpicsTreeModel) renderEpicRow(r epicTreeRow, selected bool) string {
 	}
 	risk := ""
 	if r.counts.AtRisk > 0 {
-		risk = fmt.Sprintf(" ⚠%d", r.counts.AtRisk)
+		risk = fmt.Sprintf(" %s%d", activeGlyphs.Warning, r.counts.AtRisk)
 	}
 
 	// Pad the ID into a fixed-width column so the bars align vertically.

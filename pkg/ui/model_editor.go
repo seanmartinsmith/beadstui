@@ -312,11 +312,11 @@ func (m *Model) openInEditor() {
 		}
 	}
 	if beadsFile == "" {
-		m.setFailure("❌ No .beads directory or beads.jsonl found")
+		m.setFailure(activeGlyphs.Cross + " No .beads directory or beads.jsonl found")
 		return
 	}
 	if _, err := os.Stat(beadsFile); os.IsNotExist(err) {
-		m.setFailure(fmt.Sprintf("❌ Beads file not found: %s", beadsFile))
+		m.setFailure(fmt.Sprintf("%s Beads file not found: %s", activeGlyphs.Cross, beadsFile))
 		return
 	}
 
@@ -331,20 +331,20 @@ func (m *Model) openInEditor() {
 	if editor != "" {
 		editorArgs, err := parseCommandLine(editor)
 		if err != nil {
-			m.setFailure(fmt.Sprintf("❌ Invalid $EDITOR/$VISUAL: %v", err))
+			m.setFailure(fmt.Sprintf("%s Invalid $EDITOR/$VISUAL: %v", activeGlyphs.Cross, err))
 			return
 		}
 
 		editorBase, kind := classifyEditorCommand(editorArgs)
 		switch kind {
 		case editorCommandTerminal:
-			m.setFailure(fmt.Sprintf("⚠️ %s is a terminal editor - set $EDITOR to a GUI editor or quit first", editorBase))
+			m.setFailure(fmt.Sprintf("%s %s is a terminal editor - set $EDITOR to a GUI editor or quit first", activeGlyphs.Warning, editorBase))
 			return
 		case editorCommandForbidden:
-			m.setFailure(fmt.Sprintf("❌ Refusing to run %s as editor (shell/interpreter). Set $EDITOR to a GUI editor", editorBase))
+			m.setFailure(fmt.Sprintf("%s Refusing to run %s as editor (shell/interpreter). Set $EDITOR to a GUI editor", activeGlyphs.Cross, editorBase))
 			return
 		case editorCommandEmpty:
-			m.setFailure("❌ Invalid $EDITOR/$VISUAL: empty command")
+			m.setFailure(activeGlyphs.Cross + " Invalid $EDITOR/$VISUAL: empty command")
 			return
 		default:
 			requestedEditorKind = allowlistedGUIEditorKindForBase(editorBase)
@@ -374,20 +374,20 @@ func (m *Model) openInEditor() {
 	}
 
 	if requestedEditorKind == allowlistedGUIEditorUnknown {
-		m.setFailure("❌ No GUI editor found. Set $EDITOR to a GUI editor")
+		m.setFailure(activeGlyphs.Cross + " No GUI editor found. Set $EDITOR to a GUI editor")
 		return
 	}
 
 	actualKind, err := startAllowlistedGUIEditor(requestedEditorKind, beadsFile)
 	if err != nil {
-		m.setFailure(fmt.Sprintf("❌ Failed to open editor: %v", err))
+		m.setFailure(fmt.Sprintf("%s Failed to open editor: %v", activeGlyphs.Cross, err))
 		return
 	}
 	requestedEditorKind = actualKind
 
 	if ignoredEditorBase != "" {
-		m.setStatus(fmt.Sprintf("📝 Opened in %s (ignored $EDITOR=%s)", allowlistedGUIEditorDisplayName(requestedEditorKind), ignoredEditorBase))
+		m.setStatus(fmt.Sprintf("%s Opened in %s (ignored $EDITOR=%s)", activeGlyphs.Memo, allowlistedGUIEditorDisplayName(requestedEditorKind), ignoredEditorBase))
 	} else {
-		m.setStatus(fmt.Sprintf("📝 Opened in %s", allowlistedGUIEditorDisplayName(requestedEditorKind)))
+		m.setStatus(fmt.Sprintf("%s Opened in %s", activeGlyphs.Memo, allowlistedGUIEditorDisplayName(requestedEditorKind)))
 	}
 }

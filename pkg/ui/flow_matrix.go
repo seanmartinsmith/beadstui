@@ -574,7 +574,7 @@ func (m FlowMatrixModel) renderDetailPanel(width int) string {
 		bottleneckStyle := lipgloss.NewStyle().
 			Foreground(m.theme.Blocked).
 			Bold(true)
-		b.WriteString(bottleneckStyle.Render("  ⚠ BOTTLENECK"))
+		b.WriteString(bottleneckStyle.Render("  " + activeGlyphs.Warning + " BOTTLENECK"))
 		b.WriteString("\n")
 	}
 	b.WriteString("\n")

@@ -299,17 +299,17 @@ func RenderGateBadge(awaitType string) string {
 
 	switch {
 	case awaitType == "human":
-		fg, bg, label = ColorGateHuman, ColorGateHumanBg, "👤"
+		fg, bg, label = ColorGateHuman, ColorGateHumanBg, activeGlyphs.GateHuman
 	case awaitType == "timer":
-		fg, bg, label = ColorGateTimer, ColorGateTimerBg, "⏱"
+		fg, bg, label = ColorGateTimer, ColorGateTimerBg, activeGlyphs.Clock
 	case awaitType == "gh:run" || awaitType == "ci":
-		fg, bg, label = ColorGateCI, ColorGateCIBg, "⚙"
+		fg, bg, label = ColorGateCI, ColorGateCIBg, activeGlyphs.GateCI
 	case awaitType == "gh:pr" || awaitType == "pr":
-		fg, bg, label = ColorGateCI, ColorGateCIBg, "⬡"
+		fg, bg, label = ColorGateCI, ColorGateCIBg, activeGlyphs.GatePR
 	case awaitType == "bead":
-		fg, bg, label = ColorGateOther, ColorGateOtherBg, "⛓"
+		fg, bg, label = ColorGateOther, ColorGateOtherBg, activeGlyphs.GateBead
 	default:
-		fg, bg, label = ColorGateOther, ColorGateOtherBg, "⏸"
+		fg, bg, label = ColorGateOther, ColorGateOtherBg, activeGlyphs.GatePause
 	}
 
 	return lipgloss.NewStyle().
@@ -328,7 +328,7 @@ func RenderHumanAdvisoryBadge() string {
 		Background(ColorHumanAdvisoryBg).
 		Bold(true).
 		Padding(0, 0).
-		Render("👤")
+		Render(activeGlyphs.GateHuman)
 }
 
 // RenderStateDimensionBadge returns a styled badge for a state dimension:value label.
@@ -361,7 +361,7 @@ func RenderOverdueBadge() string {
 		Background(ColorOverdueBg).
 		Bold(true).
 		Padding(0, 0).
-		Render("⏰DUE")
+		Render(activeGlyphs.Overdue + "DUE")
 }
 
 // RenderStaleBadge returns a muted badge for stale issues.
@@ -369,7 +369,7 @@ func RenderStaleBadge() string {
 	return lipgloss.NewStyle().
 		Foreground(ColorStale).
 		Padding(0, 0).
-		Render("💤")
+		Render(activeGlyphs.Stale)
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

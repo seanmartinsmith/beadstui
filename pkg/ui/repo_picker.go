@@ -553,7 +553,7 @@ func (m *RepoPickerModel) View() string {
 
 			indicator := uncheckStyle.Render("• ")
 			if isSelected {
-				indicator = checkStyle.Render("✓ ")
+				indicator = checkStyle.Render(activeGlyphs.Success + " ")
 			}
 
 			// DisplayRepoName aliases beads_global to "atlas" for display

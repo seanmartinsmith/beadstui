@@ -239,7 +239,7 @@ func TestEpicsTree_RenderEmpty(t *testing.T) {
 func TestEpicsTree_RenderAtRisk(t *testing.T) {
 	m := epicsTestModel(epicsFixture())
 	// ep1.b is in_progress and 5 days stale -> ep1 row carries an at-risk marker.
-	if !containsStr(m.epicsViewText, "⚠") {
+	if !containsStr(m.epicsViewText, activeGlyphs.Warning) {
 		t.Error("overview should show an at-risk marker for the stale child")
 	}
 }

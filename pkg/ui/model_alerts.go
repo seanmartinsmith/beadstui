@@ -786,7 +786,7 @@ func formatNotificationRow(e events.Event, width int) string {
 	// effectively gated by visibleNotifications.
 	prefix := ""
 	if e.Dismissed {
-		prefix = "✕ "
+		prefix = activeGlyphs.Cross + " "
 	}
 	title := strings.ReplaceAll(e.Title, "\n", " ")
 	// System events (bt-9u39) carry no BeadID — render as "15:04 system • Title"

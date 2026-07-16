@@ -72,10 +72,10 @@ const (
 	focusHistory
 	focusAttention
 	focusLabelPicker
-	focusEpics       // Epics overview view (bt-ryi5z)
-	focusAgentPrompt // AGENTS.md integration prompt (bv-i8dk)
-	focusFlowMatrix  // Cross-label flow matrix view
-	focusTutorial    // Interactive tutorial (bv-8y31)
+	focusEpics        // Epics overview view (bt-ryi5z)
+	focusAgentPrompt  // AGENTS.md integration prompt (bv-i8dk)
+	focusFlowMatrix   // Cross-label flow matrix view
+	focusTutorial     // Interactive tutorial (bv-8y31)
 	focusCassModal    // Cass session preview modal (bv-5bqh)
 	focusUpdateModal  // Self-update modal (bv-182)
 	focusBQLQuery     // BQL composable search modal
@@ -311,7 +311,7 @@ type statusTickMsg struct{}
 // workerPollTickMsg drives a small background-mode status refresh (spinner + freshness) (bv-9nfy).
 type workerPollTickMsg struct{}
 
-var workerSpinnerFrames = []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+var workerSpinnerFrames = activeGlyphs.Spinner
 
 const (
 	freshnessErrorRetries = 3
@@ -780,7 +780,7 @@ type Model struct {
 	focusBeforeSearch        focus // Stores focus before / entered search from a non-list pane (bt-cd3x)
 	filterEntryCursor        int   // Cursor index captured just before filter-begin runs (bt-qka1)
 	isSplitView              bool
-	splitPaneRatio           float64        // Ratio of list pane width (0.2-0.8), default 0.4
+	splitPaneRatio           float64 // Ratio of list pane width (0.2-0.8), default 0.4
 	showDetails              bool
 	fullscreen               fullscreenPane // bt-530vn: on-demand per-pane fullscreen (2/3 keys), any width
 	helpScroll               int            // Scroll offset for help overlay
@@ -880,7 +880,7 @@ type Model struct {
 	events *events.RingBuffer
 
 	// alertsSeenAt is the session high-water-mark for the footer bell. Events
-	// newer than this and not dismissed count toward 🔔N; opening the
+	// newer than this and not dismissed count toward the bell badge; opening the
 	// notifications view advances it to now, clearing the badge (bt-a3zi3.1).
 	alertsSeenAt time.Time
 
@@ -1579,8 +1579,8 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		labelPicker:         labelPicker,
 		labelDrilldownCache: make(map[string][]model.Issue),
 		timeTravelInput:     ti,
-		statusMsg:      initialStatus,
-		statusSeverity: initialStatusSeverity,
+		statusMsg:           initialStatus,
+		statusSeverity:      initialStatusSeverity,
 		historyLoading:      len(issues) > 0, // Will be loaded in Init()
 		memories:            NewMemoriesModel(theme),
 		// Alerts panel (bv-168)

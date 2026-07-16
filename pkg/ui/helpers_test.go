@@ -256,13 +256,13 @@ func TestGetStatusIcon(t *testing.T) {
 		status   string
 		expected string
 	}{
-		{"open", "🟢"},
-		{"in_progress", "🔵"},
-		{"blocked", "🔴"},
-		{"closed", "⚫"},
-		{"deferred", "❄"},
-		{"unknown", "⚪"},
-		{"", "⚪"},
+		{"open", ui.Glyphs().StOpen},
+		{"in_progress", ui.Glyphs().StInProgress},
+		{"blocked", ui.Glyphs().StBlocked},
+		{"closed", ui.Glyphs().StClosed},
+		{"deferred", ui.Glyphs().StDeferred},
+		{"unknown", ui.Glyphs().StUnknown},
+		{"", ui.Glyphs().StUnknown},
 	}
 
 	for _, tt := range tests {
@@ -310,8 +310,8 @@ func TestRenderDependencyTreeStatusStyling(t *testing.T) {
 	}
 
 	// Should contain deferred icon
-	if !strings.Contains(rendered, "❄") {
-		t.Error("Expected deferred snowflake icon '❄' in rendered tree")
+	if !strings.Contains(rendered, ui.Glyphs().StDeferred) {
+		t.Error("Expected deferred status icon in rendered tree")
 	}
 
 	// Should contain ANSI escape codes (lipgloss styling is active).
