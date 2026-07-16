@@ -6,7 +6,25 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
-## 2026-07-15 — Cross-project read layer: Memories master/detail TUI view (bt-2ea7t.4)
+## 2026-07-16 — Footer arc completed live + memories dogfood wave + footer lens design
+
+**Interactive dogfood/design session (pc:bt:2c14befc). Shipped the last two layers of the footer fix arc (content re-tiering, then alert classification) with the maintainer relaunching bt between each to verify live; triaged the first memories-view dogfood into a bead wave; walked through and approved the footer lens redesign that supersedes the 6-21 visual direction.**
+
+### Ships
+
+- **feat(tui): footer re-tiering (bt-ujwiq, PR #30)** — tier map inverted per decision bt-9gjt0: daemon chrome (instance/worker/watcher/phase2/update/session) drops first, scope chips protected, selection override drops dead-last; alerts badge dark-cockpit gated (renders only when critical+warning > 0). 3 new tests + `footer_retier_*` harness scenarios at 60/80/100.
+- **fix(infra): footer alert badge counts anomalies only (bt-jhzat, PR #31)** — live dogfood showed the re-tiered badge still camping at `1414 (!)` in --global: per-issue advisories (stale, high_leverage) were classified as warnings at fleet scale. Added `AlertType.IsAnomaly()/IsAdvisory()` whitelist in pkg/drift (fails safe: unknown types default advisory); `extractAlertCounts()` skips advisories for the badge; modal/robot output unchanged. Badge went 1414 -> 4 (the four genuinely abandoned in-progress claims).
+- **docs(design): footer lens redesign** — `docs/design/2026-07-16-footer-lens-redesign.md`, approved section-by-section in-session: lens grammar (scope leftmost `ALL(19)`, filter bucket vs order bucket, space-holding defaults), actionable triad center (`ready . in-flight . blocked . total`), ASCII-default/nerdfont-opt-in glyph system with emoji deleted, no background fills, alerts-modal status header ("bt status report", badge reconciliation line, consequences-not-thresholds principle for scale warnings), toast-layer migration, boot-chrome silence. Supersedes the 6-21 doc's vocabulary; keeps its engine.
+
+### Bead bookkeeping
+
+- Closed: **bt-ujwiq** (re-tiering, PR #30), **bt-jhzat** (alert classification, PR #31), **bt-r2jaz** (dedicated memories view — delivered by bt-2ea7t.4, remaining polish rehomed).
+- Filed (memories dogfood): **bt-2ea7t.6** (unlabeled top group), **.7** (slow aggregation, perf investigate), **.8** (group expand/collapse), **.9** (default scope = launching project, deps .5), **.10** (sources-unavailable over-report + route to alerts), **.11** (detail-pane reader formatting); **bt-e4ee2** (Claude per-project memories as a source), **bt-ugvab** (memory content conventions, collaborative).
+- Filed (footer arc): **bt-jhzat** (then closed same session), **bt-z10nc** (per-project advisory threshold calibration follow-up).
+
+### Notes
+
+- Strategy: ultracode recon sweep located the command-center product-turn brainstorm (`~/.files/atlas/brainstorms/2026-07-13-command-center-tui-brainstorm.md`) — standalone clean-room TUI decided 7-13 for licensing reasons; bt investment policy narrows to daily-usability + shared-foundation + design-lab work. Implementation of the lens redesign is deliberately deferred to fresh sessions (this session's context ran heavy).
 
 **Fourth and last-planned child of the bt-2ea7t epic; implements bt-wxrr5. The user-facing proof surface: a dedicated read-only master/detail view over `bd remember` memories, riding directly on .1-.3's `AggregateMemories`/`SelectAdapter`/`DetectPath` seam. Built the live discovery orchestrator (`LoadMemoriesCmd`) that seam was missing — cwd project mandatory, `~/.bt/projects.json` registry + shared-Dolt-server enumeration best-effort/non-fatal — and wired the new `ViewMemories`/`focusMemories` view through every existing multi-touch integration point (keys, focus cascades, async loading, help/footer fallback).**
 

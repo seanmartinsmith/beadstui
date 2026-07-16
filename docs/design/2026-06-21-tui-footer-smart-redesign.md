@@ -1,7 +1,9 @@
 # Smart Footer Redesign
 
 **Date**: 2026-06-21
-**Status**: Design approved (visual direction); spec under review
+**Status**: Superseded in part (2026-07-16) — zone architecture and degradation engine
+survive; visual vocabulary, mockups, and left-zone contents are replaced by
+[2026-07-16-footer-lens-redesign.md](2026-07-16-footer-lens-redesign.md)
 **Beads**: supersedes stale `bt-ugbp.1-.6`; subsumes `bt-d5wr` / `bt-d5wr.1` (footer visual + IA),
 generalizes `bt-gcuv` (scoped numbers), consumes `bt-ift6` per-view `key.Map`s.
 
