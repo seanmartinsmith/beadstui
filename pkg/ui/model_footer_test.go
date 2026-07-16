@@ -103,43 +103,40 @@ func TestFooterBellBadge(t *testing.T) {
 func TestFooterData_NormalFooter(t *testing.T) {
 	fd := FooterData{
 		Width:        120,
-		FilterText:   "OPEN",
-		FilterIcon:   "📂",
-		HintText:     "l:labels",
+		ScopeLabel:   "bt",
+		StatusFilter: "open",
 		CountOpen:    10,
 		CountReady:   5,
 		CountBlocked: 2,
 		CountClosed:  3,
 		TotalItems:   20,
-		Hints:        []FooterHint{{Key: "⏎", Desc: "details"}, {Key: "?", Desc: "help"}},
 	}
 	out := fd.Render()
-	if !strings.Contains(out, "OPEN") {
-		t.Errorf("filter badge text should appear")
+	// The lens carries scope + status now (bt-2vshd): "bt" scope, "open" status.
+	if !strings.Contains(out, "bt") {
+		t.Errorf("lens scope should appear")
+	}
+	if !strings.Contains(out, "open") {
+		t.Errorf("lens status chip should appear")
 	}
 	if !strings.Contains(out, "20 issues") {
 		t.Errorf("issue count should appear")
 	}
 }
 
-func TestFooterData_WorkspaceBadges(t *testing.T) {
+func TestFooterData_WorkspaceScope(t *testing.T) {
+	// In workspace mode the active repo subset IS the lens scope, folding the
+	// old separate workspace-summary + repo-filter badges into one chip (bt-2vshd).
 	fd := FooterData{
-		Width:            120,
-		FilterText:       "ALL",
-		FilterIcon:       "📋",
-		HintText:         "l:labels",
-		WorkspaceMode:    true,
-		WorkspaceSummary: "3 repos",
-		RepoFilterLabel:  "bt, beads",
-		TotalItems:       100,
-		Hints:            []FooterHint{{Key: "?", Desc: "help"}},
+		Width:             120,
+		ScopeLabel:        "bt, beads",
+		ScopeCrossProject: true,
+		StatusFilter:      "all",
+		TotalItems:        100,
 	}
 	out := fd.Render()
-	if !strings.Contains(out, "3 repos") {
-		t.Errorf("workspace summary should appear")
-	}
 	if !strings.Contains(out, "bt, beads") {
-		t.Errorf("repo filter label should appear")
+		t.Errorf("active repo subset should appear as the lens scope")
 	}
 }
 
@@ -365,9 +362,13 @@ func TestWorkerPollTick_DormantAndRearm(t *testing.T) {
 
 func TestFooterData_AlertsBadge(t *testing.T) {
 	fd := FooterData{AlertCount: 3, CriticalCount: 1, WarningCount: 2}
-	out := fd.renderAlertsBadge()
-	if !strings.Contains(out, "3 (!)") {
-		t.Errorf("alert count and indicator should appear: %s", out)
+	out := ansi.Strip(fd.renderAlertsBadge())
+	// bt-2vshd sigil form: "<glyph>N", no "(!)" suffix, no background.
+	if !strings.Contains(out, "3") {
+		t.Errorf("attention count should appear: %s", out)
+	}
+	if strings.Contains(out, "(!)") {
+		t.Errorf("the (!) suffix should be gone: %s", out)
 	}
 }
 
@@ -393,7 +394,7 @@ func TestFooterAlertsBadge_DarkCockpit(t *testing.T) {
 	// not the camping total (51).
 	mixed := FooterData{AlertCount: 51, CriticalCount: 1, WarningCount: 2}
 	out := ansi.Strip(mixed.renderAlertsBadge())
-	if !strings.Contains(out, "3 (!)") {
+	if !strings.Contains(out, "3") {
 		t.Errorf("mixed alerts should surface the attention-worthy count (3); got %q", out)
 	}
 	if strings.Contains(out, "51") {
@@ -445,7 +446,7 @@ func TestExtractAlertCounts_AdvisoriesExcludedFromBadge(t *testing.T) {
 		t.Fatalf("one cycle among 1000 advisories must yield critical=1 warning=0; got critical=%d warning=%d", critical, warning)
 	}
 	out := ansi.Strip((FooterData{AlertCount: total, CriticalCount: critical, WarningCount: warning}).renderAlertsBadge())
-	if !strings.Contains(out, "1 (!)") {
+	if !strings.Contains(out, "1") {
 		t.Fatalf("a genuine anomaly must light the badge with an honest count of 1; got %q", out)
 	}
 
@@ -555,35 +556,33 @@ func TestFooterData_TimeTravelOverridesStats(t *testing.T) {
 	}
 }
 
-func TestFooterData_SearchBadge(t *testing.T) {
+func TestFooterData_SearchQuery(t *testing.T) {
 	fd := FooterData{
-		Width:      120,
-		FilterText: "ALL",
-		FilterIcon: "📋",
-		HintText:   "l:labels",
-		SearchMode: "semantic",
-		TotalItems: 30,
-		Hints:      []FooterHint{{Key: "?", Desc: "help"}},
+		Width:        120,
+		ScopeLabel:   "bt",
+		StatusFilter: "all",
+		SearchQuery:  "semantic",
+		TotalItems:   30,
 	}
 	out := fd.Render()
+	// The lens "/" slot carries the active query (bt-2vshd).
 	if !strings.Contains(out, "semantic") {
-		t.Errorf("search mode should appear in output")
+		t.Errorf("search query should appear in the lens output")
 	}
 }
 
-func TestFooterData_SortBadge(t *testing.T) {
+func TestFooterData_OrderChip(t *testing.T) {
 	fd := FooterData{
-		Width:      120,
-		FilterText: "ALL",
-		FilterIcon: "📋",
-		HintText:   "l:labels",
-		SortLabel:  "priority",
-		TotalItems: 30,
-		Hints:      []FooterHint{{Key: "?", Desc: "help"}},
+		Width:        120,
+		ScopeLabel:   "bt",
+		StatusFilter: "all",
+		OrderLabel:   "priority",
+		TotalItems:   30,
 	}
 	out := fd.Render()
+	// The lens "by:" order chip carries the sort mode (bt-2vshd).
 	if !strings.Contains(out, "priority") {
-		t.Errorf("sort label should appear in output")
+		t.Errorf("order chip should appear in the lens output")
 	}
 }
 
