@@ -363,6 +363,16 @@ func (m Model) View() tea.View {
 	// view. This is the never-wrap width guarantee the comment above names.
 	body = lipgloss.NewStyle().Height(bodyRows).MaxHeight(bodyRows).MaxWidth(m.width).Render(body)
 
+	// Floating notification bubble (bt-kuvzj): yazi-style overlay anchored to
+	// the bottom-right of the body region, positioned independently of the
+	// footer so it never competes with footer content for width — replaces
+	// the statusline-embedded toast (see toast_bubble.go, panel.go's
+	// OverlayBottomRight). Composited after the body's row/width clamp so its
+	// dimensions match exactly what OverlayBottomRight expects.
+	if bubble := m.renderToastBubble(m.width); bubble != "" {
+		body = OverlayBottomRight(body, bubble, m.width, bodyRows, toastBubbleMarginRight, toastBubbleMarginBottom)
+	}
+
 	// Ensure the final output fits exactly in the terminal height
 	// This prevents the header from being pushed off the top
 	finalStyle := lipgloss.NewStyle().

@@ -62,7 +62,14 @@ func TestFooterData_ErrorStatusBar(t *testing.T) {
 
 func ansiStripForTest(s string) string { return ansi.Strip(s) }
 
-func TestFooterToastRightZone(t *testing.T) {
+// TestFooterExcludesToastContent proves the statusline-embedded toast (Phase
+// 4 of bt-a3zi3.1) is gone: an active inline status message must NOT appear
+// in the footer's right zone, and the key hints must render normally rather
+// than yielding to it (the old "Toast override" borrow-and-truncate behavior
+// that caused bt-8scek). Notification content now lives in the floating
+// bubble overlay (bt-kuvzj, toast_bubble.go) — the footer keeps only the
+// bell.
+func TestFooterExcludesToastContent(t *testing.T) {
 	fd := FooterData{
 		Width:          100,
 		StatusMsg:      "write failed: db locked",
@@ -74,11 +81,13 @@ func TestFooterToastRightZone(t *testing.T) {
 		Hints:          []FooterHint{{Key: "⏎", Desc: "open"}, {Key: "?", Desc: "help"}},
 	}
 	out := ansiStripForTest(fd.Render())
-	if !strings.Contains(out, activeGlyphs.Cross+" write failed: db locked") {
-		t.Errorf("failure toast (with ✗) should appear; got %q", out)
+	if strings.Contains(out, "write failed: db locked") {
+		t.Errorf("footer must not render toast content; got %q", out)
 	}
-	if strings.Contains(out, "open") {
-		t.Errorf("key hints should yield to the toast; 'open' should be gone")
+	// Post-lens (bt-2vshd) the right zone is the static "? help · ; keys" pair;
+	// it must render normally rather than yielding to the toast.
+	if !strings.Contains(out, "? help") {
+		t.Errorf("static hints should render normally (no longer yield to a toast); got %q", out)
 	}
 }
 
@@ -1128,9 +1137,13 @@ func TestFooterNotificationsNeverWrap(t *testing.T) {
 }
 
 // TestFooterToastBellCenterOverrideNeverWrap locks the center-zone x right-zone
-// coexistence the model-driven sweep omits: a FooterData carrying a CenterOverride
-// AND an active Failure toast AND a non-zero BellCount must, at every width, stay a
-// single row within the column count and still render the pinned bell (bt-a3zi3.1).
+// coexistence the model-driven sweep omits: a FooterData carrying a CenterOverride,
+// a non-zero BellCount, AND the (post bt-kuvzj, now inert in the footer) toast
+// fields must, at every width, stay a single row within the column count, still
+// render the pinned bell, and never leak the toast text — the toast fields are
+// still exercised here (rather than dropped from the fixture) so this test keeps
+// proving they have zero footer footprint, not just that they're absent because
+// nobody set them.
 func TestFooterToastBellCenterOverrideNeverWrap(t *testing.T) {
 	base := FooterData{
 		FilterText:     "bt",
@@ -1161,6 +1174,9 @@ func TestFooterToastBellCenterOverrideNeverWrap(t *testing.T) {
 		}
 		if !strings.Contains(ansi.Strip(out), activeGlyphs.Bell) {
 			t.Errorf("width=%d: bell must always render (pinned, last to drop) alongside the toast; got %q", w, ansi.Strip(out))
+		}
+		if strings.Contains(ansi.Strip(out), "write failed: db locked") {
+			t.Errorf("width=%d: footer must not render toast content post bt-kuvzj; got %q", w, ansi.Strip(out))
 		}
 	}
 }

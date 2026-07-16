@@ -585,8 +585,10 @@ func TestRenderDump(t *testing.T) {
 			m.notifFilterKind = "created"
 		}},
 
-		// Footer Phase 4 notification states: toast (success/failure/degraded) and
-		// bell badge. Proves the right-zone layout at representative widths.
+		// Footer Phase 4 notification states: the bell badge only — the toast
+		// itself moved to a floating bubble overlay (bt-kuvzj, see the
+		// toast_bubble_* scenarios below). These dumps now double as proof the
+		// footer stays quiet (no toast text) while a toast is active.
 		{"footer_success_100x24", 100, 24, func(m *Model) { m.setStatus("reloaded +3 -1") }},
 		{"footer_failure_100x24", 100, 24, func(m *Model) { m.setFailure("write failed: db locked") }},
 		{"footer_degraded_80x24", 80, 24, func(m *Model) { m.setDegraded("Dolt server unreachable (retrying in 5s)") }},
@@ -603,6 +605,26 @@ func TestRenderDump(t *testing.T) {
 				m.events.Append(events.NewSystemEvent("activity"))
 			}
 		}},
+
+		// Floating notification bubble (bt-kuvzj): yazi-style bottom-right
+		// overlay that replaced the footer-embedded toast above. Success/
+		// failure/degraded severities (border glyph + color), the bt-8scek
+		// long-refusal repro (wraps instead of truncating), and a bell-count
+		// badge on the border (reuses the same unseen-events count as the
+		// footer bell).
+		{"toast_bubble_success_100x24", 100, 24, func(m *Model) { m.setStatus("reloaded +3 -1") }},
+		{"toast_bubble_failure_100x24", 100, 24, func(m *Model) { m.setFailure("write failed: db locked") }},
+		{"toast_bubble_degraded_80x24", 80, 24, func(m *Model) { m.setDegraded("Dolt server unreachable (retrying in 5s)") }},
+		{"toast_bubble_long_refusal_70x24", 70, 24, func(m *Model) {
+			m.setFailure(`claim sym-maqi: no known checkout path for project "sym"; cd into that project once so bt can record it (~/.bt/settings.json), then relaunch bt --global`)
+		}},
+		{"toast_bubble_with_bell_count_100x24", 100, 24, func(m *Model) {
+			for i := 0; i < 3; i++ {
+				m.events.Append(events.NewSystemEvent("activity"))
+			}
+			m.setFailure("write failed: db locked")
+		}},
+		{"toast_bubble_narrow_50x14", 50, 14, func(m *Model) { m.setFailure("write failed: db locked") }},
 	}
 
 	for _, sc := range scenarios {

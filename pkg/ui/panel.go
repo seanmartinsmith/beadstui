@@ -363,6 +363,65 @@ func sliceBgRow(bgLine string, startCol, fgWidth, bgWidth int, padder func(strin
 	return left, right
 }
 
+// OverlayBottomRight composites fg anchored to the bottom-right corner of bg,
+// offset by marginRight/marginBottom cells, preserving ANSI styling. Reuses
+// the same ANSI-aware row-slicing (sliceBgRow) as OverlayCenter — this is a
+// positioning variant of the non-dim, non-modal overlay family documented in
+// docs/design/tui-modal-compositing.md ("transient hints" is the doc's own
+// example use case), not a parallel compositor.
+//
+// Used by the floating notification bubble (bt-kuvzj, pkg/ui/toast_bubble.go)
+// to place a yazi-style toast independently of the footer, so it never
+// competes with footer content for width — the root cause of bt-8scek's
+// truncation, where the old embedded toast borrowed the footer's right zone
+// and got ansi.Truncate'd.
+func OverlayBottomRight(bg, fg string, bgWidth, bgHeight, marginRight, marginBottom int) string {
+	bgLines := strings.Split(bg, "\n")
+	fgLines := strings.Split(fg, "\n")
+
+	fgWidth := 0
+	for _, line := range fgLines {
+		if w := ansi.StringWidth(line); w > fgWidth {
+			fgWidth = w
+		}
+	}
+	fgHeight := len(fgLines)
+
+	startRow := bgHeight - fgHeight - marginBottom
+	startCol := bgWidth - fgWidth - marginRight
+	if startRow < 0 {
+		startRow = 0
+	}
+	if startCol < 0 {
+		startCol = 0
+	}
+
+	// Pad every bg row to bgWidth so per-row slice positions are stable, same
+	// defense as OverlayCenter (bt-l22b class).
+	for i, line := range bgLines {
+		if w := ansi.StringWidth(line); w < bgWidth {
+			bgLines[i] = line + strings.Repeat(" ", bgWidth-w)
+		}
+	}
+
+	for i, fgLine := range fgLines {
+		bgRow := startRow + i
+		if bgRow < 0 || bgRow >= len(bgLines) {
+			continue
+		}
+
+		if w := ansi.StringWidth(fgLine); w < fgWidth {
+			fgLine = fgLine + strings.Repeat(" ", fgWidth-w)
+		}
+
+		bgLine := bgLines[bgRow]
+		left, right := sliceBgRow(bgLine, startCol, fgWidth, bgWidth, identityPad)
+		bgLines[bgRow] = left + fgLine + right
+	}
+
+	return strings.Join(bgLines, "\n")
+}
+
 // OverlayCenterDimBackdrop composites fg centered on top of bg like
 // OverlayCenter, but additionally dims the entire visible bg so the modal
 // reads as a true pop-up rather than a content-shaped panel embedded in the

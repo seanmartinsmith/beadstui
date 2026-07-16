@@ -528,9 +528,11 @@ func (m Model) handleDoltConnectionStatus(msg DoltConnectionStatusMsg) (Model, t
 }
 
 // doltPollErrorDetailMaxRunes caps the underlying error text appended to the
-// degraded footer/notification text so a verbose driver error can't dominate
-// the toast. The footer's own width-aware truncation still applies on top of
-// this when the toast doesn't fit the available columns (bt-ndi5t).
+// degraded notification text so a verbose driver error can't dominate the
+// toast. This is a content-shaping cap independent of rendering surface: the
+// floating notification bubble (bt-kuvzj, toast_bubble.go) wraps rather than
+// truncates, so this cap alone bounds how tall a single bubble can grow
+// (bt-ndi5t).
 const doltPollErrorDetailMaxRunes = 60
 
 // doltPollErrorDetail renders a ": <cause>" suffix describing a query-phase
