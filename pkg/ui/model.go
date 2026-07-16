@@ -902,6 +902,7 @@ type Model struct {
 	alertFilterSeverity string // "" = all, or "critical"/"warning"/"info"
 	alertFilterType     string // "" = all, or an AlertType string
 	alertFilterProject  string // "" = all, or a project prefix
+	alertFilterClass    string // "" = all, "anomaly", "advisory" (traceable badge, bt-2nepr)
 	alertSortOrder      int    // 0=default, 1=oldest-first, 2=newest-first
 
 	// Tab-scoped state for the shared alerts/notifications modal (bt-46p6.10).
