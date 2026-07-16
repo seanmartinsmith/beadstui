@@ -322,7 +322,7 @@ func (m TutorialModel) renderHeader(page TutorialPage, totalPages int) string {
 			Render(strings.Repeat("░", barWidth-filledWidth))
 
 	// Title
-	title := titleStyle.Render("📚 beadstui Tutorial")
+	title := titleStyle.Render(activeGlyphs.Books + " beadstui Tutorial")
 
 	// Calculate spacing to align progress to the right
 	headerContent := title + "  " + progressText + " " + progressBar
@@ -540,7 +540,7 @@ func (m TutorialModel) renderTOC(pages []TutorialPage) string {
 		// Viewed indicator
 		viewed := ""
 		if m.progress[page.ID] {
-			viewed = viewedStyle.Render(" ✓")
+			viewed = viewedStyle.Render(" " + activeGlyphs.Success)
 		}
 
 		b.WriteString(style.Render(prefix+title) + viewed)
@@ -1231,8 +1231,8 @@ Throughout bv, blocking relationships are shown:
 
 | Indicator | Meaning |
 |-----------|---------|
-| 🔴 | Blocked — waiting on something else |
-| 🟢 | Ready — no blockers, can start now |
+| ! | Blocked — waiting on something else |
+| o | Ready — no blockers, can start now |
 | **→** in detail | Shows what this issue blocks |
 | **←** in detail | Shows what blocks this issue |
 
@@ -1913,10 +1913,10 @@ Press **[** to open the Labels dashboard:
 ┌─────────────────────────────────────────────────────┐
 │ LABEL           │ OPEN │ PROG │ BLOCK │ HEALTH     │
 ├─────────────────┼──────┼──────┼───────┼────────────┤
-│ frontend        │   12 │    3 │     2 │ ▓▓▓▓▓░░░ ⚠ │
-│ backend         │    8 │    5 │     0 │ ▓▓▓▓▓▓▓░ ✓ │
-│ security        │    4 │    1 │     3 │ ▓▓░░░░░░ ⛔ │
-│ tech-debt       │   15 │    0 │     0 │ ▓▓▓░░░░░ ⚠ │
+│ frontend        │   12 │    3 │     2 │ ▓▓▓▓▓░░░ ! │
+│ backend         │    8 │    5 │     0 │ ▓▓▓▓▓▓▓░ v │
+│ security        │    4 │    1 │     3 │ ▓▓░░░░░░ x │
+│ tech-debt       │   15 │    0 │     0 │ ▓▓▓░░░░░ ! │
 └─────────────────────────────────────────────────────┘
 ` + "```" + `
 
@@ -1924,9 +1924,9 @@ Press **[** to open the Labels dashboard:
 
 | Symbol | Meaning |
 |--------|---------|
-| ✓ | Healthy — good progress, few blockers |
-| ⚠ | Warning — stale items or slow velocity |
-| ⛔ | Critical — high blocked ratio, needs attention |
+| v | Healthy — good progress, few blockers |
+| ! | Warning — stale items or slow velocity |
+| x | Critical — high blocked ratio, needs attention |
 
 ### Health Score Factors
 

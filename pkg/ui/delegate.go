@@ -93,7 +93,7 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 
 		// Comments with icon - use lipgloss.Width for accurate emoji measurement
 		if commentCount > 0 {
-			commentStr := fmt.Sprintf("💬%d", commentCount)
+			commentStr := fmt.Sprintf("%s%d", activeGlyphs.Comment, commentCount)
 			rightParts = append(rightParts, t.InfoText.Render(commentStr))
 			rightWidth += lipgloss.Width(commentStr) + 1 // +1 for spacing
 		} else {
@@ -131,7 +131,7 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 	if width > 120 {
 		if i.Issue.Author != "" && i.Issue.Author != i.Issue.Assignee {
 			author := truncateRunesHelper(i.Issue.Author, 10, "…")
-			rightParts = append(rightParts, t.MutedText.Render(fmt.Sprintf("✎%-10s", author)))
+			rightParts = append(rightParts, t.MutedText.Render(fmt.Sprintf("%s%-10s", activeGlyphs.Pencil, author)))
 		} else {
 			rightParts = append(rightParts, strings.Repeat(" ", 11))
 		}
@@ -186,11 +186,11 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 		leftFixedWidth += 2
 	}
 
-	// Triage indicator width (bv-151) - use lipgloss.Width for accurate emoji measurement
+	// Triage indicator width (bv-151) - use lipgloss.Width for accurate glyph measurement
 	if i.IsQuickWin {
-		leftFixedWidth += lipgloss.Width("⭐") + 1 // emoji + space
+		leftFixedWidth += lipgloss.Width(activeGlyphs.Star) + 1 // glyph + space
 	} else if i.IsBlocker && i.UnblocksCount > 0 {
-		leftFixedWidth += lipgloss.Width(fmt.Sprintf("🔓%d", i.UnblocksCount)) + 1 // emoji+count + space
+		leftFixedWidth += lipgloss.Width(fmt.Sprintf("%s%d", activeGlyphs.Unlock, i.UnblocksCount)) + 1 // glyph+count + space
 	} else if i.UnblocksCount > 0 {
 		leftFixedWidth += lipgloss.Width(fmt.Sprintf("↪%d", i.UnblocksCount)) + 1 // arrow+count + space
 	}
@@ -319,12 +319,12 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 		leftSide.WriteString(" ")
 	}
 
-	// Triage indicators (bv-151): Quick win ⭐ and Unblocks count 🔓 - using pre-computed styles
+	// Triage indicators (bv-151): Quick win star and Unblocks count - using pre-computed styles
 	triageIndicator := ""
 	if i.IsQuickWin {
-		triageIndicator = t.TriageStar.Render("⭐")
+		triageIndicator = t.TriageStar.Render(activeGlyphs.Star)
 	} else if i.IsBlocker && i.UnblocksCount > 0 {
-		triageIndicator = t.TriageUnblocks.Render(fmt.Sprintf("🔓%d", i.UnblocksCount))
+		triageIndicator = t.TriageUnblocks.Render(fmt.Sprintf("%s%d", activeGlyphs.Unlock, i.UnblocksCount))
 	} else if i.UnblocksCount > 0 {
 		triageIndicator = t.TriageUnblocksAlt.Render(fmt.Sprintf("↪%d", i.UnblocksCount))
 	}

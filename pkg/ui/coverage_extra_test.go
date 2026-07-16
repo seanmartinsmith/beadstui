@@ -569,7 +569,7 @@ func TestRenderFooterStatusAndBadges(t *testing.T) {
 	if !strings.Contains(footer, "Saved") {
 		t.Fatalf("footer should include status message")
 	}
-	if !strings.Contains(footer, "✓") {
+	if !strings.Contains(footer, activeGlyphs.Success) {
 		t.Fatalf("footer should include success icon")
 	}
 
@@ -582,7 +582,7 @@ func TestRenderFooterStatusAndBadges(t *testing.T) {
 	m.workspaceMode = true
 	m.workspaceSummary = "2 projects"
 	footer = m.renderFooter()
-	for _, expect := range []string{"READY", "◉", "⭐", "📦"} {
+	for _, expect := range []string{"READY", "◉", activeGlyphs.Star, activeGlyphs.Workspace} {
 		if !strings.Contains(footer, expect) {
 			t.Fatalf("footer missing %s: %s", expect, footer)
 		}
@@ -599,14 +599,14 @@ func TestRenderFooter_FreshnessIndicatorLevels(t *testing.T) {
 
 	// Fresh (<30s): no indicator
 	out := m.renderFooter()
-	if strings.Contains(out, "⚠") || strings.Contains(out, "STALE") || strings.Contains(out, "✗") {
+	if strings.Contains(out, activeGlyphs.Warning) || strings.Contains(out, "STALE") || strings.Contains(out, activeGlyphs.Cross) {
 		t.Fatalf("expected no freshness indicator when fresh, got: %q", out)
 	}
 
 	// Warn (>=30s)
 	m.data.snapshot.CreatedAt = time.Now().Add(-45 * time.Second)
 	out = m.renderFooter()
-	if !strings.Contains(out, "⚠") || strings.Contains(out, "STALE") {
+	if !strings.Contains(out, activeGlyphs.Warning) || strings.Contains(out, "STALE") {
 		t.Fatalf("expected warning freshness indicator, got: %q", out)
 	}
 
@@ -624,7 +624,7 @@ func TestRenderFooter_FreshnessIndicatorLevels(t *testing.T) {
 		Retries: 3,
 	}
 	out = m.renderFooter()
-	if !strings.Contains(out, "✗") || !strings.Contains(out, "3x") {
+	if !strings.Contains(out, activeGlyphs.Cross) || !strings.Contains(out, "3x") {
 		t.Fatalf("expected error freshness indicator, got: %q", out)
 	}
 }
@@ -858,7 +858,7 @@ func TestRenderFooterErrorStatus(t *testing.T) {
 	if !strings.Contains(out, "boom") {
 		t.Fatalf("footer should show error status")
 	}
-	if !strings.Contains(out, "✗") {
+	if !strings.Contains(out, activeGlyphs.Cross) {
 		t.Fatalf("footer should show error icon")
 	}
 }
@@ -903,7 +903,7 @@ func TestRenderFooter_CombinedIndicators(t *testing.T) {
 	}
 
 	out := m.renderFooter()
-	for _, expect := range []string{"READY", "metrics", "recovered x2", "polling", "⭐"} {
+	for _, expect := range []string{"READY", "metrics", "recovered x2", "polling", activeGlyphs.Star} {
 		if !strings.Contains(out, expect) {
 			t.Fatalf("footer missing %q: %q", expect, out)
 		}
@@ -1121,7 +1121,7 @@ func TestRenderFooterVariantsAndDiffStatus(t *testing.T) {
 	m.ac.countClosed = 1
 
 	out = m.renderFooter()
-	for _, want := range []string{"⏱", "v9.9.9", "2 projects"} {
+	for _, want := range []string{activeGlyphs.Clock, "v9.9.9", "2 projects"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("footer missing %q in %q", want, out)
 		}

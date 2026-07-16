@@ -174,7 +174,7 @@ func (m *ActionableModel) Render() string {
 		Padding(0, 2).
 		Width(m.width - 4)
 
-	header := fmt.Sprintf("⚡ ACTIONABLE ITEMS  │  %d items in %d tracks", totalItems, len(m.plan.Tracks))
+	header := fmt.Sprintf("%s ACTIONABLE ITEMS  │  %d items in %d tracks", activeGlyphs.Bolt, totalItems, len(m.plan.Tracks))
 	lines = append(lines, headerStyle.Render(header))
 	lines = append(lines, "")
 
@@ -185,7 +185,7 @@ func (m *ActionableModel) Render() string {
 			Padding(2, 4).
 			Width(m.width - 4).
 			Align(lipgloss.Center)
-		lines = append(lines, emptyStyle.Render("✓ No actionable items. All tasks are either blocked or completed."))
+		lines = append(lines, emptyStyle.Render(activeGlyphs.Success+" No actionable items. All tasks are either blocked or completed."))
 		return strings.Join(lines, "\n")
 	}
 
@@ -199,7 +199,7 @@ func (m *ActionableModel) Render() string {
 			Bold(true).
 			Padding(0, 2).
 			Width(m.width - 4)
-		summary := fmt.Sprintf("💡 RECOMMENDED: Start with %s → %s (unblocks %d)",
+		summary := fmt.Sprintf("%s RECOMMENDED: Start with %s → %s (unblocks %d)", activeGlyphs.Bulb,
 			m.plan.Summary.HighestImpact,
 			m.plan.Summary.ImpactReason,
 			m.plan.Summary.UnblocksCount)

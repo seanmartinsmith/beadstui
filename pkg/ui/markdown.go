@@ -299,7 +299,7 @@ func buildStyleFromTheme(theme Theme, isDark bool) ansi.StyleConfig {
 			BlockPrefix: ". ",
 		},
 		Task: ansi.StyleTask{
-			Ticked:   "[✓] ",
+			Ticked:   "[" + activeGlyphs.Success + "] ",
 			Unticked: "[ ] ",
 		},
 		Link: ansi.StylePrimitive{

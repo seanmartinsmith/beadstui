@@ -191,8 +191,8 @@ func TestLabelDashboardModel_ViewBlockedIndicator(t *testing.T) {
 
 	view := m.View()
 
-	// Blocked labels show ⛔ indicator
-	if !contains(view, "⛔") {
+	// Blocked labels show the NoEntry indicator
+	if !contains(view, activeGlyphs.NoEntry) {
 		t.Error("View should contain blocked indicator '⛔'")
 	}
 }

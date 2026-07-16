@@ -121,15 +121,15 @@ func TestRenderGateBadge(t *testing.T) {
 		awaitType string
 		want      string
 	}{
-		{"human", "👤"},
-		{"timer", "⏱"},
-		{"gh:run", "⚙"},
-		{"ci", "⚙"},
-		{"gh:pr", "⬡"},
-		{"pr", "⬡"},
-		{"bead", "⛓"},
-		{"unknown", "⏸"},
-		{"", "⏸"},
+		{"human", activeGlyphs.GateHuman},
+		{"timer", activeGlyphs.Clock},
+		{"gh:run", activeGlyphs.GateCI},
+		{"ci", activeGlyphs.GateCI},
+		{"gh:pr", activeGlyphs.GatePR},
+		{"pr", activeGlyphs.GatePR},
+		{"bead", activeGlyphs.GateBead},
+		{"unknown", activeGlyphs.GatePause},
+		{"", activeGlyphs.GatePause},
 	}
 
 	for _, tt := range tests {
@@ -145,7 +145,7 @@ func TestRenderGateBadge(t *testing.T) {
 
 func TestRenderHumanAdvisoryBadge(t *testing.T) {
 	got := RenderHumanAdvisoryBadge()
-	if !strings.Contains(got, "👤") {
+	if !strings.Contains(got, activeGlyphs.GateHuman) {
 		t.Errorf("RenderHumanAdvisoryBadge() = %q, want to contain human icon", got)
 	}
 	if got == "" {
@@ -191,7 +191,7 @@ func TestRenderOverdueBadge(t *testing.T) {
 
 func TestRenderStaleBadge(t *testing.T) {
 	got := RenderStaleBadge()
-	if !strings.Contains(got, "💤") {
+	if !strings.Contains(got, activeGlyphs.Stale) {
 		t.Errorf("RenderStaleBadge() = %q, want to contain sleep icon", got)
 	}
 }
@@ -429,15 +429,15 @@ func TestStatusGlyph(t *testing.T) {
 		status model.Status
 		want   string
 	}{
-		{model.StatusOpen, "○"},
-		{model.StatusInProgress, "◐"},
-		{model.StatusBlocked, "⊘"},
-		{model.StatusClosed, "✓"},
-		{model.StatusTombstone, "✓"},
-		{model.StatusDeferred, "❄"},
-		{model.StatusPinned, "◆"},
-		{model.StatusReview, "◇"},
-		{model.StatusHooked, "◈"},
+		{model.StatusOpen, activeGlyphs.StOpen},
+		{model.StatusInProgress, activeGlyphs.StInProgress},
+		{model.StatusBlocked, activeGlyphs.StBlocked},
+		{model.StatusClosed, activeGlyphs.StClosed},
+		{model.StatusTombstone, activeGlyphs.StClosed},
+		{model.StatusDeferred, activeGlyphs.StDeferred},
+		{model.StatusPinned, activeGlyphs.StPinned},
+		{model.StatusReview, activeGlyphs.StReview},
+		{model.StatusHooked, activeGlyphs.StHooked},
 	}
 	for _, tc := range cases {
 		if got := statusGlyph(tc.status); got != tc.want {

@@ -621,7 +621,7 @@ func (m *LabelPickerModel) View() string {
 
 			indicator := dimStyle.Render("• ")
 			if isSelected {
-				indicator = activeStyle.Render("✓ ")
+				indicator = activeStyle.Render(activeGlyphs.Success + " ")
 			}
 
 			count := m.labelCounts[label]

@@ -51,12 +51,12 @@ func TestGetTypeIcon(t *testing.T) {
 		wantIcon string
 		wantCol  color.Color
 	}{
-		{"bug", "🐛", theme.Bug},
-		{"feature", "✨", theme.Feature},
-		{"task", "📋", theme.Task},
-		{"epic", "🚀", theme.Epic}, // Changed from mountain - variation selector caused width issues
-		{"chore", "🧹", theme.Chore},
-		{"unknown", "•", theme.Subtext},
+		{"bug", activeGlyphs.TypeBug, theme.Bug},
+		{"feature", activeGlyphs.TypeFeature, theme.Feature},
+		{"task", activeGlyphs.TypeTask, theme.Task},
+		{"epic", activeGlyphs.TypeEpic, theme.Epic},
+		{"chore", activeGlyphs.TypeChore, theme.Chore},
+		{"unknown", activeGlyphs.Bullet, theme.Subtext},
 	}
 
 	for _, tt := range tests {

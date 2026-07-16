@@ -138,13 +138,13 @@ func TestGetTypeIconMD(t *testing.T) {
 		issueType string
 		expected  string
 	}{
-		{"bug", "🐛"},
-		{"feature", "✨"},
-		{"task", "📋"},
-		{"epic", "🚀"}, // Changed from 🏔️ - VS-16 variation selector causes width issues
-		{"chore", "🧹"},
-		{"unknown", "•"},
-		{"", "•"},
+		{"bug", ui.Glyphs().TypeBug},
+		{"feature", ui.Glyphs().TypeFeature},
+		{"task", ui.Glyphs().TypeTask},
+		{"epic", ui.Glyphs().TypeEpic},
+		{"chore", ui.Glyphs().TypeChore},
+		{"unknown", ui.Glyphs().Bullet},
+		{"", ui.Glyphs().Bullet},
 	}
 
 	for _, tt := range tests {

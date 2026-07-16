@@ -872,11 +872,11 @@ func (m Model) helpGlobalGroups() []helpGroup {
 		title: "STATUS",
 		rows: []helpRow{
 			{left: "◌ metrics", right: "Phase 2 metrics computing"},
-			{left: "⚠ age", right: "Snapshot getting stale"},
-			{left: "⚠ STALE", right: "Snapshot is stale"},
-			{left: "✗ bg", right: "Background worker errors"},
+			{left: activeGlyphs.Warning + " age", right: "Snapshot getting stale"},
+			{left: activeGlyphs.Warning + " STALE", right: "Snapshot is stale"},
+			{left: activeGlyphs.Cross + " bg", right: "Background worker errors"},
 			{left: "↻ recov", right: "Worker self-healed"},
-			{left: "⚠ dead", right: "Worker unresponsive"},
+			{left: activeGlyphs.Warning + " dead", right: "Worker unresponsive"},
 			{left: "polling", right: "Live reload uses polling"},
 		},
 	})
@@ -1702,9 +1702,9 @@ func (m Model) renderLabelGraphAnalysis() string {
 	sb.WriteString("\n\n")
 
 	// Critical Path section
-	sb.WriteString(labelStyle.Render("🛤️  Critical Path"))
+	sb.WriteString(labelStyle.Render("Critical Path"))
 	if r.CriticalPath.HasCycle {
-		sb.WriteString(valStyle.Render(" ⚠️  (cycle detected - path unreliable)"))
+		sb.WriteString(valStyle.Render(" " + activeGlyphs.Warning + "  (cycle detected - path unreliable)"))
 	}
 	sb.WriteString("\n")
 	if r.CriticalPath.PathLength == 0 {
@@ -1760,7 +1760,7 @@ func (m Model) renderLabelGraphAnalysis() string {
 	sb.WriteString("\n")
 
 	// PageRank section
-	sb.WriteString(labelStyle.Render("📊 PageRank (Top Issues)"))
+	sb.WriteString(labelStyle.Render(activeGlyphs.BarChart + " PageRank (Top Issues)"))
 	sb.WriteString("\n")
 	if len(r.PageRank.TopIssues) == 0 {
 		sb.WriteString(subtextStyle.Render("  No issues to rank"))
@@ -1863,7 +1863,7 @@ func (m Model) renderTimeTravelPrompt() string {
 	}
 
 	// Plain-text title (no emoji): VS16 emoji presentation makes runewidth
-	// undercount titles like "⏱️  Time-Travel Mode" by one cell vs. what the
+	// undercount titles like "Time-Travel Mode" by one cell vs. what the
 	// terminal actually renders, so the top border ends up one cell wider
 	// than the content rows. Other modals (Alerts!, Notifications, Select
 	// Recipe) all use plain titles — this matches them.

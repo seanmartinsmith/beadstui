@@ -1043,7 +1043,7 @@ func (m *Model) updateViewportContent() {
 
 	// Update notice was previously rendered here as a markdown block above
 	// the bead title. As of bt-9u39 it lives in the notifications center
-	// (dismissable, doesn't compete with bead content) plus the footer ⭐
+	// (dismissable, doesn't compete with bead content) plus the footer star
 	// badge for ambient awareness.
 
 	// Title Block
@@ -1068,7 +1068,7 @@ func (m *Model) updateViewportContent() {
 	// State dimensions (bt-jprp) - parsed from dimension:value labels
 	if dims := parseStateDimensions(item.Labels); len(dims) > 0 {
 		var sb strings.Builder
-		sb.WriteString("### 🏷️ State Dimensions\n")
+		sb.WriteString("### " + activeGlyphs.Tag + " State Dimensions\n")
 		for _, d := range dims {
 			sb.WriteString(fmt.Sprintf("- **%s:** %s\n", d.Dimension, d.Value))
 		}
@@ -1081,7 +1081,7 @@ func (m *Model) updateViewportContent() {
 		caps := parseCapabilities(item)
 		if len(caps) > 0 {
 			var sb strings.Builder
-			sb.WriteString("### 🔗 Capabilities\n")
+			sb.WriteString("### " + activeGlyphs.Link + " Capabilities\n")
 			for _, cap := range caps {
 				switch cap.Type {
 				case "export":
@@ -1100,7 +1100,7 @@ func (m *Model) updateViewportContent() {
 	// Gate status (bt-c69c) - blocking coordination
 	if item.AwaitType != nil {
 		var sb strings.Builder
-		sb.WriteString("### 🚧 Gate (Blocking)\n")
+		sb.WriteString("### " + activeGlyphs.Construction + " Gate (Blocking)\n")
 		sb.WriteString(fmt.Sprintf("- **Type:** %s\n", *item.AwaitType))
 		if item.AwaitID != nil {
 			sb.WriteString(fmt.Sprintf("- **Awaiting:** %s\n", *item.AwaitID))
@@ -1112,13 +1112,13 @@ func (m *Model) updateViewportContent() {
 		addMD(sb.String())
 	} else if hasHumanLabel(item.Labels) {
 		// Advisory human flag (label, not gate)
-		addMD("### 🏷️ Flagged for Human Input\nThis issue is flagged for human review (advisory - not blocking workflow).\n\n")
+		addMD("### " + activeGlyphs.Tag + " Flagged for Human Input\nThis issue is flagged for human review (advisory - not blocking workflow).\n\n")
 	}
 
 	// Molecule/wisp metadata (bt-c69c)
 	if item.MolType != nil || (item.Ephemeral != nil && *item.Ephemeral) || (item.IsTemplate != nil && *item.IsTemplate) {
 		var sb strings.Builder
-		sb.WriteString("### 🧪 Molecule\n")
+		sb.WriteString("### " + activeGlyphs.TestTube + " Molecule\n")
 		if item.MolType != nil {
 			sb.WriteString(fmt.Sprintf("- **Type:** %s\n", *item.MolType))
 		}
@@ -1149,12 +1149,12 @@ func (m *Model) updateViewportContent() {
 
 	// Overdue/stale notices (bt-5oqf)
 	if isOverdue(&item) {
-		addMD(fmt.Sprintf("### ⏰ Overdue\nDue date **%s** has passed (%s ago).\n\n",
+		addMD(fmt.Sprintf("### "+activeGlyphs.Overdue+" Overdue\nDue date **%s** has passed (%s ago).\n\n",
 			FormatTimeAbs(*item.DueDate),
 			FormatTimeRel(*item.DueDate),
 		))
 	} else if isStale(&item) {
-		addMD(fmt.Sprintf("### 💤 Stale\nNo updates for **%s** (last: %s). Threshold: %d days.\n\n",
+		addMD(fmt.Sprintf("### "+activeGlyphs.Sleep+" Stale\nNo updates for **%s** (last: %s). Threshold: %d days.\n\n",
 			FormatTimeRel(item.UpdatedAt),
 			FormatTimeAbs(item.UpdatedAt),
 			staleDays(),
@@ -1169,7 +1169,7 @@ func (m *Model) updateViewportContent() {
 		if rank, ok := m.data.analysis.PageRankRankValue(item.ID); ok {
 			prVal, _ := m.data.analysis.PageRankValue(item.ID)
 			var sb strings.Builder
-			sb.WriteString("### 📊 Centrality\n")
+			sb.WriteString("### " + activeGlyphs.BarChart + " Centrality\n")
 			sb.WriteString(fmt.Sprintf("- **PageRank:** rank #%d · %.4f\n", rank, prVal))
 			if brank, bok := m.data.analysis.BetweennessRankValue(item.ID); bok {
 				bval, _ := m.data.analysis.BetweennessValue(item.ID)
@@ -1185,28 +1185,28 @@ func (m *Model) updateViewportContent() {
 	// Triage Insights (bv-151)
 	if issueItem.TriageScore > 0 || issueItem.TriageReason != "" || issueItem.UnblocksCount > 0 || issueItem.IsQuickWin || issueItem.IsBlocker {
 		var sb strings.Builder
-		sb.WriteString("### 🎯 Triage Insights\n")
+		sb.WriteString("### " + activeGlyphs.Target + " Triage Insights\n")
 
 		// Score with visual indicator
-		scoreIcon := "🔵"
+		scoreIcon := activeGlyphs.DotInfo
 		if issueItem.TriageScore >= 0.7 {
-			scoreIcon = "🔴"
+			scoreIcon = activeGlyphs.DotBlocked
 		} else if issueItem.TriageScore >= 0.4 {
-			scoreIcon = "🟠"
+			scoreIcon = activeGlyphs.DotHigh
 		}
 		sb.WriteString(fmt.Sprintf("- **Triage Score:** %s %.2f/1.00\n", scoreIcon, issueItem.TriageScore))
 
 		// Special flags
 		if issueItem.IsQuickWin {
-			sb.WriteString("- **⭐ Quick Win** — Low effort, high impact opportunity\n")
+			sb.WriteString("- **" + activeGlyphs.Star + " Quick Win** — Low effort, high impact opportunity\n")
 		}
 		if issueItem.IsBlocker {
-			sb.WriteString("- **🔴 Critical Blocker** — Completing this unblocks significant downstream work\n")
+			sb.WriteString("- **" + activeGlyphs.DotBlocked + " Critical Blocker** — Completing this unblocks significant downstream work\n")
 		}
 
 		// Unblocks count
 		if issueItem.UnblocksCount > 0 {
-			sb.WriteString(fmt.Sprintf("- **🔓 Unblocks:** %d downstream items when completed\n", issueItem.UnblocksCount))
+			sb.WriteString(fmt.Sprintf("- **"+activeGlyphs.Unlock+" Unblocks:** %d downstream items when completed\n", issueItem.UnblocksCount))
 		}
 
 		// Primary reason
@@ -1233,7 +1233,7 @@ func (m *Model) updateViewportContent() {
 	// Analysis. (bt-gfxhz.6)
 	if m.semanticSearchEnabled && m.semanticHybridEnabled && issueItem.SearchScoreSet && m.list.FilterState() != list.Unfiltered {
 		summary := searchScoreSummary(issueItem.SearchComponents, item)
-		heading := "### 🔎 Search Scores"
+		heading := "### " + activeGlyphs.Search + " Search Scores"
 		if summary != "" {
 			heading += "  (" + summary + ")"
 		}
@@ -1242,7 +1242,7 @@ func (m *Model) updateViewportContent() {
 	}
 
 	// Graph Analysis. Heading stays on Glamour so its H3 styling matches
-	// neighbouring sections (📊 Centrality, 🔎 Search Scores). Only the
+	// neighbouring sections (Centrality, Search Scores). Only the
 	// numeric rows go through ANSI — labels in ColorMuted, values default —
 	// since that's where the lipgloss styling actually matters (bt-x5xc4).
 	pr := m.data.analysis.GetPageRankScore(item.ID)
@@ -1456,7 +1456,7 @@ func (m *Model) renderBeadHistoryMD(beadID string) string {
 	}
 
 	var sb strings.Builder
-	sb.WriteString("### 📜 History\n\n")
+	sb.WriteString("### " + activeGlyphs.Scroll + " History\n\n")
 
 	// Lifecycle milestones from events
 	if len(hist.Events) > 0 {
@@ -1482,11 +1482,11 @@ func (m *Model) renderBeadHistoryMD(beadID string) string {
 		}
 
 		// Confidence indicator
-		confIcon := "🟢"
+		confIcon := activeGlyphs.DotReady
 		if commit.Confidence < 0.5 {
-			confIcon = "🟡"
+			confIcon = activeGlyphs.DotWarn
 		} else if commit.Confidence < 0.8 {
-			confIcon = "🟠"
+			confIcon = activeGlyphs.DotHigh
 		}
 
 		sb.WriteString(fmt.Sprintf("- %s **%.0f%%** `%s` %s\n",
@@ -1512,15 +1512,15 @@ func (m *Model) renderBeadHistoryMD(beadID string) string {
 func getEventIcon(eventType correlation.EventType) string {
 	switch eventType {
 	case correlation.EventCreated:
-		return "🟢"
+		return activeGlyphs.DotReady
 	case correlation.EventClaimed:
-		return "🔵"
+		return activeGlyphs.DotInfo
 	case correlation.EventClosed:
-		return "⚫"
+		return activeGlyphs.DotClosed
 	case correlation.EventReopened:
-		return "🟡"
+		return activeGlyphs.DotWarn
 	case correlation.EventModified:
-		return "📝"
+		return activeGlyphs.Memo
 	default:
 		return "•"
 	}
@@ -1873,15 +1873,15 @@ func (m *Model) applyBQL(query *bql.Query, queryStr string) {
 func GetTypeIconMD(t string) string {
 	switch t {
 	case "bug":
-		return "🐛"
+		return activeGlyphs.TypeBug
 	case "feature":
-		return "✨"
+		return activeGlyphs.TypeFeature
 	case "task":
-		return "📋"
+		return activeGlyphs.TypeTask
 	case "epic":
-		return "🚀" // Use rocket instead of mountain - VS-16 variation selector causes width issues
+		return activeGlyphs.TypeEpic
 	case "chore":
-		return "🧹"
+		return activeGlyphs.TypeChore
 	default:
 		return "•"
 	}

@@ -34,7 +34,7 @@ func (m *Model) setInlineTransientStatus(msg string, d time.Duration) tea.Cmd {
 	})
 }
 
-// setStatus sets a success/info confirmation toast (✓, ~3s auto-fade, no bell).
+// setStatus sets a success/info confirmation toast (~3s auto-fade, no bell).
 func (m *Model) setStatus(msg string) {
 	m.statusMsg = msg
 	m.statusSeverity = SeveritySuccess
@@ -140,21 +140,21 @@ type StatusSeverity int
 
 const (
 	SeverityNone     StatusSeverity = iota // no status message
-	SeveritySuccess                        // ✓ confirmation; ~3s; no bell
+	SeveritySuccess                        // confirmation; ~3s; no bell
 	SeverityNotice                         // rejection/validation; ~3s; no bell
-	SeverityFailure                        // ✗ one-shot failure; ~8s; bell
-	SeverityDegraded                       // ⚠ live condition; sticky; bell
+	SeverityFailure                        // one-shot failure; ~8s; bell
+	SeverityDegraded                       // live condition; sticky; bell
 )
 
 // glyph is the leading symbol for a toast of this severity ("" = none).
 func (s StatusSeverity) glyph() string {
 	switch s {
 	case SeveritySuccess:
-		return "✓"
+		return activeGlyphs.Success
 	case SeverityFailure:
-		return "✗"
+		return activeGlyphs.Cross
 	case SeverityDegraded:
-		return "⚠"
+		return activeGlyphs.Warning
 	default:
 		return ""
 	}
@@ -218,7 +218,7 @@ type FooterData struct {
 
 	// Time travel (overrides normal stats when active)
 	TimeTravelActive bool
-	TimeTravelStats  string // pre-formatted "⏱ 3d: +5 ✅2 ~3"
+	TimeTravelStats  string // pre-formatted, e.g. "3d: +5 done2 ~3"
 
 	// Background worker badge
 	WorkerText  string
@@ -273,7 +273,7 @@ type FooterData struct {
 	CenterOverride string
 
 	// Unread bell (Phase 4): events newer than alertsSeenAt and not dismissed.
-	// Always rendered as 🔔; the count suffix appears only when > 0.
+	// Always rendered as the bell glyph; the count suffix appears only when > 0.
 	BellCount int
 }
 
@@ -329,8 +329,8 @@ func (m *Model) footerData() FooterData {
 	if m.timeTravelMode && m.timeTravelDiff != nil {
 		fd.TimeTravelActive = true
 		d := m.timeTravelDiff.Summary
-		fd.TimeTravelStats = fmt.Sprintf("⏱ %s: +%d ✅%d ~%d",
-			m.timeTravelSince, d.IssuesAdded, d.IssuesClosed, d.IssuesModified)
+		fd.TimeTravelStats = fmt.Sprintf("%s %s: +%d %s%d ~%d",
+			activeGlyphs.Clock, m.timeTravelSince, d.IssuesAdded, activeGlyphs.Success, d.IssuesClosed, d.IssuesModified)
 	}
 
 	// Worker badge
@@ -424,19 +424,21 @@ func (m *Model) footerCenter() string {
 			return ""
 		}
 		if total := len(m.list.VisibleItems()); total > 0 {
-			return fmt.Sprintf("%s · %d/%d", sel.Issue.ID, m.list.Index()+1, total)
+			return fmt.Sprintf("%s %s %d/%d", sel.Issue.ID, activeGlyphs.Sep, m.list.Index()+1, total)
 		}
 		return sel.Issue.ID
 	}
 
 	switch m.mode {
 	case ViewGraph:
-		return fmt.Sprintf("%s · %s",
+		return fmt.Sprintf("%s %s %s",
 			countLabel(m.graphView.TotalCount(), "node"),
+			activeGlyphs.Sep,
 			countLabel(m.graphView.EdgeCount(), "edge"))
 	case ViewBoard:
-		return fmt.Sprintf("%s · %s",
+		return fmt.Sprintf("%s %s %s",
 			countLabel(m.board.VisibleColumnCount(), "col"),
+			activeGlyphs.Sep,
 			countLabel(m.board.TotalCount(), "card"))
 	}
 	return ""
@@ -455,35 +457,35 @@ func countLabel(n int, word string) string {
 
 func (m *Model) extractFilterBadge() (text, icon string) {
 	if m.focused == focusLabelDashboard {
-		return "LABELS: j/k nav • h detail • d drilldown • enter filter", "🏷️"
+		return "LABELS: j/k nav • h detail • d drilldown • enter filter", activeGlyphs.Tag
 	}
 	if m.activeModal == ModalLabelGraphAnalysis && m.labelGraphAnalysisResult != nil {
-		return fmt.Sprintf("GRAPH %s: esc/q/g close", m.labelGraphAnalysisResult.Label), "📊"
+		return fmt.Sprintf("GRAPH %s: esc/q/g close", m.labelGraphAnalysisResult.Label), activeGlyphs.Graph
 	}
 	if m.activeModal == ModalLabelDrilldown && m.labelDrilldownLabel != "" {
-		return fmt.Sprintf("LABEL %s: enter filter • g graph • esc/q/d close", m.labelDrilldownLabel), "🏷️"
+		return fmt.Sprintf("LABEL %s: enter filter • g graph • esc/q/d close", m.labelDrilldownLabel), activeGlyphs.Tag
 	}
 	switch m.filter.currentFilter {
 	case "all":
-		return "ALL", "📋"
+		return "ALL", activeGlyphs.FilterAll
 	case "open":
-		return "OPEN", "📂"
+		return "OPEN", activeGlyphs.FilterOpen
 	case "closed":
-		return "CLOSED", "✅"
+		return "CLOSED", activeGlyphs.FilterClosed
 	case "ready":
-		return "READY", "🚀"
+		return "READY", activeGlyphs.FilterReady
 	default:
 		if strings.HasPrefix(m.filter.currentFilter, "bql:") {
 			bqlStr := m.filter.currentFilter[4:]
 			if len(bqlStr) > 30 {
 				bqlStr = bqlStr[:27] + "..."
 			}
-			return "BQL: " + bqlStr, "🔍"
+			return "BQL: " + bqlStr, activeGlyphs.FilterBQL
 		}
 		if strings.HasPrefix(m.filter.currentFilter, "recipe:") {
-			return strings.ToUpper(m.filter.currentFilter[7:]), "📑"
+			return strings.ToUpper(m.filter.currentFilter[7:]), activeGlyphs.FilterRecipe
 		}
-		return m.filter.currentFilter, "🔍"
+		return m.filter.currentFilter, activeGlyphs.Search
 	}
 }
 
@@ -576,23 +578,23 @@ func (m *Model) extractWorkerBadge() (string, WorkerLevel) {
 
 	switch {
 	case health.Started && !health.Alive:
-		return "⚠ worker unresponsive", WorkerLevelCritical
+		return activeGlyphs.Warning + " worker unresponsive", WorkerLevelCritical
 
 	case m.workerSpinnerVisible():
 		frame := workerSpinnerFrames[m.data.workerSpinnerIdx%len(workerSpinnerFrames)]
 		return fmt.Sprintf("%s refreshing", frame), WorkerLevelInfo
 
 	case lastErr != nil && lastErr.Retries >= freshnessErrorRetries:
-		return fmt.Sprintf("✗ bg %s (%dx)", lastErr.Phase, lastErr.Retries), WorkerLevelCritical
+		return fmt.Sprintf("%s bg %s (%dx)", activeGlyphs.Cross, lastErr.Phase, lastErr.Retries), WorkerLevelCritical
 
 	case lastErr != nil:
-		return fmt.Sprintf("⚠ bg %s (%s)", lastErr.Phase, formatAge(time.Since(lastErr.Time))), WorkerLevelWarning
+		return fmt.Sprintf("%s bg %s (%s)", activeGlyphs.Warning, lastErr.Phase, formatAge(time.Since(lastErr.Time))), WorkerLevelWarning
 
 	case hasFreshnessAge && freshnessAge >= freshnessStaleThreshold():
-		return fmt.Sprintf("⚠ STALE: %s ago", formatAge(freshnessAge)), WorkerLevelCritical
+		return fmt.Sprintf("%s STALE: %s ago", activeGlyphs.Warning, formatAge(freshnessAge)), WorkerLevelCritical
 
 	case hasFreshnessAge && freshnessAge >= freshnessWarnThreshold():
-		return fmt.Sprintf("⚠ %s ago", formatAge(freshnessAge)), WorkerLevelWarning
+		return fmt.Sprintf("%s %s ago", activeGlyphs.Warning, formatAge(freshnessAge)), WorkerLevelWarning
 
 	default:
 		if health.RecoveryCount > 0 {
@@ -868,7 +870,7 @@ func (fd FooterData) Render() string {
 			Background(ColorBgHighlight).
 			Foreground(ColorSecondary).
 			Padding(0, 1).
-			Render(fmt.Sprintf("🔎 %s", fd.SearchMode))
+			Render(fmt.Sprintf("%s %s", activeGlyphs.Search, fd.SearchMode))
 	}
 
 	// Sort badge
@@ -878,7 +880,7 @@ func (fd FooterData) Render() string {
 			Background(ColorBgHighlight).
 			Foreground(ColorSecondary).
 			Padding(0, 1).
-			Render(fmt.Sprintf("↕ %s", fd.SortLabel))
+			Render(fmt.Sprintf("%s %s", activeGlyphs.Sort, fd.SortLabel))
 	}
 
 	// Wisp badge
@@ -919,10 +921,10 @@ func (fd FooterData) Render() string {
 		}
 		var segs []string
 		for _, s := range []string{
-			seg(lipgloss.NewStyle().Foreground(ColorStatusOpen), "○", fd.CountOpen),
-			seg(lipgloss.NewStyle().Foreground(ColorSuccess), "◉", fd.CountReady),
-			seg(lipgloss.NewStyle().Foreground(ColorWarning), "◈", fd.CountBlocked),
-			seg(lipgloss.NewStyle().Foreground(ColorMuted), "●", fd.CountClosed),
+			seg(lipgloss.NewStyle().Foreground(ColorStatusOpen), activeGlyphs.StatOpen, fd.CountOpen),
+			seg(lipgloss.NewStyle().Foreground(ColorSuccess), activeGlyphs.StatReady, fd.CountReady),
+			seg(lipgloss.NewStyle().Foreground(ColorWarning), activeGlyphs.StatBlocked, fd.CountBlocked),
+			seg(lipgloss.NewStyle().Foreground(ColorMuted), activeGlyphs.StatClosed, fd.CountClosed),
 		} {
 			if s != "" {
 				segs = append(segs, s)
@@ -960,7 +962,7 @@ func (fd FooterData) Render() string {
 			Background(ColorBgHighlight).
 			Foreground(ColorInfo).
 			Padding(0, 1)
-		phase2Section = phase2Style.Render("◌ metrics…")
+		phase2Section = phase2Style.Render(activeGlyphs.Phase2Dot + " metrics…")
 	}
 
 	// Watcher badge
@@ -981,7 +983,7 @@ func (fd FooterData) Render() string {
 			Foreground(ColorBg).
 			Bold(true).
 			Padding(0, 1)
-		updateSection = updateStyle.Render(fmt.Sprintf("⭐ %s", fd.UpdateTag))
+		updateSection = updateStyle.Render(fmt.Sprintf("%s %s", activeGlyphs.Star, fd.UpdateTag))
 	}
 
 	// Dataset warning
@@ -1010,7 +1012,7 @@ func (fd FooterData) Render() string {
 			Foreground(ColorWarning).
 			Bold(true).
 			Padding(0, 1)
-		instanceSection = instanceStyle.Render(fmt.Sprintf("⚠ PID %d", fd.SecondaryPID))
+		instanceSection = instanceStyle.Render(fmt.Sprintf("%s PID %d", activeGlyphs.Warning, fd.SecondaryPID))
 	}
 
 	// Session indicator
@@ -1024,7 +1026,7 @@ func (fd FooterData) Render() string {
 		if fd.SessionCount > 9 {
 			countStr = "9+"
 		}
-		sessionSection = sessionStyle.Render(fmt.Sprintf("📎%s", countStr))
+		sessionSection = sessionStyle.Render(fmt.Sprintf("%s%s", activeGlyphs.Session, countStr))
 	}
 
 	// Workspace badge
@@ -1035,7 +1037,7 @@ func (fd FooterData) Render() string {
 			Foreground(ColorBg).
 			Bold(true).
 			Padding(0, 1)
-		workspaceSection = workspaceStyle.Render(fmt.Sprintf("📦 %s", fd.WorkspaceSummary))
+		workspaceSection = workspaceStyle.Render(fmt.Sprintf("%s %s", activeGlyphs.Workspace, fd.WorkspaceSummary))
 	}
 
 	// Repo filter badge
@@ -1047,7 +1049,7 @@ func (fd FooterData) Render() string {
 			Foreground(ColorInfo).
 			Bold(true).
 			Padding(0, 1)
-		labelFilterSection = labelStyle.Render(fmt.Sprintf("🏷 %s", fd.LabelFilterText))
+		labelFilterSection = labelStyle.Render(fmt.Sprintf("%s %s", activeGlyphs.Tag, fd.LabelFilterText))
 	}
 
 	repoFilterSection := ""
@@ -1057,7 +1059,7 @@ func (fd FooterData) Render() string {
 			Foreground(ColorInfo).
 			Bold(true).
 			Padding(0, 1)
-		repoFilterSection = repoStyle.Render(fmt.Sprintf("🗂 %s", fd.RepoFilterLabel))
+		repoFilterSection = repoStyle.Render(fmt.Sprintf("%s %s", activeGlyphs.RepoDrawer, fd.RepoFilterLabel))
 	}
 
 	// --- Right zone: key hints --------------------------------------------
@@ -1065,7 +1067,7 @@ func (fd FooterData) Render() string {
 	// pick the densest form that fits: full "key desc" pills, then key-only
 	// glyphs, then fewer pills, then none. The first and last hint (last is
 	// usually "?") survive longest. Styling lives here, not in extractKeyHints.
-	sep := lipgloss.NewStyle().Foreground(ColorMuted).Render(" │ ")
+	sep := lipgloss.NewStyle().Foreground(ColorMuted).Render(" " + activeGlyphs.SepBar + " ")
 	keysStyle := lipgloss.NewStyle().Foreground(ColorSubtext).Padding(0, 1)
 	keyGlyph := lipgloss.NewStyle().Foreground(ColorSecondary).Background(ColorBgSubtle)
 
@@ -1207,9 +1209,9 @@ func (fd FooterData) Render() string {
 	// Pinned (last to drop) alongside the ? hint. Built BEFORE the cascade so its
 	// width can be reserved — otherwise the toast/keys consume the whole right zone
 	// and the final ansi.Truncate clips the bell (bt-a3zi3.1).
-	bellText := "🔔"
+	bellText := activeGlyphs.Bell
 	if fd.BellCount > 0 {
-		bellText = fmt.Sprintf("🔔%d", fd.BellCount)
+		bellText = fmt.Sprintf("%s%d", activeGlyphs.Bell, fd.BellCount)
 	}
 	bellStyle := lipgloss.NewStyle().Foreground(ColorMuted).Padding(0, 1)
 	if fd.BellCount > 0 {
@@ -1418,14 +1420,14 @@ func (fd FooterData) renderAlertsBadge() string {
 			Foreground(ColorPrioCritical).
 			Bold(true).
 			Padding(0, 1)
-		alertIcon = "⚠"
+		alertIcon = activeGlyphs.Warning
 	} else {
 		alertStyle = lipgloss.NewStyle().
 			Background(ColorPrioHighBg).
 			Foreground(ColorWarning).
 			Bold(true).
 			Padding(0, 1)
-		alertIcon = "⚡"
+		alertIcon = activeGlyphs.Bolt
 	}
 	return alertStyle.Render(fmt.Sprintf("%s %d (!)", alertIcon, attention))
 }

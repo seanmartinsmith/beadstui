@@ -132,7 +132,7 @@ func (m AgentPromptModal) View() string {
 	var b strings.Builder
 
 	// Title
-	b.WriteString(titleStyle.Render("📝 Enhance AI Agent Integration?"))
+	b.WriteString(titleStyle.Render(activeGlyphs.Memo + " Enhance AI Agent Integration?"))
 	b.WriteString("\n\n")
 
 	// Body
@@ -238,4 +238,3 @@ func getBlurbPreview() string {
 
 	return strings.Join(preview, "\n") + "\n..."
 }
-

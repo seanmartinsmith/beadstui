@@ -359,7 +359,7 @@ func (g *GraphModel) renderNodeList(width, height int, t Theme) string {
 		Bold(true).
 		Foreground(t.Primary).
 		Width(width)
-	lines = append(lines, headerStyle.Render(fmt.Sprintf("📊 Nodes (%d)", len(g.sortedIDs))))
+	lines = append(lines, headerStyle.Render(fmt.Sprintf("%s Nodes (%d)", activeGlyphs.BarChart, len(g.sortedIDs))))
 	lines = append(lines, strings.Repeat("─", width))
 
 	visibleItems := height - 4
@@ -586,7 +586,7 @@ func (g *GraphModel) renderNodeBox(id string, boxWidth int, t Theme, isEgo bool)
 			title = truncateRunesHelper(issue.Title, boxWidth-4, "…")
 		}
 	} else {
-		statusIcon = "❓"
+		statusIcon = activeGlyphs.StUnknown
 		statusColor = t.Secondary
 		displayID = smartTruncateID(id, boxWidth-4)
 		title = "(not in filter)"
@@ -670,7 +670,7 @@ func (g *GraphModel) renderEgoNode(id string, issue *model.Issue, width int, t T
 	// Add connection counts
 	blockerCount := len(g.blockers[id])
 	dependentCount := len(g.dependents[id])
-	content += fmt.Sprintf("\n⬆%d  ⬇%d", blockerCount, dependentCount)
+	content += fmt.Sprintf("\n↑%d  ↓%d", blockerCount, dependentCount)
 
 	egoStyle := lipgloss.NewStyle().
 		Border(lipgloss.DoubleBorder()).
@@ -738,7 +738,7 @@ func (g *GraphModel) renderMetricsPanel(id string, width int, t Theme) string {
 		Padding(0, 2).
 		Width(width - 4)
 
-	panelTitle := panelHeaderStyle.Render("📊 GRAPH METRICS")
+	panelTitle := panelHeaderStyle.Render(activeGlyphs.BarChart + " GRAPH METRICS")
 
 	if g.insights == nil || g.insights.Stats == nil {
 		noDataStyle := lipgloss.NewStyle().
@@ -943,34 +943,34 @@ func (g *GraphModel) renderMetricsPanel(id string, width int, t Theme) string {
 func getStatusIcon(status model.Status) string {
 	switch {
 	case isClosedLikeStatus(status):
-		return "✅"
+		return activeGlyphs.StClosed
 	case status == model.StatusOpen:
-		return "🔵"
+		return activeGlyphs.StOpen
 	case status == model.StatusInProgress:
-		return "🟡"
+		return activeGlyphs.StInProgress
 	case status == model.StatusBlocked:
-		return "🔴"
+		return activeGlyphs.StBlocked
 	case status == model.StatusDeferred:
-		return "⏸️"
+		return activeGlyphs.StDeferred
 	case status == model.StatusPinned:
-		return "📌"
+		return activeGlyphs.StPinned
 	case status == model.StatusHooked:
-		return "🪝"
+		return activeGlyphs.StHooked
 	default:
-		return "⚪"
+		return activeGlyphs.StUnknown
 	}
 }
 
 func getPriorityIcon(priority int) string {
 	switch priority {
 	case 1:
-		return "🔥"
+		return activeGlyphs.PrCritical
 	case 2:
-		return "⚡"
+		return activeGlyphs.PrHigh
 	case 3:
-		return "📌"
+		return activeGlyphs.PrMedium
 	case 4:
-		return "📋"
+		return activeGlyphs.PrLow
 	default:
 		return "  "
 	}
@@ -979,17 +979,17 @@ func getPriorityIcon(priority int) string {
 func getTypeIcon(itype model.IssueType) string {
 	switch itype {
 	case model.TypeBug:
-		return "🐛"
+		return activeGlyphs.TypeBug
 	case model.TypeFeature:
-		return "✨"
+		return activeGlyphs.TypeFeature
 	case model.TypeTask:
-		return "📝"
+		return activeGlyphs.TypeTask
 	case model.TypeEpic:
-		return "🎯"
+		return activeGlyphs.TypeEpic
 	case model.TypeChore:
-		return "🔧"
+		return activeGlyphs.TypeChore
 	default:
-		return "📄"
+		return activeGlyphs.TypeDefault
 	}
 }
 

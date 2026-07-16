@@ -237,6 +237,7 @@ func generateRobotDocs(topic string) map[string]interface{} {
 		"BT_NO_UPDATE_CHECK":        "Set to 1 to skip the GitHub release check at startup (no network call, no notification)",
 		"BT_TEST_MODE":              "Set to 1 to enable test-mode guards (e.g. fail fast in global-mode Dolt discovery)",
 		"BT_STALE_DAYS":             "Staleness threshold in days for TUI highlighting (default: 14)",
+		"BT_GLYPHS":                 "TUI glyph tier: nerdfont (default) or ascii (pure-ASCII fallback)",
 		"BT_INSIGHTS_MAP_LIMIT":     "Per-map size limit in `bt robot insights` output (reduces payload size)",
 		"BT_TEMPORAL_CACHE_TTL":     "Cache TTL for temporal analysis snapshots (e.g. '30m', '2h')",
 		"BT_TEMPORAL_MAX_SNAPSHOTS": "Maximum snapshots retained by the temporal analyzer",

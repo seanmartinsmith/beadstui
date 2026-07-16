@@ -24,14 +24,14 @@ func TestDiffStatusBadge(t *testing.T) {
 			expected: "",
 		},
 		{
-			name:     "new returns new emoji",
+			name:     "new returns new glyph",
 			status:   ui.DiffStatusNew,
-			expected: "🆕",
+			expected: ui.Glyphs().New,
 		},
 		{
-			name:     "closed returns checkmark emoji",
+			name:     "closed returns success glyph",
 			status:   ui.DiffStatusClosed,
-			expected: "✅",
+			expected: ui.Glyphs().Success,
 		},
 		{
 			name:     "modified returns tilde",
@@ -517,8 +517,8 @@ func TestIssueItemDiffStatusBadge(t *testing.T) {
 		wantBadge  string
 	}{
 		{"none", ui.DiffStatusNone, ""},
-		{"new", ui.DiffStatusNew, "🆕"},
-		{"closed", ui.DiffStatusClosed, "✅"},
+		{"new", ui.DiffStatusNew, ui.Glyphs().New},
+		{"closed", ui.DiffStatusClosed, ui.Glyphs().Success},
 		{"modified", ui.DiffStatusModified, "~"},
 	}
 

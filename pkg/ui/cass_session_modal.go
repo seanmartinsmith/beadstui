@@ -129,7 +129,7 @@ func (m CassSessionModal) View() string {
 	var b strings.Builder
 
 	// Header
-	b.WriteString(headerStyle.Render("📎 Related Coding Sessions"))
+	b.WriteString(headerStyle.Render(activeGlyphs.Paperclip + " Related Coding Sessions"))
 	b.WriteString("  ")
 	b.WriteString(beadIDStyle.Render(m.beadID))
 	b.WriteString("\n\n")
@@ -198,7 +198,7 @@ func (m CassSessionModal) View() string {
 	// Footer with keybindings
 	footerText := "[j/k] Navigate    [y] Copy search cmd    [V/Esc] Close"
 	if showCopied {
-		footerText = "[j/k] Navigate    ✓ Copied!              [V/Esc] Close"
+		footerText = "[j/k] Navigate    " + activeGlyphs.Success + " Copied!              [V/Esc] Close"
 	}
 	b.WriteString(footerStyle.Render(footerText))
 

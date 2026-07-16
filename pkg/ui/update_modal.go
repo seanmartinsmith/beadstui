@@ -315,7 +315,7 @@ func (m UpdateModal) View() string {
 
 // renderSpinner returns an animated spinner character
 func (m UpdateModal) renderSpinner() string {
-	frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	frames := activeGlyphs.Spinner
 	idx := int(time.Since(m.startTime).Milliseconds()/100) % len(frames)
 	return frames[idx]
 }
@@ -372,4 +372,3 @@ func (m UpdateModal) IsInProgress() bool {
 		m.state == UpdateStateVerifying ||
 		m.state == UpdateStateInstalling
 }
-

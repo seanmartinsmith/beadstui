@@ -374,8 +374,8 @@ func NewBackgroundWorker(cfg WorkerConfig) (*BackgroundWorker, error) {
 		// the working set permanently (bt-2ubez: ~40MB idle-not-released at
 		// 1300 issues in the soak harness; ~700MB observed on a busy day).
 		// FreeOSMemory forces the scavenger to hand pages back while idle.
-		idleGCFunc:        debug.FreeOSMemory,
-		doltReconnectFn:   cfg.DoltReconnectFn,
+		idleGCFunc:      debug.FreeOSMemory,
+		doltReconnectFn: cfg.DoltReconnectFn,
 	}
 	w.lastActivityUnixNano.Store(time.Now().UnixNano())
 
@@ -1719,16 +1719,16 @@ func largeDatasetWarning(tier datasetTier, sourceHint, loaded int, openOnly bool
 		if sourceHint > 0 {
 			n = sourceHint
 		}
-		return fmt.Sprintf("⚠ large %s issues", compactCount(n))
+		return fmt.Sprintf("%s large %s issues", activeGlyphs.Warning, compactCount(n))
 	case datasetTierHuge:
 		if openOnly && sourceHint > 0 {
-			return fmt.Sprintf("⚠ huge open-only %s/%s", compactCount(loaded), compactCount(sourceHint))
+			return fmt.Sprintf("%s huge open-only %s/%s", activeGlyphs.Warning, compactCount(loaded), compactCount(sourceHint))
 		}
 		n := loaded
 		if sourceHint > 0 {
 			n = sourceHint
 		}
-		return fmt.Sprintf("⚠ huge %s issues", compactCount(n))
+		return fmt.Sprintf("%s huge %s issues", activeGlyphs.Warning, compactCount(n))
 	default:
 		return ""
 	}

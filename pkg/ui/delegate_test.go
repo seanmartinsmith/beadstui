@@ -70,10 +70,10 @@ func TestIssueDelegate_RenderWorkspaceWithPriorityHints(t *testing.T) {
 	if !strings.Contains(out, "[API]") {
 		t.Fatalf("render output missing repo badge [API]: %q", out)
 	}
-	if !strings.Contains(out, "🆕") {
+	if !strings.Contains(out, activeGlyphs.New) {
 		t.Fatalf("render output missing diff badge for new item: %q", out)
 	}
-	if !strings.Contains(out, "💬1") {
+	if !strings.Contains(out, activeGlyphs.Comment+"1") {
 		t.Fatalf("render output missing comment count badge: %q", out)
 	}
 }
@@ -223,7 +223,7 @@ func TestIssueDelegate_RenderShowsAuthor(t *testing.T) {
 	if !strings.Contains(out, "bt-7d42e") {
 		t.Fatalf("width=140 output should include author 'bt-7d42e': %q", out)
 	}
-	if !strings.Contains(out, "✎") {
+	if !strings.Contains(out, activeGlyphs.Pencil) {
 		t.Fatalf("width=140 output should include author prefix ✎: %q", out)
 	}
 }

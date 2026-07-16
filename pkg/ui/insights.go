@@ -42,7 +42,7 @@ type MetricInfo struct {
 
 var metricDescriptions = map[MetricPanel]MetricInfo{
 	PanelBottlenecks: {
-		Icon:        "🚧",
+		Icon:        activeGlyphs.Construction,
 		Title:       "Bottlenecks",
 		ShortDesc:   "Betweenness Centrality",
 		WhatIs:      "Measures how often a bead lies on **shortest paths** between other beads in the dependency graph.",
@@ -51,7 +51,7 @@ var metricDescriptions = map[MetricPanel]MetricInfo{
 		FormulaHint: "`BW(v) = Σ (σst(v) / σst)` for all s≠v≠t",
 	},
 	PanelKeystones: {
-		Icon:        "🏛️",
+		Icon:        activeGlyphs.Building,
 		Title:       "Keystones",
 		ShortDesc:   "Impact Depth",
 		WhatIs:      "Measures how **deep** in the dependency chain a bead sits (downstream chain length).",
@@ -60,7 +60,7 @@ var metricDescriptions = map[MetricPanel]MetricInfo{
 		FormulaHint: "`Impact(v) = 1 + max(Impact(u))` for all u depending on v",
 	},
 	PanelInfluencers: {
-		Icon:        "🌐",
+		Icon:        activeGlyphs.Globe,
 		Title:       "Influencers",
 		ShortDesc:   "Eigenvector Centrality",
 		WhatIs:      "Scores beads by their connections to other **well-connected** beads.",
@@ -69,7 +69,7 @@ var metricDescriptions = map[MetricPanel]MetricInfo{
 		FormulaHint: "`EV(v) = (1/λ) × Σ A[v,u] × EV(u)`",
 	},
 	PanelHubs: {
-		Icon:        "🛰️",
+		Icon:        activeGlyphs.Satellite,
 		Title:       "Hubs",
 		ShortDesc:   "HITS Hub Score",
 		WhatIs:      "Beads that **depend on** many important authorities (aggregators).",
@@ -78,7 +78,7 @@ var metricDescriptions = map[MetricPanel]MetricInfo{
 		FormulaHint: "`Hub(v) = Σ Authority(u)` for all u where v→u",
 	},
 	PanelAuthorities: {
-		Icon:        "📚",
+		Icon:        activeGlyphs.Books,
 		Title:       "Authorities",
 		ShortDesc:   "HITS Authority Score",
 		WhatIs:      "Beads that are **depended upon** by many important hubs (providers).",
@@ -87,7 +87,7 @@ var metricDescriptions = map[MetricPanel]MetricInfo{
 		FormulaHint: "`Auth(v) = Σ Hub(u)` for all u where u→v",
 	},
 	PanelCores: {
-		Icon:        "🧠",
+		Icon:        activeGlyphs.Brain,
 		Title:       "Cores",
 		ShortDesc:   "k-core Cohesion",
 		WhatIs:      "Nodes with highest **k-core numbers** (embedded in dense subgraphs).",
@@ -96,7 +96,7 @@ var metricDescriptions = map[MetricPanel]MetricInfo{
 		FormulaHint: "Max `k` such that node remains in k-core after peeling",
 	},
 	PanelArticulation: {
-		Icon:        "🪢",
+		Icon:        activeGlyphs.Knot,
 		Title:       "Cut Points",
 		ShortDesc:   "Articulation Vertices",
 		WhatIs:      "Nodes whose **removal disconnects** the undirected graph.",
@@ -105,7 +105,7 @@ var metricDescriptions = map[MetricPanel]MetricInfo{
 		FormulaHint: "Tarjan articulation detection on undirected view",
 	},
 	PanelSlack: {
-		Icon:        "⏳",
+		Icon:        activeGlyphs.Hourglass,
 		Title:       "Slack",
 		ShortDesc:   "Longest-path slack",
 		WhatIs:      "Distance from **critical chain** (`0` = critical path; higher = parallel-friendly).",
@@ -114,7 +114,7 @@ var metricDescriptions = map[MetricPanel]MetricInfo{
 		FormulaHint: "`Slack(v) = max_path_len - dist_start(v) - dist_end(v)`",
 	},
 	PanelCycles: {
-		Icon:        "🔄",
+		Icon:        activeGlyphs.Refresh,
 		Title:       "Cycles",
 		ShortDesc:   "Circular Dependencies",
 		WhatIs:      "Groups of beads forming **dependency loops** (A→B→C→A).",
@@ -123,7 +123,7 @@ var metricDescriptions = map[MetricPanel]MetricInfo{
 		FormulaHint: "Detected via Tarjan's SCC algorithm",
 	},
 	PanelPriority: {
-		Icon:        "🎯",
+		Icon:        activeGlyphs.Target,
 		Title:       "Priority",
 		ShortDesc:   "Agent-First Triage",
 		WhatIs:      "AI-computed recommendations combining **multiple signals** into actionable picks.",
@@ -702,8 +702,8 @@ func (m *InsightsModel) View() string {
 	// Choose layout cols based on available width (bt-y0fv.1).
 	//
 	// Each metric panel must hold its longest title without mid-word truncation.
-	// The longest possible title is "🌐 Influencers [Skipped]" (~24 cells with
-	// emoji, ~11-char name, " [Skipped]" suffix). RenderTitledPanel computes
+	// The longest possible title is "Influencers [Skipped]" (~24 cells with
+	// the glyph, ~11-char name, " [Skipped]" suffix). RenderTitledPanel computes
 	// maxTitle = innerWidth - 4 = colWidth - 4, so colWidth must be >= ~28 to
 	// hold that title without truncation. Subtitles like "Eigenvector
 	// Centrality" (22 chars) get body-truncated to innerWidth = colWidth, so
@@ -713,7 +713,7 @@ func (m *InsightsModel) View() string {
 	// 3-col grid; otherwise the grid columns get crushed below readable widths
 	// (was a bug at m.width 121-140: detail panel stole 41 cols, leaving
 	// mainWidth=80 -> colWidth=24, which truncated titles like
-	// "🌐 Influencers [Skipped]" mid-word).
+	// "Influencers [Skipped]" mid-word).
 	mainWidth, detailWidth := m.computeInsightsLayoutWidths()
 	cols := chooseInsightsCols(mainWidth)
 
@@ -750,7 +750,7 @@ func (m *InsightsModel) View() string {
 
 // insightsMinColWidth is the minimum readable width for a metric panel column.
 // Sized to hold the longest metric panel title without mid-word truncation
-// (longest is "🌐 Influencers [Skipped]" at ~24 cells; RenderTitledPanel
+// (longest is "Influencers [Skipped]" at ~24 cells; RenderTitledPanel
 // reserves 4 cells of border/padding overhead -> need colWidth >= 28).
 const insightsMinColWidth = 28
 
@@ -1147,7 +1147,7 @@ func (m *InsightsModel) renderCyclesPanel(width, height int, t Theme) string {
 		healthyStyle := lipgloss.NewStyle().
 			Foreground(t.Open).
 			Bold(true)
-		lines = append(lines, healthyStyle.Render("✓ No cycles detected"))
+		lines = append(lines, healthyStyle.Render(activeGlyphs.Success+" No cycles detected"))
 		lines = append(lines, lipgloss.NewStyle().Foreground(t.Subtext).Render("Graph is acyclic (DAG)"))
 	} else {
 		selectedIdx := m.selectedIndex[PanelCycles]
@@ -1319,7 +1319,7 @@ func (m *InsightsModel) renderPriorityPanel(width, height int, t Theme) string {
 			Italic(true).
 			Align(lipgloss.Right).
 			Width(width - 4)
-		lines = append(lines, hashStyle.Render("📊 "+m.triageDataHash))
+		lines = append(lines, hashStyle.Render(activeGlyphs.BarChart+" "+m.triageDataHash))
 	}
 
 	return RenderTitledPanel(lipgloss.JoinVertical(lipgloss.Left, lines...), PanelOpts{
@@ -1499,7 +1499,7 @@ func (m *InsightsModel) renderHeatmapPanel(width, height int, t Theme) string {
 		titleColor = t.Primary
 	}
 
-	panelTitle := "📊 Priority Heatmap"
+	panelTitle := activeGlyphs.BarChart + " Priority Heatmap"
 
 	// Helper to wrap content in the titled panel
 	wrapPanel := func(content string) string {
@@ -1720,7 +1720,7 @@ func (m *InsightsModel) renderHeatmapDrillDown(width int, t Theme) string {
 		scoreLabel = scoreLabels[m.heatmapCol]
 	}
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(t.Primary)
-	sb.WriteString(titleStyle.Render(fmt.Sprintf("📋 Issues in %s × %s (%d items)",
+	sb.WriteString(titleStyle.Render(fmt.Sprintf(activeGlyphs.Clipboard+" Issues in %s × %s (%d items)",
 		depthLabel, scoreLabel, len(m.heatmapIssues))))
 	sb.WriteString("\n")
 
@@ -1785,15 +1785,15 @@ func (m *InsightsModel) renderDrillDownIssue(issueID string, isSelected bool, wi
 	icon := "•"
 	switch issue.IssueType {
 	case "bug":
-		icon = "🐛"
+		icon = activeGlyphs.TypeBug
 	case "feature":
-		icon = "✨"
+		icon = activeGlyphs.TypeFeature
 	case "task":
-		icon = "📋"
+		icon = activeGlyphs.TypeTask
 	case "chore":
-		icon = "🔧"
+		icon = activeGlyphs.TypeChore
 	case "epic":
-		icon = "🎯"
+		icon = activeGlyphs.TypeEpic
 	}
 	sb.WriteString(icon + " ")
 
@@ -1892,7 +1892,7 @@ func (m *InsightsModel) buildDetailMarkdown(selectedID string) string {
 	// === Graph Metrics Section ===
 	if m.insights.Stats != nil {
 		stats := m.insights.Stats
-		sb.WriteString("### 📊 Graph Analysis\n\n")
+		sb.WriteString("### " + activeGlyphs.BarChart + " Graph Analysis\n\n")
 
 		// Core metrics in a compact format
 		pr := stats.GetPageRankScore(selectedID)
@@ -1961,7 +1961,7 @@ func (m *InsightsModel) renderCalculationProofMD(selectedID string) string {
 	info := metricDescriptions[m.focusedPanel]
 
 	sb.WriteString("---\n\n")
-	sb.WriteString("### 🔬 Calculation Proof\n\n")
+	sb.WriteString("### " + activeGlyphs.Microscope + " Calculation Proof\n\n")
 	sb.WriteString(fmt.Sprintf("**Formula:** %s\n\n", info.FormulaHint))
 
 	switch m.focusedPanel {

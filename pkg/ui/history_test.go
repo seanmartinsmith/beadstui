@@ -1238,13 +1238,13 @@ func TestCommitTypeIndicator(t *testing.T) {
 		msg  string
 		want string
 	}{
-		{"feat: new feature", "✨"},
-		{"fix: bug fix", "🐛"},
-		{"docs: update readme", "📝"},
-		{"refactor: clean up", "♻"},
-		{"test: add tests", "🧪"},
-		{"chore: update deps", "🔧"},
-		{"perf: optimize", "⚡"},
+		{"feat: new feature", activeGlyphs.TypeFeature},
+		{"fix: bug fix", activeGlyphs.TypeBug},
+		{"docs: update readme", activeGlyphs.Memo},
+		{"refactor: clean up", activeGlyphs.Refresh},
+		{"test: add tests", activeGlyphs.TestTube},
+		{"chore: update deps", activeGlyphs.Wrench},
+		{"perf: optimize", activeGlyphs.Bolt},
 		{"Merge branch 'main'", "⊕"},
 		{"Revert 'some commit'", "↩"},
 		{"regular message", ""},
@@ -1329,11 +1329,11 @@ func TestEventTypeIcon(t *testing.T) {
 		et   correlation.EventType
 		want string
 	}{
-		{correlation.EventCreated, "🆕"},
-		{correlation.EventClaimed, "👤"},
-		{correlation.EventClosed, "✓"},
+		{correlation.EventCreated, activeGlyphs.New},
+		{correlation.EventClaimed, activeGlyphs.User},
+		{correlation.EventClosed, activeGlyphs.Success},
 		{correlation.EventReopened, "↺"},
-		{correlation.EventModified, "✎"},
+		{correlation.EventModified, activeGlyphs.Pencil},
 		{correlation.EventType("unknown"), "•"},
 	}
 
@@ -2082,7 +2082,7 @@ func TestRenderCompactTimeline(t *testing.T) {
 				},
 			},
 			maxWidth:     100,
-			wantContains: []string{"○", "●", "✓", "├", "3d cycle", "1 commit"},
+			wantContains: []string{"○", "●", activeGlyphs.Success, "├", "3d cycle", "1 commit"},
 		},
 		{
 			name: "many commits truncated",

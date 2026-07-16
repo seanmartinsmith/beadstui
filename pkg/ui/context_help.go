@@ -149,9 +149,9 @@ const contextHelpBoard = `## Board View
   s         Cycle: Status/Priority/Type
 
 **Visual Indicators** (card borders)
-  🔴 Red     Has blockers
-  🟡 Yellow  High-impact (blocks others)
-  🟢 Green   Ready to work
+  ! Red     Has blockers
+  * Yellow  High-impact (blocks others)
+  o Green   Ready to work
 
 **Actions**
   Tab       Toggle detail panel
@@ -201,9 +201,9 @@ const contextHelpHistory = `## History View
   c         Cycle confidence filter
 
 **Causality Markers**
-  🎯 Direct   Commit mentions bead ID
-  🔗 Temporal Within time window
-  📁 File     Touches associated files
+  @ Direct   Commit mentions bead ID
+  ~ Temporal Within time window
+  # File     Touches associated files
 
 **Actions**
   y         Copy commit SHA

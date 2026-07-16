@@ -124,7 +124,7 @@ func (t Tip) Render(theme Theme, width int) string {
 		Foreground(theme.Feature).
 		Bold(true)
 
-	icon := iconStyle.Render("💡 TIP  ")
+	icon := iconStyle.Render(activeGlyphs.Bulb + " TIP  ")
 
 	return boxStyle.Render(icon + t.Text)
 }
@@ -367,7 +367,7 @@ func (w Warning) Render(theme Theme, width int) string {
 		Foreground(theme.Blocked).
 		Bold(true)
 
-	icon := iconStyle.Render("⚠️  WARN ")
+	icon := iconStyle.Render(activeGlyphs.Warning + "  WARN ")
 
 	return boxStyle.Render(icon + w.Text)
 }
@@ -390,7 +390,7 @@ func (n Note) Render(theme Theme, width int) string {
 		Foreground(theme.InProgress).
 		Bold(true)
 
-	icon := iconStyle.Render("ℹ️  NOTE ")
+	icon := iconStyle.Render(activeGlyphs.Info + "  NOTE ")
 
 	return boxStyle.Render(icon + n.Text)
 }

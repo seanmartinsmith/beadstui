@@ -223,18 +223,16 @@ func (t Theme) GetStatusColor(s string) color.Color {
 func (t Theme) GetTypeIcon(typ string) (string, color.Color) {
 	switch typ {
 	case "bug":
-		return "🐛", t.Bug
+		return activeGlyphs.TypeBug, t.Bug
 	case "feature":
-		return "✨", t.Feature
+		return activeGlyphs.TypeFeature, t.Feature
 	case "task":
-		return "📋", t.Task
+		return activeGlyphs.TypeTask, t.Task
 	case "epic":
-		// Use rocket instead of snow-capped mountain - the mountain has a variation
-		// selector (U+FE0F) that causes inconsistent width calculations across terminals
-		return "🚀", t.Epic
+		return activeGlyphs.TypeEpic, t.Epic
 	case "chore":
-		return "🧹", t.Chore
+		return activeGlyphs.TypeChore, t.Chore
 	default:
-		return "•", t.Subtext
+		return activeGlyphs.Bullet, t.Subtext
 	}
 }
