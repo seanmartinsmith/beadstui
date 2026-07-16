@@ -89,6 +89,30 @@ func (m Model) renderHistoryLoadingScreen() string {
 	return lipgloss.Place(m.width, m.height-1, lipgloss.Center, lipgloss.Center, content)
 }
 
+// renderMemoriesLoadingScreen mirrors renderHistoryLoadingScreen for the
+// Memories view's async dispatch (bt-2ea7t.4): the user pressed the Memories
+// key, the view transitioned immediately, and discovery+aggregation is
+// running off the event loop; this fills the screen until
+// MemoriesLoadedMsg arrives.
+func (m Model) renderMemoriesLoadingScreen() string {
+	frame := workerSpinnerFrames[m.data.workerSpinnerIdx%len(workerSpinnerFrames)]
+
+	spinnerStyle := lipgloss.NewStyle().Foreground(ColorInfo).Bold(true)
+	titleStyle := lipgloss.NewStyle().Foreground(ColorText).Bold(true)
+	subStyle := lipgloss.NewStyle().Foreground(ColorMuted)
+
+	lines := []string{
+		spinnerStyle.Render(frame),
+		"",
+		titleStyle.Render("Loading memories..."),
+		"",
+		subStyle.Render("Press u or Esc to cancel"),
+	}
+
+	content := lipgloss.JoinVertical(lipgloss.Center, lines...)
+	return lipgloss.Place(m.width, m.height-1, lipgloss.Center, lipgloss.Center, content)
+}
+
 func (m Model) View() tea.View {
 	if !m.ready {
 		return tea.NewView("Initializing...")
@@ -200,6 +224,13 @@ func (m Model) View() tea.View {
 			case ViewLabelDashboard:
 				m.labelDashboard.SetSize(bodyW, m.height-1)
 				body = m.labelDashboard.View()
+			case ViewMemories:
+				if m.memoriesLoading {
+					body = m.renderMemoriesLoadingScreen()
+				} else {
+					m.memories.SetSize(bodyW, m.height-1)
+					body = m.memories.View()
+				}
 			default: // ViewList
 				// An on-demand fullscreen pane (bt-530vn) takes priority over
 				// the width-driven split/single-pane layout at any width;

@@ -6,6 +6,28 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-07-15 — Cross-project read layer: Memories master/detail TUI view (bt-2ea7t.4)
+
+**Fourth and last-planned child of the bt-2ea7t epic; implements bt-wxrr5. The user-facing proof surface: a dedicated read-only master/detail view over `bd remember` memories, riding directly on .1-.3's `AggregateMemories`/`SelectAdapter`/`DetectPath` seam. Built the live discovery orchestrator (`LoadMemoriesCmd`) that seam was missing — cwd project mandatory, `~/.bt/projects.json` registry + shared-Dolt-server enumeration best-effort/non-fatal — and wired the new `ViewMemories`/`focusMemories` view through every existing multi-touch integration point (keys, focus cascades, async loading, help/footer fallback).**
+
+### Ships
+
+- **feat(tui): memories master/detail view (bt-2ea7t.4)** — new `pkg/ui/memories.go` (`MemoriesModel`: grouping by origin, search across keys+bodies, master/detail render via `RenderTitledPanel` + `lipgloss.JoinHorizontal`, single-pane collapse below `SplitViewThreshold`, the gc-hidden note, an unavailable-source note, the design-spec-required empty state shown only when every source is genuinely empty) and `pkg/ui/memories_keys.go`. Wired into `Model` async (mirrors History's `bt-uizm` pattern): entering the view shows a loading screen immediately and dispatches `LoadMemoriesCmd` off the event loop, since `ListMemories` shells `bd` per source. Toggle key is **`u`** (not `m` — verified `m` collides with the list view's claim shortcut and the insights heatmap toggle; `u` was the only letter with zero collisions anywhere in `pkg/ui`).
+- **The live discovery orchestrator** (`LoadMemoriesCmd`, `model.go`) is new construction .3 deliberately left out: current-project `DetectPath`+`SelectAdapter` (mandatory — dogfood-verified live, loaded bt's own 12 memories in 0.55s), plus best-effort/non-fatal registry enumeration and shared-Dolt-server enumeration, deduplicated by `(SourceKind, Scope)`.
+- Threaded the new view through the full multi-touch surface a Charm v2 full-screen view requires: `ViewMemories`/`focusMemories` enums, `NewModel` wiring, `Update()` dispatch, `FocusState()`, `enterMemoriesView` (async), `View()` render dispatch, the `?`-overlay focus-restore map, the Global keymap (`u`/`f6`, Views `FullHelp` group), and — found by tracing rather than named in the task's line-anchors — the `q`/`Esc` cascades (without an explicit `ViewMemories` branch, `q` from this view fell through to `tea.Quit` and `Esc` fell through to the quit-confirm modal) and the in-view-search-typing early-return guard (without it, `Esc` while typing a search query exited the whole view instead of cancelling search, same class of bug the History/Board search sub-states already guard against).
+- **Descoped:** the repo_picker-based origin filter (spec §6) was NOT implemented — search-only narrowing shipped instead; filed as a follow-up (**bt-2ea7t.5**) with the reasoning for descoping in bt-2ea7t.4's close notes. No mouse support (keyboard-only, matching the bead's acceptance bar). No dedicated `keys.MemoriesKeys`/`help.KeyMap` pair — falls back to the Global map for the L1 footer/`;` sidebar, same precedent as LabelDashboard/Attention.
+
+### Bead bookkeeping
+
+- Closed: **bt-2ea7t.4** — implements **bt-wxrr5** (re-checked all 4 of its acceptance criteria against this delivery: fully satisfied; left open for the maintainer to close explicitly).
+- Filed: **bt-2ea7t.5** (P3, follow-up) — wire the repo_picker-based origin filter this bead descoped.
+
+### Notes
+
+- **Tested (TDD):** 13 new tests in `pkg/ui/memories_test.go` (toggle, quit-key-does-not-quit-the-app, grouping+detail render, search filtering, empty state, gc-hidden note in both non-empty and all-empty variants, unavailable-source note, 3 small-terminal sizes incl. the plan's pinned 50×14/100×16, single-pane tab toggle, and a live dogfood test against this checkout's own `.beads/`) plus 7 new `BT_RENDER_DUMP` scenarios in `render_harness_test.go`. `go build`/`go vet` clean. `gofmt -l pkg/ui internal/source`: every new/changed file clean once normalized to LF (repo-wide CRLF checkout artifact flags nearly the whole tree; verified byte-for-byte that `model.go`'s 3 flagged hunks are pre-existing drift identical to git HEAD, not introduced here). `go test ./pkg/ui/...` and `go test $(go list ./... | grep -vE 'cmd/bt$|/tests')` both green (37 packages). `go install`/`git push`/`gh pr create` blocked for subagents by the guard, handed to the parent session.
+
+---
+
 ## 2026-07-15 — Cross-project read layer: memories payload + multi-source aggregation (bt-2ea7t.3)
 
 **Third child of the bt-2ea7t epic. Rides directly on .2's `Adapter`/`Memory`/`MemoriesResult` seam to add the payload abstraction and the aggregator that consumes it: the piece that turns "N independent per-source reads" into "one origin-tagged memories result a view can render." Built TDD-first against the design spec §4.1, §4.2, §5, §8, §10. No existing file touched.**

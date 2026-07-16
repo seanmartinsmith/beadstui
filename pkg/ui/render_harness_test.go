@@ -29,6 +29,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/seanmartinsmith/beadstui/internal/source"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
@@ -249,6 +250,53 @@ func TestRenderDump(t *testing.T) {
 		m.historyDoltOnly = false
 		m.showShortcutsSidebar = true
 	}
+	// enterMemories (bt-2ea7t.4) mirrors the real async toggle handler
+	// (enterMemoriesView) but installs a fixture MemoriesAggregate directly
+	// instead of dispatching LoadMemoriesCmd, so the dump doesn't need a live
+	// bd/Dolt source. Two origins (a bd project + the atlas/beads_global
+	// namespace) so grouping renders with more than one group.
+	enterMemories := func(m *Model) {
+		btOrigin := source.Origin{SourceKind: source.SourceKindBDEmbedded, Scope: "bt", Prefix: "bt", DisplayName: "bt"}
+		atlasOrigin := source.Origin{SourceKind: source.SourceKindBeadsGlobal, Scope: "beads_global", Prefix: "beads_global", DisplayName: "atlas"}
+		m.memories = NewMemoriesModel(m.theme)
+		m.memories.SetAggregate(source.MemoriesAggregate{
+			Memories: []source.Memory{
+				{Key: "cross-prefix-deps", Body: "Two cross-project dependency patterns in beads: bare cross-prefix (bd dep add bt-xxx bd-yyy) for known issue IDs on the same server, and external: + ship for capability contracts across teams.", Origin: btOrigin},
+				{Key: "e2e-suite-duration", Body: "Full test suite (go test ./...) takes ~8.5 minutes as of 2026-04-08. The e2e package alone accounts for ~505s. Use 300s+ timeout or run in background.", Origin: btOrigin},
+				{Key: "atlas-secrets-topology", Body: "1Password is the source of truth for runtime-injected secrets across the fleet - values never enter agent context, config files, or git.", Origin: atlasOrigin},
+			},
+		})
+		m.mode = ViewMemories
+		m.focused = focusMemories
+		m.memoriesLoading = false
+	}
+	enterMemoriesGCHidden := func(m *Model) {
+		enterMemories(m)
+		agg := source.MemoriesAggregate{
+			Memories: []source.Memory{
+				{Key: "cross-prefix-deps", Body: "Two cross-project dependency patterns in beads.", Origin: source.Origin{SourceKind: source.SourceKindBDEmbedded, Scope: "bt", DisplayName: "bt"}},
+			},
+			Excluded: []source.Origin{
+				{SourceKind: source.SourceKindGasCity, Scope: "rig-a", DisplayName: "some-city"},
+				{SourceKind: source.SourceKindGasCity, Scope: "rig-b", DisplayName: "some-city"},
+			},
+		}
+		m.memories.SetAggregate(agg)
+	}
+	enterMemoriesEmpty := func(m *Model) {
+		m.memories = NewMemoriesModel(m.theme)
+		m.memories.SetAggregate(source.MemoriesAggregate{})
+		m.mode = ViewMemories
+		m.focused = focusMemories
+		m.memoriesLoading = false
+	}
+	enterMemoriesLoading := func(m *Model) {
+		m.memories = NewMemoriesModel(m.theme)
+		m.mode = ViewMemories
+		m.focused = focusMemories
+		m.memoriesLoading = true
+	}
+
 	// enterActionable / enterFlowMatrix / enterInsights mirror the real toggle
 	// handlers so the footer-pin audit (bt-yyked follow-up) has ground-truth
 	// dumps for the views the resume note flagged as m.height-2 suspects.
@@ -415,6 +463,17 @@ func TestRenderDump(t *testing.T) {
 		// Epic focus card (tier 2, bt-gfxhz.3).
 		{"epic_card_100x32", 100, 32, epicCard},
 		{"epic_card_70x20", 70, 20, epicCard}, // scrunched terminal
+
+		// Memories master/detail (bt-2ea7t.4): split view, small-terminal
+		// single-pane collapse (the plan's pinned scrunched sizes), the gc-
+		// hidden note, the empty state, and the async loading screen.
+		{"memories_split_140x36", 140, 36, enterMemories},
+		{"memories_single_70x20", 70, 20, enterMemories},
+		{"memories_single_100x16", 100, 16, enterMemories},
+		{"memories_single_50x14", 50, 14, enterMemories},
+		{"memories_gc_hidden_140x36", 140, 36, enterMemoriesGCHidden},
+		{"memories_empty_120x32", 120, 32, enterMemoriesEmpty},
+		{"memories_loading_120x32", 120, 32, enterMemoriesLoading},
 
 		// Field-edit modals (bt-oiaj.5): field-select hub + the two
 		// sub-modals, at 120x30 and a ~100x16 scrunched size per the plan's

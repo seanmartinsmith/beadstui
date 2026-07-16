@@ -33,6 +33,8 @@ func (m Model) restoreFocusFromHelp() focus {
 		return focusFlowMatrix
 	case ViewTree:
 		return focusTree
+	case ViewMemories:
+		return focusMemories
 	}
 	// Check for other focus states using stored focusBeforeHelp
 	// (m.focused is focusHelp while help is open, so we use the saved value)

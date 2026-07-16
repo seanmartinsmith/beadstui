@@ -271,6 +271,30 @@ func resolveHistoryPath(ctx HistoryContext, cwd string) string {
 	return cwd
 }
 
+// enterMemoriesView transitions to the Memories view in a loading state and
+// dispatches discovery+aggregation as a tea.Cmd (bt-2ea7t.4). Mirrors
+// enterHistoryView's async shape: the view shows a loading screen
+// immediately; MemoriesLoadedMsg replaces it with the rendered master/detail
+// surface via handleMemoriesLoaded when the aggregate arrives.
+//
+// repoRoot resolution (resolveHistoryRepoPath) happens HERE, on the main
+// goroutine - same reasoning as enterHistoryView: the async closure
+// (LoadMemoriesCmd) must not call os.Getwd itself.
+func (m *Model) enterMemoriesView() tea.Cmd {
+	repoRoot := resolveHistoryRepoPath(m.data.beadsPath)
+
+	m.memories = NewMemoriesModel(m.theme)
+	m.memories.SetSize(m.bodyWidth(), m.height-1)
+
+	m.memoriesLoading = true
+	m.mode = ViewMemories
+	m.focused = focusMemories
+
+	m.setStatus("Loading memories...")
+
+	return LoadMemoriesCmd(repoRoot)
+}
+
 // enterTimeTravelMode loads historical data and computes diff
 func (m *Model) enterTimeTravelMode(revision string) {
 	cwd, err := os.Getwd()
@@ -418,6 +442,8 @@ func (m Model) FocusState() string {
 		return "cass_modal"
 	case focusUpdateModal:
 		return "update_modal"
+	case focusMemories:
+		return "memories"
 	default:
 		return "unknown"
 	}
