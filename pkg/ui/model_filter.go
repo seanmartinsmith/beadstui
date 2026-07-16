@@ -232,6 +232,18 @@ func (m *Model) matchesCurrentFilter(issue model.Issue) bool {
 		if isClosedLikeStatus(issue.Status) {
 			return false
 		}
+	case "in_progress":
+		if issue.Status != model.StatusInProgress {
+			return false
+		}
+	case "blocked":
+		if issue.Status != model.StatusBlocked {
+			return false
+		}
+	case "deferred":
+		if issue.Status != model.StatusDeferred {
+			return false
+		}
 	case "closed":
 		if !isClosedLikeStatus(issue.Status) {
 			return false
@@ -596,6 +608,35 @@ func progressOrdinal(s model.Status) int {
 	default:
 		return 9
 	}
+}
+
+// statusFilterCycle is the ordered status-membership set the lens status chip
+// cycles through on one key (bt-gpvwe, absorbed by bt-2vshd). It matches the
+// approved footer-lens design's enumeration (docs/design/2026-07-16-footer-lens-
+// redesign.md): all -> open -> in_progress -> blocked -> closed -> deferred.
+// The derived "ready" filter is deliberately NOT in this raw-status cycle; it
+// stays reachable on its own key (r). pinned/hooked/review/tombstone are real
+// model.Status values but excluded here as rare/internal states not worth a
+// top-level cycle stop.
+var statusFilterCycle = []string{"all", "open", "in_progress", "blocked", "closed", "deferred"}
+
+// cycleStatusFilter advances the status membership filter to the next entry in
+// statusFilterCycle and re-applies. Any non-plain-status filter (ready, a BQL
+// query, a recipe) is treated as "off the cycle" and the first press lands on
+// "all". It intentionally sets NO status toast: the lens status chip already
+// shows the active filter, so a "Filter: X" echo would duplicate it (bt-2vshd).
+func (m *Model) cycleStatusFilter() {
+	m.filter.activeBQLExpr = nil
+	m.setActiveRecipe(nil)
+	idx := -1
+	for i, s := range statusFilterCycle {
+		if s == m.filter.currentFilter {
+			idx = i
+			break
+		}
+	}
+	m.filter.currentFilter = statusFilterCycle[(idx+1)%len(statusFilterCycle)]
+	m.applyFilter()
 }
 
 // cycleSortMode cycles through available sort modes (bv-3ita)

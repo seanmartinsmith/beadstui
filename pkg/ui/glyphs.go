@@ -388,7 +388,7 @@ var asciiGlyphs = GlyphSet{
 	Graph:        "#",
 	RepoDrawer:   "/",
 	Workspace:    "@",
-	Bell:         "!",
+	Bell:         "*",
 	Star:         "*",
 	Session:      "@",
 	Bolt:         "^",

@@ -18,7 +18,10 @@ import (
 //	panelHeight = height * 7 / 10         = 28
 //	startCol    = (width - 100) / 2       = 10
 //	startRow    = (height-1 - 28) / 2     = 5
-//	first item row on screen = startRow + modalChromeAboveItems = 10
+//	first item row on screen = startRow + alertsItemsChromeRows()
+//
+// alertsItemsChromeRows() folds in the "bt status report" header (bt-2nepr), so
+// tests derive the first-item Y from the model rather than the bare constant.
 func modalMouseModel(t *testing.T) Model {
 	t.Helper()
 	m := seedModel()
@@ -42,7 +45,7 @@ func TestAlertsModal_ClickAlertRowMovesCursor(t *testing.T) {
 	m := modalMouseModel(t)
 	// cursor starts at 0; seedModel items map bt-fix first, then a/b/c/d.
 	// visibleAlerts order = slice order, so index 2 targets a non-cursor row.
-	firstItemY := 5 + modalChromeAboveItems // 10
+	firstItemY := 5 + m.alertsItemsChromeRows()
 	// Need to click past the selected-detail line. Cursor is 0; the detail
 	// row for item 0 sits at firstItemY+1 when bt-fix has a list title — it
 	// doesn't in this fixture (m.list is empty), so detail is absent and
@@ -62,7 +65,7 @@ func TestAlertsModal_ClickAlertRowMovesCursor(t *testing.T) {
 
 func TestAlertsModal_DoubleClickActivates(t *testing.T) {
 	m := modalMouseModel(t)
-	firstItemY := 5 + modalChromeAboveItems
+	firstItemY := 5 + m.alertsItemsChromeRows()
 	// Click the first item twice at the same coordinates within 500ms.
 	msg := tea.MouseClickMsg{X: 40, Y: firstItemY, Button: tea.MouseLeft}
 	m, _ = m.handleMouseClick(msg)
@@ -106,7 +109,7 @@ func TestAlertsModal_ClickOnChromeNoOp(t *testing.T) {
 func TestAlertsModal_RightClickIgnored(t *testing.T) {
 	m := modalMouseModel(t)
 	priorCursor := m.alertsCursor
-	firstItemY := 5 + modalChromeAboveItems
+	firstItemY := 5 + m.alertsItemsChromeRows()
 	msg := tea.MouseClickMsg{X: 40, Y: firstItemY, Button: tea.MouseRight}
 	got, _ := m.handleMouseClick(msg)
 	if got.alertsCursor != priorCursor {
@@ -130,7 +133,7 @@ func TestNotificationsModal_ClickRowMovesCursor(t *testing.T) {
 		t.Fatalf("setup: modal/tab not as expected (%v/%v)", m.activeModal, m.activeTab)
 	}
 
-	firstItemY := 5 + modalChromeAboveItems
+	firstItemY := 5 + m.alertsItemsChromeRows()
 	// Cursor starts at 0; click the third visible event row. bt-l5zk inserts
 	// a leading day-separator row at relY=0 (all three fixtures share today's
 	// date, so only the anchor separator is emitted). Events therefore occupy
@@ -148,7 +151,7 @@ func TestNotificationsModal_ClickRowMovesCursor(t *testing.T) {
 
 func TestAlertsModal_DoubleClickWindowExpires(t *testing.T) {
 	m := modalMouseModel(t)
-	firstItemY := 5 + modalChromeAboveItems
+	firstItemY := 5 + m.alertsItemsChromeRows()
 	msg := tea.MouseClickMsg{X: 40, Y: firstItemY, Button: tea.MouseLeft}
 	m, _ = m.handleMouseClick(msg)
 	// Simulate an old first click by pushing lastModalClickAt past the window.
@@ -161,7 +164,7 @@ func TestAlertsModal_DoubleClickWindowExpires(t *testing.T) {
 
 func TestAlertsModal_DoubleClickDifferentPositionDoesNotActivate(t *testing.T) {
 	m := modalMouseModel(t)
-	firstItemY := 5 + modalChromeAboveItems
+	firstItemY := 5 + m.alertsItemsChromeRows()
 	m, _ = m.handleMouseClick(tea.MouseClickMsg{X: 40, Y: firstItemY, Button: tea.MouseLeft})
 	// Second click on a different row within the window → not a double-click.
 	m, _ = m.handleMouseClick(tea.MouseClickMsg{X: 40, Y: firstItemY + 1, Button: tea.MouseLeft})
@@ -172,14 +175,16 @@ func TestAlertsModal_DoubleClickDifferentPositionDoesNotActivate(t *testing.T) {
 
 func TestAlertsModalItemAtY_ChromeGuard(t *testing.T) {
 	m := modalMouseModel(t)
-	// Y values below modalChromeAboveItems must never return an item.
-	for y := 0; y < modalChromeAboveItems; y++ {
+	// Y values below the first item row (chrome + status header) must never
+	// return an item.
+	base := m.alertsItemsChromeRows()
+	for y := 0; y < base; y++ {
 		if idx, ok := m.alertsModalItemAtY(y); ok {
 			t.Errorf("chrome row y=%d must return false, got idx=%d", y, idx)
 		}
 	}
 	// First item row should map to index start (0 with fresh cursor).
-	if idx, ok := m.alertsModalItemAtY(modalChromeAboveItems); !ok || idx != 0 {
+	if idx, ok := m.alertsModalItemAtY(base); !ok || idx != 0 {
 		t.Errorf("first item row should map to index 0, got (%d, %v)", idx, ok)
 	}
 }
@@ -203,7 +208,7 @@ func summaryChipClick(t *testing.T, m Model, value string) tea.MouseClickMsg {
 		if seg.value == value {
 			return tea.MouseClickMsg{
 				X:      startCol + modalContentXOffset + (seg.start+seg.end)/2,
-				Y:      startRow + modalSummaryRow,
+				Y:      startRow + modalSummaryRow + m.alertsHeaderRows(),
 				Button: tea.MouseLeft,
 			}
 		}
@@ -281,7 +286,7 @@ func TestAlertsModal_ClickSummaryGapIsNoOp(t *testing.T) {
 	// Middle of the " • " separator after the first chip.
 	msg := tea.MouseClickMsg{
 		X:      startCol + modalContentXOffset + segs[0].end + 1,
-		Y:      startRow + modalSummaryRow,
+		Y:      startRow + modalSummaryRow + m.alertsHeaderRows(),
 		Button: tea.MouseLeft,
 	}
 	got, _ := m.handleMouseClick(msg)

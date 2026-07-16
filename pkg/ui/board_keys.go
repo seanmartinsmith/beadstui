@@ -142,32 +142,28 @@ func (m Model) handleBoardKeys(msg tea.KeyMsg) Model {
 		m.filter.activeBQLExpr = nil
 		if m.filter.currentFilter == "open" {
 			m.filter.currentFilter = "all"
-			m.setStatus("Filter: All issues")
 		} else {
 			m.filter.currentFilter = "open"
-			m.setStatus("Filter: Open issues")
 		}
 		m.applyFilter()
 	case key.Matches(msg, m.keys.ListNormal.FilterClosed):
 		m.filter.activeBQLExpr = nil
 		if m.filter.currentFilter == "closed" {
 			m.filter.currentFilter = "all"
-			m.setStatus("Filter: All issues")
 		} else {
 			m.filter.currentFilter = "closed"
-			m.setStatus("Filter: Closed issues")
 		}
 		m.applyFilter()
 	case key.Matches(msg, m.keys.ListNormal.FilterReady):
 		m.filter.activeBQLExpr = nil
 		if m.filter.currentFilter == "ready" {
 			m.filter.currentFilter = "all"
-			m.setStatus("Filter: All issues")
 		} else {
 			m.filter.currentFilter = "ready"
-			m.setStatus("Filter: Ready (no blockers)")
 		}
 		m.applyFilter()
+	case key.Matches(msg, m.keys.ListNormal.CycleStatusFilter):
+		m.cycleStatusFilter()
 
 	// Swimlane mode cycling (bv-wjs0)
 	case key.Matches(msg, kn.CycleSwim):

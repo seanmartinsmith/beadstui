@@ -69,10 +69,13 @@ func TestModalChromeAboveItems_MatchesRender(t *testing.T) {
 			if firstItemRow == -1 {
 				t.Fatalf("marker %q not found in rendered modal", tc.marker)
 			}
-			want := modalChromeAboveItems + tc.intraPageShift
+			// alertsItemsChromeRows() folds in the Alerts-tab status header
+			// (bt-2nepr, 0 on the Notifications tab) so the probe tracks the
+			// real rendered geometry, not the bare constant.
+			want := m.alertsItemsChromeRows() + tc.intraPageShift
 			if firstItemRow != want {
-				t.Errorf("first item row = %d, want %d (modalChromeAboveItems=%d, intraPageShift=%d) — drift will cause off-by-one clicks",
-					firstItemRow, want, modalChromeAboveItems, tc.intraPageShift)
+				t.Errorf("first item row = %d, want %d (alertsItemsChromeRows=%d, intraPageShift=%d) — drift will cause off-by-one clicks",
+					firstItemRow, want, m.alertsItemsChromeRows(), tc.intraPageShift)
 			}
 		})
 	}
