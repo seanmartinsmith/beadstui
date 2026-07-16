@@ -378,6 +378,94 @@ func TestFooterData_NoAlerts(t *testing.T) {
 	}
 }
 
+// TestFooterAlertsBadge_DarkCockpit locks the bt-ujwiq / bt-9gjt0 dark-cockpit
+// gate: the alerts badge lights up only for attention-worthy drift (critical or
+// warning) and never camps a total that is all info-level (the "51 (!)" the
+// dogfood pass flagged). The displayed count is the attention-worthy subset.
+func TestFooterAlertsBadge_DarkCockpit(t *testing.T) {
+	// 51 info-level alerts, none attention-worthy: the badge stays dark.
+	infoOnly := FooterData{AlertCount: 51, CriticalCount: 0, WarningCount: 0}
+	if out := infoOnly.renderAlertsBadge(); out != "" {
+		t.Errorf("info-only alerts must not light the footer; got %q", out)
+	}
+	// 51 total, 3 attention-worthy: the badge shows the attention subset (3),
+	// not the camping total (51).
+	mixed := FooterData{AlertCount: 51, CriticalCount: 1, WarningCount: 2}
+	out := ansi.Strip(mixed.renderAlertsBadge())
+	if !strings.Contains(out, "3 (!)") {
+		t.Errorf("mixed alerts should surface the attention-worthy count (3); got %q", out)
+	}
+	if strings.Contains(out, "51") {
+		t.Errorf("the info-inclusive total must not camp in the badge; got %q", out)
+	}
+}
+
+// TestFooterRetiering_SelectionSurvivesDaemonChromeDrops locks the bt-ujwiq /
+// decision bt-9gjt0 content re-tiering: under width pressure the footer protects
+// the user's work (selection state carried by the center override) and drops bt's
+// own daemon chrome (secondary-instance, background-worker, watcher, session,
+// self-update badges) FIRST. Anchored at the dogfood widths the bead names. The
+// fixture is deliberately chrome-heavy so real width pressure exists even at 100.
+func TestFooterRetiering_SelectionSurvivesDaemonChromeDrops(t *testing.T) {
+	base := FooterData{
+		FilterText:     "bt",
+		FilterIcon:     "📂",
+		HintText:       "l:labels",
+		TotalItems:     169,
+		CenterOverride: "bt-0qzp · 3/169", // the user's work: which bead + position
+		WorkerText:     "⚠ worker unresponsive",
+		WorkerLevel:    WorkerLevelCritical,
+		SecondaryPID:   48213,
+		WatcherText:    "polling nfs 5s",
+		SessionCount:   3,
+		UpdateTag:      "v0.2.0",
+		Hints: []FooterHint{
+			{Key: "esc", Desc: "back"}, {Key: "C", Desc: "copy"}, {Key: "?", Desc: "help"},
+		},
+	}
+	for _, w := range []int{60, 80, 100} {
+		fd := base
+		fd.Width = w
+		out := ansi.Strip(fd.Render())
+		if !strings.Contains(out, "bt-0qzp") {
+			t.Errorf("width=%d: selection state must survive degradation; got %q", w, out)
+		}
+		if strings.Contains(out, "48213") {
+			t.Errorf("width=%d: secondary-instance chrome must drop first; got %q", w, out)
+		}
+		if strings.Contains(out, "unresponsive") {
+			t.Errorf("width=%d: worker chrome must drop first; got %q", w, out)
+		}
+		if strings.Contains(out, "v0.2.0") {
+			t.Errorf("width=%d: self-update chrome must drop first; got %q", w, out)
+		}
+	}
+}
+
+// TestFooterRetiering_HealthyStateIsQuiet proves the dark-cockpit steady state:
+// with only info-level drift and no daemon conditions, the footer shows scope +
+// position + hints and carries NO persistent daemon or alert badge (bt-ujwiq).
+func TestFooterRetiering_HealthyStateIsQuiet(t *testing.T) {
+	fd := FooterData{
+		Width:         100,
+		FilterText:    "bt",
+		FilterIcon:    "📂",
+		HintText:      "l:labels",
+		TotalItems:    169,
+		AlertCount:    44, // all info-level: browsable in the modal, never camps
+		CriticalCount: 0,
+		WarningCount:  0,
+		Hints:         []FooterHint{{Key: "⏎", Desc: "open"}, {Key: "?", Desc: "help"}},
+	}
+	out := ansi.Strip(fd.Render())
+	if strings.Contains(out, "(!)") || strings.Contains(out, "44") {
+		t.Errorf("healthy state must not camp an alert count; got %q", out)
+	}
+	if !strings.Contains(out, "169 issues") {
+		t.Errorf("healthy state should show the scoped position/total; got %q", out)
+	}
+}
+
 func TestFooterData_TimeTravelOverridesStats(t *testing.T) {
 	fd := FooterData{
 		Width:            120,
