@@ -1452,13 +1452,14 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 	}
 	semanticSearch.SetIDs(semanticIDs)
 
-	// Build initial status message if watcher failed
+	// Build initial status message. Dark cockpit (bt-9gjt0): boot chrome for
+	// internal machinery (background reload worker, watcher) is silent when
+	// it starts successfully - a healthy backgroundWorker gets no banner
+	// (bt-gp88y). Only the degraded/unavailable paths speak, each with the
+	// consequence and reason.
 	var initialStatus string
 	var initialStatusSeverity StatusSeverity
-	if backgroundWorker != nil {
-		initialStatus = "Background mode enabled"
-		initialStatusSeverity = SeveritySuccess
-	} else if backgroundModeRequested && backgroundModeErr != nil {
+	if backgroundModeRequested && backgroundModeErr != nil {
 		initialStatus = fmt.Sprintf("Background mode unavailable: %v (using sync reload)", backgroundModeErr)
 		initialStatusSeverity = SeverityFailure
 	} else if watcherErr != nil {
