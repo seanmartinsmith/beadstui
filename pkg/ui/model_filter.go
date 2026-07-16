@@ -57,13 +57,15 @@ func (m *Model) setListItems(items []list.Item) {
 		items = filtered
 	}
 
-	// The footer's status breakdown is scoped to exactly what the list shows.
+	// The footer's actionable triad is scoped to exactly what the list shows.
 	// setListItems is the single chokepoint for list contents, so computing the
-	// counts here keeps them in lockstep with TotalItems (= len(list items)) and
+	// triad here keeps it in lockstep with TotalItems (= len(list items)) and
 	// reflective of the active scope + filters rather than the global corpus —
-	// the generalization of bt-gcuv the user asked for. The footer is the only
-	// reader of m.ac.count*, so this is their single source of truth.
-	m.ac.countOpen, m.ac.countReady, m.ac.countBlocked, m.ac.countClosed = m.classifyItemCounts(items)
+	// the generalization of bt-gcuv, extended by bt-p8y2f to match pkg/analysis
+	// semantics (see footer_triad.go). The footer is the only reader of
+	// m.ac.count*, so this is their single source of truth.
+	triad := m.lensTriad(items)
+	m.ac.countReady, m.ac.countInFlight, m.ac.countBlocked = triad.Ready, triad.InFlight, triad.Blocked
 
 	prevState := m.list.FilterState()
 	prevValue := m.list.FilterValue()
@@ -74,44 +76,11 @@ func (m *Model) setListItems(items []list.Item) {
 	}
 }
 
-// classifyItemCounts tallies the status breakdown (open / ready / blocked /
-// closed) over a set of list items, matching the global recompute's logic but
-// scoped to whatever the list currently holds. "ready" means open, not blocked,
-// and with no open blockers — resolved against the global issueMap so a
-// blocker outside the filtered view still counts. Non-IssueItem entries (none
-// today) are skipped.
-func (m *Model) classifyItemCounts(items []list.Item) (open, ready, blocked, closed int) {
-	for _, it := range items {
-		issueItem, ok := it.(IssueItem)
-		if !ok {
-			continue
-		}
-		issue := issueItem.Issue
-		if isClosedLikeStatus(issue.Status) {
-			closed++
-			continue
-		}
-		open++
-		if issue.Status == model.StatusBlocked {
-			blocked++
-			continue
-		}
-		isBlocked := false
-		for _, dep := range issue.Dependencies {
-			if dep == nil || !dep.Type.IsBlocking() {
-				continue
-			}
-			if blocker, exists := m.data.issueMap[dep.DependsOnID]; exists && !isClosedLikeStatus(blocker.Status) {
-				isBlocked = true
-				break
-			}
-		}
-		if !isBlocked {
-			ready++
-		}
-	}
-	return
-}
+// lensTriad (footer_triad.go) is the bt-p8y2f successor to the former
+// classifyItemCounts: it partitions whatever items the list currently holds
+// into the footer's ready/in-flight/blocked triad, resolved against
+// pkg/analysis's graph-based actionable definition rather than an inline
+// per-item dependency walk.
 
 // getDiffStatus returns the diff status for an issue if time-travel mode is active
 func (m Model) getDiffStatus(id string) DiffStatus {
@@ -261,6 +230,18 @@ func (m *Model) matchesCurrentFilter(issue model.Issue) bool {
 		// pass
 	case "open":
 		if isClosedLikeStatus(issue.Status) {
+			return false
+		}
+	case "in_progress":
+		if issue.Status != model.StatusInProgress {
+			return false
+		}
+	case "blocked":
+		if issue.Status != model.StatusBlocked {
+			return false
+		}
+	case "deferred":
+		if issue.Status != model.StatusDeferred {
 			return false
 		}
 	case "closed":
@@ -627,6 +608,35 @@ func progressOrdinal(s model.Status) int {
 	default:
 		return 9
 	}
+}
+
+// statusFilterCycle is the ordered status-membership set the lens status chip
+// cycles through on one key (bt-gpvwe, absorbed by bt-2vshd). It matches the
+// approved footer-lens design's enumeration (docs/design/2026-07-16-footer-lens-
+// redesign.md): all -> open -> in_progress -> blocked -> closed -> deferred.
+// The derived "ready" filter is deliberately NOT in this raw-status cycle; it
+// stays reachable on its own key (r). pinned/hooked/review/tombstone are real
+// model.Status values but excluded here as rare/internal states not worth a
+// top-level cycle stop.
+var statusFilterCycle = []string{"all", "open", "in_progress", "blocked", "closed", "deferred"}
+
+// cycleStatusFilter advances the status membership filter to the next entry in
+// statusFilterCycle and re-applies. Any non-plain-status filter (ready, a BQL
+// query, a recipe) is treated as "off the cycle" and the first press lands on
+// "all". It intentionally sets NO status toast: the lens status chip already
+// shows the active filter, so a "Filter: X" echo would duplicate it (bt-2vshd).
+func (m *Model) cycleStatusFilter() {
+	m.filter.activeBQLExpr = nil
+	m.setActiveRecipe(nil)
+	idx := -1
+	for i, s := range statusFilterCycle {
+		if s == m.filter.currentFilter {
+			idx = i
+			break
+		}
+	}
+	m.filter.currentFilter = statusFilterCycle[(idx+1)%len(statusFilterCycle)]
+	m.applyFilter()
 }
 
 // cycleSortMode cycles through available sort modes (bv-3ita)

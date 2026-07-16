@@ -576,13 +576,16 @@ func TestRenderFooterStatusAndBadges(t *testing.T) {
 	// badges branch
 	m.statusMsg = ""
 	m.filter.currentFilter = "ready"
-	m.ac.countOpen, m.ac.countReady, m.ac.countBlocked, m.ac.countClosed = 1, 2, 3, 4
+	m.ac.countReady, m.ac.countInFlight, m.ac.countBlocked = 2, 3, 1
 	m.updateAvailable = true
 	m.updateTag = "v9.9.9"
 	m.workspaceMode = true
 	m.workspaceSummary = "2 projects"
 	footer = m.renderFooter()
-	for _, expect := range []string{"READY", "◉", activeGlyphs.Star, activeGlyphs.Workspace} {
+	// Lens shows the status word ("ready") and cross-project scope ("ALL");
+	// the old READY badge + workspace glyph were folded into the lens (bt-2vshd).
+	// The center triad marks ready with the TriadReady glyph (bt-p8y2f).
+	for _, expect := range []string{"ready", activeGlyphs.TriadReady, activeGlyphs.Star, "ALL"} {
 		if !strings.Contains(footer, expect) {
 			t.Fatalf("footer missing %s: %s", expect, footer)
 		}
@@ -889,7 +892,7 @@ func TestRenderFooter_CombinedIndicators(t *testing.T) {
 	// L1 hint chain (~80 chars), squeezing tier-1 badges (phase2 "metrics", watcher
 	// "polling") out at 200. The footer compression rule itself is unchanged.
 	m.filter.currentFilter = "ready"
-	m.ac.countOpen, m.ac.countReady, m.ac.countBlocked, m.ac.countClosed = 1, 2, 3, 4
+	m.ac.countReady, m.ac.countInFlight, m.ac.countBlocked = 2, 3, 1
 	m.updateAvailable = true
 	m.updateTag = "v9.9.9"
 	m.data.snapshot = &DataSnapshot{CreatedAt: time.Now(), Phase2Ready: false}
@@ -903,7 +906,9 @@ func TestRenderFooter_CombinedIndicators(t *testing.T) {
 	}
 
 	out := m.renderFooter()
-	for _, expect := range []string{"READY", "metrics", "recovered x2", "polling", activeGlyphs.Star} {
+	// "READY" badge became the lens status word "ready" (bt-2vshd); daemon
+	// chrome (metrics/recovered/polling) and the update star are unchanged.
+	for _, expect := range []string{"ready", "metrics", "recovered x2", "polling", activeGlyphs.Star} {
 		if !strings.Contains(out, expect) {
 			t.Fatalf("footer missing %q: %q", expect, out)
 		}
@@ -1115,13 +1120,14 @@ func TestRenderFooterVariantsAndDiffStatus(t *testing.T) {
 	m.updateTag = "v9.9.9"
 	m.workspaceMode = true
 	m.workspaceSummary = "2 projects"
-	m.ac.countOpen = 1
 	m.ac.countReady = 1
+	m.ac.countInFlight = 0
 	m.ac.countBlocked = 0
-	m.ac.countClosed = 1
 
 	out = m.renderFooter()
-	for _, want := range []string{activeGlyphs.Clock, "v9.9.9", "2 projects"} {
+	// The workspace "2 projects" badge folded into the lens scope ("ALL");
+	// time-travel clock + update tag are unchanged (bt-2vshd).
+	for _, want := range []string{activeGlyphs.Clock, "v9.9.9", "ALL"} {
 		if !strings.Contains(out, want) {
 			t.Fatalf("footer missing %q in %q", want, out)
 		}

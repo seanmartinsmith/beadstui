@@ -30,8 +30,10 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/seanmartinsmith/beadstui/internal/datasource"
 	"github.com/seanmartinsmith/beadstui/internal/source"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
+	"github.com/seanmartinsmith/beadstui/pkg/drift"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/ui/events"
 )
@@ -132,6 +134,21 @@ func harnessSelect(m *Model, id string) {
 	}
 }
 
+// statusHeaderScenario injects a datasource + a mix of anomaly/advisory drift so
+// the alerts-modal status header (bt-2nepr) renders every section in a dump.
+func statusHeaderScenario(m *Model) {
+	m.data.dataSource = &datasource.DataSource{Type: datasource.SourceTypeEmbeddedDolt}
+	m.lastDoltVerified = time.Now().Add(-12 * time.Second)
+	m.alerts = []drift.Alert{
+		{Type: drift.AlertDependencyLoop, Severity: drift.SeverityCritical, Message: "1 new cycle(s) detected", Details: []string{"bt-0qzp -> bt-dx7k -> bt-0qzp"}},
+		{Type: drift.AlertAbandonedClaim, Severity: drift.SeverityWarning, Message: "Issue bt-0qzp claimed but inactive for 6 days", IssueID: "bt-0qzp"},
+		{Type: drift.AlertStale, Severity: drift.SeverityWarning, Message: "bt-dx7k stale 4d", IssueID: "bt-dx7k"},
+		{Type: drift.AlertHighLeverage, Severity: drift.SeverityInfo, Message: "bt-evuf unblocks 3", IssueID: "bt-evuf"},
+	}
+	m.activeTab = TabAlerts
+	m.openModal(ModalAlerts)
+}
+
 func TestRenderDump(t *testing.T) {
 	if os.Getenv("BT_RENDER_DUMP") == "" {
 		t.Skip("set BT_RENDER_DUMP=1 to dump TUI renders to _tmp/render")
@@ -215,8 +232,8 @@ func TestRenderDump(t *testing.T) {
 		enterEpics(m)
 	}
 	// enterBoard / enterGraph mirror the real toggle handlers (refresh from the
-	// current filter) so the Phase 3 footer center zone shows live counts
-	// ("4 cols · N cards", "N nodes · M edges").
+	// current filter). Board/graph carry no footer center override (bt-p8y2f
+	// amendment) — the footer shows the default actionable triad in both.
 	enterBoard := func(m *Model) {
 		m.mode = ViewBoard
 		m.focused = focusBoard
@@ -439,9 +456,10 @@ func TestRenderDump(t *testing.T) {
 			m.toggleFullscreenPane(fullscreenDetails)
 		}},
 
-		// Phase 3 per-view center meaning: detail = bead id + position (above),
-		// board = cols/cards, graph = nodes/edges. 70-col proves the override
-		// degrades without wrapping at the user's scrunched width.
+		// Phase 3 per-view center meaning: detail = bead id + position (above);
+		// board/graph carry no override (bt-p8y2f amendment) and show the
+		// default actionable triad instead. 70-col proves it degrades without
+		// wrapping at the user's scrunched width.
 		{"board_100x32", 100, 32, enterBoard},
 		{"board_70x20", 70, 20, enterBoard},
 		{"graph_100x32", 100, 32, enterGraph("bt-0qzp")},
@@ -543,6 +561,13 @@ func TestRenderDump(t *testing.T) {
 		{"modal_labelpicker_120x36", 120, 36, func(m *Model) { m.openModal(ModalLabelPicker) }},
 		{"modal_recipepicker_120x36", 120, 36, func(m *Model) { m.openModal(ModalRecipePicker) }},
 		{"modal_alerts_120x36", 120, 36, func(m *Model) { m.openModal(ModalAlerts) }},
+
+		// Alerts modal "bt status report" header (bt-2nepr): a datasource + a
+		// mix of anomaly/advisory drift so the header shows badge reconciliation,
+		// Dolt mode, per-source counts, and corpus scale. The 100x16 case proves
+		// the header caps to line 1 on a scrunched terminal.
+		{"modal_alerts_status_120x36", 120, 36, statusHeaderScenario},
+		{"modal_alerts_status_100x16", 100, 16, statusHeaderScenario},
 
 		// Notifications tab with kind chips (click-to-filter summary row):
 		// unfiltered vs kind-filtered — the filtered dump must keep all chips
@@ -663,14 +688,14 @@ func TestRenderDump(t *testing.T) {
 			},
 		}},
 		{"footer_retier_healthy_quiet", FooterData{
-			FilterText:   "bt",
-			FilterIcon:   "📂",
-			HintText:     "l:labels",
-			TotalItems:   169,
-			CountOpen:    163,
-			CountReady:   2,
-			CountBlocked: 4,
-			AlertCount:   44, // all info-level: dark cockpit keeps the strip quiet
+			FilterText:    "bt",
+			FilterIcon:    "📂",
+			HintText:      "l:labels",
+			TotalItems:    169,
+			CountReady:    163,
+			CountInFlight: 2,
+			CountBlocked:  4,
+			AlertCount:    44, // all info-level: dark cockpit keeps the strip quiet
 			Hints: []FooterHint{
 				{Key: "⏎", Desc: "open"}, {Key: "o", Desc: "issues"}, {Key: "?", Desc: "help"},
 			},
@@ -688,4 +713,32 @@ func TestRenderDump(t *testing.T) {
 			t.Logf("%-38s w=%-3d -> %q", name, w, plain)
 		}
 	}
+
+	// Boot chrome silent on success (bt-gp88y, dark cockpit bt-9gjt0): the
+	// scenarios table above always constructs the Model with beadsPath="" and
+	// ds=nil, so it never has a background worker to demonstrate the silenced
+	// case. Build one directly here, mirroring
+	// TestNewModel_BackgroundWorkerBoot_QuietOnSuccess (model_footer_test.go)
+	// - a Dolt-global source with an unreachable DSN constructs a real
+	// *BackgroundWorker with no live I/O, since only Init() would start the
+	// poll loop. Dumps the fresh-boot footer/statusline so a reviewer can see
+	// there is no "Background mode enabled" (or any other machinery) banner.
+	func() {
+		m := NewModel(harnessIssues(), nil, "", &datasource.DataSource{
+			Type: datasource.SourceTypeDoltGlobal,
+			Path: "root@tcp(127.0.0.1:9999)/?parseTime=true",
+		}, nil)
+		nm, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
+		m = nm.(Model)
+		content := m.View().Content
+		plain := ansi.Strip(content)
+		name := "boot_quiet_worker_100x24"
+		if err := os.WriteFile(filepath.Join(outDir, name+".txt"), []byte(plain), 0o644); err != nil {
+			t.Fatalf("write %s.txt: %v", name, err)
+		}
+		if err := os.WriteFile(filepath.Join(outDir, name+".ansi"), []byte(content), 0o644); err != nil {
+			t.Fatalf("write %s.ansi: %v", name, err)
+		}
+		t.Logf("%-26s worker=%v statusMsg=%q", name, m.data.backgroundWorker != nil, m.statusMsg)
+	}()
 }

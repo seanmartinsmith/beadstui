@@ -701,10 +701,13 @@ type FilterState struct {
 // this is cached analysis output that gets recomputed when issues change.
 // Pointer on Model to keep Model copies cheap.
 type AnalysisCache struct {
-	countOpen         int
+	// countReady/countInFlight/countBlocked are the footer's default
+	// center-zone content (bt-p8y2f): the actionable triad scoped to
+	// whatever setListItems currently holds (the active lens). See
+	// footer_triad.go for the computation and FooterTriad's field docs.
 	countReady        int
+	countInFlight     int
 	countBlocked      int
-	countClosed       int
 	triageScores      map[string]float64                          // issueID -> triage score
 	triageReasons     map[string]analysis.TriageReasons           // issueID -> reasons
 	unblocksMap       map[string][]string                         // issueID -> IDs that would be unblocked
@@ -902,6 +905,7 @@ type Model struct {
 	alertFilterSeverity string // "" = all, or "critical"/"warning"/"info"
 	alertFilterType     string // "" = all, or an AlertType string
 	alertFilterProject  string // "" = all, or a project prefix
+	alertFilterClass    string // "" = all, "anomaly", "advisory" (traceable badge, bt-2nepr)
 	alertSortOrder      int    // 0=default, 1=oldest-first, 2=newest-first
 
 	// Tab-scoped state for the shared alerts/notifications modal (bt-46p6.10).
@@ -1202,36 +1206,10 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		}
 	}
 
-	// Compute stats
-	cOpen, cReady, cBlocked, cClosed := 0, 0, 0, 0
-	for i := range issues {
-		issue := &issues[i]
-		if isClosedLikeStatus(issue.Status) {
-			cClosed++
-			continue
-		}
-
-		cOpen++
-		if issue.Status == model.StatusBlocked {
-			cBlocked++
-			continue
-		}
-
-		// Check if blocked by open dependencies
-		isBlocked := false
-		for _, dep := range issue.Dependencies {
-			if dep == nil || !dep.Type.IsBlocking() {
-				continue
-			}
-			if blocker, exists := issueMap[dep.DependsOnID]; exists && !isClosedLikeStatus(blocker.Status) {
-				isBlocked = true
-				break
-			}
-		}
-		if !isBlocked {
-			cReady++
-		}
-	}
+	// Compute the footer's actionable triad (bt-p8y2f) over the full initial
+	// corpus, using the same analyzer built above so Ready/Blocked match
+	// pkg/analysis's graph-based definition (see footer_triad.go).
+	initialTriad := computeFooterTriad(issues, analyzer)
 
 	// Theme: load YAML overrides, apply to globals and theme struct
 	themeConfig := LoadTheme()
@@ -1452,13 +1430,14 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 	}
 	semanticSearch.SetIDs(semanticIDs)
 
-	// Build initial status message if watcher failed
+	// Build initial status message. Dark cockpit (bt-9gjt0): boot chrome for
+	// internal machinery (background reload worker, watcher) is silent when
+	// it starts successfully - a healthy backgroundWorker gets no banner
+	// (bt-gp88y). Only the degraded/unavailable paths speak, each with the
+	// consequence and reason.
 	var initialStatus string
 	var initialStatusSeverity StatusSeverity
-	if backgroundWorker != nil {
-		initialStatus = "Background mode enabled"
-		initialStatusSeverity = SeveritySuccess
-	} else if backgroundModeRequested && backgroundModeErr != nil {
+	if backgroundModeRequested && backgroundModeErr != nil {
 		initialStatus = fmt.Sprintf("Background mode unavailable: %v (using sync reload)", backgroundModeErr)
 		initialStatusSeverity = SeverityFailure
 	} else if watcherErr != nil {
@@ -1535,10 +1514,9 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 			bqlEngine:     bqlEngine,
 		},
 		ac: &AnalysisCache{
-			countOpen:         cOpen,
-			countReady:        cReady,
-			countBlocked:      cBlocked,
-			countClosed:       cClosed,
+			countReady:        initialTriad.Ready,
+			countInFlight:     initialTriad.InFlight,
+			countBlocked:      initialTriad.Blocked,
 			priorityHints:     priorityHints,
 			showPriorityHints: false, // Off by default, toggle with 'p'
 			triageScores:      triageScores,
@@ -1643,33 +1621,10 @@ func (m *Model) replaceIssues(newIssues []model.Issue) {
 	// Clear stale priority hints
 	m.ac.priorityHints = make(map[string]*analysis.PriorityRecommendation)
 
-	// Recompute counts
-	m.ac.countOpen, m.ac.countReady, m.ac.countBlocked, m.ac.countClosed = 0, 0, 0, 0
-	for i := range m.data.issues {
-		issue := &m.data.issues[i]
-		if isClosedLikeStatus(issue.Status) {
-			m.ac.countClosed++
-			continue
-		}
-		m.ac.countOpen++
-		if issue.Status == model.StatusBlocked {
-			m.ac.countBlocked++
-			continue
-		}
-		isBlocked := false
-		for _, dep := range issue.Dependencies {
-			if dep == nil || !dep.Type.IsBlocking() {
-				continue
-			}
-			if blocker, exists := m.data.issueMap[dep.DependsOnID]; exists && !isClosedLikeStatus(blocker.Status) {
-				isBlocked = true
-				break
-			}
-		}
-		if !isBlocked {
-			m.ac.countReady++
-		}
-	}
+	// Recompute the footer's actionable triad (bt-p8y2f) against the fresh
+	// analyzer just built above (see footer_triad.go).
+	triad := computeFooterTriad(m.data.issues, m.data.analyzer)
+	m.ac.countReady, m.ac.countInFlight, m.ac.countBlocked = triad.Ready, triad.InFlight, triad.Blocked
 
 	// Recompute alerts
 	m.alerts, m.alertsCritical, m.alertsWarning, m.alertsInfo = computeAlerts(m.data.issues, m.workspaceMode)

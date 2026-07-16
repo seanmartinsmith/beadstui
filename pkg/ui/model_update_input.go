@@ -505,6 +505,31 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.alertSortOrder = (m.alertSortOrder + 2) % 3
 			m.alertsCursor = 0
 			return m, nil
+		case "a":
+			// Cycle class filter: all → anomaly → advisory → all (traceable
+			// badge, bt-2nepr). "anomaly" shows exactly the footer badge's items.
+			switch m.alertFilterClass {
+			case "":
+				m.alertFilterClass = "anomaly"
+			case "anomaly":
+				m.alertFilterClass = "advisory"
+			default:
+				m.alertFilterClass = ""
+			}
+			m.alertsCursor = 0
+			return m, nil
+		case "A":
+			// Cycle class filter BACKWARDS: all → advisory → anomaly → all
+			switch m.alertFilterClass {
+			case "":
+				m.alertFilterClass = "advisory"
+			case "advisory":
+				m.alertFilterClass = "anomaly"
+			default:
+				m.alertFilterClass = ""
+			}
+			m.alertsCursor = 0
+			return m, nil
 		case "r", "R":
 			// Reset all filters
 			m.resetAlertFilters()
@@ -1344,6 +1369,14 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			m.openModal(ModalAlerts)
 			m.alertsCursor = 0
 			m.resetAlertFilters()
+			// Traceable anomaly badge (bt-2nepr): when the footer badge is lit
+			// (>=1 attention anomaly), the ! key IS the badge — land pre-filtered
+			// to exactly those anomalies so the badge number is reproducible in
+			// the modal. Dark cockpit (no anomalies) opens unfiltered to
+			// everything (advisories the badge deliberately hides).
+			if m.anomalyAlertCount() > 0 {
+				m.alertFilterClass = "anomaly"
+			}
 			m.syncModalCursorToSelection()
 			return m, nil
 
@@ -2463,10 +2496,14 @@ func (m Model) handleAlertsModalClick(mouse tea.Mouse) (Model, tea.Cmd) {
 	}
 
 	// Summary-row click: toggle the count chip's filter (click-to-filter,
-	// both tabs). Routed before the item hit-test since row 1 is chrome to
-	// alertsModalItemAtY. Double-click state is deliberately not updated —
-	// two fast clicks on a chip must toggle twice, not activate.
-	if my == modalSummaryRow {
+	// both tabs). Routed before the item hit-test since the summary row is
+	// chrome to alertsModalItemAtY. Double-click state is deliberately not
+	// updated — two fast clicks on a chip must toggle twice, not activate. On
+	// the alerts tab the status header (bt-2nepr) pushes the summary row down by
+	// alertsHeaderRows(); the header rows themselves are informational no-ops
+	// (alertsModalItemAtY returns false for them).
+	summaryRow := modalSummaryRow + m.alertsHeaderRows() // headerRows is 0 on notifications
+	if my == summaryRow {
 		return m.handleModalSummaryClick(mx), nil
 	}
 
@@ -2590,19 +2627,23 @@ func (m Model) handleRepoPickerModalClick(mouse tea.Mouse) (Model, tea.Cmd) {
 // regions as non-clickable keeps row math stable when the selected row
 // expands to 2 lines).
 func (m Model) alertsModalItemAtY(my int) (int, bool) {
-	if my < modalChromeAboveItems {
+	// The alerts tab prepends the status header (bt-2nepr), shifting the first
+	// item down by alertsHeaderRows(); the notifications tab has no header
+	// (alertsItemsChromeRows folds both in).
+	base := m.alertsItemsChromeRows()
+	if my < base {
 		return -1, false
 	}
-	relY := my - modalChromeAboveItems
+	relY := my - base
 
 	if m.activeTab == TabAlerts {
 		active := m.visibleAlerts()
 		if len(active) == 0 {
 			return -1, false
 		}
-		pageSize := m.alertsVisibleLines()
+		pageSize := m.alertsVisibleLines() - m.alertsHeaderRows()
 		if pageSize < 1 {
-			return -1, false
+			pageSize = 1
 		}
 		start := (m.alertsCursor / pageSize) * pageSize
 		end := start + pageSize

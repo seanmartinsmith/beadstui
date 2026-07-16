@@ -170,15 +170,6 @@ const (
 	WorkerLevelCritical             // dead worker, persistent error, stale
 )
 
-// DatasetLevel indicates the severity of the dataset size warning.
-type DatasetLevel int
-
-const (
-	DatasetLevelNone DatasetLevel = iota
-	DatasetLevelWarning
-	DatasetLevelCritical
-)
-
 // FooterData contains all data needed to render the footer, decoupled from Model.
 type FooterData struct {
 	Width int
@@ -210,11 +201,11 @@ type FooterData struct {
 	// Context-aware label/hint line
 	HintText string
 
-	// Issue counts
-	CountOpen    int
-	CountReady   int
-	CountBlocked int
-	CountClosed  int
+	// Issue counts: the footer's default center-zone content (bt-p8y2f) — the
+	// actionable triad scoped to the active lens. See footer_triad.go.
+	CountReady    int
+	CountInFlight int
+	CountBlocked  int
 
 	// Time travel (overrides normal stats when active)
 	TimeTravelActive bool
@@ -232,10 +223,6 @@ type FooterData struct {
 
 	// Self-update badge
 	UpdateTag string // "" = no update
-
-	// Dataset warning
-	DatasetWarning string
-	DatasetLevel   DatasetLevel
 
 	// Alerts
 	AlertCount    int
@@ -275,6 +262,31 @@ type FooterData struct {
 	// Unread bell (Phase 4): events newer than alertsSeenAt and not dismissed.
 	// Always rendered as the bell glyph; the count suffix appears only when > 0.
 	BellCount int
+
+	// --- Zone 1 lens inputs (bt-2vshd) ------------------------------------
+	// The lens (footer_lens.go) renders these as a scope -> filter -> order
+	// sentence. They replace the old left-zone badges (filter/project/search/
+	// sort/wisp/label/repo/workspace); those fields above are retained only for
+	// the tests and callers that still set them, but no longer drive the chrome.
+
+	// ScopeLabel is the leftmost "where am I": a single project name ("bt") or
+	// the cross-project scope with a count ("ALL(19)"), or the active repo subset
+	// in workspace mode. Empty renders no scope segment.
+	ScopeLabel string
+	// ScopeCrossProject selects the globe glyph (all-projects) over the folder
+	// glyph (single project) in the Nerd Font tier.
+	ScopeCrossProject bool
+	// StatusFilter is the raw status membership token the lens status chip shows
+	// (all/open/in_progress/blocked/closed/deferred/ready). Empty when a BQL
+	// query or recipe owns membership instead.
+	StatusFilter string
+	// SearchQuery is the "/" slot content — the active fuzzy/BQL query (or search
+	// mode when no query text yet). Empty renders the /- placeholder.
+	SearchQuery string
+	// RecipeName is the active recipe chip; empty renders no recipe chip.
+	RecipeName string
+	// OrderLabel is the "by:" order token for an explicit sort; empty hides it.
+	OrderLabel string
 }
 
 // FooterHint is one key-binding hint for the L1 status-bar slot. Key is the
@@ -319,11 +331,10 @@ func (m *Model) footerData() FooterData {
 	// Hint text
 	fd.HintText = m.extractHintText()
 
-	// Issue counts
-	fd.CountOpen = m.ac.countOpen
+	// Issue counts (footer center triad, bt-p8y2f)
 	fd.CountReady = m.ac.countReady
+	fd.CountInFlight = m.ac.countInFlight
 	fd.CountBlocked = m.ac.countBlocked
-	fd.CountClosed = m.ac.countClosed
 
 	// Time travel
 	if m.timeTravelMode && m.timeTravelDiff != nil {
@@ -346,9 +357,6 @@ func (m *Model) footerData() FooterData {
 	if m.updateAvailable {
 		fd.UpdateTag = m.updateTag
 	}
-
-	// Dataset warning
-	fd.DatasetWarning, fd.DatasetLevel = m.extractDatasetWarning()
 
 	// Alerts
 	fd.AlertCount, fd.CriticalCount, fd.WarningCount = m.extractAlertCounts()
@@ -402,15 +410,74 @@ func (m *Model) footerData() FooterData {
 		fd.BellCount = m.unseenNotificationCount(m.alertsSeenAt)
 	}
 
+	// --- Zone 1 lens (bt-2vshd) -------------------------------------------
+	m.populateLens(&fd)
+
 	return fd
 }
 
+// populateLens fills the FooterData lens inputs (scope / status / search / recipe
+// / order) from Model state (bt-2vshd). Kept separate from footerData so the lens
+// grammar has one obvious source and the extract is easy to test.
+func (m *Model) populateLens(fd *FooterData) {
+	// Scope: single project name, or cross-project ALL(N) / active repo subset.
+	if m.workspaceMode {
+		fd.ScopeCrossProject = true
+		if fd.RepoFilterLabel != "" {
+			// An active repo subset IS the honest scope in workspace mode; it
+			// replaces the old separate repo-filter badge (bt-2vshd).
+			fd.ScopeLabel = fd.RepoFilterLabel
+		} else if n := len(m.availableRepos); n > 0 {
+			fd.ScopeLabel = fmt.Sprintf("ALL(%d)", n)
+		} else {
+			fd.ScopeLabel = "ALL"
+		}
+	} else {
+		fd.ScopeCrossProject = false
+		fd.ScopeLabel = m.projectName
+	}
+
+	// Filter bucket. BQL and recipe own membership when active and render in
+	// their own slots; otherwise the plain status filter owns the status chip.
+	cf := m.filter.currentFilter
+	switch {
+	case strings.HasPrefix(cf, "bql:"):
+		fd.SearchQuery = cf[len("bql:"):]
+	case strings.HasPrefix(cf, "recipe:"):
+		fd.RecipeName = cf[len("recipe:"):]
+	case strings.HasPrefix(cf, "label:"):
+		// Legacy label-in-filter: the label shows via LabelFilterText already,
+		// and membership is otherwise unfiltered by status.
+		fd.StatusFilter = "all"
+	default:
+		fd.StatusFilter = cf
+	}
+
+	// The "/" slot carries the fuzzy-search query when a Bubbles filter is
+	// active and no BQL query already claimed the slot. Falls back to the search
+	// mode label when there is no query text yet (so /semantic still surfaces).
+	if fd.SearchQuery == "" && m.list.FilterState() != list.Unfiltered {
+		if q := strings.TrimSpace(m.list.FilterValue()); q != "" {
+			fd.SearchQuery = q
+		} else if fd.SearchMode != "" {
+			fd.SearchQuery = fd.SearchMode
+		}
+	}
+
+	// Order bucket: explicit (non-default) sort only.
+	fd.OrderLabel = lensSortLabel(m.filter.sortMode)
+}
+
 // footerCenter supplies the center-zone string for views whose "what am I
-// looking at" summary is more useful than the default scoped status counts
-// (Phase 3). Detail = bead id + position, graph = nodes/edges, board = visible
-// columns + cards. Returns "" for views (list, tree, insights, …) that keep the
-// scoped counts. Mirrors viewKeyMap(); detail is a sub-state of ViewList rather
-// than its own mode, so it is handled before the mode switch.
+// looking at" summary is more useful than the default actionable triad
+// (Phase 3, amended bt-p8y2f): detail = bead id + position, memories = memory
+// + project counts. Board and graph do NOT override — a view counting its
+// own visible elements is low information (maintainer read-through
+// 2026-07-16, "cards" vocabulary rejected; see bt-p8y2f comment) — so they
+// fall through to the default triad like every other view. Returns "" for
+// views (list, board, graph, tree, insights, …) that keep the default.
+// Mirrors viewKeyMap(); detail is a sub-state of ViewList rather than its own
+// mode, so it is handled before the mode switch.
 func (m *Model) footerCenter() string {
 	// A modal overlays the underlying view; keep that view's default counts.
 	if m.activeModal != ModalNone {
@@ -429,18 +496,13 @@ func (m *Model) footerCenter() string {
 		return sel.Issue.ID
 	}
 
-	switch m.mode {
-	case ViewGraph:
+	if m.mode == ViewMemories {
 		return fmt.Sprintf("%s %s %s",
-			countLabel(m.graphView.TotalCount(), "node"),
+			memoriesLabel(m.memories.memoryRowCount()),
 			activeGlyphs.Sep,
-			countLabel(m.graphView.EdgeCount(), "edge"))
-	case ViewBoard:
-		return fmt.Sprintf("%s %s %s",
-			countLabel(m.board.VisibleColumnCount(), "col"),
-			activeGlyphs.Sep,
-			countLabel(m.board.TotalCount(), "card"))
+			countLabel(m.memories.VisibleProjectCount(), "project"))
 	}
+
 	return ""
 }
 
@@ -451,6 +513,15 @@ func countLabel(n int, word string) string {
 		return fmt.Sprintf("1 %s", word)
 	}
 	return fmt.Sprintf("%d %ss", n, word)
+}
+
+// memoriesLabel formats "N memory"/"N memories" — unlike countLabel's
+// regular "+s" pluralization, "memory" has an irregular plural.
+func memoriesLabel(n int) string {
+	if n == 1 {
+		return "1 memory"
+	}
+	return fmt.Sprintf("%d memories", n)
 }
 
 // --- Extract helpers (Model methods that compute FooterData fields) ---
@@ -634,17 +705,6 @@ func (m *Model) extractWatcherBadge() string {
 	return label
 }
 
-func (m *Model) extractDatasetWarning() (string, DatasetLevel) {
-	if m.data.snapshot == nil || m.data.snapshot.LargeDatasetWarning == "" {
-		return "", DatasetLevelNone
-	}
-	level := DatasetLevelWarning
-	if m.data.snapshot.DatasetTier == datasetTierHuge {
-		level = DatasetLevelCritical
-	}
-	return m.data.snapshot.LargeDatasetWarning, level
-}
-
 // extractAlertCounts feeds the footer attention badge. total is every visible
 // alert (the modal's own tally); critical/warning are the ANOMALY-typed subset
 // only. Per-issue advisories (staleness, high-leverage) stay browsable in the
@@ -656,7 +716,10 @@ func (m *Model) extractDatasetWarning() (string, DatasetLevel) {
 func (m *Model) extractAlertCounts() (total, critical, warning int) {
 	for _, a := range m.visibleAlerts() {
 		total++
-		if !a.Type.IsAnomaly() {
+		// isAttentionAnomaly == anomaly-typed AND critical/warning severity —
+		// the same predicate the alerts-modal status header reconciles against
+		// (bt-2nepr), so the badge and the header's "N anomalies" always agree.
+		if !isAttentionAnomaly(a) {
 			continue
 		}
 		switch a.Severity {
@@ -844,64 +907,23 @@ func (fd FooterData) Render() string {
 		return fd.renderStatusBar()
 	}
 
-	// Filter badge
-	filterBadge := lipgloss.NewStyle().
-		Background(ColorPrimary).
-		Foreground(ColorBgContrast).
-		Bold(true).
-		Padding(0, 1).
-		Render(fmt.Sprintf("%s %s", fd.FilterIcon, fd.FilterText))
+	// Zone 1 (lens) replaces the old filter / project / search / sort / wisp /
+	// label left-zone badges (bt-2vshd). renderLens(fd, lensLvl) draws the
+	// scope -> filter -> order sentence; lensLvl and the right-zone hint density
+	// are advanced by the degradation cascade further down. The killed left
+	// badges (and the [19] workspace badge) fold into the lens's scope + chips.
 
-	// Project name badge (bt-m9te: use a background so padding renders as visible
-	// separator cells, preventing the icon/name from smushing against adjacent badges).
-	projectBadge := ""
-	if fd.ProjectName != "" && !fd.WorkspaceMode {
-		projectBadge = lipgloss.NewStyle().
-			Background(ColorBgHighlight).
-			Foreground(ColorSecondary).
-			Padding(0, 1).
-			Render(fd.ProjectName)
-	}
-
-	// Search mode badge
-	searchBadge := ""
-	if fd.SearchMode != "" {
-		searchBadge = lipgloss.NewStyle().
-			Background(ColorBgHighlight).
-			Foreground(ColorSecondary).
-			Padding(0, 1).
-			Render(fmt.Sprintf("%s %s", activeGlyphs.Search, fd.SearchMode))
-	}
-
-	// Sort badge
-	sortBadge := ""
-	if fd.SortLabel != "" {
-		sortBadge = lipgloss.NewStyle().
-			Background(ColorBgHighlight).
-			Foreground(ColorSecondary).
-			Padding(0, 1).
-			Render(fmt.Sprintf("%s %s", activeGlyphs.Sort, fd.SortLabel))
-	}
-
-	// Wisp badge
-	wispBadge := ""
-	if fd.ShowWisps {
-		wispBadge = lipgloss.NewStyle().
-			Background(ColorBgHighlight).
-			Foreground(ColorSecondary).
-			Padding(0, 1).
-			Render("wisps")
-	}
-
-	// Label hint
-	labelHint := lipgloss.NewStyle().
-		Foreground(ColorMuted).
-		Padding(0, 1).
-		Render(fd.HintText)
-
-	// Stats section — built via a closure so the degradation engine can rebuild
-	// it at a denser tier (skip zero-count segments) before dropping it whole.
-	buildStats := func(skipZeros bool) string {
+	// Stats section — the default center-zone content (bt-p8y2f): the
+	// actionable triad (ready/in-flight/blocked), scoped to the active lens.
+	// Dark cockpit is UNCONDITIONAL here (doc: "zero-count segments never
+	// render"), not just a width-pressure fallback — a zero segment is
+	// dropped even at the widest terminal. The remaining degradation lever is
+	// dropping the whole triad (see the reductions cascade below), keeping
+	// only the total. NF renders glyph+N (tight, like the retired stat dots);
+	// ascii renders the doc's literal words ("ready 41") — the ascii glyph
+	// values carry their own trailing space so the same "%s%d" format works
+	// for both tiers.
+	buildStats := func() string {
 		if fd.TimeTravelActive {
 			return lipgloss.NewStyle().
 				Background(ColorPrioHighBg).
@@ -914,17 +936,16 @@ func (fd FooterData) Render() string {
 			Foreground(ColorText).
 			Padding(0, 1)
 		seg := func(style lipgloss.Style, glyph string, n int) string {
-			if skipZeros && n == 0 {
+			if n == 0 {
 				return ""
 			}
 			return fmt.Sprintf("%s%d", style.Render(glyph), n)
 		}
 		var segs []string
 		for _, s := range []string{
-			seg(lipgloss.NewStyle().Foreground(ColorStatusOpen), activeGlyphs.StatOpen, fd.CountOpen),
-			seg(lipgloss.NewStyle().Foreground(ColorSuccess), activeGlyphs.StatReady, fd.CountReady),
-			seg(lipgloss.NewStyle().Foreground(ColorWarning), activeGlyphs.StatBlocked, fd.CountBlocked),
-			seg(lipgloss.NewStyle().Foreground(ColorMuted), activeGlyphs.StatClosed, fd.CountClosed),
+			seg(lipgloss.NewStyle().Foreground(ColorSuccess), activeGlyphs.TriadReady, fd.CountReady),
+			seg(lipgloss.NewStyle().Foreground(ColorInfo), activeGlyphs.TriadInFlight, fd.CountInFlight),
+			seg(lipgloss.NewStyle().Foreground(ColorWarning), activeGlyphs.TriadBlocked, fd.CountBlocked),
 		} {
 			if s != "" {
 				segs = append(segs, s)
@@ -933,16 +954,18 @@ func (fd FooterData) Render() string {
 		if len(segs) == 0 {
 			return ""
 		}
-		return statsStyle.Render(strings.Join(segs, " "))
+		return statsStyle.Render(strings.Join(segs, " "+activeGlyphs.Sep+" "))
 	}
-	statsSection := buildStats(false)
+	statsSection := buildStats()
 
-	// Per-view center override (Phase 3): detail/graph/board replace the scoped
-	// status stats with view-specific meaning ("bt-0qzp · 3/169",
-	// "47 nodes · 61 edges", "4 cols · 169 cards"). It occupies the same center
-	// slot as the stats and degrades the same way (dropped wholesale under
-	// extreme width pressure). Time travel keeps precedence — its diff is a
-	// corpus-wide signal that out-ranks per-view counts.
+	// Per-view center override (Phase 3, amended bt-p8y2f): detail and
+	// memories replace the default actionable triad with view-specific
+	// meaning ("bt-0qzp · 3/169", "127 memories · 10 projects") — granted only
+	// where the view cannot show the information itself. Board and graph keep
+	// the default triad (no override). It occupies the same center slot as the
+	// stats and degrades the same way (dropped wholesale under extreme width
+	// pressure). Time travel keeps precedence — its diff is a corpus-wide
+	// signal that out-ranks per-view counts.
 	hasCenterOverride := fd.CenterOverride != "" && !fd.TimeTravelActive
 	if hasCenterOverride {
 		statsSection = lipgloss.NewStyle().
@@ -986,21 +1009,6 @@ func (fd FooterData) Render() string {
 		updateSection = updateStyle.Render(fmt.Sprintf("%s %s", activeGlyphs.Star, fd.UpdateTag))
 	}
 
-	// Dataset warning
-	datasetSection := ""
-	if fd.DatasetWarning != "" {
-		bg, fg := ColorPrioHighBg, ColorWarning
-		if fd.DatasetLevel == DatasetLevelCritical {
-			bg, fg = ColorPrioCriticalBg, ColorPrioCritical
-		}
-		datasetStyle := lipgloss.NewStyle().
-			Background(bg).
-			Foreground(fg).
-			Bold(true).
-			Padding(0, 1)
-		datasetSection = datasetStyle.Render(fd.DatasetWarning)
-	}
-
 	// Alerts badge
 	alertsSection := fd.renderAlertsBadge()
 
@@ -1029,91 +1037,16 @@ func (fd FooterData) Render() string {
 		sessionSection = sessionStyle.Render(fmt.Sprintf("%s%s", activeGlyphs.Session, countStr))
 	}
 
-	// Workspace badge
-	workspaceSection := ""
-	if fd.WorkspaceSummary != "" {
-		workspaceStyle := lipgloss.NewStyle().
-			Background(ColorPrimary).
-			Foreground(ColorBg).
-			Bold(true).
-			Padding(0, 1)
-		workspaceSection = workspaceStyle.Render(fmt.Sprintf("%s %s", activeGlyphs.Workspace, fd.WorkspaceSummary))
-	}
+	// Workspace summary, label filter, and repo filter fold into the lens
+	// (bt-2vshd): scope shows ALL(N) / the active repo subset, and the lb: chip
+	// carries the label filter. The old standalone badges (incl. the [19]
+	// workspace badge) are gone.
 
-	// Repo filter badge
-	// Label filter badge
-	labelFilterSection := ""
-	if fd.LabelFilterText != "" {
-		labelStyle := lipgloss.NewStyle().
-			Background(ColorBgHighlight).
-			Foreground(ColorInfo).
-			Bold(true).
-			Padding(0, 1)
-		labelFilterSection = labelStyle.Render(fmt.Sprintf("%s %s", activeGlyphs.Tag, fd.LabelFilterText))
-	}
-
-	repoFilterSection := ""
-	if fd.RepoFilterLabel != "" {
-		repoStyle := lipgloss.NewStyle().
-			Background(ColorBgHighlight).
-			Foreground(ColorInfo).
-			Bold(true).
-			Padding(0, 1)
-		repoFilterSection = repoStyle.Render(fmt.Sprintf("%s %s", activeGlyphs.RepoDrawer, fd.RepoFilterLabel))
-	}
-
-	// --- Right zone: key hints --------------------------------------------
-	// Rendered from structured FooterHint values so the degradation engine can
-	// pick the densest form that fits: full "key desc" pills, then key-only
-	// glyphs, then fewer pills, then none. The first and last hint (last is
-	// usually "?") survive longest. Styling lives here, not in extractKeyHints.
-	sep := lipgloss.NewStyle().Foreground(ColorMuted).Render(" " + activeGlyphs.SepBar + " ")
-	keysStyle := lipgloss.NewStyle().Foreground(ColorSubtext).Padding(0, 1)
-	keyGlyph := lipgloss.NewStyle().Foreground(ColorSecondary).Background(ColorBgSubtle)
-
-	pill := func(h FooterHint, keysOnly bool) string {
-		if keysOnly || h.Desc == "" {
-			return keyGlyph.Render(h.Key)
-		}
-		return keyGlyph.Render(h.Key) + " " + h.Desc
-	}
-	buildKeys := func(hs []FooterHint, keysOnly bool) string {
-		parts := make([]string, len(hs))
-		for i, h := range hs {
-			parts[i] = pill(h, keysOnly)
-		}
-		return keysStyle.Render(strings.Join(parts, sep))
-	}
-	// renderKeys returns the styled key section that best fills avail columns:
-	// full labels with as many pills as fit (down to 2, keeping first+last),
-	// then the same key-only, then a single key-only hint, then nothing.
-	renderKeys := func(avail int) string {
-		if avail <= 0 || len(fd.Hints) == 0 {
-			return ""
-		}
-		// Candidate lists from full down to 2 pills, dropping interior hints
-		// while keeping the first and the last.
-		var seqs [][]FooterHint
-		hs := append([]FooterHint(nil), fd.Hints...)
-		seqs = append(seqs, hs)
-		for len(hs) > 2 {
-			next := append([]FooterHint{}, hs[:len(hs)-2]...)
-			hs = append(next, hs[len(hs)-1])
-			seqs = append(seqs, hs)
-		}
-		for _, keysOnly := range []bool{false, true} {
-			for _, cand := range seqs {
-				if s := buildKeys(cand, keysOnly); lipgloss.Width(s) <= avail {
-					return s
-				}
-			}
-		}
-		// Last resort: just the final hint (usually "?"), key-only.
-		if s := buildKeys(fd.Hints[len(fd.Hints)-1:], true); lipgloss.Width(s) <= avail {
-			return s
-		}
-		return ""
-	}
+	// Zone 3 (right) is the static "? help · ; keys" pair + anomaly badge + bell
+	// (bt-2vshd). The per-view action pills — and their pill degradation
+	// machinery — are retired from the footer chrome; the per-view key.Maps now
+	// feed only the ? overlay and the ; sidebar. renderStaticHints builds the
+	// pair; the anomaly (alertsSection) and bell render to its right.
 
 	countStyle := lipgloss.NewStyle().Foreground(ColorSecondary).Padding(0, 1)
 	countBadge := countStyle.Render(fmt.Sprintf("%d issues", fd.TotalItems))
@@ -1125,52 +1058,16 @@ func (fd FooterData) Render() string {
 		countBadgeShort = ""
 	}
 
-	// Scope-icon-only fallback for the filter badge (last-ditch left-zone shrink).
-	filterIcon := filterBadge
-	if fd.FilterIcon != "" {
-		filterIcon = lipgloss.NewStyle().
-			Background(ColorPrimary).
-			Foreground(ColorBgContrast).
-			Bold(true).
-			Padding(0, 1).
-			Render(fd.FilterIcon)
-	}
-
-	// Width-aware compression (bt-m9te + smart-footer redesign; content re-tiered
-	// for bt-ujwiq / decision bt-9gjt0): optional badges carry a priority tier
-	// (0 = always keep, 1/2/3 = drop progressively). The degradation ENGINE is
-	// unchanged - only the content tiering is inverted so the footer protects the
-	// user's work over bt's own telemetry:
-	//   tier 0 (protected)  drift anomalies (alerts, self-gated to attention-
-	//                        worthy severities), alongside the selection state /
-	//                        scoped counts in statsSection, which drops last
-	//   tier 1              primary scope chips (project, label) + dataset notice
-	//   tier 2              mode indicators (search, sort, wisp) + workspace context
-	//   tier 3 (drops 1st)  bt's daemon chrome - instance, worker, watcher, session,
-	//                        self-update, phase-2 progress
-	// The engine reduces non-key content in tier order until the always-present
-	// core plus a minimal key reserve fits, then fills the remaining width with as
-	// many key hints as fit. A final ansi truncate makes wrapping impossible.
+	// Daemon chrome is the only remaining droppable badge group now that the
+	// scope / mode / label chips live in the lens (bt-2vshd). It stays tier 3 —
+	// bt's own telemetry, dropped first under width pressure. The large-dataset
+	// badge was retired outright (bt-2nepr / bt-ajbxw reframe): corpus size is a
+	// status fact in the alerts-modal status header, never a footer warning.
 	type footerBadge struct {
 		content string
 		tier    int
 	}
 	optional := map[string]*footerBadge{
-		// Tier 0 (always keep): drift anomalies. renderAlertsBadge self-gates so
-		// this is non-empty only when a critical/warning drift needs attention.
-		"alertsSection": {alertsSection, 0},
-		// Tier 1: primary scope chips (name the lens) + the large-dataset notice.
-		"projectBadge":       {projectBadge, 1},
-		"labelFilterSection": {labelFilterSection, 1},
-		"datasetSection":     {datasetSection, 1},
-		// Tier 2: mode indicators + secondary workspace context.
-		"searchBadge":       {searchBadge, 2},
-		"sortBadge":         {sortBadge, 2},
-		"wispBadge":         {wispBadge, 2},
-		"workspaceSection":  {workspaceSection, 2},
-		"repoFilterSection": {repoFilterSection, 2},
-		// Tier 3 (drops FIRST under width pressure): bt's own daemon chrome. The
-		// re-tiering demotes app telemetry below the user's bead work.
 		"instanceSection": {instanceSection, 3},
 		"workerSection":   {workerSection, 3},
 		"watcherSection":  {watcherSection, 3},
@@ -1178,11 +1075,8 @@ func (fd FooterData) Render() string {
 		"updateSection":   {updateSection, 3},
 		"phase2Section":   {phase2Section, 3},
 	}
-
-	// nonKeyWidth sums everything except the key hints (which fill the remainder).
-	nonKeyWidth := func() int {
-		w := lipgloss.Width(filterBadge) + lipgloss.Width(labelHint) +
-			lipgloss.Width(statsSection) + lipgloss.Width(countBadge)
+	optionalWidth := func() int {
+		w := 0
 		for _, b := range optional {
 			if b.content != "" {
 				w += lipgloss.Width(b.content)
@@ -1198,17 +1092,10 @@ func (fd FooterData) Render() string {
 		}
 	}
 
-	// Reserve a minimal sliver for the most important hint when hints exist, so
-	// the cascade frees space for it rather than dropping it last.
-	keyReserve := 0
-	if len(fd.Hints) > 0 {
-		keyReserve = lipgloss.Width(buildKeys(fd.Hints[len(fd.Hints)-1:], true))
-	}
-
 	// Bell badge (Phase 4): always rendered; the count appears only when > 0.
-	// Pinned (last to drop) alongside the ? hint. Built BEFORE the cascade so its
-	// width can be reserved — otherwise the toast/keys consume the whole right zone
-	// and the final ansi.Truncate clips the bell (bt-a3zi3.1).
+	// Pinned (last to drop) alongside the ? ; pair. Built BEFORE the cascade so
+	// its width can be reserved — otherwise the toast consumes the whole right
+	// zone and the final ansi.Truncate clips the bell (bt-a3zi3.1).
 	bellText := activeGlyphs.Bell
 	if fd.BellCount > 0 {
 		bellText = fmt.Sprintf("%s%d", activeGlyphs.Bell, fd.BellCount)
@@ -1220,88 +1107,102 @@ func (fd FooterData) Render() string {
 	bellSection := bellStyle.Render(bellText)
 	bellWidth := lipgloss.Width(bellSection)
 
-	// Ordered reductions (re-tiered for bt-ujwiq): bt's daemon chrome (tier 3)
-	// drops first, then mode/scope badges, and the selection state / scoped counts
-	// in statsSection drop LAST - the inverse of the pre-re-tiering order that
-	// sacrificed bead substance to protect app telemetry. The statsSection drop is
-	// split by hasCenterOverride: a list-view verbose breakdown collapses early
-	// (the total survives via countBadge), but a detail/graph/board selection
-	// override is the most protected content and yields only as a last resort.
+	// Degradation cascade (bt-2vshd drop order): lens placeholders -> daemon /
+	// degraded badges -> triad (total survives) -> hint labels -> lens filter
+	// words (scope survives) -> last resort scope · total · ? ; · !N. The
+	// engine shape is unchanged: reduce in order until the content fits; a final
+	// ansi truncate makes wrapping impossible. lensLvl and hintsCompact are the
+	// lens/right-zone density knobs the cascade advances. The triad's zero-count
+	// segments never render at any width (dark cockpit, bt-p8y2f — buildStats
+	// skips them unconditionally), so the cascade drops the triad whole.
+	lensLvl := lensFull
+	hintsCompact := false
+
+	rightWidth := func() int {
+		w := lipgloss.Width(renderStaticHints(hintsCompact)) + bellWidth
+		if alertsSection != "" {
+			w += lipgloss.Width(alertsSection)
+		}
+		return w
+	}
+	contentWidth := func() int {
+		return lipgloss.Width(renderLens(fd, lensLvl)) +
+			lipgloss.Width(statsSection) + lipgloss.Width(countBadge) +
+			optionalWidth() + rightWidth()
+	}
+
 	reductions := []func(){
-		func() { dropTier(3) }, // daemon chrome - FIRST
-		func() { dropTier(2) }, // mode indicators + workspace context
-		func() {
-			if !hasCenterOverride { // override has no zero-count segments to drop
-				statsSection = buildStats(true)
-			}
-		},
-		func() { dropTier(1) }, // primary scope chips + dataset notice
-		func() {
-			if !hasCenterOverride { // list: drop verbose breakdown; total survives via countBadge
+		func() { lensLvl = lensNoPlace }, // 1. lens placeholders (lb:- , /-)
+		func() { dropTier(3) },           // 2. daemon / degraded badges
+		func() { // 3. triad drops whole; total survives via countBadge. A
+			// detail/memories center override is the most protected content
+			// and yields only at the cascade's last resort.
+			if !hasCenterOverride {
 				statsSection = ""
 			}
 		},
-		func() { countBadge = countBadgeShort }, // "4921 issues" -> "4921"
-		func() { labelHint = "" },               // "l:labels" duplicates the l key hint
-		func() { filterBadge = filterIcon },     // scope glyph only
-		func() {
-			if hasCenterOverride { // last resort: selection override yields only if still overflowing
+		func() { hintsCompact = true },      // 4. hint labels: "? help · ; keys" -> "? ;"
+		func() { lensLvl = lensStatusOnly }, // 5. lens filter words drop; status + scope remain
+		func() { countBadge = countBadgeShort }, // 6. "4921 issues" -> "4921"
+		func() { lensLvl = lensScopeOnly },      // 7. scope survives alone
+		func() { // 8. last resort: a selection center-override yields
+			if hasCenterOverride {
 				statsSection = ""
 			}
 		},
 	}
 	for _, reduce := range reductions {
-		if nonKeyWidth()+keyReserve+bellWidth <= fd.Width {
+		if contentWidth() <= fd.Width {
 			break
 		}
 		reduce()
 	}
 
-	keysSection := renderKeys(fd.Width - nonKeyWidth() - bellWidth)
+	lensSection := renderLens(fd, lensLvl)
+	hintsSection := renderStaticHints(hintsCompact)
 
-	// Right zone: key hints only. The Phase 4 embedded-toast override that
+	// nonHint sums everything except the ?/; slot; the anomaly badge and bell
+	// are reserved here so nothing can squeeze them out.
+	nonHint := lipgloss.Width(lensSection) + lipgloss.Width(statsSection) +
+		lipgloss.Width(countBadge) + optionalWidth() +
+		lipgloss.Width(alertsSection) + bellWidth
+
+	// Right zone: static hints only. The Phase 4 embedded-toast override that
 	// used to borrow this zone for an active inline toast (replacing the key
 	// hints, then ansi.Truncate-ing anything wider than the remaining
 	// columns — the bt-8scek truncation root cause) has moved to a floating
 	// bubble overlay (bt-kuvzj, toast_bubble.go). The footer no longer
 	// renders notification content at all; it keeps only the bell.
-	rightZone := keysSection
+	rightZone := hintsSection
 
-	// Filler pushes the count + key hints to the right edge.
-	remaining := fd.Width - nonKeyWidth() - lipgloss.Width(rightZone) - lipgloss.Width(bellSection)
+	// Filler pushes the count + right zone to the right edge.
+	remaining := fd.Width - nonHint - lipgloss.Width(rightZone)
 	if remaining < 0 {
 		remaining = 0
 	}
 	filler := lipgloss.NewStyle().Width(remaining).Render("")
 
-	// Build the footer in display order (content may be empty after compression).
+	// Build the footer in display order (content may be empty after compression):
+	// lens (Zone 1) · center + daemon chrome · filler · total · ?/; hints (Zone 3)
+	// · anomaly · bell.
 	var parts []string
 	addIf := func(s string) {
 		if s != "" {
 			parts = append(parts, s)
 		}
 	}
-	addIf(filterBadge)
-	addIf(optional["projectBadge"].content)
-	addIf(optional["searchBadge"].content)
-	addIf(optional["sortBadge"].content)
-	addIf(optional["wispBadge"].content)
-	addIf(optional["labelFilterSection"].content)
-	addIf(labelHint)
-	addIf(optional["alertsSection"].content)
-	addIf(optional["instanceSection"].content)
-	addIf(optional["sessionSection"].content)
-	addIf(optional["workspaceSection"].content)
-	addIf(optional["repoFilterSection"].content)
-	addIf(optional["updateSection"].content)
-	addIf(optional["datasetSection"].content)
+	addIf(lensSection)
 	addIf(statsSection)
 	addIf(optional["phase2Section"].content)
 	addIf(optional["watcherSection"].content)
 	addIf(optional["workerSection"].content)
+	addIf(optional["instanceSection"].content)
+	addIf(optional["sessionSection"].content)
+	addIf(optional["updateSection"].content)
 	parts = append(parts, filler)
 	addIf(countBadge)
 	addIf(rightZone)
+	addIf(alertsSection)
 	addIf(bellSection)
 
 	footer := lipgloss.JoinHorizontal(lipgloss.Bottom, parts...)
@@ -1392,24 +1293,20 @@ func (fd FooterData) renderAlertsBadge() string {
 	if attention == 0 {
 		return ""
 	}
+	// Zone 3 sigil form (bt-2vshd): plain "<glyph>N", no background fill, no
+	// "(!)" suffix — critical in red (Warning glyph), warning in yellow (Bolt).
+	// Color carries the severity; the glyph + count is the traceable badge that
+	// opens the alerts modal filtered to exactly these N anomalies.
 	var alertStyle lipgloss.Style
 	var alertIcon string
 	if fd.CriticalCount > 0 {
-		alertStyle = lipgloss.NewStyle().
-			Background(ColorPrioCriticalBg).
-			Foreground(ColorPrioCritical).
-			Bold(true).
-			Padding(0, 1)
+		alertStyle = lipgloss.NewStyle().Foreground(ColorPrioCritical).Bold(true).Padding(0, 1)
 		alertIcon = activeGlyphs.Warning
 	} else {
-		alertStyle = lipgloss.NewStyle().
-			Background(ColorPrioHighBg).
-			Foreground(ColorWarning).
-			Bold(true).
-			Padding(0, 1)
+		alertStyle = lipgloss.NewStyle().Foreground(ColorWarning).Bold(true).Padding(0, 1)
 		alertIcon = activeGlyphs.Bolt
 	}
-	return alertStyle.Render(fmt.Sprintf("%s %d (!)", alertIcon, attention))
+	return alertStyle.Render(fmt.Sprintf("%s%d", alertIcon, attention))
 }
 
 // renderFooter is the Model method that produces the footer string.

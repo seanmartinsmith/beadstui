@@ -109,44 +109,40 @@ func TestFooterBellBadge(t *testing.T) {
 
 func TestFooterData_NormalFooter(t *testing.T) {
 	fd := FooterData{
-		Width:        120,
-		FilterText:   "OPEN",
-		FilterIcon:   "📂",
-		HintText:     "l:labels",
-		CountOpen:    10,
-		CountReady:   5,
-		CountBlocked: 2,
-		CountClosed:  3,
-		TotalItems:   20,
-		Hints:        []FooterHint{{Key: "⏎", Desc: "details"}, {Key: "?", Desc: "help"}},
+		Width:         120,
+		ScopeLabel:    "bt",
+		StatusFilter:  "open",
+		CountReady:    5,
+		CountInFlight: 4,
+		CountBlocked:  2,
+		TotalItems:    20,
 	}
 	out := fd.Render()
-	if !strings.Contains(out, "OPEN") {
-		t.Errorf("filter badge text should appear")
+	// The lens carries scope + status now (bt-2vshd): "bt" scope, "open" status.
+	if !strings.Contains(out, "bt") {
+		t.Errorf("lens scope should appear")
+	}
+	if !strings.Contains(out, "open") {
+		t.Errorf("lens status chip should appear")
 	}
 	if !strings.Contains(out, "20 issues") {
 		t.Errorf("issue count should appear")
 	}
 }
 
-func TestFooterData_WorkspaceBadges(t *testing.T) {
+func TestFooterData_WorkspaceScope(t *testing.T) {
+	// In workspace mode the active repo subset IS the lens scope, folding the
+	// old separate workspace-summary + repo-filter badges into one chip (bt-2vshd).
 	fd := FooterData{
-		Width:            120,
-		FilterText:       "ALL",
-		FilterIcon:       "📋",
-		HintText:         "l:labels",
-		WorkspaceMode:    true,
-		WorkspaceSummary: "3 repos",
-		RepoFilterLabel:  "bt, beads",
-		TotalItems:       100,
-		Hints:            []FooterHint{{Key: "?", Desc: "help"}},
+		Width:             120,
+		ScopeLabel:        "bt, beads",
+		ScopeCrossProject: true,
+		StatusFilter:      "all",
+		TotalItems:        100,
 	}
 	out := fd.Render()
-	if !strings.Contains(out, "3 repos") {
-		t.Errorf("workspace summary should appear")
-	}
 	if !strings.Contains(out, "bt, beads") {
-		t.Errorf("repo filter label should appear")
+		t.Errorf("active repo subset should appear as the lens scope")
 	}
 }
 
@@ -372,9 +368,13 @@ func TestWorkerPollTick_DormantAndRearm(t *testing.T) {
 
 func TestFooterData_AlertsBadge(t *testing.T) {
 	fd := FooterData{AlertCount: 3, CriticalCount: 1, WarningCount: 2}
-	out := fd.renderAlertsBadge()
-	if !strings.Contains(out, "3 (!)") {
-		t.Errorf("alert count and indicator should appear: %s", out)
+	out := ansi.Strip(fd.renderAlertsBadge())
+	// bt-2vshd sigil form: "<glyph>N", no "(!)" suffix, no background.
+	if !strings.Contains(out, "3") {
+		t.Errorf("attention count should appear: %s", out)
+	}
+	if strings.Contains(out, "(!)") {
+		t.Errorf("the (!) suffix should be gone: %s", out)
 	}
 }
 
@@ -400,7 +400,7 @@ func TestFooterAlertsBadge_DarkCockpit(t *testing.T) {
 	// not the camping total (51).
 	mixed := FooterData{AlertCount: 51, CriticalCount: 1, WarningCount: 2}
 	out := ansi.Strip(mixed.renderAlertsBadge())
-	if !strings.Contains(out, "3 (!)") {
+	if !strings.Contains(out, "3") {
 		t.Errorf("mixed alerts should surface the attention-worthy count (3); got %q", out)
 	}
 	if strings.Contains(out, "51") {
@@ -452,7 +452,7 @@ func TestExtractAlertCounts_AdvisoriesExcludedFromBadge(t *testing.T) {
 		t.Fatalf("one cycle among 1000 advisories must yield critical=1 warning=0; got critical=%d warning=%d", critical, warning)
 	}
 	out := ansi.Strip((FooterData{AlertCount: total, CriticalCount: critical, WarningCount: warning}).renderAlertsBadge())
-	if !strings.Contains(out, "1 (!)") {
+	if !strings.Contains(out, "1") {
 		t.Fatalf("a genuine anomaly must light the badge with an honest count of 1; got %q", out)
 	}
 
@@ -562,35 +562,33 @@ func TestFooterData_TimeTravelOverridesStats(t *testing.T) {
 	}
 }
 
-func TestFooterData_SearchBadge(t *testing.T) {
+func TestFooterData_SearchQuery(t *testing.T) {
 	fd := FooterData{
-		Width:      120,
-		FilterText: "ALL",
-		FilterIcon: "📋",
-		HintText:   "l:labels",
-		SearchMode: "semantic",
-		TotalItems: 30,
-		Hints:      []FooterHint{{Key: "?", Desc: "help"}},
+		Width:        120,
+		ScopeLabel:   "bt",
+		StatusFilter: "all",
+		SearchQuery:  "semantic",
+		TotalItems:   30,
 	}
 	out := fd.Render()
+	// The lens "/" slot carries the active query (bt-2vshd).
 	if !strings.Contains(out, "semantic") {
-		t.Errorf("search mode should appear in output")
+		t.Errorf("search query should appear in the lens output")
 	}
 }
 
-func TestFooterData_SortBadge(t *testing.T) {
+func TestFooterData_OrderChip(t *testing.T) {
 	fd := FooterData{
-		Width:      120,
-		FilterText: "ALL",
-		FilterIcon: "📋",
-		HintText:   "l:labels",
-		SortLabel:  "priority",
-		TotalItems: 30,
-		Hints:      []FooterHint{{Key: "?", Desc: "help"}},
+		Width:        120,
+		ScopeLabel:   "bt",
+		StatusFilter: "all",
+		OrderLabel:   "priority",
+		TotalItems:   30,
 	}
 	out := fd.Render()
+	// The lens "by:" order chip carries the sort mode (bt-2vshd).
 	if !strings.Contains(out, "priority") {
-		t.Errorf("sort label should appear in output")
+		t.Errorf("order chip should appear in the lens output")
 	}
 }
 
@@ -627,10 +625,9 @@ func TestFooterData_NeverWrapsAcrossWidths(t *testing.T) {
 		FilterText:    "ALL",
 		FilterIcon:    "📋",
 		HintText:      "l:labels",
-		CountOpen:     1811,
 		CountReady:    1684,
+		CountInFlight: 127,
 		CountBlocked:  0,
-		CountClosed:   3110,
 		TotalItems:    4921,
 		AlertCount:    1410,
 		WarningCount:  1410,
@@ -678,38 +675,50 @@ func TestFooterData_NeverWrapsPathologicalBadge(t *testing.T) {
 	}
 }
 
-// TestFooterCounts_ScopedToActiveFilter proves the footer's status breakdown
+// TestFooterCounts_ScopedToActiveFilter proves the footer's actionable triad
 // reflects exactly what the list shows (active scope + filter), not the global
-// corpus — the bt-gcuv generalization. The breakdown is computed at the
-// setListItems chokepoint, so applying a filter must reshape it.
+// corpus — the bt-gcuv generalization, extended to the triad by bt-p8y2f. The
+// triad is computed at the setListItems chokepoint, so applying a filter must
+// reshape it.
 func TestFooterCounts_ScopedToActiveFilter(t *testing.T) {
 	m := NewModel(harnessIssues(), nil, "", nil, nil)
 	nm, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
 	m = nm.(Model)
 
-	// All: open + closed accounts for every visible item.
+	countNonClosed := func() int {
+		n := 0
+		for _, it := range m.list.Items() {
+			if issueItem, ok := it.(IssueItem); ok && !isClosedLikeStatus(issueItem.Issue.Status) {
+				n++
+			}
+		}
+		return n
+	}
+	triadTotal := func() int { return m.ac.countReady + m.ac.countInFlight + m.ac.countBlocked }
+
+	// All: the triad accounts for every visible NON-CLOSED item; closed items
+	// are excluded from the triad (they still count toward TotalItems).
 	m.filter.currentFilter = "all"
 	m.applyFilter()
-	if got := m.ac.countOpen + m.ac.countClosed; got != len(m.list.Items()) {
-		t.Fatalf("all filter: open+closed=%d but %d items visible", got, len(m.list.Items()))
+	if got, want := triadTotal(), countNonClosed(); got != want {
+		t.Fatalf("all filter: triad=%d but %d non-closed items visible", got, want)
 	}
 
-	// Open: the scoped breakdown must contain zero closed.
+	// Open (= not closed-like, per matchesCurrentFilter): every visible item
+	// is non-closed, so the triad must account for all of them.
 	m.filter.currentFilter = "open"
 	m.applyFilter()
-	if m.ac.countClosed != 0 {
-		t.Errorf("open filter: scoped breakdown should show 0 closed, got %d", m.ac.countClosed)
-	}
-	if m.ac.countOpen != len(m.list.Items()) {
-		t.Errorf("open filter: countOpen=%d should equal visible items %d", m.ac.countOpen, len(m.list.Items()))
+	if got := triadTotal(); got != len(m.list.Items()) {
+		t.Errorf("open filter: triad=%d should equal visible items %d", got, len(m.list.Items()))
 	}
 
-	// Closed: the scoped breakdown must contain zero open/ready/blocked.
+	// Closed: every visible item is closed-like, which the triad excludes by
+	// design, so all three segments must be zero.
 	m.filter.currentFilter = "closed"
 	m.applyFilter()
-	if m.ac.countOpen != 0 || m.ac.countReady != 0 || m.ac.countBlocked != 0 {
-		t.Errorf("closed filter: scoped breakdown should be all-closed, got open=%d ready=%d blocked=%d",
-			m.ac.countOpen, m.ac.countReady, m.ac.countBlocked)
+	if m.ac.countReady != 0 || m.ac.countInFlight != 0 || m.ac.countBlocked != 0 {
+		t.Errorf("closed filter: scoped triad should be all-zero, got ready=%d in-flight=%d blocked=%d",
+			m.ac.countReady, m.ac.countInFlight, m.ac.countBlocked)
 	}
 }
 
@@ -722,9 +731,9 @@ func TestFooterData_CenterOverride(t *testing.T) {
 		FilterText:     "bt",
 		FilterIcon:     "📂",
 		HintText:       "l:labels",
-		CountOpen:      163,
-		CountReady:     2,
-		CountClosed:    4,
+		CountReady:     163,
+		CountInFlight:  2,
+		CountBlocked:   4,
 		TotalItems:     169,
 		CenterOverride: "bt-0qzp · 3/169",
 		Hints:          []FooterHint{{Key: "esc", Desc: "back"}, {Key: "?", Desc: "help"}},
@@ -736,10 +745,10 @@ func TestFooterData_CenterOverride(t *testing.T) {
 	if strings.Contains(out, "169 issues") {
 		t.Errorf("count badge should be suppressed when a center override is set: %q", out)
 	}
-	// The scoped status glyphs belong to the default center; the override takes
-	// their place, so the open-count number should not surface as a stat segment.
-	if strings.Contains(out, "○163") {
-		t.Errorf("scoped status stats should not render alongside a center override: %q", out)
+	// The triad belongs to the default center; the override takes its place,
+	// so the ready count should not surface as a stat segment.
+	if strings.Contains(out, "163") {
+		t.Errorf("the default actionable triad should not render alongside a center override: %q", out)
 	}
 }
 
@@ -798,8 +807,11 @@ func TestFooterData_CenterOverrideNeverWraps(t *testing.T) {
 }
 
 // TestFooterCenter_PerView proves footerCenter() returns view-appropriate
-// meaning: detail = bead id + position, graph = nodes/edges, board =
-// columns/cards, and plain list = "" (keeps the default scoped counts).
+// meaning: detail = bead id + position and memories = memory/project counts
+// are the ONLY overrides (bt-p8y2f amendment). Board and graph — like plain
+// list — return "" and keep the default actionable triad; a view counting its
+// own visible elements was rejected as low information (maintainer
+// read-through 2026-07-16, "cards" vocabulary rejected).
 func TestFooterCenter_PerView(t *testing.T) {
 	newModel := func() Model {
 		m := NewModel(harnessIssues(), nil, "", nil, nil)
@@ -831,31 +843,38 @@ func TestFooterCenter_PerView(t *testing.T) {
 		}
 	})
 
-	// Graph = nodes/edges.
+	// Graph keeps the default triad (bt-p8y2f amendment: override removed).
 	t.Run("graph", func(t *testing.T) {
 		m := newModel()
 		m.mode = ViewGraph
 		m.focused = focusGraph
 		m.refreshBoardAndGraphForCurrentFilter()
-		want := fmt.Sprintf("%s · %s",
-			countLabel(m.graphView.TotalCount(), "node"),
-			countLabel(m.graphView.EdgeCount(), "edge"))
-		if got := m.footerCenter(); got != want {
-			t.Errorf("graph center = %q, want %q", got, want)
+		if got := m.footerCenter(); got != "" {
+			t.Errorf("graph view should have no center override (default triad shows), got %q", got)
 		}
 	})
 
-	// Board = visible columns / cards.
+	// Board keeps the default triad (bt-p8y2f amendment: override removed).
 	t.Run("board", func(t *testing.T) {
 		m := newModel()
 		m.mode = ViewBoard
 		m.focused = focusBoard
 		m.refreshBoardAndGraphForCurrentFilter()
-		want := fmt.Sprintf("%s · %s",
-			countLabel(m.board.VisibleColumnCount(), "col"),
-			countLabel(m.board.TotalCount(), "card"))
+		if got := m.footerCenter(); got != "" {
+			t.Errorf("board view should have no center override (default triad shows), got %q", got)
+		}
+	})
+
+	// Memories = "N memories · M projects", scoped to what the master pane
+	// currently shows (post search-filter).
+	t.Run("memories", func(t *testing.T) {
+		m := newModel()
+		m.mode = ViewMemories
+		m.focused = focusMemories
+		m.memories.SetAggregate(memoriesFixtureAggregate())
+		want := fmt.Sprintf("3 memories %s 2 projects", activeGlyphs.Sep)
 		if got := m.footerCenter(); got != want {
-			t.Errorf("board center = %q, want %q", got, want)
+			t.Errorf("memories center = %q, want %q", got, want)
 		}
 	})
 
@@ -1208,6 +1227,31 @@ func TestHandleDoltConnectionStatus_QueryPhase(t *testing.T) {
 	}
 }
 
+// TestNewModel_BackgroundWorkerBoot_QuietOnSuccess proves the dark-cockpit
+// boot contract (decision bt-9gjt0, bt-gp88y): a background worker that
+// starts successfully at boot is silent - no "Background mode enabled"
+// banner. Only the unavailable/degraded paths speak (model.go, unchanged by
+// this bead). Uses a Dolt-global source with an unreachable DSN so a real
+// worker is constructed (mirrors TestHistoryDispatchTarget_CursorDrivenGlobal)
+// without any live network I/O - NewBackgroundWorker only initializes state;
+// the poll loop that would dial the DSN never starts (Init() is not called).
+func TestNewModel_BackgroundWorkerBoot_QuietOnSuccess(t *testing.T) {
+	m := NewModel(harnessIssues(), nil, "", &datasource.DataSource{
+		Type: datasource.SourceTypeDoltGlobal,
+		Path: "root@tcp(127.0.0.1:9999)/?parseTime=true",
+	}, nil)
+
+	if m.data.backgroundWorker == nil {
+		t.Fatal("precondition: expected a background worker to be constructed for a Dolt-global source")
+	}
+	if m.statusMsg != "" {
+		t.Errorf("statusMsg = %q, want empty (healthy boot must be silent)", m.statusMsg)
+	}
+	if m.statusSeverity != SeverityNone {
+		t.Errorf("statusSeverity = %v, want SeverityNone", m.statusSeverity)
+	}
+}
+
 // TestDoltPollErrorDetail covers the truncation and unwrap behavior used to
 // build the query-phase footer suffix.
 func TestDoltPollErrorDetail(t *testing.T) {
@@ -1229,5 +1273,136 @@ func TestDoltPollErrorDetail(t *testing.T) {
 	}
 	if !strings.HasSuffix(got, "…") {
 		t.Errorf("truncated detail should end with ellipsis, got %q", got)
+	}
+}
+
+// TestFooterTriad_RendersBothTiersAtDesignWidths renders the default
+// actionable triad at every bt-p8y2f design width in both glyph tiers and
+// asserts it stays a single row within the terminal width — mirroring the
+// glyphs_test.go setGlyphs pattern used elsewhere in this package.
+func TestFooterTriad_RendersBothTiersAtDesignWidths(t *testing.T) {
+	widths := []int{50, 70, 100, 130, 160}
+	for _, tier := range []struct {
+		name string
+		g    GlyphSet
+	}{{"nerdfont", nerdfontGlyphs}, {"ascii", asciiGlyphs}} {
+		t.Run(tier.name, func(t *testing.T) {
+			setGlyphs(t, tier.g)
+			for _, w := range widths {
+				fd := FooterData{
+					Width:         w,
+					FilterText:    "bt",
+					FilterIcon:    "📂",
+					HintText:      "l:labels",
+					CountReady:    41,
+					CountInFlight: 4,
+					CountBlocked:  12,
+					TotalItems:    169,
+					Hints:         []FooterHint{{Key: "?", Desc: "help"}},
+				}
+				out := fd.Render()
+				if strings.Contains(out, "\n") {
+					t.Errorf("width=%d tier=%s: footer wrapped to >1 row: %q", w, tier.name, out)
+				}
+				if got := ansi.StringWidth(out); got > w {
+					t.Errorf("width=%d tier=%s: footer width %d exceeds terminal width", w, tier.name, got)
+				}
+			}
+		})
+	}
+}
+
+// TestFooterTriad_AsciiWordsAppear locks the ascii tier's literal-word
+// rendering from the design doc ("ready 41 . in-flight 4 . blocked 12 . 169"),
+// distinct from the nerdfont tier's icon+number style.
+func TestFooterTriad_AsciiWordsAppear(t *testing.T) {
+	setGlyphs(t, asciiGlyphs)
+	fd := FooterData{
+		Width: 160, FilterText: "bt", FilterIcon: "#", HintText: "l:labels",
+		CountReady: 41, CountInFlight: 4, CountBlocked: 12, TotalItems: 169,
+		Hints: []FooterHint{{Key: "?", Desc: "help"}},
+	}
+	out := ansi.Strip(fd.Render())
+	for _, want := range []string{"ready 41", "in-flight 4", "blocked 12", "169"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("ascii triad missing %q in %q", want, out)
+		}
+	}
+}
+
+// TestFooterTriad_ZeroSegmentsAbsent proves the dark-cockpit rule: a
+// zero-count triad segment never renders (neither its glyph/word nor a bare
+// "0"), while non-zero segments still show and the total always survives.
+func TestFooterTriad_ZeroSegmentsAbsent(t *testing.T) {
+	setGlyphs(t, asciiGlyphs)
+	fd := FooterData{
+		Width: 160, FilterText: "bt", FilterIcon: "#", HintText: "l:labels",
+		CountReady: 41, CountInFlight: 0, CountBlocked: 0, TotalItems: 169,
+		Hints: []FooterHint{{Key: "?", Desc: "help"}},
+	}
+	out := ansi.Strip(fd.Render())
+	if !strings.Contains(out, "ready 41") {
+		t.Errorf("non-zero ready segment should render: %q", out)
+	}
+	if strings.Contains(out, "in-flight") {
+		t.Errorf("zero in-flight segment must not render: %q", out)
+	}
+	if strings.Contains(out, "blocked") {
+		t.Errorf("zero blocked segment must not render: %q", out)
+	}
+	if !strings.Contains(out, "169 issues") {
+		t.Errorf("total must survive even when other segments are zero: %q", out)
+	}
+}
+
+// TestFooterTriad_AllZeroDropsStatsSection proves the whole stats section
+// disappears (rather than rendering an empty pill) when every segment is
+// zero — only the total badge remains.
+func TestFooterTriad_AllZeroDropsStatsSection(t *testing.T) {
+	setGlyphs(t, asciiGlyphs)
+	fd := FooterData{
+		Width: 160, FilterText: "bt", FilterIcon: "#", HintText: "l:labels",
+		TotalItems: 5, Hints: []FooterHint{{Key: "?", Desc: "help"}},
+	}
+	out := ansi.Strip(fd.Render())
+	for _, absent := range []string{"ready", "in-flight", "blocked"} {
+		if strings.Contains(out, absent) {
+			t.Errorf("all-zero triad should render no segment words, found %q in %q", absent, out)
+		}
+	}
+	if !strings.Contains(out, "5 issues") {
+		t.Errorf("total must still render: %q", out)
+	}
+}
+
+// TestFooterTriad_RescopesOnLabelFilter proves the triad re-scopes when the
+// lens changes via an orthogonal filter dimension (label), not just the
+// status filter already covered by TestFooterCounts_ScopedToActiveFilter —
+// the bt-p8y2f acceptance criterion "filter to a label -> triad re-scopes".
+func TestFooterTriad_RescopesOnLabelFilter(t *testing.T) {
+	m := NewModel(harnessIssues(), nil, "", nil, nil)
+	nm, _ := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	m = nm.(Model)
+
+	m.filter.currentFilter = "all"
+	m.applyFilter()
+	fullTotal := len(m.list.Items())
+	fullTriad := m.ac.countReady + m.ac.countInFlight + m.ac.countBlocked
+
+	// "responsive" label narrows to exactly one issue (bt-dx7k, blocked).
+	m.filter.labelFilter = "responsive"
+	m.applyFilter()
+	narrowTotal := len(m.list.Items())
+	narrowTriad := m.ac.countReady + m.ac.countInFlight + m.ac.countBlocked
+
+	if narrowTotal >= fullTotal {
+		t.Fatalf("label filter should narrow the visible set: full=%d narrow=%d", fullTotal, narrowTotal)
+	}
+	if narrowTriad >= fullTriad {
+		t.Errorf("label filter should re-scope the triad down: full=%d narrow=%d", fullTriad, narrowTriad)
+	}
+	if m.ac.countBlocked != 1 || m.ac.countReady != 0 || m.ac.countInFlight != 0 {
+		t.Errorf("narrowed to bt-dx7k (blocked): got ready=%d in-flight=%d blocked=%d",
+			m.ac.countReady, m.ac.countInFlight, m.ac.countBlocked)
 	}
 }
