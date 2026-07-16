@@ -1194,6 +1194,31 @@ func TestHandleDoltConnectionStatus_QueryPhase(t *testing.T) {
 	}
 }
 
+// TestNewModel_BackgroundWorkerBoot_QuietOnSuccess proves the dark-cockpit
+// boot contract (decision bt-9gjt0, bt-gp88y): a background worker that
+// starts successfully at boot is silent - no "Background mode enabled"
+// banner. Only the unavailable/degraded paths speak (model.go, unchanged by
+// this bead). Uses a Dolt-global source with an unreachable DSN so a real
+// worker is constructed (mirrors TestHistoryDispatchTarget_CursorDrivenGlobal)
+// without any live network I/O - NewBackgroundWorker only initializes state;
+// the poll loop that would dial the DSN never starts (Init() is not called).
+func TestNewModel_BackgroundWorkerBoot_QuietOnSuccess(t *testing.T) {
+	m := NewModel(harnessIssues(), nil, "", &datasource.DataSource{
+		Type: datasource.SourceTypeDoltGlobal,
+		Path: "root@tcp(127.0.0.1:9999)/?parseTime=true",
+	}, nil)
+
+	if m.data.backgroundWorker == nil {
+		t.Fatal("precondition: expected a background worker to be constructed for a Dolt-global source")
+	}
+	if m.statusMsg != "" {
+		t.Errorf("statusMsg = %q, want empty (healthy boot must be silent)", m.statusMsg)
+	}
+	if m.statusSeverity != SeverityNone {
+		t.Errorf("statusSeverity = %v, want SeverityNone", m.statusSeverity)
+	}
+}
+
 // TestDoltPollErrorDetail covers the truncation and unwrap behavior used to
 // build the query-phase footer suffix.
 func TestDoltPollErrorDetail(t *testing.T) {

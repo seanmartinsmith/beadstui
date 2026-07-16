@@ -30,6 +30,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/seanmartinsmith/beadstui/internal/datasource"
 	"github.com/seanmartinsmith/beadstui/internal/source"
 	"github.com/seanmartinsmith/beadstui/pkg/analysis"
 	"github.com/seanmartinsmith/beadstui/pkg/model"
@@ -666,4 +667,32 @@ func TestRenderDump(t *testing.T) {
 			t.Logf("%-38s w=%-3d -> %q", name, w, plain)
 		}
 	}
+
+	// Boot chrome silent on success (bt-gp88y, dark cockpit bt-9gjt0): the
+	// scenarios table above always constructs the Model with beadsPath="" and
+	// ds=nil, so it never has a background worker to demonstrate the silenced
+	// case. Build one directly here, mirroring
+	// TestNewModel_BackgroundWorkerBoot_QuietOnSuccess (model_footer_test.go)
+	// - a Dolt-global source with an unreachable DSN constructs a real
+	// *BackgroundWorker with no live I/O, since only Init() would start the
+	// poll loop. Dumps the fresh-boot footer/statusline so a reviewer can see
+	// there is no "Background mode enabled" (or any other machinery) banner.
+	func() {
+		m := NewModel(harnessIssues(), nil, "", &datasource.DataSource{
+			Type: datasource.SourceTypeDoltGlobal,
+			Path: "root@tcp(127.0.0.1:9999)/?parseTime=true",
+		}, nil)
+		nm, _ := m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
+		m = nm.(Model)
+		content := m.View().Content
+		plain := ansi.Strip(content)
+		name := "boot_quiet_worker_100x24"
+		if err := os.WriteFile(filepath.Join(outDir, name+".txt"), []byte(plain), 0o644); err != nil {
+			t.Fatalf("write %s.txt: %v", name, err)
+		}
+		if err := os.WriteFile(filepath.Join(outDir, name+".ansi"), []byte(content), 0o644); err != nil {
+			t.Fatalf("write %s.ansi: %v", name, err)
+		}
+		t.Logf("%-26s worker=%v statusMsg=%q", name, m.data.backgroundWorker != nil, m.statusMsg)
+	}()
 }
