@@ -1123,33 +1123,47 @@ func (fd FooterData) Render() string {
 			Render(fd.FilterIcon)
 	}
 
-	// Width-aware compression (bt-m9te + smart-footer redesign): optional badges
-	// carry a priority tier (0 = always keep, 1/2/3 = drop progressively). The
-	// degradation engine reduces non-key content in priority order until the
-	// always-present core plus a minimal key reserve fits, then fills the
-	// remaining width with as many key hints as fit. A final ansi truncate makes
-	// wrapping structurally impossible.
+	// Width-aware compression (bt-m9te + smart-footer redesign; content re-tiered
+	// for bt-ujwiq / decision bt-9gjt0): optional badges carry a priority tier
+	// (0 = always keep, 1/2/3 = drop progressively). The degradation ENGINE is
+	// unchanged - only the content tiering is inverted so the footer protects the
+	// user's work over bt's own telemetry:
+	//   tier 0 (protected)  drift anomalies (alerts, self-gated to attention-
+	//                        worthy severities), alongside the selection state /
+	//                        scoped counts in statsSection, which drops last
+	//   tier 1              primary scope chips (project, label) + dataset notice
+	//   tier 2              mode indicators (search, sort, wisp) + workspace context
+	//   tier 3 (drops 1st)  bt's daemon chrome - instance, worker, watcher, session,
+	//                        self-update, phase-2 progress
+	// The engine reduces non-key content in tier order until the always-present
+	// core plus a minimal key reserve fits, then fills the remaining width with as
+	// many key hints as fit. A final ansi truncate makes wrapping impossible.
 	type footerBadge struct {
 		content string
 		tier    int
 	}
 	optional := map[string]*footerBadge{
-		"projectBadge":       {projectBadge, 3},
-		"searchBadge":        {searchBadge, 3},
-		"sortBadge":          {sortBadge, 3},
-		"wispBadge":          {wispBadge, 3},
-		"labelFilterSection": {labelFilterSection, 3},
-		"workspaceSection":   {workspaceSection, 2},
-		"repoFilterSection":  {repoFilterSection, 2},
-		"sessionSection":     {sessionSection, 2},
-		"updateSection":      {updateSection, 1},
+		// Tier 0 (always keep): drift anomalies. renderAlertsBadge self-gates so
+		// this is non-empty only when a critical/warning drift needs attention.
+		"alertsSection": {alertsSection, 0},
+		// Tier 1: primary scope chips (name the lens) + the large-dataset notice.
+		"projectBadge":       {projectBadge, 1},
+		"labelFilterSection": {labelFilterSection, 1},
 		"datasetSection":     {datasetSection, 1},
-		"watcherSection":     {watcherSection, 1},
-		"phase2Section":      {phase2Section, 1},
-		// Tier 0 (always keep): alerts, instance, worker status.
-		"alertsSection":   {alertsSection, 0},
-		"instanceSection": {instanceSection, 0},
-		"workerSection":   {workerSection, 0},
+		// Tier 2: mode indicators + secondary workspace context.
+		"searchBadge":       {searchBadge, 2},
+		"sortBadge":         {sortBadge, 2},
+		"wispBadge":         {wispBadge, 2},
+		"workspaceSection":  {workspaceSection, 2},
+		"repoFilterSection": {repoFilterSection, 2},
+		// Tier 3 (drops FIRST under width pressure): bt's own daemon chrome. The
+		// re-tiering demotes app telemetry below the user's bead work.
+		"instanceSection": {instanceSection, 3},
+		"workerSection":   {workerSection, 3},
+		"watcherSection":  {watcherSection, 3},
+		"sessionSection":  {sessionSection, 3},
+		"updateSection":   {updateSection, 3},
+		"phase2Section":   {phase2Section, 3},
 	}
 
 	// nonKeyWidth sums everything except the key hints (which fill the remainder).
@@ -1193,20 +1207,35 @@ func (fd FooterData) Render() string {
 	bellSection := bellStyle.Render(bellText)
 	bellWidth := lipgloss.Width(bellSection)
 
-	// Ordered reductions: low-value chrome first, identity-critical content last.
+	// Ordered reductions (re-tiered for bt-ujwiq): bt's daemon chrome (tier 3)
+	// drops first, then mode/scope badges, and the selection state / scoped counts
+	// in statsSection drop LAST - the inverse of the pre-re-tiering order that
+	// sacrificed bead substance to protect app telemetry. The statsSection drop is
+	// split by hasCenterOverride: a list-view verbose breakdown collapses early
+	// (the total survives via countBadge), but a detail/graph/board selection
+	// override is the most protected content and yields only as a last resort.
 	reductions := []func(){
-		func() { dropTier(3) },
-		func() { dropTier(2) },
+		func() { dropTier(3) }, // daemon chrome - FIRST
+		func() { dropTier(2) }, // mode indicators + workspace context
 		func() {
 			if !hasCenterOverride { // override has no zero-count segments to drop
 				statsSection = buildStats(true)
 			}
 		},
-		func() { dropTier(1) },
-		func() { statsSection = "" },            // drop per-status stats / center override; total survives
+		func() { dropTier(1) }, // primary scope chips + dataset notice
+		func() {
+			if !hasCenterOverride { // list: drop verbose breakdown; total survives via countBadge
+				statsSection = ""
+			}
+		},
 		func() { countBadge = countBadgeShort }, // "4921 issues" -> "4921"
 		func() { labelHint = "" },               // "l:labels" duplicates the l key hint
 		func() { filterBadge = filterIcon },     // scope glyph only
+		func() {
+			if hasCenterOverride { // last resort: selection override yields only if still overflowing
+				statsSection = ""
+			}
+		},
 	}
 	for _, reduce := range reductions {
 		if nonKeyWidth()+keyReserve+bellWidth <= fd.Width {
@@ -1355,8 +1384,16 @@ func (fd FooterData) renderWorkerBadge() string {
 	return style.Render(fd.WorkerText)
 }
 
+// renderAlertsBadge renders the drift-alert badge under dark-cockpit discipline
+// (bt-ujwiq / decision bt-9gjt0): the footer lights up only when something is
+// attention-worthy - a critical or warning drift. Info-level drift stays
+// browsable in the alerts modal but never camps the footer, so the badge no
+// longer sits there as a permanent total (the "51 (!)" the dogfood pass flagged).
+// The count shown is the attention-worthy subset (critical + warning), not the
+// AlertCount total (which still tallies info toward the modal's own count).
 func (fd FooterData) renderAlertsBadge() string {
-	if fd.AlertCount == 0 {
+	attention := fd.CriticalCount + fd.WarningCount
+	if attention == 0 {
 		return ""
 	}
 	var alertStyle lipgloss.Style
@@ -1368,21 +1405,15 @@ func (fd FooterData) renderAlertsBadge() string {
 			Bold(true).
 			Padding(0, 1)
 		alertIcon = "⚠"
-	} else if fd.WarningCount > 0 {
+	} else {
 		alertStyle = lipgloss.NewStyle().
 			Background(ColorPrioHighBg).
 			Foreground(ColorWarning).
 			Bold(true).
 			Padding(0, 1)
 		alertIcon = "⚡"
-	} else {
-		alertStyle = lipgloss.NewStyle().
-			Background(ColorBgHighlight).
-			Foreground(ColorInfo).
-			Padding(0, 1)
-		alertIcon = "ℹ"
 	}
-	return alertStyle.Render(fmt.Sprintf("%s %d (!)", alertIcon, fd.AlertCount))
+	return alertStyle.Render(fmt.Sprintf("%s %d (!)", alertIcon, attention))
 }
 
 // renderFooter is the Model method that produces the footer string.

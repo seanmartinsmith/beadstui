@@ -20,6 +20,7 @@ package ui
 // the model in any state without timing games.
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -607,5 +608,62 @@ func TestRenderDump(t *testing.T) {
 			}
 			t.Logf("%-26s %3dx%-3d -> %s.txt (%d lines)", sc.name, sc.w, sc.h, sc.name, strings.Count(plain, "\n")+1)
 		}()
+	}
+
+	// Footer re-tiering (bt-ujwiq / decision bt-9gjt0): the Model harness above
+	// carries no daemon chrome (nil worker/instance lock, info-only drift), so it
+	// can't demonstrate the re-tiering directly. Drive FooterData.Render() at the
+	// dogfood widths with bt's daemon chrome present alongside the selected bead's
+	// state, plus a healthy quiet-strip baseline. Proves tier 0 (selection +
+	// attention-worthy anomalies) survives while daemon chrome drops first, and
+	// that a healthy footer shows no persistent daemon/alert badge.
+	footerFixtures := []struct {
+		name string
+		fd   FooterData
+	}{
+		{"footer_retier_selection_vs_chrome", FooterData{
+			FilterText:     "bt",
+			FilterIcon:     "📂",
+			HintText:       "l:labels",
+			TotalItems:     169,
+			CenterOverride: "bt-0qzp · 3/169",       // selection state (tier 0)
+			WorkerText:     "⚠ worker unresponsive", // worker chrome (tier 3)
+			WorkerLevel:    WorkerLevelCritical,
+			SecondaryPID:   48213,            // instance chrome (tier 3)
+			WatcherText:    "polling nfs 5s", // watcher chrome (tier 3)
+			SessionCount:   3,                // session chrome (tier 3)
+			UpdateTag:      "v0.2.0",         // self-update chrome (tier 3)
+			CriticalCount:  1,                // one attention-worthy drift (tier 0)
+			WarningCount:   2,
+			AlertCount:     51, // 48 info + 3 attention: only the 3 light up
+			Hints: []FooterHint{
+				{Key: "esc", Desc: "back"}, {Key: "C", Desc: "copy"}, {Key: "?", Desc: "help"},
+			},
+		}},
+		{"footer_retier_healthy_quiet", FooterData{
+			FilterText:   "bt",
+			FilterIcon:   "📂",
+			HintText:     "l:labels",
+			TotalItems:   169,
+			CountOpen:    163,
+			CountReady:   2,
+			CountBlocked: 4,
+			AlertCount:   44, // all info-level: dark cockpit keeps the strip quiet
+			Hints: []FooterHint{
+				{Key: "⏎", Desc: "open"}, {Key: "o", Desc: "issues"}, {Key: "?", Desc: "help"},
+			},
+		}},
+	}
+	for _, ff := range footerFixtures {
+		for _, w := range []int{60, 80, 100} {
+			fd := ff.fd
+			fd.Width = w
+			name := fmt.Sprintf("%s_%d", ff.name, w)
+			plain := ansi.Strip(fd.Render())
+			if err := os.WriteFile(filepath.Join(outDir, name+".txt"), []byte(plain), 0o644); err != nil {
+				t.Fatalf("write %s.txt: %v", name, err)
+			}
+			t.Logf("%-38s w=%-3d -> %q", name, w, plain)
+		}
 	}
 }
