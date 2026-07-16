@@ -42,6 +42,15 @@ type ListNormalKeys struct {
 	FilterClosed key.Binding
 	FilterReady  key.Binding
 
+	// CycleStatusFilter cycles the status membership filter through the full
+	// set the lens exposes (all -> open -> in_progress -> blocked -> closed ->
+	// deferred) on one key, the way CycleSort cycles the order (bt-gpvwe,
+	// absorbed by bt-2vshd). It SUPPLEMENTS o/c/r rather than replacing them, so
+	// the derived "ready" filter stays reachable on r and the bt-xron toggle-off
+	// bug is untouched. '#' is uniformly free across every key map (verified) and
+	// is the keybindings audit's Best-tier pick for a new list shortcut.
+	CycleStatusFilter key.Binding
+
 	// Detail & pane
 	Enter            key.Binding
 	EpicCard         key.Binding
@@ -123,6 +132,10 @@ func NewListNormalKeys() ListNormalKeys {
 		FilterReady: key.NewBinding(
 			key.WithKeys("r"),
 			key.WithHelp("r", "ready (no blockers)"),
+		),
+		CycleStatusFilter: key.NewBinding(
+			key.WithKeys("#"),
+			key.WithHelp("#", "cycle status filter"),
 		),
 
 		Enter: key.NewBinding(
@@ -218,7 +231,7 @@ func (k ListNormalKeys) FullHelp() [][]key.Binding {
 		// Move
 		{k.Up, k.Down, k.JumpTop, k.JumpBottom, k.PageDown, k.PageUp},
 		// Filter
-		{k.FilterOpen, k.FilterClosed, k.FilterReady},
+		{k.FilterOpen, k.FilterClosed, k.FilterReady, k.CycleStatusFilter},
 		// Detail & pane
 		{k.Enter, k.EpicCard, k.SplitFocusToggle, k.SplitShrinkLeft, k.SplitShrinkRight, k.PaneFullscreenIssues, k.PaneFullscreenDetails},
 		// Sort / triage

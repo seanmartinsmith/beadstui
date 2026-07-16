@@ -68,36 +68,35 @@ func (m Model) handleListKeys(msg tea.KeyMsg) Model {
 			}
 			m.list.Select(newIdx)
 		}
+	// o/c/r toggle a single status; # cycles the full status set. None emit a
+	// "Filter: X" toast anymore — the footer lens status chip already shows the
+	// active filter, so an echo would duplicate it (bt-2vshd).
 	case key.Matches(msg, k.FilterOpen):
 		m.filter.activeBQLExpr = nil
 		if m.filter.currentFilter == "open" {
 			m.filter.currentFilter = "all"
-			m.setStatus("Filter: All issues")
 		} else {
 			m.filter.currentFilter = "open"
-			m.setStatus("Filter: Open issues")
 		}
 		m.applyFilter()
 	case key.Matches(msg, k.FilterClosed):
 		m.filter.activeBQLExpr = nil
 		if m.filter.currentFilter == "closed" {
 			m.filter.currentFilter = "all"
-			m.setStatus("Filter: All issues")
 		} else {
 			m.filter.currentFilter = "closed"
-			m.setStatus("Filter: Closed issues")
 		}
 		m.applyFilter()
 	case key.Matches(msg, k.FilterReady):
 		m.filter.activeBQLExpr = nil
 		if m.filter.currentFilter == "ready" {
 			m.filter.currentFilter = "all"
-			m.setStatus("Filter: All issues")
 		} else {
 			m.filter.currentFilter = "ready"
-			m.setStatus("Filter: Ready (no blockers)")
 		}
 		m.applyFilter()
+	case key.Matches(msg, k.CycleStatusFilter):
+		m.cycleStatusFilter()
 	// No FilterAll case: 'a' is GlobalKeys.Actionable and shadowed by the
 	// global view-switch before this handler runs. The pre-.2 `case "a"`
 	// here was dead. Reset-to-all is reachable via toggling the active
