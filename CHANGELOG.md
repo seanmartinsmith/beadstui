@@ -6,6 +6,23 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-07-17 — ViewList chrome polish: single-pane border + footer double-all + indent (bt-r5v9k)
+
+**Dogfood polish pass on the ViewList surfaces, continued from an earlier bt session. Three chrome fixes, no data-layer changes.**
+
+### Ships
+
+- **feat(tui): border the width-driven single-pane list + detail (bt-r5v9k)** — the auto-collapsed single-pane list (`renderListWithHeader`) and single-pane detail (bare `viewport.View()`) rendered with no border, diverging from the bordered split view and the on-demand "2"/"3" fullscreen panes. Both now delegate to the same `renderIssuesPanel` / `renderDetailsPanel`, so every ViewList surface carries identical chrome (rounded border + superscript Issues/Details badge). Sizing (`applyListDetailSizing`, single-pane branch merged with fullscreen), single-pane click geometry (`singlePaneListChromeHeight`, search-row Y 0→1), and the single-pane detail Glamour width move in lockstep.
+- **fix(tui): suppress the redundant "all" status chip (bt-r5v9k)** — in cross-project mode the footer lens read `ALL(20) all …`; the default `all` status narrows nothing, so it now draws no chip (the same "all narrows nothing" rule `lensBareStatus` already applied at the terser degradation levels). A real narrowing status (open/blocked/…) still renders.
+- **feat(tui): indent the footer one column inside the border wall (bt-r5v9k)** — the footer's left content (the lens scope) sat flush under the border corner; it now sits just inside the wall, with the right zone (total / hints / bell) still pinned to the edge (the filler absorbs the indent).
+
+### Notes
+
+- Retires the borderless `renderListWithHeader` build in favour of delegation — one bordered issues-panel renderer shared by split / fullscreen / single-pane.
+- Three single-pane mouse-click geometry tests updated for the added top border (chrome height 2→3, search-row Y 0→1, render geometry border on line 0); one new lens regression test (`TestLensSuppressesAllStatusChip`).
+
+---
+
 ## 2026-07-16 — Footer lens wave: all five phases shipped (PRs #34–#39)
 
 **Implementation wave for the approved footer lens redesign (`docs/design/2026-07-16-footer-lens-redesign.md`), picked up fresh from handoff bead bt-lq39k and run as a PM session dispatching worktree subagents from the main checkout (bt-5r6gn pattern) — one bead per agent, merged sequentially. All six wave beads closed; 39 packages green on merged main; binary installed. (Changelog entry deferred to the 2026-07-17 bookkeeping session.)**

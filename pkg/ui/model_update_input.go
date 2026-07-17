@@ -1651,21 +1651,15 @@ func (m Model) splitViewListChromeHeight() int {
 }
 
 // singlePaneListChromeHeight returns the Y coordinate of the first list item in
-// the single-pane list layout (renderListWithHeader, bt-bxu6u). Chrome above
-// the first item, top to bottom:
-//  1. renderSearchRow (always 1 row — bt-fxbl fixed-height across FilterStates;
-//     measured via lipgloss.Height for defense against future wrapping, and fed
-//     the same bodyWidth()-2 width renderListWithHeader renders it at).
-//  2. The column header strip ("TYPE PRI STATUS…"), clipped to width in
-//     renderListWithHeader so it never wraps — always 1 row.
-//
-// Unlike splitViewListChromeHeight there is NO panel top border: single-pane
-// renderListWithHeader joins the parts directly, without a titled panel frame.
+// the width-driven single-pane list layout (renderListWithHeader, bt-bxu6u).
+// Since bt-r5v9k the single-pane list renders through the same bordered issues
+// panel (renderIssuesPanel) as the split view and the on-demand "2" fullscreen,
+// so its chrome geometry is now identical to splitViewListChromeHeight: a panel
+// top border, then the fixed-height search row (bt-fxbl), then the column
+// header strip. It previously had NO panel top border and measured the search
+// row at bodyWidth()-2; both changed when the border landed.
 func (m Model) singlePaneListChromeHeight() int {
-	const columnHeader = 1
-	offset := lipgloss.Height(m.renderSearchRow(m.bodyWidth() - 2))
-	offset += columnHeader
-	return offset
+	return m.splitViewListChromeHeight()
 }
 
 // handleMouseClick processes mouse button press events. Scoped to:
@@ -1761,10 +1755,11 @@ func (m Model) handleMouseClick(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 		if mouse.X >= m.bodyWidth() {
 			return m, nil
 		}
-		// Single-pane chrome has no panel top border, so the search row sits at
-		// Y=0 (vs Y=1 in split view) and the first list item below the column
-		// header (singlePaneListChromeHeight).
-		const singlePaneSearchRowY = 0
+		// Single-pane now renders a panel top border like split view (bt-r5v9k),
+		// so the search row sits at Y=1 (was Y=0 in the old borderless layout)
+		// and the first list item below the column header
+		// (singlePaneListChromeHeight).
+		const singlePaneSearchRowY = 1
 		return m.clickListPane(mouse, singlePaneSearchRowY, m.singlePaneListChromeHeight())
 	}
 
@@ -2148,7 +2143,14 @@ func (m Model) handleMouseWheel(msg tea.MouseWheelMsg) (Model, tea.Cmd) {
 // refreshFullscreenLayout (on-demand toggle, model_modes.go) so the two
 // entry points can never disagree about dimensions.
 func (m *Model) applyListDetailSizing(bodyW, bodyHeight int) {
-	if m.fullscreen != fullscreenNone {
+	// Fullscreen panes (bt-530vn) AND the width-driven single-pane layout both
+	// fill the full body inside one bordered panel (renderIssuesPanel /
+	// renderDetailsPanel), so both reserve the panel's 4-cell width chrome
+	// (2 borders + 2 padding) and its 2 border rows on height. Unified since
+	// bt-r5v9k gave the single-pane list and detail the same rounded border as
+	// the split and fullscreen surfaces — previously the single-pane branch
+	// sized m.list to the full bodyW with no border reserve.
+	if m.fullscreen != fullscreenNone || !m.isSplitView {
 		innerWidth := bodyW - 4
 		if innerWidth < 10 {
 			innerWidth = 10
@@ -2162,27 +2164,19 @@ func (m *Model) applyListDetailSizing(bodyW, bodyHeight int) {
 		return
 	}
 
-	if m.isSplitView {
-		availWidth := bodyW - 8
-		if availWidth < 10 {
-			availWidth = 10
-		}
-		listInnerWidth := int(float64(availWidth) * m.splitPaneRatio)
-		detailInnerWidth := availWidth - listInnerWidth
-		listHeight := bodyHeight - 4
-		if listHeight < 3 {
-			listHeight = 3
-		}
-		m.list.SetSize(listInnerWidth, listHeight)
-		m.viewport = viewport.New(viewport.WithWidth(detailInnerWidth), viewport.WithHeight(bodyHeight-2))
-	} else {
-		listHeight := bodyHeight - 2
-		if listHeight < 3 {
-			listHeight = 3
-		}
-		m.list.SetSize(bodyW, listHeight)
-		m.viewport = viewport.New(viewport.WithWidth(bodyW), viewport.WithHeight(bodyHeight-1))
+	// Split view: two bordered panels side by side.
+	availWidth := bodyW - 8
+	if availWidth < 10 {
+		availWidth = 10
 	}
+	listInnerWidth := int(float64(availWidth) * m.splitPaneRatio)
+	detailInnerWidth := availWidth - listInnerWidth
+	listHeight := bodyHeight - 4
+	if listHeight < 3 {
+		listHeight = 3
+	}
+	m.list.SetSize(listInnerWidth, listHeight)
+	m.viewport = viewport.New(viewport.WithWidth(detailInnerWidth), viewport.WithHeight(bodyHeight-2))
 }
 
 // handleWindowSize processes terminal resize events using a two-phase debounce
@@ -2271,7 +2265,10 @@ func (m Model) applyWindowSizeHeavy() Model {
 		detailInnerWidth := availWidth - listInnerWidth
 		m.renderer.SetWidthWithTheme(detailInnerWidth, m.theme)
 	default:
-		m.renderer.SetWidthWithTheme(bodyW, m.theme)
+		// Width-driven single-pane detail is now the bordered details panel
+		// (bt-r5v9k), so its viewport is bodyW-4, not the full bodyW. Render the
+		// markdown to the viewport's actual inner width or it overruns the frame.
+		m.renderer.SetWidthWithTheme(m.viewport.Width(), m.theme)
 	}
 	debug.LogTiming("applyHeavy.renderer.SetWidthWithTheme", time.Since(rendererStart))
 

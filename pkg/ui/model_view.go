@@ -245,7 +245,11 @@ func (m Model) View() tea.View {
 					if m.isSplitView {
 						body = m.renderSplitView()
 					} else if m.showDetails {
-						body = m.viewport.View()
+						// Width-driven single-pane detail: the bordered details
+						// panel, identical chrome to the on-demand "3" fullscreen
+						// and the split-view detail pane (bt-r5v9k). Was a bare
+						// m.viewport.View() with no border.
+						body = m.renderFullscreenDetails()
 					} else {
 						body = m.renderListWithHeader()
 					}
@@ -584,97 +588,20 @@ func issueListColumnHeader(workspaceMode bool) string {
 	return "  TYPE PRI STATUS      ID    TITLE"
 }
 
+// renderListWithHeader renders the width-driven single-pane issues list — the
+// layout shown when the terminal is narrower than SplitViewThreshold, or the
+// detail pane is hidden at full width, so there is no room for the side-by-side
+// split. Since bt-r5v9k it renders through the same bordered issues panel
+// (renderIssuesPanel) that the split view and the on-demand "2" fullscreen use,
+// so every list surface carries identical chrome (rounded border + ²Issues
+// badge). The old build joined header+list+pageLine with no border, diverging
+// visually from every other pane. m.list is sized to the inner width (bodyW-4)
+// by applyListDetailSizing's single-pane branch, so outerWidth (+4) fills the
+// body while leaving the shortcuts-sidebar columns (folded into bodyWidth) free.
 func (m Model) renderListWithHeader() string {
-	t := m.theme
-
-	// Calculate dimensions based on actual list height set in sizing
-	availableHeight := m.list.Height()
-	if availableHeight == 0 {
-		availableHeight = m.height - 3 // fallback
-	}
-
-	// bodyWidth reserves space for the shortcuts sidebar when visible (bt-lin9).
-	bodyW := m.bodyWidth()
-
-	// Render column header. Clip to width; lipgloss Style.Width sets background
-	// fill but does NOT truncate, so at narrow widths the literal text would
-	// wrap to a second row (bt-i138).
-	headerWidth := bodyW - 2
-	headerStyle := lipgloss.NewStyle().
-		Background(t.Primary).
-		Foreground(ColorBgContrast).
-		Bold(true).
-		Width(headerWidth)
-
-	headerText := issueListColumnHeader(m.workspaceMode)
-	if headerWidth > 0 && len(headerText) > headerWidth {
-		headerText = headerText[:headerWidth]
-	}
-	header := headerStyle.Render(headerText)
-
-	// Page info
-	totalItems := len(m.list.Items())
-	currentIdx := m.list.Index()
-	itemsPerPage := availableHeight
-	if itemsPerPage < 1 {
-		itemsPerPage = 1
-	}
-	currentPage := (currentIdx / itemsPerPage) + 1
-	totalPages := (totalItems + itemsPerPage - 1) / itemsPerPage
-	if totalPages < 1 {
-		totalPages = 1
-	}
-	startItem := 0
-	endItem := 0
-	if totalItems > 0 {
-		startItem = (currentPage-1)*itemsPerPage + 1
-		endItem = startItem + itemsPerPage - 1
-		if endItem > totalItems {
-			endItem = totalItems
-		}
-	}
-
-	pageInfo := fmt.Sprintf(" Page %d of %d (items %d-%d of %d) ", currentPage, totalPages, startItem, endItem, totalItems)
-	pageStyle := lipgloss.NewStyle().
-		Foreground(t.Secondary).
-		Align(lipgloss.Right).
-		Width(bodyW - 2)
-
-	// Combine header with page info on the right
-	headerLine := lipgloss.JoinHorizontal(lipgloss.Top,
-		header,
-	)
-
-	// List view - just render it normally since bubbles handles scrolling
-	listView := m.list.View()
-
-	// Page indicator line
-	pageLine := pageStyle.Render(pageInfo)
-
-	// Combine all elements and force exact height
-	// bodyHeight = m.height - 1 (1 for footer)
-	bodyHeight := m.height - 1
-	if bodyHeight < 3 {
-		bodyHeight = 3
-	}
-
-	// Build content with explicit height constraint.
-	// Layout (top to bottom): SearchRow (1) + ColumnHeader (1) + List + PageLine (1).
-	// The search row is ALWAYS rendered above the column header (bt-fxbl) so
-	// the header position is stable across all FilterStates: empty placeholder
-	// when Unfiltered, live FilterInput when Filtering, applied pill when
-	// FilterApplied. This fixed chrome height also keeps the click row math
-	// (splitViewListChromeHeight) deterministic.
-	searchRow := m.renderSearchRow(bodyW - 2)
-	parts := []string{searchRow, headerLine, listView, pageLine}
-	content := lipgloss.JoinVertical(lipgloss.Left, parts...)
-
-	// Force exact height to prevent overflow
-	return lipgloss.NewStyle().
-		Width(bodyW).
-		Height(bodyHeight).
-		MaxHeight(bodyHeight).
-		Render(content)
+	outerWidth := m.list.Width() + 4
+	panelHeight := m.height - 1
+	return m.renderIssuesPanel(outerWidth, panelHeight, true)
 }
 
 // issuesPaneBadge and detailsPaneBadge are the small btop-style superscript-

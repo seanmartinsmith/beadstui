@@ -67,6 +67,27 @@ func TestLensFullSentenceNerdFont(t *testing.T) {
 	}
 }
 
+// TestLensSuppressesAllStatusChip locks the double-"all" fix (bt-r5v9k): the
+// status chip renders only when it actually narrows, so the default "all"
+// status draws no chip. Without this the cross-project scope "ALL(N)" was
+// immediately followed by an "all" status chip, reading as a doubled
+// "ALL(20) all". A real narrowing status (open) still renders its chip.
+func TestLensSuppressesAllStatusChip(t *testing.T) {
+	setGlyphs(t, asciiGlyphs)
+	fd := FooterData{Width: 160, ScopeLabel: "ALL(20)", ScopeCrossProject: true, StatusFilter: "all", TotalItems: 20}
+	out := ansi.Strip(fd.Render())
+	if strings.Contains(out, "st:all") {
+		t.Errorf("the non-narrowing 'all' status must draw no chip: %q", out)
+	}
+	if !strings.Contains(out, "ALL(20)") {
+		t.Errorf("cross-project scope must survive: %q", out)
+	}
+	fd.StatusFilter = "open"
+	if out2 := ansi.Strip(fd.Render()); !strings.Contains(out2, "st:open") {
+		t.Errorf("a narrowing status filter must still render its chip: %q", out2)
+	}
+}
+
 // TestLensCrossProjectScope proves the all-projects scope shows its project
 // count. (It renders bare - no globe glyph - per bt-41gr8.)
 func TestLensCrossProjectScope(t *testing.T) {
