@@ -102,9 +102,10 @@ type GlyphSet struct {
 	FilterReady  string // status filter: ready
 	FilterBQL    string // BQL query filter
 	FilterRecipe string // recipe filter
-	FilterStatus string // generic status filter (filter funnel)
 	Search       string // search / magnifier
-	Sort         string // sort/order
+	Sort         string // sort/order (non-directional)
+	SortAsc      string // order chip: ascending direction (oldest-first)
+	SortDesc     string // order chip: descending direction (newest-first)
 	Tag          string // label filter
 	Graph        string // graph analysis
 	RepoDrawer   string // repo filter drawer
@@ -244,9 +245,10 @@ var nerdfontGlyphs = GlyphSet{
 	FilterReady:  "", // fa-rocket
 	FilterBQL:    "", // fa-search
 	FilterRecipe: "", // fa-list-ol
-	FilterStatus: "", // fa-filter
 	Search:       "", // fa-search
 	Sort:         "", // fa-sort
+	SortAsc:      "↑", // U+2191, single-width non-emoji mark
+	SortDesc:     "↓", // U+2193
 	Tag:          "", // fa-tag
 	Graph:        "", // fa-bar-chart
 	RepoDrawer:   "", // fa-folder-open-o
@@ -381,9 +383,10 @@ var asciiGlyphs = GlyphSet{
 	FilterReady:  "^",
 	FilterBQL:    "?",
 	FilterRecipe: "=",
-	FilterStatus: "#",
 	Search:       "?",
 	Sort:         "^",
+	SortAsc:      "^",
+	SortDesc:     "", // desc is the unmarked ascii default (by:created vs by:created^)
 	Tag:          "#",
 	Graph:        "#",
 	RepoDrawer:   "/",

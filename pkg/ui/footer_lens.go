@@ -9,7 +9,9 @@ package ui
 // under width pressure with placeholders (lb:- , /-) dropping first. Two tiers
 // render from one grammar: the ascii tier uses the doc's verbatim text prefixes
 // (st: / lb: / / / by:), the Nerd Font tier swaps those prefixes for the glyph
-// table's icons (FilterStatus / Tag / Search / Sort, and folder/globe on scope).
+// table's icons (Tag / Search / Sort, and folder/globe on scope). The status
+// chip renders bare in the NF tier - the fa-filter funnel read as a stuck
+// down-arrow at terminal size and was removed (bt-n9gn5, dogfood 2026-07-17).
 // Design: docs/design/2026-07-16-footer-lens-redesign.md.
 
 import (
@@ -40,20 +42,36 @@ func asciiTier() bool { return activeGlyphs.Sep == asciiGlyphs.Sep }
 // lensSortLabel maps a sort mode to the lens order token (pure ASCII, so the
 // ascii-tier footer stays ASCII). SortDefault returns "" so the order chip is
 // hidden when no explicit sort is active — the order bucket space-holds only via
-// its silence, never a placeholder.
+// its silence, never a placeholder. The created pair shares one bare token;
+// direction rides the chip's icon slot / ascii suffix (bt-uxyel), never a
+// "-old" suffix.
 func lensSortLabel(s SortMode) string {
 	switch s {
 	case SortUpdated:
 		return "updated"
-	case SortCreatedDesc:
+	case SortCreatedDesc, SortCreatedAsc:
 		return "created"
-	case SortCreatedAsc:
-		return "created-old"
 	case SortPriority:
 		return "priority"
 	case SortProgress:
 		return "progress"
 	default: // SortDefault
+		return ""
+	}
+}
+
+// lensSortDir maps a sort mode to its direction key: "asc" / "desc" for the
+// directional created pair, "" for single-direction sorts. The NF order chip
+// renders the direction as its icon (up/down arrow replacing the static sort
+// mark); the ascii tier marks only the non-default ascending direction with a
+// ^ suffix (by:created^ vs the unmarked newest-first by:created).
+func lensSortDir(s SortMode) string {
+	switch s {
+	case SortCreatedAsc:
+		return "asc"
+	case SortCreatedDesc:
+		return "desc"
+	default:
 		return ""
 	}
 }
@@ -100,7 +118,9 @@ func lensFilterChips(fd FooterData, ascii, placeholders bool) []string {
 		if val == "in_progress" {
 			val = "in-progress"
 		}
-		chips = append(chips, lensChip("st:", g.FilterStatus, val, ascii))
+		// Bare value in the NF tier (no icon): the fa-filter funnel read as a
+		// stuck down-arrow at terminal size (bt-n9gn5). Ascii keeps st:.
+		chips = append(chips, lensChip("st:", "", val, ascii))
 	}
 
 	// Label (independent membership dimension).
@@ -124,9 +144,27 @@ func lensFilterChips(fd FooterData, ascii, placeholders bool) []string {
 		chips = append(chips, lensChip("recipe:", g.FilterRecipe, fd.RecipeName, ascii))
 	}
 
-	// Order bucket: only for an explicit (non-default) sort.
+	// Order bucket: only for an explicit (non-default) sort. A directional
+	// sort pair (created) carries its direction in the icon slot in the NF
+	// tier and as a ^ suffix for the non-default ascending direction in ascii
+	// (bt-uxyel); non-directional sorts keep the static sort mark.
 	if fd.OrderLabel != "" {
-		chips = append(chips, lensChip("by:", g.Sort, fd.OrderLabel, ascii))
+		if ascii {
+			val := fd.OrderLabel
+			if fd.OrderDir == "asc" {
+				val += g.SortAsc
+			}
+			chips = append(chips, "by:"+val)
+		} else {
+			icon := g.Sort
+			switch fd.OrderDir {
+			case "asc":
+				icon = g.SortAsc
+			case "desc":
+				icon = g.SortDesc
+			}
+			chips = append(chips, icon+fd.OrderLabel)
+		}
 	}
 
 	return chips
