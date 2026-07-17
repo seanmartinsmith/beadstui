@@ -672,30 +672,32 @@ func singlePaneTestIssues() []model.Issue {
 }
 
 // TestHandleMouseClick_SinglePaneChromeHeight pins the single-pane list chrome
-// to 2 rows (search row at Y=0 + column header at Y=1, no panel top border),
-// so the first list item is at Y=2 (bt-bxu6u). This is the single-pane analogue
-// of splitViewListChromeHeight's 3 rows.
+// to 3 rows (panel top border + search row + column header), so the first list
+// item is at Y=3 (bt-r5v9k). The single-pane list now renders through the same
+// bordered panel as split view, so this matches splitViewListChromeHeight.
 func TestHandleMouseClick_SinglePaneChromeHeight(t *testing.T) {
 	m := NewModel(singlePaneTestIssues(), nil, "", nil, nil)
 	m.width = 80
 	m.height = 30
-	m.list.SetSize(m.bodyWidth(), 24)
-	if got := m.singlePaneListChromeHeight(); got != 2 {
-		t.Fatalf("singlePaneListChromeHeight = %d, want 2 (search row + column header)", got)
+	m.list.SetSize(m.bodyWidth()-4, 24)
+	if got := m.singlePaneListChromeHeight(); got != 3 {
+		t.Fatalf("singlePaneListChromeHeight = %d, want 3 (border + search row + column header)", got)
 	}
 }
 
-// TestSinglePaneListRenderGeometry pins singlePaneListChromeHeight to the
-// actual renderListWithHeader output: search row on line 0, column header on
-// line 1, first list item on line 2. If renderListWithHeader's chrome ever
-// shifts, this fails alongside the click math that depends on it (bt-bxu6u).
+// TestSinglePaneListRenderGeometry pins singlePaneListChromeHeight to the actual
+// bordered renderListWithHeader output (bt-r5v9k): the panel top border (with the
+// ²Issues badge) on line 0, the search row on line 1, the column header on line
+// 2, and the first list item on line 3 (== singlePaneListChromeHeight). If the
+// single-pane chrome ever shifts, this fails alongside the click math that
+// depends on it (bt-bxu6u).
 func TestSinglePaneListRenderGeometry(t *testing.T) {
 	m := NewModel(singlePaneTestIssues(), nil, "", nil, nil)
 	m.width = 90 // single-pane (< SplitViewThreshold)
 	m.height = 24
 	m.mode = ViewList
 	m.isSplitView = false
-	m.list.SetSize(m.bodyWidth(), m.height-3)
+	m.list.SetSize(m.bodyWidth()-4, m.height-4) // inner width, panel border reserved
 	m.updateListDelegate()
 
 	lines := strings.Split(m.renderListWithHeader(), "\n")
@@ -703,11 +705,14 @@ func TestSinglePaneListRenderGeometry(t *testing.T) {
 	if len(lines) <= chrome {
 		t.Fatalf("rendered %d lines, need at least %d", len(lines), chrome+1)
 	}
-	if !strings.Contains(lines[0], "Search:") {
-		t.Fatalf("line 0 should be the search row, got %q", lines[0])
+	if !strings.Contains(lines[0], issuesPaneBadge) {
+		t.Fatalf("line 0 should be the panel top border carrying %q, got %q", issuesPaneBadge, lines[0])
 	}
-	if !strings.Contains(lines[1], "TYPE") {
-		t.Fatalf("line 1 should be the column header, got %q", lines[1])
+	if !strings.Contains(lines[1], "Search:") {
+		t.Fatalf("line 1 should be the search row, got %q", lines[1])
+	}
+	if !strings.Contains(lines[2], "TYPE") {
+		t.Fatalf("line 2 should be the column header, got %q", lines[2])
 	}
 	if !strings.Contains(lines[chrome], "cc0") {
 		t.Fatalf("first list item (cc0) should render on line %d (singlePaneListChromeHeight), got %q",
@@ -766,8 +771,9 @@ func TestHandleMouseClick_SinglePaneWideMaximizedSelectsRow(t *testing.T) {
 }
 
 // TestHandleMouseClick_SinglePaneSearchRowReopensFilter verifies a click on the
-// single-pane search row (Y=0, no panel top border) reopens the filter input,
-// mirroring the split-view search-row click (which lives at Y=1) (bt-bxu6u).
+// single-pane search row (Y=1, below the panel top border) reopens the filter
+// input, mirroring the split-view search-row click (bt-bxu6u; geometry updated
+// to the bordered layout in bt-r5v9k).
 func TestHandleMouseClick_SinglePaneSearchRowReopensFilter(t *testing.T) {
 	m := NewModel(singlePaneTestIssues(), nil, "", nil, nil)
 	m.width = 80
@@ -775,16 +781,16 @@ func TestHandleMouseClick_SinglePaneSearchRowReopensFilter(t *testing.T) {
 	m.mode = ViewList
 	m.isSplitView = false
 	m.showDetails = false
-	m.list.SetSize(m.bodyWidth(), 24)
+	m.list.SetSize(m.bodyWidth()-4, 24)
 	m.focused = focusList
 
 	if m.list.FilterState() == list.Filtering {
 		t.Fatalf("precondition: list should not start in Filtering state")
 	}
 
-	got, _ := m.handleMouseClick(tea.MouseClickMsg{X: 5, Y: 0, Button: tea.MouseLeft})
+	got, _ := m.handleMouseClick(tea.MouseClickMsg{X: 5, Y: 1, Button: tea.MouseLeft})
 	if got.list.FilterState() != list.Filtering {
-		t.Fatalf("click on single-pane search row (Y=0) should reopen filter, got state %v",
+		t.Fatalf("click on single-pane search row (Y=1) should reopen filter, got state %v",
 			got.list.FilterState())
 	}
 }

@@ -110,10 +110,14 @@ func lensFilterChips(fd FooterData, ascii, placeholders bool) []string {
 	g := activeGlyphs
 	var chips []string
 
-	// Status: shown whenever a plain status filter owns membership. Empty when a
-	// BQL query or a recipe owns membership instead (they render in their own
-	// slots below), so the lens never double-states the same filter.
-	if fd.StatusFilter != "" {
+	// Status: shown whenever a plain status filter actually narrows membership.
+	// "all" (and "") narrow nothing, so they render no chip — the same "all
+	// narrows nothing" rule lensBareStatus already applies at the terser levels
+	// (bt-r5v9k). Suppressing it here also stops the cross-project scope
+	// "ALL(N)" from reading as a doubled "ALL(20) all" in the full sentence.
+	// Empty too when a BQL query or a recipe owns membership instead (they
+	// render in their own slots below), so the lens never double-states a filter.
+	if fd.StatusFilter != "" && fd.StatusFilter != "all" {
 		val := fd.StatusFilter
 		if val == "in_progress" {
 			val = "in-progress"
