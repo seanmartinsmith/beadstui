@@ -6,6 +6,33 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-07-16 — Footer lens wave: all five phases shipped (PRs #34–#39)
+
+**Implementation wave for the approved footer lens redesign (`docs/design/2026-07-16-footer-lens-redesign.md`), picked up fresh from handoff bead bt-lq39k and run as a PM session dispatching worktree subagents from the main checkout (bt-5r6gn pattern) — one bead per agent, merged sequentially. All six wave beads closed; 39 packages green on merged main; binary installed. (Changelog entry deferred to the 2026-07-17 bookkeeping session.)**
+
+### Ships
+
+- **feat(tui): single glyph table, nerdfont default + ascii fallback, emoji tier deleted (bt-5f3bo, PR #34)** — `pkg/ui/glyphs.go` `GlyphSet` names every chrome glyph (90 NF PUA fields, all single-width, verified by reflection tests); two tiers resolved once at startup from `BT_GLYPHS` (nerdfont default, ascii fallback; no font detection — starship/yazi precedent); every emoji literal deleted from non-test `pkg/ui` source with `TestNoEmojiInChrome` walking the codepoint ranges as a permanent gate; graph goldens regenerated; `BT_GLYPHS` documented in docs/env-vars.md. Cross-cutting prerequisite for the rest of the wave.
+- **feat(tui): boot chrome silent on success (bt-gp88y, PR #35)** — the unconditional "Background mode enabled" boot banner removed; failure paths keep speaking with reasons. Semantic-index/hybrid "ready" toasts also fire for user-triggered Ctrl+S rebuilds, so silencing them needs boot-vs-runtime state threading — filed **bt-ynxqk**.
+- **feat(tui): yazi-style floating bubble toast (bt-kuvzj, PR #36)** — new `toast_bubble.go` + `OverlayBottomRight` compositing primitive: severity glyph in the border title, bell unseen-count in the border right label, `ansi.Wrap` at a 40-col budget (kills bt-8scek's borrow-and-truncate root cause; that footer block deleted). Triggers/timing/dismiss semantics unchanged.
+- **feat(tui): alerts status header + traceable anomaly badge (bt-2nepr, PR #37)** — persistent "bt status report" header on the Alerts tab: badge reconciliation line (`N anomalies · M advisories`), Dolt mode + server status, corpus scale as a status fact, per-source issue counts, watcher/worker/freshness. The `!` badge opens the modal pre-filtered to exactly its N anomalies via a shared predicate, so badge and filter cannot drift. Large-dataset threshold badge killed (consequences-not-thresholds; absorbs the bt-ajbxw reframe). Phase-2 degradation *alert* deferred — the snapshot has no degraded-vs-skipped signal yet; filed **bt-402vy**.
+- **feat(tui): footer lens zone + right-zone simplification (bt-2vshd, PR #38)** — largest rewrite of the wave. Left zone reads as the lens sentence (scope → filter chips → order) with the doc's drop order and deliberate expansion; right zone reduced to `? help · ; keys` + `!N` anomaly sigil + bell; hint pills and their degradation machinery, the `l:labels` chip, the `[19]` workspace badge, and the "Filter: …" toast echoes all deleted. One-key status cycle on `#` covering all→open→in_progress→blocked→closed→deferred (absorbs bt-gpvwe; supplements o/c/r rather than replacing them).
+- **feat(tui): footer center actionable triad + detail/memories overrides (bt-p8y2f, PR #39)** — `computeFooterTriad` partitions via the same `GetActionableIssues` path `bt robot triage` uses, re-scoping with every filter change while readiness resolves against the full-corpus analyzer. Correctness fix over the retired counts: transitive parent-child block propagation now counts correctly (footer numbers match `bt robot triage`). Zero-count segments never render at any width. Center overrides only where the view can't show it itself: detail (`id · pos/total`) and memories (`N memories · M projects`); board/graph keep the triad.
+
+### Bead bookkeeping
+
+- Closed: **bt-5f3bo** (#34), **bt-gp88y** (#35), **bt-kuvzj** (#36, + bt-8scek root cause), **bt-2nepr** (#37), **bt-2vshd** (#38), **bt-p8y2f** (#39).
+- Filed: **bt-ynxqk** (boot index-ready toast silencing), **bt-402vy** (phase-2 degradation signal + `LargeDatasetWarning` dead-code cleanup), **bt-sbc8m** (vestigial `DataSnapshot` count fields post-triad).
+- Handoff bead **bt-lq39k** closed in the 2026-07-17 bookkeeping session, which also landed this entry and the supersession pointer on the 2026-06-22 phase-4 notifications doc (deferred from bt-kuvzj's close).
+
+### Notes
+
+- Two implementing agents died mid-wave (host CPU crash; session tool-call circuit breaker) — the PM verified and committed their work directly from the agent worktrees.
+- Known flake bt-0yxj0 (`TestRace_DataConsistency`) surfaced once during bt-2vshd verification; passed 10+ consecutive reruns on branch and main.
+- Render-harness dumps show an empty scope segment (the harness never sets a project name) — unit tests cover scope; flagged for a later harness improvement.
+
+---
+
 ## 2026-07-16 — Footer arc completed live + memories dogfood wave + footer lens design
 
 **Interactive dogfood/design session (pc:bt:2c14befc). Shipped the last two layers of the footer fix arc (content re-tiering, then alert classification) with the maintainer relaunching bt between each to verify live; triaged the first memories-view dogfood into a bead wave; walked through and approved the footer lens redesign that supersedes the 6-21 visual direction.**
@@ -25,6 +52,10 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 ### Notes
 
 - Strategy: ultracode recon sweep located the command-center product-turn brainstorm (`~/.files/atlas/brainstorms/2026-07-13-command-center-tui-brainstorm.md`) — standalone clean-room TUI decided 7-13 for licensing reasons; bt investment policy narrows to daily-usability + shared-foundation + design-lab work. Implementation of the lens redesign is deliberately deferred to fresh sessions (this session's context ran heavy).
+
+---
+
+## 2026-07-15 — Memories master/detail view (bt-2ea7t.4)
 
 **Fourth and last-planned child of the bt-2ea7t epic; implements bt-wxrr5. The user-facing proof surface: a dedicated read-only master/detail view over `bd remember` memories, riding directly on .1-.3's `AggregateMemories`/`SelectAdapter`/`DetectPath` seam. Built the live discovery orchestrator (`LoadMemoriesCmd`) that seam was missing — cwd project mandatory, `~/.bt/projects.json` registry + shared-Dolt-server enumeration best-effort/non-fatal — and wired the new `ViewMemories`/`focusMemories` view through every existing multi-touch integration point (keys, focus cascades, async loading, help/footer fallback).**
 

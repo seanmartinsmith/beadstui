@@ -1,7 +1,12 @@
 # Smart Footer Phase 4 - Notifications (toast + unread bell)
 
 **Date**: 2026-06-22
-**Status**: Design approved (brainstorm 2026-06-22); ready for implementation plan
+**Status**: Shipped, then partially superseded. The statusline-embedded toast this doc
+specifies was replaced by a yazi-style floating bubble overlay (bt-kuvzj, PR #36,
+2026-07-16, `pkg/ui/toast_bubble.go`) — a placement redesign only; the trigger
+conditions, severity model, and bell semantics designed here still stand. The footer
+visual vocabulary is superseded by
+[2026-07-16-footer-lens-redesign.md](2026-07-16-footer-lens-redesign.md).
 **Beads**: `bt-a3zi3.1` (this phase) under umbrella `bt-a3zi3`
 **Refines**: [docs/design/2026-06-21-tui-footer-smart-redesign.md](2026-06-21-tui-footer-smart-redesign.md) section 5
 **Follow-ups (out of scope, tracked)**: `bt-vhzia` (cross-session unread), `bt-s2duc` (multi-select modal triage)
