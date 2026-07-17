@@ -49,11 +49,12 @@ func TestLensFullSentenceASCII(t *testing.T) {
 
 // TestLensFullSentenceNerdFont proves the Nerd Font tier swaps the text prefixes
 // for the table icons: the chip VALUES survive but the "st:" / "lb:" / "by:"
-// text prefixes do not, and the scope carries the folder/globe glyph.
+// text prefixes do not, and the scope carries the folder/globe glyph. The
+// status chip renders bare - its funnel icon was removed (bt-n9gn5).
 func TestLensFullSentenceNerdFont(t *testing.T) {
 	setGlyphs(t, nerdfontGlyphs)
 	out := ansi.Strip(richLensFixture(160).Render())
-	for _, want := range []string{"bt", "open", "area:tui", "updated", activeGlyphs.ScopeProject, activeGlyphs.FilterStatus} {
+	for _, want := range []string{"bt", "open", "area:tui", "updated", activeGlyphs.ScopeProject} {
 		if !strings.Contains(out, want) {
 			t.Errorf("nerdfont lens missing %q in %q", want, out)
 		}
@@ -251,5 +252,102 @@ func TestPopulateLensScope(t *testing.T) {
 	}
 	if single.footerData().ScopeCrossProject {
 		t.Errorf("single-project scope must not be cross-project")
+	}
+}
+
+// --- bt-n9gn5: the NF status chip drops the funnel icon ---
+
+// TestLensStatusChipNoFunnelNerdFont locks the funnel removal (bt-n9gn5): the
+// static fa-filter mark read as a stuck down-arrow in live dogfood
+// (2026-07-17), so the NF status chip renders its bare value with no icon.
+func TestLensStatusChipNoFunnelNerdFont(t *testing.T) {
+	setGlyphs(t, nerdfontGlyphs)
+	out := ansi.Strip(richLensFixture(160).Render())
+	if strings.Contains(out, "") {
+		t.Errorf("NF status chip must not carry the funnel icon: %q", out)
+	}
+	if !strings.Contains(out, "open") {
+		t.Errorf("NF status chip must keep its bare value: %q", out)
+	}
+}
+
+// --- bt-uxyel: sort direction is a glyph, not a "-old" suffix ---
+
+// TestLensSortLabelCreatedPair: both created sort modes share the bare
+// "created" token; direction is carried by the order chip's direction glyph,
+// never a "-old" suffix.
+func TestLensSortLabelCreatedPair(t *testing.T) {
+	if got := lensSortLabel(SortCreatedDesc); got != "created" {
+		t.Errorf("SortCreatedDesc label = %q, want %q", got, "created")
+	}
+	if got := lensSortLabel(SortCreatedAsc); got != "created" {
+		t.Errorf("SortCreatedAsc label = %q, want %q", got, "created")
+	}
+}
+
+// TestLensOrderChipDirectionNerdFont: the NF order chip's icon slot carries
+// the direction for the created pair (down for the newest-first default, up
+// for oldest-first); non-directional sorts keep the static sort mark.
+func TestLensOrderChipDirectionNerdFont(t *testing.T) {
+	setGlyphs(t, nerdfontGlyphs)
+	fd := richLensFixture(160)
+	fd.OrderLabel = "created"
+
+	fd.OrderDir = "asc"
+	if out := ansi.Strip(fd.Render()); !strings.Contains(out, activeGlyphs.SortAsc+"created") {
+		t.Errorf("asc order chip should read %q: %q", activeGlyphs.SortAsc+"created", out)
+	}
+	fd.OrderDir = "desc"
+	if out := ansi.Strip(fd.Render()); !strings.Contains(out, activeGlyphs.SortDesc+"created") {
+		t.Errorf("desc order chip should read %q: %q", activeGlyphs.SortDesc+"created", out)
+	}
+	fd.OrderLabel, fd.OrderDir = "updated", ""
+	if out := ansi.Strip(fd.Render()); !strings.Contains(out, activeGlyphs.Sort+"updated") {
+		t.Errorf("non-directional order chip should keep the sort mark: %q", out)
+	}
+}
+
+// TestLensOrderChipDirectionASCII: the ascii tier marks only the non-default
+// ascending direction (by:created^); the newest-first default stays unmarked,
+// and the -old suffix is gone everywhere.
+func TestLensOrderChipDirectionASCII(t *testing.T) {
+	setGlyphs(t, asciiGlyphs)
+	fd := richLensFixture(160)
+	fd.OrderLabel = "created"
+
+	fd.OrderDir = "asc"
+	if out := ansi.Strip(fd.Render()); !strings.Contains(out, "by:created^") {
+		t.Errorf("ascii asc order chip should read by:created^: %q", out)
+	}
+	fd.OrderDir = "desc"
+	out := ansi.Strip(fd.Render())
+	if !strings.Contains(out, "by:created") || strings.Contains(out, "by:created^") {
+		t.Errorf("ascii desc order chip should be the unmarked by:created: %q", out)
+	}
+	if strings.Contains(out, "created-old") {
+		t.Errorf("the -old suffix must be gone: %q", out)
+	}
+}
+
+// TestPopulateLensOrderDir: the model threads the created pair's direction
+// into FooterData alongside the shared bare label.
+func TestPopulateLensOrderDir(t *testing.T) {
+	m := NewModel(harnessIssues(), nil, "", nil, nil)
+	cases := []struct {
+		mode  SortMode
+		label string
+		dir   string
+	}{
+		{SortCreatedAsc, "created", "asc"},
+		{SortCreatedDesc, "created", "desc"},
+		{SortUpdated, "updated", ""},
+	}
+	for _, c := range cases {
+		m.filter.sortMode = c.mode
+		fd := m.footerData()
+		if fd.OrderLabel != c.label || fd.OrderDir != c.dir {
+			t.Errorf("sortMode %v: got (%q, %q), want (%q, %q)",
+				c.mode, fd.OrderLabel, fd.OrderDir, c.label, c.dir)
+		}
 	}
 }

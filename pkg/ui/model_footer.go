@@ -287,6 +287,10 @@ type FooterData struct {
 	RecipeName string
 	// OrderLabel is the "by:" order token for an explicit sort; empty hides it.
 	OrderLabel string
+	// OrderDir is "asc" / "desc" for a directional sort pair (created), ""
+	// for single-direction sorts. Rendered as the order chip's direction
+	// glyph (bt-uxyel).
+	OrderDir string
 }
 
 // FooterHint is one key-binding hint for the L1 status-bar slot. Key is the
@@ -466,6 +470,7 @@ func (m *Model) populateLens(fd *FooterData) {
 
 	// Order bucket: explicit (non-default) sort only.
 	fd.OrderLabel = lensSortLabel(m.filter.sortMode)
+	fd.OrderDir = lensSortDir(m.filter.sortMode)
 }
 
 // footerCenter supplies the center-zone string for views whose "what am I
@@ -923,16 +928,18 @@ func (fd FooterData) Render() string {
 	// ascii renders the doc's literal words ("ready 41") — the ascii glyph
 	// values carry their own trailing space so the same "%s%d" format works
 	// for both tiers.
+	// No background fills anywhere in the footer (bt-ycoqf, lens spec):
+	// hierarchy is carried by foreground color, bold, and dim only. The
+	// Padding(0, 1) survives as inter-section breathing room.
 	buildStats := func() string {
 		if fd.TimeTravelActive {
 			return lipgloss.NewStyle().
-				Background(ColorPrioHighBg).
 				Foreground(ColorWarning).
+				Bold(true).
 				Padding(0, 1).
 				Render(fd.TimeTravelStats)
 		}
 		statsStyle := lipgloss.NewStyle().
-			Background(ColorBgHighlight).
 			Foreground(ColorText).
 			Padding(0, 1)
 		seg := func(style lipgloss.Style, glyph string, n int) string {
@@ -969,7 +976,6 @@ func (fd FooterData) Render() string {
 	hasCenterOverride := fd.CenterOverride != "" && !fd.TimeTravelActive
 	if hasCenterOverride {
 		statsSection = lipgloss.NewStyle().
-			Background(ColorBgHighlight).
 			Foreground(ColorText).
 			Padding(0, 1).
 			Render(fd.CenterOverride)
@@ -982,7 +988,6 @@ func (fd FooterData) Render() string {
 	phase2Section := ""
 	if fd.ShowPhase2 {
 		phase2Style := lipgloss.NewStyle().
-			Background(ColorBgHighlight).
 			Foreground(ColorInfo).
 			Padding(0, 1)
 		phase2Section = phase2Style.Render(activeGlyphs.Phase2Dot + " metrics…")
@@ -992,7 +997,6 @@ func (fd FooterData) Render() string {
 	watcherSection := ""
 	if fd.WatcherText != "" {
 		watcherStyle := lipgloss.NewStyle().
-			Background(ColorBgHighlight).
 			Foreground(ColorMuted).
 			Padding(0, 1)
 		watcherSection = watcherStyle.Render(fd.WatcherText)
@@ -1002,8 +1006,7 @@ func (fd FooterData) Render() string {
 	updateSection := ""
 	if fd.UpdateTag != "" {
 		updateStyle := lipgloss.NewStyle().
-			Background(ColorTypeFeature).
-			Foreground(ColorBg).
+			Foreground(ColorTypeFeature).
 			Bold(true).
 			Padding(0, 1)
 		updateSection = updateStyle.Render(fmt.Sprintf("%s %s", activeGlyphs.Star, fd.UpdateTag))
@@ -1016,7 +1019,6 @@ func (fd FooterData) Render() string {
 	instanceSection := ""
 	if fd.SecondaryPID > 0 {
 		instanceStyle := lipgloss.NewStyle().
-			Background(ColorPrioHighBg).
 			Foreground(ColorWarning).
 			Bold(true).
 			Padding(0, 1)
@@ -1027,7 +1029,6 @@ func (fd FooterData) Render() string {
 	sessionSection := ""
 	if fd.SessionCount > 0 {
 		sessionStyle := lipgloss.NewStyle().
-			Background(ColorBgHighlight).
 			Foreground(ColorInfo).
 			Padding(0, 1)
 		countStr := fmt.Sprintf("%d", fd.SessionCount)
@@ -1256,19 +1257,16 @@ func (fd FooterData) renderWorkerBadge() string {
 	switch fd.WorkerLevel {
 	case WorkerLevelCritical:
 		style = lipgloss.NewStyle().
-			Background(ColorPrioCriticalBg).
 			Foreground(ColorPrioCritical).
 			Bold(true).
 			Padding(0, 1)
 	case WorkerLevelWarning:
 		style = lipgloss.NewStyle().
-			Background(ColorBgHighlight).
 			Foreground(ColorWarning).
 			Bold(true).
 			Padding(0, 1)
 	case WorkerLevelInfo:
 		style = lipgloss.NewStyle().
-			Background(ColorBgHighlight).
 			Foreground(ColorInfo).
 			Bold(true).
 			Padding(0, 1)

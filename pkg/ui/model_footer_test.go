@@ -2,6 +2,8 @@ package ui
 
 import (
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -1406,5 +1408,62 @@ func TestFooterTriad_RescopesOnLabelFilter(t *testing.T) {
 	if m.ac.countBlocked != 1 || m.ac.countReady != 0 || m.ac.countInFlight != 0 {
 		t.Errorf("narrowed to bt-dx7k (blocked): got ready=%d in-flight=%d blocked=%d",
 			m.ac.countReady, m.ac.countInFlight, m.ac.countBlocked)
+	}
+}
+
+// --- bt-ycoqf: no background fills anywhere in the footer line ---
+
+var sgrRe = regexp.MustCompile("\x1b\\[([0-9;]*)m")
+
+// footerBgParams reports the first SGR sequence in s that paints a background:
+// a 48-introduced extended color or a basic 40-47 / 100-107 code. Foreground
+// and underline color payloads (38;2;R;G;B, 38;5;N, 58;...) are skipped
+// wholesale so their numeric components cannot false-positive as 48/4x.
+func footerBgParams(s string) string {
+	for _, seq := range sgrRe.FindAllStringSubmatch(s, -1) {
+		params := strings.Split(seq[1], ";")
+		for i := 0; i < len(params); i++ {
+			switch params[i] {
+			case "38", "58":
+				if i+1 < len(params) && params[i+1] == "2" {
+					i += 4
+				} else if i+1 < len(params) && params[i+1] == "5" {
+					i += 2
+				}
+			case "48":
+				return seq[1]
+			default:
+				if n, err := strconv.Atoi(params[i]); err == nil &&
+					((n >= 40 && n <= 47) || (n >= 100 && n <= 107)) {
+					return seq[1]
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// TestFooterRenderNoBackgroundFills locks the lens spec's "no background fills
+// anywhere - plain text with typographic hierarchy" rule (bt-ycoqf) across
+// every fill-prone footer segment: the triad stats, center override,
+// time-travel stats, and the daemon badge family.
+func TestFooterRenderNoBackgroundFills(t *testing.T) {
+	cases := map[string]FooterData{
+		"triad+daemon-badges": {
+			Width: 240, TotalItems: 169,
+			CountReady: 14, CountInFlight: 4, CountBlocked: 9,
+			ShowPhase2: true, WatcherText: "3 watched",
+			WorkerText: "worker idle", WorkerLevel: WorkerLevelInfo,
+			UpdateTag: "v9.9.9", SecondaryPID: 4242, SessionCount: 3,
+		},
+		"worker-critical": {Width: 240, WorkerText: "worker dead", WorkerLevel: WorkerLevelCritical},
+		"worker-warning":  {Width: 240, WorkerText: "worker slow", WorkerLevel: WorkerLevelWarning},
+		"center-override": {Width: 240, CenterOverride: "bt-0qzp - 3/169"},
+		"time-travel":     {Width: 240, TimeTravelActive: true, TimeTravelStats: "+3 -1"},
+	}
+	for name, fd := range cases {
+		if bg := footerBgParams(fd.Render()); bg != "" {
+			t.Errorf("%s: footer paints a background fill (SGR %q); the lens spec mandates none", name, bg)
+		}
 	}
 }
