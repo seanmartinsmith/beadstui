@@ -176,24 +176,18 @@ func renderLens(fd FooterData, lvl lensLevel) string {
 	g := activeGlyphs
 	ascii := asciiTier()
 
-	scopeStyle := lipgloss.NewStyle().Bold(true).Foreground(ColorText)
+	scopeStyle := lipgloss.NewStyle().Foreground(ColorText)
 	chipStyle := lipgloss.NewStyle().Foreground(ColorSubtext)
 	sep := lipgloss.NewStyle().Foreground(ColorMuted).Render(" " + g.Sep + " ")
 
 	var segs []string
 
-	// Scope (where am I). The Nerd Font tier prefixes it with the folder/globe
-	// icon; the ascii tier shows the bare label (doc mockup: "bt" / "ALL(19)").
+	// Scope (where am I) renders bare in both tiers (doc mockup: "bt" /
+	// "ALL(19)"): the NF folder/globe icons read as oversized dots at
+	// terminal size and bold read poorly (bt-41gr8, dogfood 2026-07-17).
+	// Normal-brightness color against the dim chips carries the hierarchy.
 	if fd.ScopeLabel != "" {
-		scope := fd.ScopeLabel
-		if !ascii {
-			icon := g.ScopeProject
-			if fd.ScopeCrossProject {
-				icon = g.ScopeAll
-			}
-			scope = icon + scope
-		}
-		segs = append(segs, scopeStyle.Render(scope))
+		segs = append(segs, scopeStyle.Render(fd.ScopeLabel))
 	}
 
 	switch lvl {
@@ -213,8 +207,9 @@ func renderLens(fd FooterData, lvl lensLevel) string {
 }
 
 // renderStaticHints returns the Zone-3 discoverability pair (bt-2vshd). Full form
-// is "? help · ; keys"; the compact form drops the labels to "? ;" under width
-// pressure. The ? overlay and ; sidebar are the two surfaces that actually teach
+// is "? help · ; shortcuts" ("keys" named the key, not the surface — renamed
+// bt-x5lvp); the compact form drops the labels to "? ;" under width pressure.
+// The ? overlay and ; sidebar are the two surfaces that actually teach
 // navigation, so the per-view action pills were retired from the footer chrome —
 // the per-view key.Maps now feed only those two surfaces.
 func renderStaticHints(compact bool) string {
@@ -225,5 +220,5 @@ func renderStaticHints(compact bool) string {
 	labelStyle := lipgloss.NewStyle().Foreground(ColorSubtext)
 	sep := lipgloss.NewStyle().Foreground(ColorMuted).Render(" " + activeGlyphs.Sep + " ")
 	return keyStyle.Render("?") + labelStyle.Render(" help") + sep +
-		keyStyle.Render(";") + labelStyle.Render(" keys")
+		keyStyle.Render(";") + labelStyle.Render(" shortcuts")
 }

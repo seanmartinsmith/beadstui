@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 
@@ -54,7 +55,7 @@ func TestLensFullSentenceASCII(t *testing.T) {
 func TestLensFullSentenceNerdFont(t *testing.T) {
 	setGlyphs(t, nerdfontGlyphs)
 	out := ansi.Strip(richLensFixture(160).Render())
-	for _, want := range []string{"bt", "open", "area:tui", "updated", activeGlyphs.ScopeProject} {
+	for _, want := range []string{"bt", "open", "area:tui", "updated"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("nerdfont lens missing %q in %q", want, out)
 		}
@@ -66,8 +67,8 @@ func TestLensFullSentenceNerdFont(t *testing.T) {
 	}
 }
 
-// TestLensCrossProjectScope proves the all-projects scope prefixes with the
-// globe glyph in the Nerd Font tier.
+// TestLensCrossProjectScope proves the all-projects scope shows its project
+// count. (It renders bare - no globe glyph - per bt-41gr8.)
 func TestLensCrossProjectScope(t *testing.T) {
 	setGlyphs(t, nerdfontGlyphs)
 	fd := richLensFixture(160)
@@ -76,9 +77,6 @@ func TestLensCrossProjectScope(t *testing.T) {
 	out := ansi.Strip(fd.Render())
 	if !strings.Contains(out, "ALL(19)") {
 		t.Errorf("cross-project scope should show the count: %q", out)
-	}
-	if !strings.Contains(out, activeGlyphs.ScopeAll) {
-		t.Errorf("cross-project scope should carry the globe glyph: %q", out)
 	}
 }
 
@@ -199,8 +197,8 @@ func TestLensAnomalyBadgeAbsentAtZero(t *testing.T) {
 func TestLensStaticHintsDegrade(t *testing.T) {
 	setGlyphs(t, asciiGlyphs)
 	wide := ansi.Strip(richLensFixture(160).Render())
-	if !strings.Contains(wide, "? help") || !strings.Contains(wide, "; keys") {
-		t.Errorf("wide footer should show the full ? help · ; keys pair: %q", wide)
+	if !strings.Contains(wide, "? help") || !strings.Contains(wide, "; shortcuts") {
+		t.Errorf("wide footer should show the full ? help · ; shortcuts pair: %q", wide)
 	}
 	narrow := ansi.Strip(richLensFixture(46).Render())
 	if !strings.Contains(narrow, "?") || !strings.Contains(narrow, ";") {
@@ -326,6 +324,50 @@ func TestLensOrderChipDirectionASCII(t *testing.T) {
 	}
 	if strings.Contains(out, "created-old") {
 		t.Errorf("the -old suffix must be gone: %q", out)
+	}
+}
+
+// --- bt-41gr8: the scope segment renders bare and unbolded ---
+
+// lensBoldRe matches an SGR sequence opening with the bold parameter.
+var lensBoldRe = regexp.MustCompile("\x1b\\[1[;m]")
+
+// TestLensScopeBareNerdFont locks the scope treatment from live dogfood
+// 2026-07-17 (bt-41gr8): the NF folder/globe icons read as oversized dots at
+// terminal size and the bold styling read poorly, so the scope renders as the
+// bare label in both tiers, distinguished from the dim chips by normal-
+// brightness color only.
+func TestLensScopeBareNerdFont(t *testing.T) {
+	setGlyphs(t, nerdfontGlyphs)
+	fd := FooterData{ScopeLabel: "bt"}
+	raw := renderLens(fd, lensScopeOnly)
+	if got := ansi.Strip(raw); got != "bt" {
+		t.Errorf("NF scope must render bare (no folder icon): %q", got)
+	}
+	if lensBoldRe.MatchString(raw) {
+		t.Errorf("scope must not render bold: %q", raw)
+	}
+	fd = FooterData{ScopeLabel: "ALL(19)", ScopeCrossProject: true}
+	if got := ansi.Strip(renderLens(fd, lensScopeOnly)); got != "ALL(19)" {
+		t.Errorf("cross-project scope must render bare (no globe icon): %q", got)
+	}
+}
+
+// --- bt-x5lvp: the sidebar hint says what it opens ---
+
+// TestStaticHintsShortcutsLabel: the wide-width hint pair reads
+// "? help · ; shortcuts" - "keys" named the key, not the surface
+// (maintainer pick, 2026-07-17). Compact tier stays "? ;".
+func TestStaticHintsShortcutsLabel(t *testing.T) {
+	wide := ansi.Strip(renderStaticHints(false))
+	if !strings.Contains(wide, "; shortcuts") {
+		t.Errorf("wide hints should read \"; shortcuts\": %q", wide)
+	}
+	if strings.Contains(wide, "; keys") {
+		t.Errorf("the old \"; keys\" label must be gone: %q", wide)
+	}
+	if compact := ansi.Strip(renderStaticHints(true)); strings.Contains(compact, "shortcuts") {
+		t.Errorf("compact hints must stay the bare pair: %q", compact)
 	}
 }
 

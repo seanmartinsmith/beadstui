@@ -21,7 +21,7 @@ with every evicted piece of chrome given an explicit new home.
 ## The line (mockups, ASCII default)
 
 ```
-160| ALL(19) . st:open . lb:- . /- . by:updated     ready 214 . in-flight 41 . blocked 87 . 1903     ? help . ; keys    !4 *383
+160| ALL(19) . st:open . lb:- . /- . by:updated     ready 214 . in-flight 41 . blocked 87 . 1903     ? help . ; shortcuts    !4 *383
 100| bt . st:open . by:updated        ready 41 . in-flight 4 . blocked 12 . 169        ? . ;    !4 *9
  70| bt . open         ready 41 . blocked 12 . 169         ? ;   !4
  50| bt . open       169       ? ;   !4
@@ -64,7 +64,8 @@ Reads as a sentence: where am I -> what's filtered -> how it's ordered.
 
 ## Zone 3 - Right (affordances + signal)
 
-- Static discoverability pair: `? help . ; keys` - the help overlay and shortcuts
+- Static discoverability pair: `? help . ; shortcuts` (label amended from
+  `; keys` 2026-07-17, bt-x5lvp - name the surface, not the key) - the help overlay and shortcuts
   sidebar are the two surfaces that actually teach navigation (maintainer call,
   2026-07-16). Per-view action pills are GONE from the chrome; the per-view
   `key.Map`s feed `?` and `;` only. Wide widths show labels, narrow degrades to
@@ -124,8 +125,9 @@ status report header. (Resolves bt-d5wr's branding question.)
 
 - Engine unchanged (never wraps; ansi-aware truncate as safety net).
 - Drop order: lens placeholders -> daemon/degraded-state badges (only present when
-  degraded anyway) -> triad segments (keep total) -> hint labels (`? help . ; keys`
-  -> `? ;`) -> lens filter words (scope survives) -> last: `scope . total . ? ; . !N`.
+  degraded anyway) -> triad segments (keep total) -> hint labels (`? help . ;
+  shortcuts` -> `? ;`) -> lens filter words (scope survives) -> last: `scope .
+  total . ? ; . !N`.
 - **Expansion is deliberate** (new): as width grows, hints regain labels, the triad
   regains segments, lens placeholders reappear. What expands is specified, not
   incidental.

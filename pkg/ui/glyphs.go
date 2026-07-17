@@ -94,8 +94,6 @@ type GlyphSet struct {
 	EventModified string
 
 	// --- Footer scope / filter chrome ---
-	ScopeProject string // single-project scope (folder)
-	ScopeAll     string // all-projects scope (globe)
 	FilterAll    string // status filter: all
 	FilterOpen   string // status filter: open
 	FilterClosed string // status filter: closed
@@ -237,8 +235,6 @@ var nerdfontGlyphs = GlyphSet{
 	EventReopened: "", // fa-refresh
 	EventModified: "", // fa-pencil
 
-	ScopeProject: "", // fa-folder
-	ScopeAll:     "", // fa-globe
 	FilterAll:    "", // fa-list-ul
 	FilterOpen:   "", // fa-folder-open
 	FilterClosed: "", // fa-check
@@ -375,8 +371,6 @@ var asciiGlyphs = GlyphSet{
 	EventReopened: "o",
 	EventModified: "*",
 
-	ScopeProject: "#",
-	ScopeAll:     "*",
 	FilterAll:    "=",
 	FilterOpen:   ">",
 	FilterClosed: "v",
