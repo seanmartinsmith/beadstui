@@ -86,7 +86,7 @@ func TestFooterExcludesToastContent(t *testing.T) {
 	if strings.Contains(out, "write failed: db locked") {
 		t.Errorf("footer must not render toast content; got %q", out)
 	}
-	// Post-lens (bt-2vshd) the right zone is the static "? help · ; keys" pair;
+	// Post-lens (bt-2vshd) the right zone is the static "? help · ; shortcuts" pair;
 	// it must render normally rather than yielding to the toast.
 	if !strings.Contains(out, "? help") {
 		t.Errorf("static hints should render normally (no longer yield to a toast); got %q", out)
