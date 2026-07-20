@@ -8,6 +8,7 @@ import (
 )
 
 func TestRobotSearchHybridMode(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -67,6 +68,7 @@ func TestRobotSearchHybridMode(t *testing.T) {
 }
 
 func TestRobotSearchHybridPresetAffectsScores(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -116,6 +118,7 @@ func TestRobotSearchHybridPresetAffectsScores(t *testing.T) {
 }
 
 func TestRobotSearchHybridBackwardCompatibility(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 

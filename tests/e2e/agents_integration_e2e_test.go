@@ -12,6 +12,7 @@ import (
 
 // TestAgentsE2E_DetectionFlow tests the complete detection flow across different scenarios.
 func TestAgentsE2E_DetectionFlow(t *testing.T) {
+	t.Parallel()
 	t.Run("no_agent_file_prompts", func(t *testing.T) {
 		tmpDir := t.TempDir()
 
@@ -125,6 +126,7 @@ func TestAgentsE2E_DetectionFlow(t *testing.T) {
 
 // TestAgentsE2E_AcceptFlow tests the complete accept flow end-to-end.
 func TestAgentsE2E_AcceptFlow(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	agentsPath := filepath.Join(tmpDir, "AGENTS.md")
 
@@ -192,6 +194,7 @@ func TestAgentsE2E_AcceptFlow(t *testing.T) {
 
 // TestAgentsE2E_DeclineFlow tests the decline flow.
 func TestAgentsE2E_DeclineFlow(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	agentsPath := filepath.Join(tmpDir, "AGENTS.md")
 
@@ -223,6 +226,7 @@ func TestAgentsE2E_DeclineFlow(t *testing.T) {
 
 // TestAgentsE2E_NeverAskFlow tests the "don't ask again" flow.
 func TestAgentsE2E_NeverAskFlow(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	agentsPath := filepath.Join(tmpDir, "AGENTS.md")
 
@@ -252,6 +256,7 @@ func TestAgentsE2E_NeverAskFlow(t *testing.T) {
 
 // TestAgentsE2E_PreferencePersistence tests that preferences persist correctly.
 func TestAgentsE2E_PreferencePersistence(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	agentsPath := filepath.Join(tmpDir, "AGENTS.md")
 
@@ -289,6 +294,7 @@ func TestAgentsE2E_PreferencePersistence(t *testing.T) {
 
 // TestAgentsE2E_LegacyBlurbMigration tests detection and update of legacy blurbs.
 func TestAgentsE2E_LegacyBlurbMigration(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	agentsPath := filepath.Join(tmpDir, "AGENTS.md")
 
@@ -330,6 +336,7 @@ func TestAgentsE2E_LegacyBlurbMigration(t *testing.T) {
 
 // TestAgentsE2E_BlurbRemoval tests complete removal of blurb.
 func TestAgentsE2E_BlurbRemoval(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	agentsPath := filepath.Join(tmpDir, "AGENTS.md")
 
@@ -369,6 +376,7 @@ func TestAgentsE2E_BlurbRemoval(t *testing.T) {
 
 // TestAgentsE2E_EnsureBlurbIdempotent tests that EnsureBlurb is idempotent.
 func TestAgentsE2E_EnsureBlurbIdempotent(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	agentsPath := filepath.Join(tmpDir, "AGENTS.md")
 
@@ -405,6 +413,7 @@ func TestAgentsE2E_EnsureBlurbIdempotent(t *testing.T) {
 
 // TestAgentsE2E_EdgeCase_LargeFile tests handling of large AGENTS.md files.
 func TestAgentsE2E_EdgeCase_LargeFile(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	agentsPath := filepath.Join(tmpDir, "AGENTS.md")
 
@@ -452,6 +461,7 @@ func TestAgentsE2E_EdgeCase_LargeFile(t *testing.T) {
 
 // TestAgentsE2E_EdgeCase_UnicodeContent tests handling of unicode content.
 func TestAgentsE2E_EdgeCase_UnicodeContent(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	agentsPath := filepath.Join(tmpDir, "AGENTS.md")
 
@@ -495,6 +505,7 @@ func TestAgentsE2E_EdgeCase_UnicodeContent(t *testing.T) {
 
 // TestAgentsE2E_EdgeCase_ReadOnlyDirectory tests error handling for read-only scenarios.
 func TestAgentsE2E_EdgeCase_ReadOnlyDirectory(t *testing.T) {
+	t.Parallel()
 	// Skip on Windows where chmod permissions don't work the same way
 	if runtime.GOOS == "windows" {
 		t.Skip("Skipping permission test on Windows - chmod behavior differs")
@@ -523,6 +534,7 @@ func TestAgentsE2E_EdgeCase_ReadOnlyDirectory(t *testing.T) {
 // after modification. This is expected behavior for data safety - atomic writes
 // cannot preserve symlinks.
 func TestAgentsE2E_EdgeCase_SymlinkHandling(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 
 	// Create real file in subdirectory
@@ -585,6 +597,7 @@ func TestAgentsE2E_EdgeCase_SymlinkHandling(t *testing.T) {
 
 // TestAgentsE2E_EdgeCase_EmptyFile tests handling of empty AGENTS.md.
 func TestAgentsE2E_EdgeCase_EmptyFile(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	agentsPath := filepath.Join(tmpDir, "AGENTS.md")
 
@@ -613,6 +626,7 @@ func TestAgentsE2E_EdgeCase_EmptyFile(t *testing.T) {
 
 // TestAgentsE2E_EdgeCase_OnlyWhitespace tests file with only whitespace.
 func TestAgentsE2E_EdgeCase_OnlyWhitespace(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	agentsPath := filepath.Join(tmpDir, "AGENTS.md")
 

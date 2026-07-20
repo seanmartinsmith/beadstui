@@ -8,6 +8,7 @@ import (
 )
 
 func TestRobotGraph_JSONAndFilters(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -69,6 +70,7 @@ func TestRobotGraph_JSONAndFilters(t *testing.T) {
 }
 
 func TestRobotGraph_DOTAndMermaid(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 

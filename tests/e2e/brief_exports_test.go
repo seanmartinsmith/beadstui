@@ -10,6 +10,7 @@ import (
 )
 
 func TestPriorityBrief_AndAgentBriefBundle(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 

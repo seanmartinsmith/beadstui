@@ -19,6 +19,7 @@ import (
 
 // TestCloudflare_HeadersFileGenerated verifies _headers file is created.
 func TestCloudflare_HeadersFileGenerated(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -68,6 +69,7 @@ func TestCloudflare_HeadersFileGenerated(t *testing.T) {
 
 // TestCloudflare_WASMContentType verifies WASM content type header.
 func TestCloudflare_WASMContentType(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -102,6 +104,7 @@ func TestCloudflare_WASMContentType(t *testing.T) {
 
 // TestCloudflare_OutputDirectoryStructure verifies expected structure for CF Pages.
 func TestCloudflare_OutputDirectoryStructure(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -150,6 +153,7 @@ func TestCloudflare_OutputDirectoryStructure(t *testing.T) {
 
 // TestCloudflare_ServiceWorkerForCOI verifies COI service worker present.
 func TestCloudflare_ServiceWorkerForCOI(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -193,6 +197,7 @@ func TestCloudflare_ServiceWorkerForCOI(t *testing.T) {
 
 // TestCloudflare_SQLiteChunking verifies database config for large files.
 func TestCloudflare_SQLiteChunking(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -245,6 +250,7 @@ func TestCloudflare_SQLiteChunking(t *testing.T) {
 
 // TestCloudflare_CustomExportPath verifies custom export path works.
 func TestCloudflare_CustomExportPath(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -276,6 +282,7 @@ func TestCloudflare_CustomExportPath(t *testing.T) {
 
 // TestCloudflare_NestedExportPath verifies nested export path works.
 func TestCloudflare_NestedExportPath(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -311,6 +318,7 @@ func TestCloudflare_NestedExportPath(t *testing.T) {
 
 // TestCloudflare_CustomTitle verifies --pages-title flag works.
 func TestCloudflare_CustomTitle(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -355,6 +363,7 @@ func TestCloudflare_CustomTitle(t *testing.T) {
 
 // TestCloudflare_IncludeClosed verifies --pages-include-closed flag.
 func TestCloudflare_IncludeClosed(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -387,6 +396,7 @@ func TestCloudflare_IncludeClosed(t *testing.T) {
 
 // TestCloudflare_IncludeClosedByDefault verifies default includes closed issues.
 func TestCloudflare_IncludeClosedByDefault(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -419,6 +429,7 @@ func TestCloudflare_IncludeClosedByDefault(t *testing.T) {
 
 // TestCloudflare_ExcludeClosed verifies --pages-include-closed=false excludes closed.
 func TestCloudflare_ExcludeClosed(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -455,6 +466,7 @@ func TestCloudflare_ExcludeClosed(t *testing.T) {
 
 // TestCloudflare_OverwriteExistingExport verifies re-export overwrites cleanly.
 func TestCloudflare_OverwriteExistingExport(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -508,6 +520,7 @@ func TestCloudflare_OverwriteExistingExport(t *testing.T) {
 
 // TestCloudflare_LargeExportPerformance verifies reasonable export time.
 func TestCloudflare_LargeExportPerformance(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping large export test in short mode")
 	}
@@ -553,6 +566,7 @@ func TestCloudflare_LargeExportPerformance(t *testing.T) {
 
 // TestCloudflare_InvalidExportPath verifies error for invalid path.
 func TestCloudflare_InvalidExportPath(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	repoDir := t.TempDir()
@@ -587,6 +601,7 @@ func TestCloudflare_InvalidExportPath(t *testing.T) {
 
 // TestCloudflare_DataDirectoryContents verifies data directory structure.
 func TestCloudflare_DataDirectoryContents(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -634,6 +649,7 @@ func TestCloudflare_DataDirectoryContents(t *testing.T) {
 
 // TestCloudflare_HistoryExport verifies --pages-include-history flag.
 func TestCloudflare_HistoryExport(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 

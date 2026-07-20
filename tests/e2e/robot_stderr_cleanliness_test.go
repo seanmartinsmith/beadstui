@@ -21,6 +21,7 @@ func writeIssuesJSONL(t *testing.T, repoDir, content string) {
 }
 
 func TestRobotTriage_MalformedIssuesLine_NoStderr(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := t.TempDir()
 

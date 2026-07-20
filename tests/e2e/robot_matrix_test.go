@@ -12,6 +12,7 @@ import (
 
 // TestRobotRecipesContract verifies --robot-recipes output structure.
 func TestRobotRecipesContract(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"A","title":"Test","status":"open","priority":1,"issue_type":"task"}`)
@@ -50,6 +51,7 @@ func TestRobotRecipesContract(t *testing.T) {
 // TestRobotHelpContract verifies robot help output is non-empty text containing
 // the cobra subcommand forms for the core robot commands.
 func TestRobotHelpContract(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"A","title":"Test","status":"open","priority":1,"issue_type":"task"}`)
@@ -83,6 +85,7 @@ func TestRobotHelpContract(t *testing.T) {
 // TestRobotDriftContract verifies --robot-drift output structure.
 // Note: --robot-drift requires --check-drift flag and may need a baseline.
 func TestRobotDriftContract(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Create issues to enable drift detection.
@@ -122,6 +125,7 @@ func TestRobotDriftContract(t *testing.T) {
 
 // TestRobotEmptyDataEdgeCases verifies graceful handling of empty data.
 func TestRobotEmptyDataEdgeCases(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	tests := []struct {
@@ -166,6 +170,7 @@ func TestRobotEmptyDataEdgeCases(t *testing.T) {
 
 // TestRobotFilterByLabel verifies --label filter works with robot commands.
 func TestRobotFilterByLabel(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"API-1","title":"API issue","status":"open","priority":1,"issue_type":"task","labels":["api"]}
@@ -207,6 +212,7 @@ func TestRobotFilterByLabel(t *testing.T) {
 
 // TestRobotInvalidOptionHandling verifies graceful error handling.
 func TestRobotInvalidOptionHandling(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"A","title":"Test","status":"open","priority":1,"issue_type":"task"}`)
@@ -240,6 +246,7 @@ func TestRobotInvalidOptionHandling(t *testing.T) {
 
 // TestRobotDeterminismAcrossCommands verifies data_hash consistency.
 func TestRobotDeterminismAcrossCommands(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"A","title":"Root","status":"open","priority":1,"issue_type":"task"}
@@ -273,6 +280,7 @@ func TestRobotDeterminismAcrossCommands(t *testing.T) {
 
 // TestRobotOutputContainsUsageHints verifies all commands include hints.
 func TestRobotOutputContainsUsageHints(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"A","title":"Test","status":"open","priority":1,"issue_type":"task"}`)
@@ -306,6 +314,7 @@ func TestRobotOutputContainsUsageHints(t *testing.T) {
 
 // TestRobotPlanWithRecipe verifies --recipe filter works with plan.
 func TestRobotPlanWithRecipe(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"A","title":"Open task","status":"open","priority":1,"issue_type":"task"}
@@ -348,6 +357,7 @@ func TestRobotPlanWithRecipe(t *testing.T) {
 
 // TestRobotNextWithFilters verifies --robot-next respects filters.
 func TestRobotNextWithFilters(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"BUG-1","title":"Bug issue","status":"open","priority":1,"issue_type":"bug","labels":["bug"]}
@@ -376,6 +386,7 @@ func TestRobotNextWithFilters(t *testing.T) {
 
 // TestRobotTriageQuickWins verifies quick_wins section is populated.
 func TestRobotTriageQuickWins(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Create issues with varying complexity to generate quick wins
@@ -402,6 +413,7 @@ func TestRobotTriageQuickWins(t *testing.T) {
 
 // TestRobotTriageBlockersToClear verifies blockers_to_clear section.
 func TestRobotTriageBlockersToClear(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Create blocking structure to populate blockers_to_clear
@@ -441,6 +453,7 @@ func TestRobotTriageBlockersToClear(t *testing.T) {
 }
 
 func TestRobotMode_IgnoresBackgroundModeFlagAndEnv(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"A","title":"Alpha","status":"open","priority":1,"issue_type":"task"}`)

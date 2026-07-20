@@ -19,6 +19,7 @@ import (
 )
 
 func TestExportPages_IncludesHistoryAndRunsHooks(t *testing.T) {
+	t.Parallel()
 	if runtime.GOOS == "windows" {
 		t.Skip("hook commands use Unix shell syntax")
 	}
@@ -235,6 +236,7 @@ func isTransientWindowsCreateErr(err error) bool {
 
 // TestExportPages_HTMLStructure validates the HTML5 document structure
 func TestExportPages_HTMLStructure(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -281,6 +283,7 @@ func TestExportPages_HTMLStructure(t *testing.T) {
 }
 
 func TestExportPages_IssueOverviewMetrics(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -366,6 +369,7 @@ func TestExportPages_IssueOverviewMetrics(t *testing.T) {
 
 // TestExportPages_CSSPresent validates CSS files are included
 func TestExportPages_CSSPresent(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -400,6 +404,7 @@ func TestExportPages_CSSPresent(t *testing.T) {
 
 // TestExportPages_JavaScriptFiles validates JS files are present
 func TestExportPages_JavaScriptFiles(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -446,6 +451,7 @@ func TestExportPages_JavaScriptFiles(t *testing.T) {
 
 // TestExportPages_SQLiteDatabase validates the SQLite export
 func TestExportPages_SQLiteDatabase(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -489,6 +495,7 @@ func TestExportPages_SQLiteDatabase(t *testing.T) {
 
 // TestExportPages_TriageJSON validates triage data export
 func TestExportPages_TriageJSON(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -529,6 +536,7 @@ func TestExportPages_TriageJSON(t *testing.T) {
 
 // TestExportPages_MetaJSON validates metadata export
 func TestExportPages_MetaJSON(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -574,6 +582,7 @@ func TestExportPages_MetaJSON(t *testing.T) {
 
 // TestExportPages_DependencyGraph validates graph data for issues with deps
 func TestExportPages_DependencyGraph(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -610,11 +619,13 @@ func TestExportPages_DependencyGraph(t *testing.T) {
 
 // TestExportPages_DataScale_10Issues tests with 10 issues
 func TestExportPages_DataScale_10Issues(t *testing.T) {
+	t.Parallel()
 	testExportPagesWithScale(t, 10)
 }
 
 // TestExportPages_DataScale_100Issues tests with 100 issues
 func TestExportPages_DataScale_100Issues(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping large scale test in short mode")
 	}
@@ -669,6 +680,7 @@ func testExportPagesWithScale(t *testing.T, issueCount int) {
 
 // TestExportPages_DarkModeSupport validates dark mode CSS classes
 func TestExportPages_DarkModeSupport(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -709,6 +721,7 @@ func TestExportPages_DarkModeSupport(t *testing.T) {
 
 // TestExportPages_NoXSSVulnerabilities checks for basic XSS protections
 func TestExportPages_NoXSSVulnerabilities(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -745,6 +758,7 @@ func TestExportPages_NoXSSVulnerabilities(t *testing.T) {
 
 // TestExportPages_ResponsiveLayout checks for responsive design markers
 func TestExportPages_ResponsiveLayout(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -861,6 +875,7 @@ func itoa(i int) string {
 // TestExportPages_ExcludeClosed_SQLiteVerification verifies closed issues
 // are NOT in the SQLite database when --pages-include-closed=false.
 func TestExportPages_ExcludeClosed_SQLiteVerification(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -928,6 +943,7 @@ func TestExportPages_ExcludeClosed_SQLiteVerification(t *testing.T) {
 // TestExportPages_ExcludeHistory verifies history.json is absent
 // when --pages-include-history=false.
 func TestExportPages_ExcludeHistory(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -962,6 +978,7 @@ func TestExportPages_ExcludeHistory(t *testing.T) {
 
 // TestExportPages_BothExcluded verifies minimal export with both flags false.
 func TestExportPages_BothExcluded(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -995,6 +1012,7 @@ func TestExportPages_BothExcluded(t *testing.T) {
 
 // TestExportPages_FTS5Searchable verifies the FTS5 index is created and searchable.
 func TestExportPages_FTS5Searchable(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -1043,6 +1061,7 @@ func TestExportPages_FTS5Searchable(t *testing.T) {
 
 // TestExportPages_EmptyProject verifies export handles empty project gracefully.
 func TestExportPages_EmptyProject(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -1090,6 +1109,7 @@ func TestExportPages_EmptyProject(t *testing.T) {
 // TestExportPages_OnlyClosedIssues verifies export when all issues are closed
 // and --pages-include-closed=false results in empty export.
 func TestExportPages_OnlyClosedIssues(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -1128,6 +1148,7 @@ func TestExportPages_OnlyClosedIssues(t *testing.T) {
 
 // TestExportPages_UnicodeContent verifies export handles Unicode correctly.
 func TestExportPages_UnicodeContent(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -1292,6 +1313,7 @@ func openSQLiteDB(dbPath string) (*sql.DB, error) {
 
 // TestExportPages_DetailPaneMarkup verifies detail pane markup exists in index.html
 func TestExportPages_DetailPaneMarkup(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -1334,6 +1356,7 @@ func TestExportPages_DetailPaneMarkup(t *testing.T) {
 
 // TestExportPages_GraphLayoutStructure verifies graph_layout.json has correct structure
 func TestExportPages_GraphLayoutStructure(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -1420,6 +1443,7 @@ func TestExportPages_GraphLayoutStructure(t *testing.T) {
 
 // TestExportPages_GraphJSSelectNodeHandler verifies selectNode handler exists in graph.js
 func TestExportPages_GraphJSSelectNodeHandler(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -1487,6 +1511,7 @@ func TestExportPages_GraphJSSelectNodeHandler(t *testing.T) {
 
 // TestExportPages_GraphLayoutNodesCovered verifies all nodes get positions
 func TestExportPages_GraphLayoutNodesCovered(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -1539,6 +1564,7 @@ func TestExportPages_GraphLayoutNodesCovered(t *testing.T) {
 
 // TestExportPages_PrecomputedLayoutUsedByViewer verifies viewer.js loads precomputed layout
 func TestExportPages_PrecomputedLayoutUsedByViewer(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -1580,6 +1606,7 @@ func TestExportPages_PrecomputedLayoutUsedByViewer(t *testing.T) {
 
 // TestExportPages_DetailPaneAllProperties verifies all detail pane property bindings exist
 func TestExportPages_DetailPaneAllProperties(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -1634,6 +1661,7 @@ func TestExportPages_DetailPaneAllProperties(t *testing.T) {
 
 // TestExportPages_GraphLayoutCycleDetection verifies cycles are detected in graph_layout.json
 func TestExportPages_GraphLayoutCycleDetection(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -1731,6 +1759,7 @@ func TestExportPages_GraphLayoutCycleDetection(t *testing.T) {
 
 // TestExportPages_GraphLayoutLargeScale tests graph layout with 50 nodes
 func TestExportPages_GraphLayoutLargeScale(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping large scale test in short mode")
 	}
@@ -1839,6 +1868,7 @@ func TestExportPages_GraphLayoutLargeScale(t *testing.T) {
 
 // TestExportPages_DetailPaneIntegration verifies detail pane works with actual data
 func TestExportPages_DetailPaneIntegration(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -1925,6 +1955,7 @@ func TestExportPages_DetailPaneIntegration(t *testing.T) {
 
 // TestExportPages_GraphLayoutFetch verifies graph.js fetches layout correctly
 func TestExportPages_GraphLayoutFetch(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 

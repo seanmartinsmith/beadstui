@@ -3,6 +3,7 @@ package main_test
 import "testing"
 
 func TestRobotSuggestContract(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Two similar issues to exercise suggestion pipeline (duplicates/labels may or may not trigger).

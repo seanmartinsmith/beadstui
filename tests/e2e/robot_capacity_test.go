@@ -9,6 +9,7 @@ import (
 )
 
 func TestRobotCapacity_EstimatedDaysDropsWithMoreAgents(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 

@@ -15,6 +15,7 @@ import (
 // ============================================================================
 
 func TestVersionFlag_OutputsVersion(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	cmd := exec.Command(bt, "version")
@@ -38,6 +39,7 @@ func TestVersionFlag_OutputsVersion(t *testing.T) {
 }
 
 func TestVersionFlag_IncludesBuildInfo(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	cmd := exec.Command(bt, "version")
@@ -59,6 +61,7 @@ func TestVersionFlag_IncludesBuildInfo(t *testing.T) {
 // ============================================================================
 
 func TestRollbackFlag_FailsWithoutBackup(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	tmpDir := t.TempDir()
 
@@ -85,6 +88,7 @@ func TestRollbackFlag_FailsWithoutBackup(t *testing.T) {
 // ============================================================================
 
 func TestUpdateFlag_RequiresNetwork(t *testing.T) {
+	t.Parallel()
 	// Skip in CI if network tests are disabled
 	if os.Getenv("SKIP_NETWORK_TESTS") != "" {
 		t.Skip("Skipping network-dependent test")
@@ -131,6 +135,7 @@ func TestUpdateFlag_RequiresNetwork(t *testing.T) {
 // ============================================================================
 
 func TestHelpFlag_DocumentsUpdateFeatures(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	cmd := exec.Command(bt, "--help")
@@ -159,6 +164,7 @@ func TestHelpFlag_DocumentsUpdateFeatures(t *testing.T) {
 // ============================================================================
 
 func TestRobotHelp_DocumentsUpdateFeatures(t *testing.T) {
+	t.Parallel()
 	// Verify robot-help documents update-related features
 	bt := buildBtBinary(t)
 
@@ -181,6 +187,7 @@ func TestRobotHelp_DocumentsUpdateFeatures(t *testing.T) {
 // ============================================================================
 
 func TestStartup_UpdateCheckDoesNotBlock(t *testing.T) {
+	t.Parallel()
 	// Verify that the TUI starts quickly even if update check is slow
 	// This is a basic smoke test
 	bt := buildBtBinary(t)
@@ -214,6 +221,7 @@ func TestStartup_UpdateCheckDoesNotBlock(t *testing.T) {
 // ============================================================================
 
 func TestBinary_HasProperPermissions(t *testing.T) {
+	t.Parallel()
 	if runtime.GOOS == "windows" {
 		t.Skip("requires Unix file permissions")
 	}
@@ -233,6 +241,7 @@ func TestBinary_HasProperPermissions(t *testing.T) {
 }
 
 func TestBinary_RespondsToSignals(t *testing.T) {
+	t.Parallel()
 	// Verify the binary handles interrupts gracefully
 	// This is important for the update process
 	bt := buildBtBinary(t)

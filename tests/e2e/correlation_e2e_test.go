@@ -105,6 +105,7 @@ func createCorrelationRepo(t *testing.T) string {
 
 // TestCorrelationExplicitMentions verifies that commits mentioning bead IDs create correlations.
 func TestCorrelationExplicitMentions(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createCorrelationRepo(t)
 
@@ -169,6 +170,7 @@ func TestCorrelationExplicitMentions(t *testing.T) {
 
 // TestCorrelationCommitIndex verifies commit_index maps commits to beads correctly.
 func TestCorrelationCommitIndex(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createCorrelationRepo(t)
 
@@ -212,6 +214,7 @@ func TestCorrelationCommitIndex(t *testing.T) {
 
 // TestCorrelationRobotRelated verifies --robot-related finds related beads.
 func TestCorrelationRobotRelated(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createCorrelationRepo(t)
 
@@ -256,6 +259,7 @@ func TestCorrelationRobotRelated(t *testing.T) {
 
 // TestCorrelationRobotFileBeads verifies --robot-file-beads finds beads that touched a file.
 func TestCorrelationRobotFileBeads(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createCorrelationRepo(t)
 
@@ -298,6 +302,7 @@ func TestCorrelationRobotFileBeads(t *testing.T) {
 
 // TestCorrelationRobotOrphans verifies --robot-orphans finds unlinked commits.
 func TestCorrelationRobotOrphans(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createCorrelationRepo(t)
 
@@ -358,6 +363,7 @@ func TestCorrelationRobotOrphans(t *testing.T) {
 
 // TestCorrelationConfidenceLevels verifies different correlation methods produce appropriate confidence.
 func TestCorrelationConfidenceLevels(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createCorrelationRepo(t)
 
@@ -402,6 +408,7 @@ func TestCorrelationConfidenceLevels(t *testing.T) {
 
 // TestCorrelationSharedFileRelations verifies beads touching same files are related.
 func TestCorrelationSharedFileRelations(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	// Create a repo where two beads touch the same file
@@ -502,6 +509,7 @@ func TestCorrelationSharedFileRelations(t *testing.T) {
 
 // TestCorrelationMethodDistribution verifies method_distribution in stats.
 func TestCorrelationMethodDistribution(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createCorrelationRepo(t)
 
@@ -538,6 +546,7 @@ func TestCorrelationMethodDistribution(t *testing.T) {
 
 // TestCorrelationEmptyRepo verifies behavior with no git history.
 func TestCorrelationEmptyRepo(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	repoDir := t.TempDir()
@@ -583,6 +592,7 @@ func TestCorrelationEmptyRepo(t *testing.T) {
 
 // TestCorrelationManyBeads verifies correlation handles many beads efficiently.
 func TestCorrelationManyBeads(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	repoDir := t.TempDir()

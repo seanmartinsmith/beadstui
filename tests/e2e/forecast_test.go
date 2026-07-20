@@ -44,6 +44,7 @@ func createForecastRepo(t *testing.T) (string, time.Time) {
 }
 
 func TestRobotForecast_SingleIssueAndAgentsScaling(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir, start := createForecastRepo(t)
 
@@ -103,6 +104,7 @@ func TestRobotForecast_SingleIssueAndAgentsScaling(t *testing.T) {
 }
 
 func TestRobotForecast_AllAndLabelFilter(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir, _ := createForecastRepo(t)
 

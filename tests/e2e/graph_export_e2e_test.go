@@ -15,6 +15,7 @@ import (
 
 // TestGraphExport_JSONFormat tests JSON graph export
 func TestGraphExport_JSONFormat(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createGraphTestRepo(t)
 
@@ -75,6 +76,7 @@ func TestGraphExport_JSONFormat(t *testing.T) {
 
 // TestGraphExport_JSONNodeStructure validates JSON node structure
 func TestGraphExport_JSONNodeStructure(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createGraphTestRepo(t)
 
@@ -126,6 +128,7 @@ func TestGraphExport_JSONNodeStructure(t *testing.T) {
 
 // TestGraphExport_DOTFormat tests DOT graph export
 func TestGraphExport_DOTFormat(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createGraphTestRepo(t)
 
@@ -178,6 +181,7 @@ func TestGraphExport_DOTFormat(t *testing.T) {
 
 // TestGraphExport_DOTSyntax validates DOT syntax elements
 func TestGraphExport_DOTSyntax(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createGraphTestRepo(t)
 
@@ -230,6 +234,7 @@ func TestGraphExport_DOTSyntax(t *testing.T) {
 
 // TestGraphExport_MermaidFormat tests Mermaid graph export
 func TestGraphExport_MermaidFormat(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createGraphTestRepo(t)
 
@@ -278,6 +283,7 @@ func TestGraphExport_MermaidFormat(t *testing.T) {
 
 // TestGraphExport_MermaidNodeSyntax validates Mermaid node syntax
 func TestGraphExport_MermaidNodeSyntax(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createGraphTestRepo(t)
 
@@ -310,6 +316,7 @@ func TestGraphExport_MermaidNodeSyntax(t *testing.T) {
 
 // TestGraphExport_NodeCount verifies consistent node counts across formats
 func TestGraphExport_NodeCount(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createGraphTestRepo(t)
 
@@ -345,6 +352,7 @@ func TestGraphExport_NodeCount(t *testing.T) {
 
 // TestGraphExport_EdgeCount verifies consistent edge counts across formats
 func TestGraphExport_EdgeCount(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createGraphTestRepoWithDeps(t)
 
@@ -384,6 +392,7 @@ func TestGraphExport_EdgeCount(t *testing.T) {
 
 // TestGraphExport_LabelFilter tests --label filter
 func TestGraphExport_LabelFilter(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createGraphTestRepoWithLabels(t)
 
@@ -430,6 +439,7 @@ func TestGraphExport_LabelFilter(t *testing.T) {
 
 // TestGraphExport_RootFilter tests --graph-root filter
 func TestGraphExport_RootFilter(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createGraphTestRepoWithDeps(t)
 
@@ -457,6 +467,7 @@ func TestGraphExport_RootFilter(t *testing.T) {
 
 // TestGraphExport_DepthFilter tests --graph-depth filter
 func TestGraphExport_DepthFilter(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createGraphTestRepoWithDeps(t)
 
@@ -484,6 +495,7 @@ func TestGraphExport_DepthFilter(t *testing.T) {
 
 // TestGraphExport_Explanation verifies explanation field
 func TestGraphExport_Explanation(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createGraphTestRepo(t)
 
@@ -525,6 +537,7 @@ func TestGraphExport_Explanation(t *testing.T) {
 
 // TestGraphExport_EmptyGraph tests handling of empty/filtered graphs
 func TestGraphExport_EmptyGraph(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createGraphTestRepo(t)
 
@@ -570,6 +583,7 @@ func min(a, b int) int {
 
 // TestGraphExport_DataHash tests data hash is included
 func TestGraphExport_DataHash(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createGraphTestRepo(t)
 
@@ -595,6 +609,7 @@ func TestGraphExport_DataHash(t *testing.T) {
 
 // TestGraphExport_DeterministicOutput tests output is deterministic
 func TestGraphExport_DeterministicOutput(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createGraphTestRepo(t)
 

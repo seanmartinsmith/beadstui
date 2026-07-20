@@ -16,6 +16,7 @@ import (
 
 // TestWorkflow_NewProjectSetup tests the new project initialization workflow
 func TestWorkflow_NewProjectSetup(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	projectDir := t.TempDir()
 
@@ -102,6 +103,7 @@ func TestWorkflow_NewProjectSetup(t *testing.T) {
 
 // TestWorkflow_TriageAndRecommendations tests the triage workflow
 func TestWorkflow_TriageAndRecommendations(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	projectDir := t.TempDir()
 	beadsDir := filepath.Join(projectDir, ".beads")
@@ -189,6 +191,7 @@ func TestWorkflow_TriageAndRecommendations(t *testing.T) {
 
 // TestWorkflow_TimeTravelAnalysis tests baseline/diff workflow
 func TestWorkflow_TimeTravelAnalysis(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	projectDir := t.TempDir()
 	beadsDir := filepath.Join(projectDir, ".beads")
@@ -326,6 +329,7 @@ func TestWorkflow_TimeTravelAnalysis(t *testing.T) {
 
 // TestWorkflow_LabelScopedAnalysis tests label filtering workflow
 func TestWorkflow_LabelScopedAnalysis(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	projectDir := t.TempDir()
 	beadsDir := filepath.Join(projectDir, ".beads")
@@ -429,6 +433,7 @@ func TestWorkflow_LabelScopedAnalysis(t *testing.T) {
 
 // TestWorkflow_ExportPipeline tests the export workflow
 func TestWorkflow_ExportPipeline(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	projectDir := t.TempDir()
 	beadsDir := filepath.Join(projectDir, ".beads")
@@ -526,6 +531,7 @@ func TestWorkflow_ExportPipeline(t *testing.T) {
 
 // TestWorkflow_StateTransitions tests state changes are detected correctly
 func TestWorkflow_StateTransitions(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	projectDir := t.TempDir()
 	beadsDir := filepath.Join(projectDir, ".beads")

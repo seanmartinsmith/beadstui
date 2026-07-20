@@ -11,6 +11,7 @@ import (
 
 // TestE2E_GraphInsights_FullPipeline tests the complete --robot-insights output.
 func TestE2E_GraphInsights_FullPipeline(t *testing.T) {
+	t.Parallel()
 	log := newDetailedLogger(t)
 
 	log.Step("Creating graph fixture with 50 beads and dependencies")
@@ -65,6 +66,7 @@ func TestE2E_GraphInsights_FullPipeline(t *testing.T) {
 
 // TestE2E_GraphInsights_WithCycles tests cycle detection in --robot-insights.
 func TestE2E_GraphInsights_WithCycles(t *testing.T) {
+	t.Parallel()
 	log := newDetailedLogger(t)
 
 	log.Step("Creating graph fixture with cycles")
@@ -102,6 +104,7 @@ func TestE2E_GraphInsights_WithCycles(t *testing.T) {
 
 // TestE2E_GraphPlan_ParallelTracks tests --robot-plan output structure.
 func TestE2E_GraphPlan_ParallelTracks(t *testing.T) {
+	t.Parallel()
 	log := newDetailedLogger(t)
 
 	log.Step("Creating fixture with parallel work streams")
@@ -159,6 +162,7 @@ func TestE2E_GraphPlan_ParallelTracks(t *testing.T) {
 
 // TestE2E_GraphStats_Metrics tests --robot-graph-stats output.
 func TestE2E_GraphStats_Metrics(t *testing.T) {
+	t.Parallel()
 	log := newDetailedLogger(t)
 
 	log.Step("Creating fixture with 100 beads")
@@ -203,6 +207,7 @@ func TestE2E_GraphStats_Metrics(t *testing.T) {
 
 // TestE2E_GraphExport_Formats tests graph export in different formats.
 func TestE2E_GraphExport_Formats(t *testing.T) {
+	t.Parallel()
 	log := newDetailedLogger(t)
 
 	log.Step("Creating fixture for graph export")
@@ -245,6 +250,7 @@ func TestE2E_GraphExport_Formats(t *testing.T) {
 
 // TestE2E_LabelHealth tests --robot-label-health command.
 func TestE2E_LabelHealth(t *testing.T) {
+	t.Parallel()
 	log := newDetailedLogger(t)
 
 	log.Step("Creating fixture with labeled issues")
@@ -295,6 +301,7 @@ func TestE2E_LabelHealth(t *testing.T) {
 
 // TestE2E_GraphAnalysis_LargeGraph tests analysis performance on larger graphs.
 func TestE2E_GraphAnalysis_LargeGraph(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping large graph test in short mode")
 	}

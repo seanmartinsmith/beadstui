@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -17,6 +19,14 @@ import (
 
 	"github.com/seanmartinsmith/beadstui/pkg/projects"
 )
+
+// maxDefaultParallel bounds the default -parallel used when the suite is run
+// without an explicit -parallel flag. Each parallel e2e test spawns bt
+// subprocesses, and -parallel defaults to GOMAXPROCS (very high on many-core
+// machines), which drives the sustained-CPU/thermal spike noted in bt-qp1j.
+// We only lower the default: an explicit -parallel N still wins (see
+// boundDefaultParallelism).
+const maxDefaultParallel = 8
 
 var btBinaryPath string
 var btBinaryDir string
@@ -87,6 +97,8 @@ func TestMain(m *testing.M) {
 
 	scriptTUISupported, scriptTUIDisabledReason = detectScriptTUICapability(btBinaryPath)
 
+	boundDefaultParallelism()
+
 	code := m.Run()
 	if btBinaryDir != "" {
 		_ = os.RemoveAll(btBinaryDir)
@@ -108,6 +120,26 @@ func TestMain(m *testing.M) {
 	}
 
 	os.Exit(code)
+}
+
+// boundDefaultParallelism lowers the default value of the -parallel flag so a
+// plain `go test ./tests/e2e/...` on a many-core machine does not run an
+// unbounded number of subprocess-heavy tests at once (bt-qp1j). It must run
+// before m.Run() parses flags: it only rewrites the flag's current (default)
+// value, so an explicit -parallel N supplied on the command line is applied by
+// the parse afterwards and still takes precedence.
+func boundDefaultParallelism() {
+	f := flag.Lookup("test.parallel")
+	if f == nil {
+		return
+	}
+	cur, err := strconv.Atoi(f.Value.String())
+	if err != nil {
+		return
+	}
+	if cur > maxDefaultParallel {
+		_ = f.Value.Set(strconv.Itoa(maxDefaultParallel))
+	}
 }
 
 func detectScriptTUICapability(btPath string) (bool, string) {

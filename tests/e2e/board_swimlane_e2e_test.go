@@ -15,6 +15,7 @@ import (
 // TestSwimlaneModeStatusGrouping verifies issues are correctly grouped by status.
 // This tests the data foundation for Status swimlane mode.
 func TestSwimlaneModeStatusGrouping(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
@@ -92,6 +93,7 @@ func TestSwimlaneModeStatusGrouping(t *testing.T) {
 // TestSwimlaneModePriorityGrouping verifies issues are correctly grouped by priority.
 // This tests the data foundation for Priority swimlane mode.
 func TestSwimlaneModePriorityGrouping(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
@@ -163,6 +165,7 @@ func TestSwimlaneModePriorityGrouping(t *testing.T) {
 // TestSwimlaneModeTypeGrouping verifies issues are correctly grouped by type.
 // This tests the data foundation for Type swimlane mode.
 func TestSwimlaneModeTypeGrouping(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
@@ -234,6 +237,7 @@ func TestSwimlaneModeTypeGrouping(t *testing.T) {
 // TestSwimlaneMixedDataForAllModes creates data suitable for testing all three swimlane modes.
 // Each mode should correctly categorize the same set of issues.
 func TestSwimlaneMixedDataForAllModes(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
@@ -324,6 +328,7 @@ func TestSwimlaneMixedDataForAllModes(t *testing.T) {
 // TestSwimlaneEmptyCategoriesHandling verifies behavior when some categories are empty.
 // The board should handle missing categories gracefully.
 func TestSwimlaneEmptyCategoriesHandling(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
@@ -386,6 +391,7 @@ func TestSwimlaneEmptyCategoriesHandling(t *testing.T) {
 // TestSwimlaneTUIStartsWithMixedData verifies the TUI launches in board mode with mixed data.
 // Uses BT_TUI_AUTOCLOSE_MS to prevent hanging.
 func TestSwimlaneTUIStartsWithMixedData(t *testing.T) {
+	t.Parallel()
 	skipIfNoScript(t)
 	bt := buildBtBinary(t)
 
@@ -430,6 +436,7 @@ func TestSwimlaneTUIStartsWithMixedData(t *testing.T) {
 // TestSwimlaneDependencyVisualIndicators verifies blocked/blocking counts are tracked.
 // This supports the visual dependency indicators (red/yellow/green borders) in board view.
 func TestSwimlaneDependencyVisualIndicators(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
@@ -502,6 +509,7 @@ func TestSwimlaneDependencyVisualIndicators(t *testing.T) {
 
 // TestSwimlaneSingleIssuePerCategory verifies board handles minimal data.
 func TestSwimlaneSingleIssuePerCategory(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()

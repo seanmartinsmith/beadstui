@@ -14,6 +14,7 @@ import (
 // normally when Cass is not available. This is critical for users who don't have
 // Cass installed - the app should work seamlessly without it.
 func TestCassModalGracefulDegradation(t *testing.T) {
+	t.Parallel()
 	skipIfNoScript(t)
 	bt := buildBtBinary(t)
 
@@ -62,6 +63,7 @@ func TestCassModalGracefulDegradation(t *testing.T) {
 // - Simply not respond (no modal to open)
 // Either way, it shouldn't crash.
 func TestCassModalNoCrashOnVKeyWithoutCass(t *testing.T) {
+	t.Parallel()
 	skipIfNoScript(t)
 	bt := buildBtBinary(t)
 
@@ -104,6 +106,7 @@ func TestCassModalNoCrashOnVKeyWithoutCass(t *testing.T) {
 // TestCassDetectionEnvironmentVariable verifies that the BT_NO_CASS environment
 // variable properly disables Cass integration.
 func TestCassDetectionEnvironmentVariable(t *testing.T) {
+	t.Parallel()
 	skipIfNoScript(t)
 	bt := buildBtBinary(t)
 
@@ -143,6 +146,7 @@ func TestCassDetectionEnvironmentVariable(t *testing.T) {
 // TestCassModalRobotTriageNoCrash verifies that --robot-triage works without Cass.
 // The triage output should not require Cass and should complete normally.
 func TestCassModalRobotTriageNoCrash(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
@@ -178,6 +182,7 @@ func TestCassModalRobotTriageNoCrash(t *testing.T) {
 // Cass availability status. When Cass is unavailable, no indicator should
 // be shown (graceful degradation - don't confuse users with missing feature).
 func TestCassStatusBarIndicator(t *testing.T) {
+	t.Parallel()
 	skipIfNoScript(t)
 	bt := buildBtBinary(t)
 
@@ -227,6 +232,7 @@ func TestCassStatusBarIndicator(t *testing.T) {
 // TestMultipleViewsWithoutCass verifies that all views (list, board, graph, history)
 // work correctly when Cass is unavailable.
 func TestMultipleViewsWithoutCass(t *testing.T) {
+	t.Parallel()
 	skipIfNoScript(t)
 	bt := buildBtBinary(t)
 

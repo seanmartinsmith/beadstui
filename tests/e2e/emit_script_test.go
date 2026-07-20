@@ -7,6 +7,7 @@ import (
 )
 
 func TestEmitScript_BashAndFish(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 

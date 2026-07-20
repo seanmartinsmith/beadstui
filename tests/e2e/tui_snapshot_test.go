@@ -13,6 +13,7 @@ import (
 // TestTUIPrioritySnapshot launches the TUI briefly to ensure it initializes and exits cleanly.
 // We rely on BT_TUI_AUTOCLOSE_MS to avoid hanging in CI.
 func TestTUIPrioritySnapshot(t *testing.T) {
+	t.Parallel()
 	skipIfNoScript(t)
 	bt := buildBtBinary(t)
 
@@ -53,6 +54,7 @@ func TestTUIPrioritySnapshot(t *testing.T) {
 // keypress input. This is a smoke test intended to catch deadlocks/panics during
 // multi-agent write scenarios.
 func TestTUIBackgroundModeRapidWrites(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping rapid-write TUI test in short mode")
 	}

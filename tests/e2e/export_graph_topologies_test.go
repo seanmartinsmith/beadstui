@@ -20,6 +20,7 @@ import (
 
 // TestExportTopology_EmptyGraph tests export with no issues.
 func TestExportTopology_EmptyGraph(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -61,6 +62,7 @@ func TestExportTopology_EmptyGraph(t *testing.T) {
 
 // TestExportTopology_SingleNode tests export with one issue, no dependencies.
 func TestExportTopology_SingleNode(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -104,6 +106,7 @@ func TestExportTopology_SingleNode(t *testing.T) {
 
 // TestExportTopology_LinearChain tests A -> B -> C -> D -> E chain.
 func TestExportTopology_LinearChain(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -155,6 +158,7 @@ func TestExportTopology_LinearChain(t *testing.T) {
 
 // TestExportTopology_StarHub tests hub with multiple spokes.
 func TestExportTopology_StarHub(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -201,6 +205,7 @@ func TestExportTopology_StarHub(t *testing.T) {
 
 // TestExportTopology_Diamond tests A -> B, A -> C, B -> D, C -> D pattern.
 func TestExportTopology_Diamond(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -244,6 +249,7 @@ func TestExportTopology_Diamond(t *testing.T) {
 
 // TestExportTopology_Cycle tests A -> B -> C -> A cycle handling.
 func TestExportTopology_Cycle(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -283,6 +289,7 @@ func TestExportTopology_Cycle(t *testing.T) {
 
 // TestExportTopology_SelfLoop tests issue depending on itself.
 func TestExportTopology_SelfLoop(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -319,6 +326,7 @@ func TestExportTopology_SelfLoop(t *testing.T) {
 
 // TestExportTopology_DisconnectedComponents tests multiple isolated subgraphs.
 func TestExportTopology_DisconnectedComponents(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -363,6 +371,7 @@ func TestExportTopology_DisconnectedComponents(t *testing.T) {
 
 // TestExportTopology_LargeScale tests 500+ nodes performance.
 func TestExportTopology_LargeScale(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping large scale test in short mode")
 	}
@@ -430,6 +439,7 @@ func TestExportTopology_LargeScale(t *testing.T) {
 
 // TestExportTopology_ComplexMixed tests combination of multiple patterns.
 func TestExportTopology_ComplexMixed(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -478,6 +488,7 @@ func TestExportTopology_ComplexMixed(t *testing.T) {
 
 // TestExportTopology_WideGraph tests graph with many independent roots.
 func TestExportTopology_WideGraph(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -522,6 +533,7 @@ func TestExportTopology_WideGraph(t *testing.T) {
 
 // TestExportTopology_DeepChain tests very deep dependency chain.
 func TestExportTopology_DeepChain(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -572,6 +584,7 @@ func TestExportTopology_DeepChain(t *testing.T) {
 
 // TestExportTopology_MixedStatus tests graph with various statuses.
 func TestExportTopology_MixedStatus(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -614,6 +627,7 @@ func TestExportTopology_MixedStatus(t *testing.T) {
 
 // TestExportTopology_RobotGraphJSON tests robot graph JSON output.
 func TestExportTopology_RobotGraphJSON(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	repoDir := t.TempDir()
@@ -670,6 +684,7 @@ func TestExportTopology_RobotGraphJSON(t *testing.T) {
 
 // TestExportTopology_RobotGraphDOT tests robot graph DOT output.
 func TestExportTopology_RobotGraphDOT(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	repoDir := t.TempDir()
@@ -716,6 +731,7 @@ func TestExportTopology_RobotGraphDOT(t *testing.T) {
 
 // TestExportTopology_RobotGraphMermaid tests robot graph Mermaid output.
 func TestExportTopology_RobotGraphMermaid(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	repoDir := t.TempDir()

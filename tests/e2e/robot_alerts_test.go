@@ -9,6 +9,7 @@ import (
 )
 
 func TestRobotAlerts_BasicAndFilters(t *testing.T) {
+	t.Parallel()
 	t.Skip("bt-ckin: alert severity expectations drifted post-bt-46p6.6 priority-aware recalibration; fixture priorities need adjustment same as bt-5e99 did for pkg/drift")
 	bt := buildBtBinary(t)
 	env := t.TempDir()
@@ -123,6 +124,7 @@ func TestRobotAlerts_BasicAndFilters(t *testing.T) {
 }
 
 func TestRobotAlerts_UsesBaselineWhenPresent(t *testing.T) {
+	t.Parallel()
 	t.Skip("bt-ckin: baseline-change alert types/severities drifted post-bt-46p6.6; fixture + assertions need realignment same as bt-5e99 did for pkg/drift")
 	bt := buildBtBinary(t)
 	env := t.TempDir()
