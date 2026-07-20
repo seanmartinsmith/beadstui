@@ -129,6 +129,32 @@ func TestIssueDelegate_RenderAliasesAtlasNamespaceBadge(t *testing.T) {
 	}
 }
 
+// TestIssueDelegate_RenderDerivedGlobalBadge covers bt-l76b8: when the global
+// prefix is derived (here "foo-"), the workspace badge for a bare-"global"
+// RepoPrefix row renders the derived label, not the hardcoded "atlas".
+func TestIssueDelegate_RenderDerivedGlobalBadge(t *testing.T) {
+	model.SetGlobalDisplayName("foo")
+	defer model.SetGlobalDisplayName("")
+
+	item := newTestIssueItem("global-42")
+	item.RepoPrefix = "global"
+	delegate := IssueDelegate{Theme: DefaultTheme(), WorkspaceMode: true}
+
+	l := list.New([]list.Item{item}, delegate, 0, 0)
+	l.SetWidth(120)
+
+	var buf bytes.Buffer
+	delegate.Render(&buf, l, 0, item)
+	out := buf.String()
+
+	if !strings.Contains(out, "[FOO]") {
+		t.Fatalf("render output missing derived badge [FOO]: %q", out)
+	}
+	if strings.Contains(out, "[ATLA]") {
+		t.Fatalf("render output should not show hardcoded atlas badge: %q", out)
+	}
+}
+
 func TestIssueDelegate_CompactIDWidthFlowsToTitle(t *testing.T) {
 	const (
 		width           = 80

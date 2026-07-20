@@ -33,6 +33,91 @@ func TestDisplayRepoName_AtlasAlias(t *testing.T) {
 	}
 }
 
+// TestDeriveGlobalDisplayName guards bt-l76b8: the beads_global display label
+// is the real ID prefix of the namespace's issues (identified by the
+// authoritative SourceRepo db-name spelling), not a hardcoded "atlas". Returns
+// "" when no global issue is present so callers keep the atlas default.
+func TestDeriveGlobalDisplayName(t *testing.T) {
+	tests := []struct {
+		name   string
+		issues []Issue
+		want   string
+	}{
+		{
+			name:   "atlas-prefixed global issue (this fleet, post rename-prefix)",
+			issues: []Issue{{ID: "atlas-9k3", SourceRepo: "beads_global"}},
+			want:   "atlas",
+		},
+		{
+			name:   "foo-prefixed global issue (other fleet)",
+			issues: []Issue{{ID: "foo-12", SourceRepo: "beads_global"}},
+			want:   "foo",
+		},
+		{
+			name:   "bare global fallback (SourceRepo empty, global- ID)",
+			issues: []Issue{{ID: "global-7"}},
+			want:   "global",
+		},
+		{
+			name: "picks the global issue out of a mixed workspace",
+			issues: []Issue{
+				{ID: "bt-abc", SourceRepo: "beadstui"},
+				{ID: "atlas-42", SourceRepo: "beads_global"},
+			},
+			want: "atlas",
+		},
+		{
+			name:   "no global issue present",
+			issues: []Issue{{ID: "bt-abc", SourceRepo: "beadstui"}},
+			want:   "",
+		},
+		{
+			name:   "empty slice",
+			issues: nil,
+			want:   "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := DeriveGlobalDisplayName(tt.issues); got != tt.want {
+				t.Errorf("DeriveGlobalDisplayName() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestDisplayRepoName_DerivedGlobalLabel guards bt-l76b8: once a real global
+// prefix is set, DisplayRepoName returns it for the beads_global namespace under
+// either raw spelling, while other keys pass through; an empty name resets to
+// the atlas default so an empty/unavailable global DB never regresses.
+func TestDisplayRepoName_DerivedGlobalLabel(t *testing.T) {
+	// Restore the package default so test ordering can't leak the override into
+	// the default-label tests.
+	defer SetGlobalDisplayName("")
+
+	// Default (no override) keeps the atlas fallback.
+	if got := DisplayRepoName("beads_global"); got != "atlas" {
+		t.Fatalf("default DisplayRepoName(beads_global) = %q, want atlas", got)
+	}
+
+	SetGlobalDisplayName("foo")
+	if got := DisplayRepoName("beads_global"); got != "foo" {
+		t.Errorf("DisplayRepoName(beads_global) = %q, want foo", got)
+	}
+	if got := DisplayRepoName("global"); got != "foo" {
+		t.Errorf("DisplayRepoName(global) = %q, want foo", got)
+	}
+	if got := DisplayRepoName("bt"); got != "bt" {
+		t.Errorf("DisplayRepoName(bt) = %q, want bt (unchanged)", got)
+	}
+
+	// Empty name resets to the atlas default (fallback semantics).
+	SetGlobalDisplayName("")
+	if got := DisplayRepoName("beads_global"); got != "atlas" {
+		t.Errorf("after reset DisplayRepoName(beads_global) = %q, want atlas", got)
+	}
+}
+
 func TestIsAtlasNamespace(t *testing.T) {
 	tests := []struct {
 		key  string
