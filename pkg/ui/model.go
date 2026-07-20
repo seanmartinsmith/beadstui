@@ -872,7 +872,7 @@ type Model struct {
 	// Status message (for temporary feedback)
 	statusMsg      string
 	statusSeverity StatusSeverity // severity of the active toast (bt-a3zi3.1)
-	statusIsInline bool           // true = render subtly in footer hint slot; false = full-width banner (bt-y0k7)
+	statusIsInline bool           // true = transient, owned by the floating bubble (toast_bubble.go); false = full-width footer banner for non-inline errors/confirmations (bt-c3gpe)
 	statusSeq      uint64         // incremented on each status set; used for auto-clear
 	statusSetAt    time.Time      // when statusMsg was last set; used for auto-dismiss (bt-zdae)
 
