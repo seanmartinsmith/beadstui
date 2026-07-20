@@ -14,6 +14,7 @@ import (
 // TestBoardTUIWorkflow launches the TUI in board view mode to verify it initializes cleanly.
 // Uses BT_TUI_AUTOCLOSE_MS to avoid hanging.
 func TestBoardTUIWorkflow(t *testing.T) {
+	t.Parallel()
 	skipIfNoScript(t)
 	bt := buildBtBinary(t)
 
@@ -57,6 +58,7 @@ func TestBoardTUIWorkflow(t *testing.T) {
 // TestBoardRobotTriageIncludesStatusCounts verifies robot-triage returns counts by status
 // which can be used to populate a board view.
 func TestBoardRobotTriageIncludesStatusCounts(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
@@ -116,6 +118,7 @@ func TestBoardRobotTriageIncludesStatusCounts(t *testing.T) {
 // TestBoardRobotPlanReturnsGroupedTracks verifies robot-plan can provide
 // data suitable for board swimlanes.
 func TestBoardRobotPlanReturnsGroupedTracks(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
@@ -156,6 +159,7 @@ func TestBoardRobotPlanReturnsGroupedTracks(t *testing.T) {
 
 // TestBoardFiltersByType verifies issues can be filtered by type for type-based swimlanes.
 func TestBoardFiltersByType(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
@@ -218,6 +222,7 @@ func TestBoardFiltersByType(t *testing.T) {
 
 // TestBoardFiltersByPriority verifies issues can be filtered by priority for priority-based swimlanes.
 func TestBoardFiltersByPriority(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
@@ -280,6 +285,7 @@ func TestBoardFiltersByPriority(t *testing.T) {
 
 // TestBoardWithDependencies verifies the board correctly handles blocked issues.
 func TestBoardWithDependencies(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
@@ -348,6 +354,7 @@ func TestBoardWithDependencies(t *testing.T) {
 
 // TestBoardLargeDataset verifies board handles 100+ issues without errors.
 func TestBoardLargeDataset(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
@@ -401,6 +408,7 @@ func TestBoardLargeDataset(t *testing.T) {
 
 // TestBoardEmptyState verifies board handles empty dataset gracefully.
 func TestBoardEmptyState(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()
@@ -445,6 +453,7 @@ func TestBoardEmptyState(t *testing.T) {
 
 // TestBoardSearchIntegration verifies robot-search works for board filtering.
 func TestBoardSearchIntegration(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	tempDir := t.TempDir()

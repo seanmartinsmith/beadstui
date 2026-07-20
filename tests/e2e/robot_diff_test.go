@@ -108,6 +108,7 @@ func initGitRepoWithMalformedIssues(t *testing.T) string {
 }
 
 func TestRobotDiffIncludesHashesAndNewIssues(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir, priorRev := initGitRepo(t)
 
@@ -157,6 +158,7 @@ func TestRobotDiffIncludesHashesAndNewIssues(t *testing.T) {
 }
 
 func TestDiffSinceAutoJSON_MalformedIssues_NoStderr(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := initGitRepoWithMalformedIssues(t)
 
@@ -201,6 +203,7 @@ func TestDiffSinceAutoJSON_MalformedIssues_NoStderr(t *testing.T) {
 }
 
 func TestRobotOutputsShareDataHashAndStatus(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	envDir := t.TempDir()

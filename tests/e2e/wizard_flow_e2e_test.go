@@ -16,6 +16,7 @@ import (
 
 // TestWizard_LocalExportFlow tests the complete local export wizard flow
 func TestWizard_LocalExportFlow(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -59,6 +60,7 @@ func TestWizard_LocalExportFlow(t *testing.T) {
 
 // TestWizard_GitHubFlowPrompts tests GitHub Pages flow prompts appear correctly
 func TestWizard_GitHubFlowPrompts(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -96,6 +98,7 @@ func TestWizard_GitHubFlowPrompts(t *testing.T) {
 
 // TestWizard_CloudflareFlowPrompts tests Cloudflare Pages flow prompts appear correctly
 func TestWizard_CloudflareFlowPrompts(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -127,6 +130,7 @@ func TestWizard_CloudflareFlowPrompts(t *testing.T) {
 
 // TestWizard_DeployTargetSelection tests all three deployment target options appear
 func TestWizard_DeployTargetSelection(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -159,6 +163,7 @@ func TestWizard_DeployTargetSelection(t *testing.T) {
 
 // TestWizard_ExportConfigPrompts tests export configuration prompts
 func TestWizard_ExportConfigPrompts(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -190,6 +195,7 @@ func TestWizard_ExportConfigPrompts(t *testing.T) {
 
 // TestWizard_BannerDisplay tests the wizard banner is displayed correctly
 func TestWizard_BannerDisplay(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -227,6 +233,8 @@ func TestWizard_BannerDisplay(t *testing.T) {
 }
 
 // TestWizard_ConfigPersistence tests wizard config save/load
+// Kept serial: t.Setenv (HOME) is incompatible with t.Parallel and panics if called
+// from a parallel test.
 func TestWizard_ConfigPersistence(t *testing.T) {
 	// Create a temp home directory
 	tmpHome := t.TempDir()
@@ -275,6 +283,7 @@ func TestWizard_ConfigPersistence(t *testing.T) {
 
 // TestWizard_InvalidDeployTargetRecovery tests handling of invalid input
 func TestWizard_InvalidDeployTargetRecovery(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -300,6 +309,7 @@ func TestWizard_InvalidDeployTargetRecovery(t *testing.T) {
 
 // TestWizard_DefaultValues tests that defaults are applied correctly
 func TestWizard_DefaultValues(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -331,6 +341,7 @@ func TestWizard_DefaultValues(t *testing.T) {
 
 // TestWizard_StepProgression tests wizard progresses through all steps
 func TestWizard_StepProgression(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -363,6 +374,7 @@ func TestWizard_StepProgression(t *testing.T) {
 
 // TestWizard_OutputDirectoryPrompt tests output directory configuration for local export
 func TestWizard_OutputDirectoryPrompt(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -390,6 +402,7 @@ func TestWizard_OutputDirectoryPrompt(t *testing.T) {
 
 // TestWizard_InterruptHandling tests that wizard can be interrupted
 func TestWizard_InterruptHandling(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -419,6 +432,7 @@ func TestWizard_InterruptHandling(t *testing.T) {
 
 // TestWizard_MultiplePlatformFlows tests that different platforms have different prompts
 func TestWizard_MultiplePlatformFlows(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 

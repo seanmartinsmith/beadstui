@@ -85,6 +85,7 @@ type robotContractCase struct {
 // listed here must satisfy the I/O contract. New robot subcommands MUST add
 // an entry here at landing time, not after a downstream regression.
 func TestRobotIOContractSweep(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Small dependency chain so triage/plan/insights produce non-trivial output.
@@ -152,6 +153,7 @@ func TestRobotIOContractSweep(t *testing.T) {
 // unknown subcommand under 'bt robot' must exit non-zero with an "Error:"
 // line on stderr and an empty stdout. (bt-70cd, asserted under bt-ah53)
 func TestRobotIOContract_UnknownSubcommand(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stdout, stderr, exit := runRobotCapture(t, bt, t.TempDir(), "robot", "this-command-does-not-exist")
 
@@ -169,6 +171,7 @@ func TestRobotIOContract_UnknownSubcommand(t *testing.T) {
 // TestRobotIOContract_UnknownFlag exercises the negative path: an unknown
 // flag must exit non-zero with the parse error on stderr and an empty stdout.
 func TestRobotIOContract_UnknownFlag(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"bt-A","title":"X","status":"open","priority":1,"issue_type":"task"}`)
@@ -191,6 +194,7 @@ func TestRobotIOContract_UnknownFlag(t *testing.T) {
 // subcommand whose required argument is absent must exit non-zero with the
 // error on stderr.
 func TestRobotIOContract_MissingRequiredArg(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"bt-A","title":"X","status":"open","priority":1,"issue_type":"task"}`)
@@ -222,6 +226,7 @@ func TestRobotIOContract_MissingRequiredArg(t *testing.T) {
 // (cmd/bt/robot_asof_embedded_test.go), since it requires a real embedded
 // bd project rather than a bare JSONL fixture.
 func TestRobotIOContract_StructuredErrorEnvelope(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"bt-A","title":"X","status":"open","priority":1,"issue_type":"task"}`)

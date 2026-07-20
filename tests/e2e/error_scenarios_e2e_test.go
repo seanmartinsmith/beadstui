@@ -18,6 +18,7 @@ import (
 
 // TestError_CorruptedBeadsJSONL tests handling of corrupted beads.jsonl file.
 func TestError_CorruptedBeadsJSONL(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -56,6 +57,7 @@ func TestError_CorruptedBeadsJSONL(t *testing.T) {
 
 // TestError_MalformedJSONLines tests various malformed JSON scenarios.
 func TestError_MalformedJSONLines(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	tests := []struct {
@@ -109,6 +111,7 @@ func TestError_MalformedJSONLines(t *testing.T) {
 
 // TestError_MissingRequiredFields tests handling of issues missing required fields.
 func TestError_MissingRequiredFields(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -144,6 +147,7 @@ func TestError_MissingRequiredFields(t *testing.T) {
 
 // TestError_InvalidUTF8 tests handling of invalid UTF-8 in issue data.
 func TestError_InvalidUTF8(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -177,6 +181,7 @@ func TestError_InvalidUTF8(t *testing.T) {
 
 // TestError_MissingBeadsDirectory tests behavior when .beads directory doesn't exist.
 func TestError_MissingBeadsDirectory(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -203,6 +208,7 @@ func TestError_MissingBeadsDirectory(t *testing.T) {
 
 // TestError_EmptyBeadsDirectory tests behavior with empty .beads directory.
 func TestError_EmptyBeadsDirectory(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -223,6 +229,7 @@ func TestError_EmptyBeadsDirectory(t *testing.T) {
 
 // TestError_ReadOnlyBeadsFile tests handling of read-only files.
 func TestError_ReadOnlyBeadsFile(t *testing.T) {
+	t.Parallel()
 	if os.Getuid() == 0 {
 		t.Skip("skipping read-only test when running as root")
 	}
@@ -258,6 +265,7 @@ func TestError_ReadOnlyBeadsFile(t *testing.T) {
 
 // TestError_NotGitRepository tests behavior in non-git directory.
 func TestError_NotGitRepository(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -302,6 +310,7 @@ func TestError_NotGitRepository(t *testing.T) {
 
 // TestError_InvalidGitRevision tests handling of invalid git revision.
 func TestError_InvalidGitRevision(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -362,6 +371,7 @@ func TestError_InvalidGitRevision(t *testing.T) {
 
 // TestError_PathologicalCyclicGraph tests handling of highly cyclic graphs.
 func TestError_PathologicalCyclicGraph(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -410,6 +420,7 @@ func TestError_PathologicalCyclicGraph(t *testing.T) {
 
 // TestError_LargeGraphAnalysis tests handling of larger graphs.
 func TestError_LargeGraphAnalysis(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -455,6 +466,7 @@ func TestError_LargeGraphAnalysis(t *testing.T) {
 
 // TestError_InvalidExportPath tests handling of invalid export paths.
 func TestError_InvalidExportPath(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -490,6 +502,7 @@ func TestError_InvalidExportPath(t *testing.T) {
 
 // TestError_ExportToReadOnlyDirectory tests export to read-only directory.
 func TestError_ExportToReadOnlyDirectory(t *testing.T) {
+	t.Parallel()
 	if os.Getuid() == 0 {
 		t.Skip("skipping read-only test when running as root")
 	}
@@ -540,6 +553,7 @@ func TestError_ExportToReadOnlyDirectory(t *testing.T) {
 
 // TestError_ExitCodes verifies that error scenarios produce non-zero exit codes.
 func TestError_ExitCodes(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	tests := []struct {

@@ -13,6 +13,7 @@ import (
 // TestGraphNavigationStatePreservation tests that graph navigation maintains consistent state
 // when refreshing or filtering the view.
 func TestGraphNavigationStatePreservation(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -61,6 +62,7 @@ func TestGraphNavigationStatePreservation(t *testing.T) {
 
 // TestGraphNavigationRootFilter tests filtering graph to a root node
 func TestGraphNavigationRootFilter(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -116,6 +118,7 @@ func TestGraphNavigationRootFilter(t *testing.T) {
 
 // TestGraphNavigationDepthLevels tests different depth levels
 func TestGraphNavigationDepthLevels(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -165,6 +168,7 @@ func TestGraphNavigationDepthLevels(t *testing.T) {
 
 // TestGraphNavigationFormats tests different output formats work
 func TestGraphNavigationFormats(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -215,6 +219,7 @@ func TestGraphNavigationFormats(t *testing.T) {
 
 // TestGraphNavigationEmptyGraph tests behavior with no issues
 func TestGraphNavigationEmptyGraph(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -253,6 +258,7 @@ func TestGraphNavigationEmptyGraph(t *testing.T) {
 
 // TestGraphNavigationCycleHandling tests graphs with cycles render correctly
 func TestGraphNavigationCycleHandling(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -290,6 +296,7 @@ func TestGraphNavigationCycleHandling(t *testing.T) {
 
 // TestGraphNavigationLargeGraph tests performance with many nodes
 func TestGraphNavigationLargeGraph(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping large graph test in short mode")
 	}
@@ -326,6 +333,7 @@ func TestGraphNavigationLargeGraph(t *testing.T) {
 
 // TestGraphNavigationStatusFiltering tests that status info is included
 func TestGraphNavigationStatusFiltering(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 

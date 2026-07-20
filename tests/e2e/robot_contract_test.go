@@ -59,6 +59,7 @@ func execCommand(name string, args ...string) *exec.Cmd {
 }
 
 func TestRobotInsightsContract(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Simple chain A->B->C to populate metrics.
@@ -90,6 +91,7 @@ func TestRobotInsightsContract(t *testing.T) {
 }
 
 func TestRobotPlanContract(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// A unblocks B; expect A actionable, unblocks contains B.
@@ -125,6 +127,7 @@ func TestRobotPlanContract(t *testing.T) {
 }
 
 func TestRobotPriorityContract(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Mis-prioritized root with two dependents to ensure a recommendation.
@@ -165,6 +168,7 @@ func TestRobotPriorityContract(t *testing.T) {
 }
 
 func TestRobotTriageContract(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Simple issues for triage
@@ -202,6 +206,7 @@ func TestRobotTriageContract(t *testing.T) {
 }
 
 func TestRobotTriageByTrackContract(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Two independent tracks: A->A2 and B->B2.
@@ -262,6 +267,7 @@ func TestRobotTriageByTrackContract(t *testing.T) {
 }
 
 func TestRobotTriageByLabelContract(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Mix labels and include dependencies so scores are non-trivial.
@@ -321,6 +327,7 @@ func TestRobotTriageByLabelContract(t *testing.T) {
 }
 
 func TestRobotLabelHealthContract(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"API-1","title":"API root","status":"open","priority":1,"issue_type":"task","labels":["api"]}
@@ -360,6 +367,7 @@ func TestRobotLabelHealthContract(t *testing.T) {
 }
 
 func TestRobotLabelFlowContract(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Cross-label dependency: WEB depends on API => flow from api -> web.
@@ -391,6 +399,7 @@ func TestRobotLabelFlowContract(t *testing.T) {
 }
 
 func TestRobotLabelAttentionContract(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"API-1","title":"API root","status":"open","priority":1,"issue_type":"task","labels":["api"]}
@@ -425,6 +434,7 @@ func TestRobotLabelAttentionContract(t *testing.T) {
 }
 
 func TestRobotNextContractNoActionable(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"X","title":"Done","status":"closed","priority":1,"issue_type":"task"}`)
@@ -448,6 +458,7 @@ func TestRobotNextContractNoActionable(t *testing.T) {
 }
 
 func TestRobotNextContractActionable(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// A is actionable and should be picked; B is blocked by A.
@@ -502,6 +513,7 @@ func TestRobotNextContractActionable(t *testing.T) {
 // In this test the project fixture is local-mode-only, so scope.mode must be
 // "project" and scope.databases must be absent.
 func TestRobotEnvelopeConsistency(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"A","title":"Root","status":"open","priority":1,"issue_type":"task","labels":["api"]}
@@ -572,6 +584,7 @@ func assertEnvelopeScope(t *testing.T, label string, payload map[string]any, wan
 }
 
 func TestRobotUsageHintsPresent(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	writeBeads(t, env, `{"id":"A","title":"Test","status":"open","priority":1,"issue_type":"task"}`)

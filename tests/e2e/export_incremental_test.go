@@ -17,6 +17,7 @@ import (
 
 // TestExportIncremental_AddNewIssues verifies new issues appear after re-export.
 func TestExportIncremental_AddNewIssues(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -69,6 +70,7 @@ func TestExportIncremental_AddNewIssues(t *testing.T) {
 
 // TestExportIncremental_AddIssuesWithDependencies verifies new deps appear in graph.
 func TestExportIncremental_AddIssuesWithDependencies(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -119,6 +121,7 @@ func TestExportIncremental_AddIssuesWithDependencies(t *testing.T) {
 
 // TestExportIncremental_CloseIssues verifies closed issues update correctly.
 func TestExportIncremental_CloseIssues(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -163,6 +166,7 @@ func TestExportIncremental_CloseIssues(t *testing.T) {
 
 // TestExportIncremental_CloseBlockingIssue verifies unblocking propagates.
 func TestExportIncremental_CloseBlockingIssue(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -206,6 +210,7 @@ func TestExportIncremental_CloseBlockingIssue(t *testing.T) {
 
 // TestExportIncremental_AddDependency verifies adding deps updates graph.
 func TestExportIncremental_AddDependency(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -252,6 +257,7 @@ func TestExportIncremental_AddDependency(t *testing.T) {
 
 // TestExportIncremental_RemoveDependency verifies removing deps updates graph.
 func TestExportIncremental_RemoveDependency(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -291,6 +297,7 @@ func TestExportIncremental_RemoveDependency(t *testing.T) {
 
 // TestExportIncremental_ChangeDependencyType verifies dep type changes reflect.
 func TestExportIncremental_ChangeDependencyType(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -333,6 +340,7 @@ func TestExportIncremental_ChangeDependencyType(t *testing.T) {
 
 // TestExportIncremental_DeleteIssues verifies deleted issues disappear.
 func TestExportIncremental_DeleteIssues(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -378,6 +386,7 @@ func TestExportIncremental_DeleteIssues(t *testing.T) {
 
 // TestExportIncremental_DeleteBlockingIssue verifies orphan refs handled.
 func TestExportIncremental_DeleteBlockingIssue(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -414,6 +423,7 @@ func TestExportIncremental_DeleteBlockingIssue(t *testing.T) {
 
 // TestExportIncremental_DeleteAllIssues verifies empty dataset handled.
 func TestExportIncremental_DeleteAllIssues(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -453,6 +463,7 @@ func TestExportIncremental_DeleteAllIssues(t *testing.T) {
 
 // TestExportIncremental_MixedOperations tests add+close+delete simultaneously.
 func TestExportIncremental_MixedOperations(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -515,6 +526,7 @@ func TestExportIncremental_MixedOperations(t *testing.T) {
 
 // TestExportIncremental_ChangePriority verifies priority changes reflect.
 func TestExportIncremental_ChangePriority(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -551,6 +563,7 @@ func TestExportIncremental_ChangePriority(t *testing.T) {
 
 // TestExportIncremental_ChangeTitle verifies title changes reflect.
 func TestExportIncremental_ChangeTitle(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -595,6 +608,7 @@ func TestExportIncremental_ChangeTitle(t *testing.T) {
 
 // TestExportIncremental_ChangeExportTitle verifies --pages-title changes reflect.
 func TestExportIncremental_ChangeExportTitle(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -631,6 +645,7 @@ func TestExportIncremental_ChangeExportTitle(t *testing.T) {
 
 // TestExportIncremental_ReexportWithoutChanges verifies idempotent exports.
 func TestExportIncremental_ReexportWithoutChanges(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 
@@ -664,6 +679,7 @@ func TestExportIncremental_ReexportWithoutChanges(t *testing.T) {
 
 // TestExportIncremental_MultipleReexports verifies stability over many exports.
 func TestExportIncremental_MultipleReexports(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	stageViewerAssets(t, bt)
 

@@ -11,6 +11,7 @@ import (
 )
 
 func TestWorkspaceRobotTriageCleanOutput(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 
 	workspaceRoot := t.TempDir()

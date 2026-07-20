@@ -11,6 +11,7 @@ import (
 
 // TestE2E_Triage_ActionableIssues tests that blocked vs actionable detection works.
 func TestE2E_Triage_ActionableIssues(t *testing.T) {
+	t.Parallel()
 	log := newDetailedLogger(t)
 
 	log.Step("Creating fixture with blocked and actionable issues")
@@ -66,6 +67,7 @@ func TestE2E_Triage_ActionableIssues(t *testing.T) {
 
 // TestE2E_Triage_QuickWins tests quick win detection.
 func TestE2E_Triage_QuickWins(t *testing.T) {
+	t.Parallel()
 	log := newDetailedLogger(t)
 
 	log.Step("Creating fixture with varied priorities")
@@ -119,6 +121,7 @@ func TestE2E_Triage_QuickWins(t *testing.T) {
 
 // TestE2E_Triage_BlockersToUnblock tests blocker detection.
 func TestE2E_Triage_BlockersToUnblock(t *testing.T) {
+	t.Parallel()
 	log := newDetailedLogger(t)
 
 	log.Step("Creating fixture with blocking hierarchy")
@@ -185,6 +188,7 @@ func TestE2E_Triage_BlockersToUnblock(t *testing.T) {
 
 // TestE2E_Triage_RobotNext tests --robot-next minimal output.
 func TestE2E_Triage_RobotNext(t *testing.T) {
+	t.Parallel()
 	log := newDetailedLogger(t)
 
 	log.Step("Creating fixture with actionable issues")
@@ -236,6 +240,7 @@ func TestE2E_Triage_RobotNext(t *testing.T) {
 
 // TestE2E_Triage_ByTrack tests --robot-triage-by-track grouping.
 func TestE2E_Triage_ByTrack(t *testing.T) {
+	t.Parallel()
 	log := newDetailedLogger(t)
 
 	log.Step("Creating fixture with parallel work streams")
@@ -289,6 +294,7 @@ func TestE2E_Triage_ByTrack(t *testing.T) {
 
 // TestE2E_Triage_ByLabel tests --robot-triage-by-label grouping.
 func TestE2E_Triage_ByLabel(t *testing.T) {
+	t.Parallel()
 	log := newDetailedLogger(t)
 
 	log.Step("Creating fixture with labeled issues")
@@ -338,6 +344,7 @@ func TestE2E_Triage_ByLabel(t *testing.T) {
 
 // TestE2E_Triage_ProjectHealth tests project_health in triage output.
 func TestE2E_Triage_ProjectHealth(t *testing.T) {
+	t.Parallel()
 	log := newDetailedLogger(t)
 
 	log.Step("Creating diverse fixture")
@@ -397,6 +404,7 @@ func TestE2E_Triage_ProjectHealth(t *testing.T) {
 
 // TestE2E_Triage_EmptyProject tests triage on empty project.
 func TestE2E_Triage_EmptyProject(t *testing.T) {
+	t.Parallel()
 	log := newDetailedLogger(t)
 
 	log.Step("Creating empty fixture")
@@ -437,6 +445,7 @@ func TestE2E_Triage_EmptyProject(t *testing.T) {
 
 // TestE2E_Triage_AllClosed tests triage when all issues are closed.
 func TestE2E_Triage_AllClosed(t *testing.T) {
+	t.Parallel()
 	log := newDetailedLogger(t)
 
 	log.Step("Creating fixture with all closed issues")

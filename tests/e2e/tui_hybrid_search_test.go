@@ -12,6 +12,7 @@ import (
 )
 
 func TestTUIHybridSearchSmoke(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join("..", "..", "tests", "testdata", "search_hybrid.jsonl")
 	issues, err := loader.LoadIssuesFromFile(path)
 	if err != nil {

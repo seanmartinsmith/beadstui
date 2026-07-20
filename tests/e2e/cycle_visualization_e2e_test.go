@@ -15,6 +15,7 @@ import (
 
 // TestCycleVisualization_NoCycles tests clean DAG with no cycles
 func TestCycleVisualization_NoCycles(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createNoCycleRepo(t)
 
@@ -44,6 +45,7 @@ func TestCycleVisualization_NoCycles(t *testing.T) {
 
 // TestCycleVisualization_TwoNodeCycle tests a simple A -> B -> A cycle
 func TestCycleVisualization_TwoNodeCycle(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createTwoNodeCycleRepo(t)
 
@@ -74,6 +76,7 @@ func TestCycleVisualization_TwoNodeCycle(t *testing.T) {
 
 // TestCycleVisualization_ThreeNodeCycle tests A -> B -> C -> A cycle
 func TestCycleVisualization_ThreeNodeCycle(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createThreeNodeCycleRepo(t)
 
@@ -104,6 +107,7 @@ func TestCycleVisualization_ThreeNodeCycle(t *testing.T) {
 
 // TestCycleVisualization_MultipleCycles tests multiple independent cycles
 func TestCycleVisualization_MultipleCycles(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createMultipleCyclesRepo(t)
 
@@ -132,6 +136,7 @@ func TestCycleVisualization_MultipleCycles(t *testing.T) {
 // currently not detectable. This test documents the expected behavior when
 // a self-loop is encountered - the graph builder should skip self-edges gracefully.
 func TestCycleVisualization_SelfLoop(t *testing.T) {
+	t.Parallel()
 	t.Skip("Self-loops not supported by gonum DirectedGraph - skipping until enhanced handling is implemented")
 	// When self-loop support is added, this test should verify:
 	// - Self-loop is detected as a cycle with 2 elements (A -> A)
@@ -140,6 +145,7 @@ func TestCycleVisualization_SelfLoop(t *testing.T) {
 
 // TestCycleVisualization_MermaidExport tests Mermaid export includes cycle data
 func TestCycleVisualization_MermaidExport(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createTwoNodeCycleRepo(t)
 
@@ -178,6 +184,7 @@ func TestCycleVisualization_MermaidExport(t *testing.T) {
 
 // TestCycleVisualization_DOTExport tests DOT export includes cycle styling
 func TestCycleVisualization_DOTExport(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createTwoNodeCycleRepo(t)
 
@@ -217,6 +224,7 @@ func TestCycleVisualization_DOTExport(t *testing.T) {
 
 // TestCycleVisualization_JSONExport tests JSON export includes cycle data
 func TestCycleVisualization_JSONExport(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createThreeNodeCycleRepo(t)
 
@@ -270,6 +278,7 @@ func TestCycleVisualization_JSONExport(t *testing.T) {
 
 // TestCycleVisualization_RobotSuggestCycles tests cycle suggestions via robot-suggest
 func TestCycleVisualization_RobotSuggestCycles(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createTwoNodeCycleRepo(t)
 
@@ -318,6 +327,7 @@ func TestCycleVisualization_RobotSuggestCycles(t *testing.T) {
 
 // TestCycleVisualization_CycleCountInStatus tests cycle count appears in status
 func TestCycleVisualization_CycleCountInStatus(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createMultipleCyclesRepo(t)
 
@@ -354,6 +364,7 @@ func TestCycleVisualization_CycleCountInStatus(t *testing.T) {
 
 // TestCycleVisualization_CycleMembers tests cycle member list is correct
 func TestCycleVisualization_CycleMembers(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createThreeNodeCycleRepo(t)
 
@@ -398,6 +409,7 @@ func TestCycleVisualization_CycleMembers(t *testing.T) {
 
 // TestCycleVisualization_NestedCycles tests overlapping/nested cycle detection
 func TestCycleVisualization_NestedCycles(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createNestedCyclesRepo(t)
 
@@ -426,6 +438,7 @@ func TestCycleVisualization_NestedCycles(t *testing.T) {
 
 // TestCycleVisualization_DeterministicOutput tests cycle output is deterministic
 func TestCycleVisualization_DeterministicOutput(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createThreeNodeCycleRepo(t)
 
@@ -471,6 +484,7 @@ func TestCycleVisualization_DeterministicOutput(t *testing.T) {
 
 // TestCycleVisualization_MixedCycleAndDAG tests graph with both cycles and non-cycle nodes
 func TestCycleVisualization_MixedCycleAndDAG(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createMixedCycleDAGRepo(t)
 

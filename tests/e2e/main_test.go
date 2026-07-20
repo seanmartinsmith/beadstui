@@ -9,6 +9,7 @@ import (
 )
 
 func TestEndToEndBuildAndRun(t *testing.T) {
+	t.Parallel()
 	binPath := buildBtBinary(t)
 	tempDir := t.TempDir()
 
@@ -32,6 +33,7 @@ func TestEndToEndBuildAndRun(t *testing.T) {
 }
 
 func TestEndToEndRobotPlan(t *testing.T) {
+	t.Parallel()
 	binPath := buildBtBinary(t)
 	tempDir := t.TempDir()
 
@@ -94,6 +96,7 @@ func TestEndToEndRobotPlan(t *testing.T) {
 }
 
 func TestEndToEndRobotInsights(t *testing.T) {
+	t.Parallel()
 	binPath := buildBtBinary(t)
 	tempDir := t.TempDir()
 
@@ -132,6 +135,7 @@ func TestEndToEndRobotInsights(t *testing.T) {
 }
 
 func TestEndToEndRobotPriority(t *testing.T) {
+	t.Parallel()
 	binPath := buildBtBinary(t)
 	tempDir := t.TempDir()
 
@@ -169,6 +173,7 @@ func TestEndToEndRobotPriority(t *testing.T) {
 }
 
 func TestEndToEndRobotRecipes(t *testing.T) {
+	t.Parallel()
 	binPath := buildBtBinary(t)
 	tempDir := t.TempDir()
 

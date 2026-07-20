@@ -14,6 +14,7 @@ import (
 // TestTimelineDataChronologicalOrder verifies that history commits are sorted chronologically
 // for proper timeline rendering in the UI.
 func TestTimelineDataChronologicalOrder(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createMultiCommitRepo(t)
 
@@ -66,6 +67,9 @@ func TestTimelineDataChronologicalOrder(t *testing.T) {
 }
 
 // TestTimelineExportStructure verifies the history.json export has proper timeline structure
+// Kept serial: stageViewerAssetsForTimeline writes into the shared binary dir without the
+// sync.Once guard that stageViewerAssets uses, so running it in parallel could race other
+// export tests staging the same assets.
 func TestTimelineExportStructure(t *testing.T) {
 	bt := buildBtBinary(t)
 	stageViewerAssetsForTimeline(t, bt)
@@ -132,6 +136,7 @@ func TestTimelineExportStructure(t *testing.T) {
 
 // TestTimelineCommitDensity verifies commits can be grouped by time period for density visualization
 func TestTimelineCommitDensity(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createMultiCommitRepo(t)
 
@@ -193,6 +198,7 @@ func TestTimelineCommitDensity(t *testing.T) {
 
 // TestTimelineBeadCorrelation verifies commits are properly correlated to beads for timeline filtering
 func TestTimelineBeadCorrelation(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createMultiCommitRepo(t)
 
@@ -254,6 +260,7 @@ func TestTimelineBeadCorrelation(t *testing.T) {
 
 // TestTimelineTUIToggleWithTimeout tests timeline toggle in TUI mode (skips on timeout for CI)
 func TestTimelineTUIToggleWithTimeout(t *testing.T) {
+	t.Parallel()
 	skipIfNoScript(t)
 	bt := buildBtBinary(t)
 	repoDir := createMultiCommitRepo(t)
@@ -369,6 +376,7 @@ func createMultiCommitRepo(t *testing.T) string {
 
 // TestTimelineStatsAccuracy verifies stats match actual timeline data
 func TestTimelineStatsAccuracy(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	repoDir := createMultiCommitRepo(t)
 

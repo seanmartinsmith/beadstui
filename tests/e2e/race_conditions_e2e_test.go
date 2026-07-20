@@ -20,6 +20,7 @@ import (
 // TestRace_ConcurrentRobotCommands tests that multiple robot commands can run
 // concurrently without race conditions.
 func TestRace_ConcurrentRobotCommands(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -86,6 +87,7 @@ func TestRace_ConcurrentRobotCommands(t *testing.T) {
 // TestRace_ConcurrentTriageRequests simulates multiple agents requesting triage
 // simultaneously.
 func TestRace_ConcurrentTriageRequests(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -158,6 +160,10 @@ func TestRace_ConcurrentTriageRequests(t *testing.T) {
 // =============================================================================
 
 // TestRace_DataConsistency verifies that concurrent reads return consistent data.
+// Kept serial: it asserts byte-identical stdout across 5 concurrent `robot next`
+// runs, but that output embeds a wall-clock generated_at timestamp (second
+// precision). Under parallel test load the runs straddle a one-second boundary and
+// the equality check flakes; running alone keeps them within a single tick.
 func TestRace_DataConsistency(t *testing.T) {
 	bt := buildBtBinary(t)
 	env := t.TempDir()
@@ -216,6 +222,7 @@ func TestRace_DataConsistency(t *testing.T) {
 
 // TestRace_ConcurrentAnalysisAndGraph tests running analysis while getting graph data.
 func TestRace_ConcurrentAnalysisAndGraph(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -283,6 +290,7 @@ func TestRace_ConcurrentAnalysisAndGraph(t *testing.T) {
 
 // TestRace_RapidSequentialCommands tests rapid sequential command execution.
 func TestRace_RapidSequentialCommands(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -324,6 +332,7 @@ func TestRace_RapidSequentialCommands(t *testing.T) {
 
 // TestRace_ConcurrentGraphFormats tests concurrent exports in different formats.
 func TestRace_ConcurrentGraphFormats(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 
@@ -378,6 +387,7 @@ func TestRace_ConcurrentGraphFormats(t *testing.T) {
 
 // TestRace_HighConcurrencyStress runs many concurrent operations.
 func TestRace_HighConcurrencyStress(t *testing.T) {
+	t.Parallel()
 	if testing.Short() {
 		t.Skip("skipping stress test in short mode")
 	}
@@ -454,6 +464,7 @@ func TestRace_HighConcurrencyStress(t *testing.T) {
 // TestRace_ConcurrentFileReading tests that multiple processes can read
 // the same beads files concurrently.
 func TestRace_ConcurrentFileReading(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 

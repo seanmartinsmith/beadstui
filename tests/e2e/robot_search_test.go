@@ -8,6 +8,7 @@ import (
 )
 
 func TestRobotSearchContract(t *testing.T) {
+	t.Parallel()
 	bt := buildBtBinary(t)
 	env := t.TempDir()
 	// Use a very distinctive token with many repeats to make hashed-vector ranking stable.
