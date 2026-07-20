@@ -39,3 +39,28 @@ func TestOriginExcluded(t *testing.T) {
 		t.Error("bd-embedded Origin.Excluded() = true, want false")
 	}
 }
+
+// TestOriginLabel covers bt-2ea7t.6: Origin.Label() must never return "" so
+// a view's group header/note can never render a blank ("" + " (N)")
+// caption. DisplayName wins when set; Scope is the fallback for an Origin
+// missing DisplayName; a fixed placeholder is the last resort for an Origin
+// missing both (not reachable through DetectPath/DetectSharedDB today, but
+// possible for a hand-built literal or a future adapter).
+func TestOriginLabel(t *testing.T) {
+	tests := []struct {
+		name string
+		o    Origin
+		want string
+	}{
+		{"display name set", Origin{DisplayName: "atlas", Scope: "beads_global"}, "atlas"},
+		{"empty display name falls back to scope", Origin{DisplayName: "", Scope: "dotfiles"}, "dotfiles"},
+		{"both empty falls back to placeholder", Origin{}, "unknown source"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.o.Label(); got != tt.want {
+				t.Errorf("Origin.Label() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

@@ -174,6 +174,41 @@ func TestMemoriesGroupingAndDetail(t *testing.T) {
 	}
 }
 
+// TestMemoriesGroupLabelFallback covers bt-2ea7t.6: a source whose Origin
+// has an empty DisplayName must still render a real, non-blank group
+// header rather than the invisible " (N)" a bare DisplayName grouping key
+// would produce. rebuildRows groups via Origin.Label() (DisplayName, else
+// Scope, else "unknown source"), so this exercises both fallback tiers.
+func TestMemoriesGroupLabelFallback(t *testing.T) {
+	scopeOnlyOrigin := source.Origin{SourceKind: source.SourceKindBDShared, Scope: "portal", Prefix: "portal", DisplayName: ""}
+	bareOrigin := source.Origin{SourceKind: source.SourceKindBDShared}
+
+	agg := source.MemoriesAggregate{
+		Memories: []source.Memory{
+			{Key: "scope-fallback-memory", Body: "Falls back to Scope when DisplayName is empty.", Origin: scopeOnlyOrigin},
+			{Key: "placeholder-fallback-memory", Body: "Falls back to the placeholder when both are empty.", Origin: bareOrigin},
+		},
+	}
+	m := seedMemories(t, agg, 160, 40)
+
+	content := ansi.Strip(m.View().Content)
+
+	if !strings.Contains(content, "portal (1)") {
+		t.Errorf("expected group header to fall back to Origin.Scope %q; content:\n%s", "portal (1)", content)
+	}
+	if !strings.Contains(content, "unknown source (1)") {
+		t.Errorf("expected group header to fall back to the placeholder %q; content:\n%s", "unknown source (1)", content)
+	}
+	// Each fallback tier produces its own distinct, non-blank label (rather
+	// than both collapsing into one shared "" group), so both memory keys
+	// must be individually reachable under their own header.
+	for _, want := range []string{"scope-fallback-memory", "placeholder-fallback-memory"} {
+		if !strings.Contains(content, want) {
+			t.Errorf("expected memory key %q under its fallback-labeled group; content:\n%s", want, content)
+		}
+	}
+}
+
 // TestMemoriesSearch covers search filtering across keys and bodies: typing
 // a query that matches only one memory's body text narrows the master pane
 // to that memory (and its group), and the other memories/groups disappear.

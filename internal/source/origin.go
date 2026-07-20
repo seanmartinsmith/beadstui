@@ -31,6 +31,30 @@ type Origin struct {
 // unadorned SourceRepo would produce.
 func (o Origin) SourceRepo() string { return o.Scope }
 
+// Label returns a guaranteed non-empty, human-facing label for the origin:
+// DisplayName when set, else Scope, else a fixed placeholder. Every Origin
+// built by DetectPath/DetectSharedDB (via newOrigin) already has a non-empty
+// DisplayName - dbName is never "" (readBeadsMeta defaults an unset
+// dolt_database to "beads") and model.DisplayRepoName only maps a non-empty
+// key onto another non-empty string - so the Scope/placeholder tiers exist
+// as a defensive backstop for any Origin NOT built through that path (a
+// hand-constructed literal, or a future adapter that forgets to set
+// DisplayName), rather than a case reachable through today's detectors.
+//
+// View code (pkg/ui/memories.go group headers, unavailable-source notes)
+// must call this instead of reading DisplayName directly (bt-2ea7t.6): a
+// blank group header ("" + " (N)") is silently unreadable, so the guarantee
+// belongs here, next to Origin, rather than duplicated ad hoc per call site.
+func (o Origin) Label() string {
+	if o.DisplayName != "" {
+		return o.DisplayName
+	}
+	if o.Scope != "" {
+		return o.Scope
+	}
+	return "unknown source"
+}
+
 // Excluded reports whether this origin must be kept out of bd-centric
 // aggregation. In v1 that is exactly the Gas City sources (detect-and-exclude,
 // spec §4.3); they are remembered for the later gc lens, not discarded.
