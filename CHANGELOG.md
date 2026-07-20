@@ -6,6 +6,32 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-07-20 — Merge wave: BackgroundWorker race, label robustness, footer policy, e2e parallelization (PRs #44–#48)
+
+**Wrap of the interrupted 2026-07-19 autonomous PM session (pc:bt:f50ec17c): four adversarially-reviewed draft PRs reviewed, merged, and their beads closed; the parked e2e-parallelization diff verified and re-shipped; small housekeeping and follow-ups filed. All four feature PRs merged on green CI; `go build`/`go vet`/`go install` clean and affected-package tests green on merged main.**
+
+### Ships
+
+- **fix(tui): close BackgroundWorker loop-cancel race causing 5s/2s stalls (bt-pgu0h, PR #44)** — `startLoop()` published `loopCtx`/`loopCancel`/`done` asynchronously from the spawned goroutine, so a fast `Stop()`/`attemptRecovery()` could capture a still-nil `loopCancel` and pay the full 5s/2s fallback wait. They are now created and published synchronously under the existing lock before the goroutine spawns; `runProcessLoop` receives the already-published trio and the redundant second `WorkerStopped` check is gone. Three tests 17s → ~0s; pkg/ui wall ~40s → ~22.6s; race-clean at `-count=5`. Root-cause correction: the bead's hypothesis (missing `ctx.Done()` selects at park points) did not match the code — this was a goroutine-startup race.
+- **fix(tui): guarantee non-empty memories group labels via Origin.Label() (bt-2ea7t.6, PR #45)** — new `Origin.Label()` (DisplayName → Scope → "unknown source") replaces two duplicated ad hoc fallbacks in `memories.go`. The live blank-header report was not reproducible on current main (most likely a stale binary predating the existing Scope fallback); fixed at source anyway so a recurrence is provably a new finding.
+- **fix(tui): derive beads_global display label from real prefix (bt-l76b8, PR #46)** — the "atlas" label now derives from the actual global namespace prefix (`DeriveGlobalDisplayName` + `SetGlobalDisplayName` wired at TUI snapshot load) instead of a hardcoded constant, with atlas as the fallback so this fleet is unchanged. Robot mode and `origin.go` still emit the default — filed as follow-up **bt-xzljd**.
+- **docs(tui): footer-speaks policy — bubble is the sole transient surface (bt-c3gpe, PR #47)** — the reported bubble+hint-slot double render was already dead code (removed by the bt-2vshd lens redesign); the bubble is already the only transient surface. Delivered the policy as self-documenting comments, a regression test locking the single-surface invariant, and the actual cause of the intermittent toast named with evidence: the `statusMsg` slot has no minimum display time, so a status replaced within one coalesced Bubble Tea frame never paints. Comment-only + one additive test.
+- **perf(tests): parallelize e2e suite (bt-xv7wf, PR #48, draft)** — resumed the interrupted diff: `t.Parallel()` across the `tests/e2e` tests plus `boundDefaultParallelism()` capping the default `-parallel` at 8 (each e2e test spawns bt subprocesses; the `GOMAXPROCS` default thrashes many-core machines per bt-qp1j; an explicit `-parallel N` still wins). e2e package wall time 523s → 74.0s (~7x) on this box, race-clean, and green rebased on merged main (72.2s). Additive only (353 insertions, 0 deletions). Draft pending review at merge time.
+
+### Bead bookkeeping
+
+- Closed: **bt-pgu0h** (#44), **bt-2ea7t.6** (#45), **bt-l76b8** (#46), **bt-c3gpe** (#47).
+- In progress / close-on-merge: **bt-xv7wf** (#48).
+- Filed follow-ups: **bt-1f7tz** (pre-existing BackgroundWorker `Stop()`-vs-`Start()` window, flagged during #44), **bt-xzljd** (derive the global label for robot mode + `origin.go`; refresh three stale "aliases to atlas" call-site comments, from #46), **bt-nz5o2** (remove dead hint-slot plumbing + ~15 stale `ShortHelp` docstrings — the bt-2vshd cleanup rider surfaced by #47).
+- Noted on existing beads: **bt-msxk** (toast minimum-display-time lifecycle, from #47).
+
+### Notes
+
+- Housekeeping: added `.bt.lock` to `.gitignore` — a sibling lock file leaked into the tree by test runs that launch bt; the existing `.bt/` pattern did not cover it.
+- The 2026-07-17 footer-dogfood batch (PRs #41/#42) has no CHANGELOG entry yet — pre-existing gap, not part of this wave.
+
+---
+
 ## 2026-07-16 — Footer lens wave: all five phases shipped (PRs #34–#39)
 
 **Implementation wave for the approved footer lens redesign (`docs/design/2026-07-16-footer-lens-redesign.md`), picked up fresh from handoff bead bt-lq39k and run as a PM session dispatching worktree subagents from the main checkout (bt-5r6gn pattern) — one bead per agent, merged sequentially. All six wave beads closed; 39 packages green on merged main; binary installed. (Changelog entry deferred to the 2026-07-17 bookkeeping session.)**

@@ -23,6 +23,9 @@ benchmarks/current.txt
 
 # Local BT state and reports
 .bt/
+# .bt.lock is a sibling lock file (not inside .bt/), leaked into the tree by
+# test runs that launch bt; matches in any directory.
+.bt.lock
 beads_report_beadstui_*.md
 
 # Nix build artifacts
