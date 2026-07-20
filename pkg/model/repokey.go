@@ -1,6 +1,9 @@
 package model
 
-import "strings"
+import (
+	"strings"
+	"sync"
+)
 
 // RepoKey returns the canonical workspace key for an issue.
 //
@@ -48,12 +51,66 @@ func isAlphanumericRepoPrefix(s string) bool {
 	return len(s) > 0
 }
 
-// atlasDisplayName is the display alias for beads' cross-cutting shared
+// atlasDisplayName is the DEFAULT display label for beads' cross-cutting shared
 // namespace (upstream `bd --global`, DB name "beads_global", PR #3270; see
-// bt-z1pzj). Display-only — SourceRepo values, activeRepos filter keys, and
+// bt-z1pzj). It is the fallback used until the real global issue prefix is
+// derived from loaded data, and whenever that prefix is empty/unavailable so no
+// regression is visible on this fleet (which renamed the global prefix to
+// "atlas-"). Display-only - SourceRepo values, activeRepos filter keys, and
 // internal/bdroute.BeadsGlobalDB all keep the raw "beads_global" spelling so
 // filtering/write-routing logic is untouched.
 const atlasDisplayName = "atlas"
+
+// globalDisplayName is the live label DisplayRepoName returns for the
+// beads_global namespace. It defaults to atlasDisplayName and is overwritten by
+// SetGlobalDisplayName once the real global prefix is derived from loaded issues
+// (bt-l76b8) - hardcoding "atlas" mislabels any fleet whose global prefix isn't
+// "atlas-". Guarded because DisplayRepoName is read from the render loop while
+// the setter runs from the data-load handler.
+var (
+	globalDisplayMu   sync.RWMutex
+	globalDisplayName = atlasDisplayName
+)
+
+// SetGlobalDisplayName overrides the label DisplayRepoName returns for the
+// beads_global namespace. Pass the real global issue prefix (see
+// DeriveGlobalDisplayName); an empty name resets to the atlas default so an
+// empty or unavailable global DB never regresses the label.
+func SetGlobalDisplayName(name string) {
+	globalDisplayMu.Lock()
+	defer globalDisplayMu.Unlock()
+	if name == "" {
+		globalDisplayName = atlasDisplayName
+		return
+	}
+	globalDisplayName = name
+}
+
+// globalDisplay returns the current beads_global display label.
+func globalDisplay() string {
+	globalDisplayMu.RLock()
+	defer globalDisplayMu.RUnlock()
+	return globalDisplayName
+}
+
+// DeriveGlobalDisplayName inspects issues for the beads_global namespace and
+// returns its real ID prefix (e.g. "atlas" after `bd --global rename-prefix
+// atlas-`, or "foo" for a global DB on the "foo-" prefix). The namespace is
+// identified by RepoKey (its authoritative SourceRepo db-name spelling), and the
+// label is the issue's ID prefix because the raw db name ("beads_global") is not
+// what users see. Returns "" when no global issue is present; callers pass that
+// to SetGlobalDisplayName to keep the atlas default. Early-exits on the first
+// global issue.
+func DeriveGlobalDisplayName(issues []Issue) string {
+	for i := range issues {
+		if IsAtlasNamespace(RepoKey(issues[i])) {
+			if prefix := ExtractRepoPrefix(issues[i].ID); prefix != "" {
+				return prefix
+			}
+		}
+	}
+	return ""
+}
 
 // IsAtlasNamespace reports whether key refers to the beads_global namespace,
 // under either spelling RepoKey can produce: "beads_global" (SourceRepo,
@@ -71,13 +128,14 @@ func IsAtlasNamespace(key string) bool {
 	}
 }
 
-// DisplayRepoName maps a repo key to its display label. The only alias today
-// is the beads_global namespace -> "atlas" (bt-z1pzj); every other key passes
-// through unchanged. Presentation-only: never use the return value as a
-// filter/map key — see RepoKey and IsAtlasNamespace.
+// DisplayRepoName maps a repo key to its display label. The only alias is the
+// beads_global namespace -> the derived global prefix (defaulting to "atlas";
+// bt-z1pzj, bt-l76b8); every other key passes through unchanged. Presentation-
+// only: never use the return value as a filter/map key — see RepoKey and
+// IsAtlasNamespace.
 func DisplayRepoName(key string) string {
 	if IsAtlasNamespace(key) {
-		return atlasDisplayName
+		return globalDisplay()
 	}
 	return key
 }

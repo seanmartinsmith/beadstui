@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/seanmartinsmith/beadstui/pkg/model"
 	"github.com/seanmartinsmith/beadstui/pkg/ui/keys"
 
 	tea "charm.land/bubbletea/v2"
@@ -244,6 +245,44 @@ func TestRepoPickerAtlasPinnedFirst(t *testing.T) {
 		if m.filtered[i] != w {
 			t.Fatalf("filtered=%v, want %v", m.filtered, want)
 		}
+	}
+}
+
+// TestRepoPickerDerivedGlobalLabel covers bt-l76b8: when the global prefix is
+// derived (here "foo-"), the pinned beads_global row renders that label and is
+// found by searching it, not the hardcoded "atlas".
+func TestRepoPickerDerivedGlobalLabel(t *testing.T) {
+	model.SetGlobalDisplayName("foo")
+	defer model.SetGlobalDisplayName("")
+
+	repos := []string{"bt", "beads_global", "sym"}
+	m := NewRepoPickerModel(repos, DefaultTheme())
+	m.SetSize(80, 24)
+
+	// beads_global stays pinned first (raw key preserved for selection).
+	if got := m.filtered[0]; got != "beads_global" {
+		t.Fatalf("filtered[0]=%q, want beads_global pinned first", got)
+	}
+
+	// The pinned row displays the derived label, not the atlas default.
+	view := m.View()
+	if !strings.Contains(view, "foo") {
+		t.Errorf("view should display derived global label 'foo': %q", view)
+	}
+	if strings.Contains(view, "atlas") {
+		t.Errorf("view should not show the hardcoded 'atlas' label: %q", view)
+	}
+
+	// Searching the derived label finds beads_global; "atlas" no longer matches.
+	m.input.SetValue("foo")
+	m.filterRepos()
+	if got := m.filtered; !equalStringSlices(got, []string{"beads_global"}) {
+		t.Errorf(`query "foo": filtered=%v, want [beads_global]`, got)
+	}
+	m.input.SetValue("atlas")
+	m.filterRepos()
+	if len(m.filtered) != 0 {
+		t.Errorf(`query "atlas": filtered=%v, want empty (label is now foo)`, m.filtered)
 	}
 }
 

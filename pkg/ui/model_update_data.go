@@ -117,6 +117,11 @@ func (m Model) handleSnapshotReady(msg SnapshotReadyMsg) (Model, tea.Cmd) {
 	// Eventually these will be removed when all code reads from snapshot
 	m.data.issues = msg.Snapshot.Issues
 	m.data.issueMap = msg.Snapshot.IssueMap
+	// Derive the beads_global display label from the loaded issues so the
+	// namespace shows its real prefix rather than a hardcoded "atlas"
+	// (bt-l76b8). Idempotent and falls back to "atlas" when no global issue
+	// is present.
+	model.SetGlobalDisplayName(model.DeriveGlobalDisplayName(msg.Snapshot.Issues))
 	m.data.analyzer = msg.Snapshot.Analyzer
 	m.data.analysis = msg.Snapshot.Analysis
 	// Transient: setListItems (called below on every code path that rebuilds
