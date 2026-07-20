@@ -967,8 +967,8 @@ func (m Model) handleFileChanged(msg FileChangedMsg) (Model, tea.Cmd) {
 			statusMsg += "; consider BT_BACKGROUND_MODE=1"
 		}
 	}
-	// Background-initiated reload — render in the inline hint slot so it
-	// doesn't clobber key hints (bt-y0k7); auto-dismiss after 3s.
+	// Reload feedback renders as a transient in the floating bubble
+	// (toast_bubble.go), not the footer (bt-c3gpe); auto-dismiss after 3s.
 	cmds = append(cmds, m.setInlineTransientStatus(statusMsg, 3*time.Second))
 	// Invalidate label-derived caches
 	m.labelHealthCached = false

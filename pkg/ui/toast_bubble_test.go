@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
@@ -216,6 +217,68 @@ func TestToastBubbleClearsWithStatus(t *testing.T) {
 	m.clearStatus()
 	if got := m.renderToastBubble(m.width); got != "" {
 		t.Errorf("after clearStatus, bubble should be gone; got %q", got)
+	}
+}
+
+// TestTransientStatusSingleSurfaceFooterHintsIntact locks the footer-speaks
+// policy (bt-c3gpe): a transient status renders in EXACTLY ONE surface - the
+// floating bubble - and never clobbers the footer. It drives the real reload
+// toast setter (setInlineTransientStatus) and asserts, across widths and both
+// glyph tiers, that the footer's last row is byte-identical with and without
+// the active transient (so the Zone-3 discoverability hints + lens are wholly
+// untouched), that the footer never carries the message text, and that the
+// bubble is the surface that does carry it. Byte-identity is deliberately
+// stronger than string-matching a specific hint token: it holds regardless of
+// how the degradation cascade compacts the hints at a given width.
+func TestTransientStatusSingleSurfaceFooterHintsIntact(t *testing.T) {
+	const reloadMsg = "Reloaded 5634 issues"
+	for _, tier := range []struct {
+		name string
+		g    GlyphSet
+	}{{"nerdfont", nerdfontGlyphs}, {"ascii", asciiGlyphs}} {
+		t.Run(tier.name, func(t *testing.T) {
+			setGlyphs(t, tier.g)
+			for _, w := range []int{70, 100, 160} {
+				// Baseline footer with no active status.
+				m := NewModel(harnessIssues(), nil, "", nil, nil)
+				nm, _ := m.Update(tea.WindowSizeMsg{Width: w, Height: 24})
+				m = nm.(Model)
+				footerRow := func(mm Model) string {
+					lines := strings.Split(strings.TrimRight(ansi.Strip(mm.View().Content), "\n"), "\n")
+					return lines[len(lines)-1]
+				}
+				idleFooter := footerRow(m)
+
+				// Activate the real reload transient (SeveritySuccess, inline).
+				// setInlineTransientStatus does not touch the events ring, so the
+				// footer bell is unchanged too - the footer must be identical.
+				m.setInlineTransientStatus(reloadMsg, 3*time.Second)
+
+				// Surface 1: the bubble carries the message.
+				bubble := ansi.Strip(m.renderToastBubble(m.width))
+				if !strings.Contains(bubble, reloadMsg) {
+					t.Errorf("width %d tier %s: bubble should carry the transient %q; got %q", w, tier.name, reloadMsg, bubble)
+				}
+
+				// Surface 2 (the footer) must be untouched: the last row is
+				// byte-identical to the idle footer, so no hint/lens content
+				// moved and the message text never leaks into the footer.
+				activeFooter := footerRow(m)
+				if activeFooter != idleFooter {
+					t.Errorf("width %d tier %s: footer changed while a transient was active - hint slot clobbered.\n idle:   %q\n active: %q",
+						w, tier.name, idleFooter, activeFooter)
+				}
+				if strings.Contains(activeFooter, reloadMsg) {
+					t.Errorf("width %d tier %s: footer must not render transient content; got %q", w, tier.name, activeFooter)
+				}
+
+				// The message IS visible in the composited view (the bubble),
+				// proving it renders in exactly one surface, not zero.
+				if !strings.Contains(ansi.Strip(m.View().Content), reloadMsg) {
+					t.Errorf("width %d tier %s: transient should be visible in the view via the bubble; not found", w, tier.name)
+				}
+			}
+		})
 	}
 }
 

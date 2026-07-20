@@ -19,9 +19,13 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// setInlineTransientStatus sets a subtle status that renders in the footer hint slot
-// (not a full-width banner) and auto-clears after the given duration. Use for background
-// notifications that should not clobber key hints (bt-y0k7).
+// setInlineTransientStatus sets a transient status that renders in the floating
+// notification bubble (toast_bubble.go), NOT in the footer, and auto-clears after
+// the given duration. StatusIsInline=true is the "route to the bubble" marker: the
+// footer's full-width banner path is skipped for it (see FooterData.Render), so the
+// bubble is the single surface for a transient - the footer-speaks policy (bt-c3gpe).
+// The old bt-y0k7 hint-slot pre-emption is gone: the bt-2vshd lens redesign replaced
+// the footer's dynamic hint slot, so an inline status has zero footer footprint.
 func (m *Model) setInlineTransientStatus(msg string, d time.Duration) tea.Cmd {
 	m.statusMsg = msg
 	m.statusSeverity = SeveritySuccess
@@ -174,9 +178,13 @@ const (
 type FooterData struct {
 	Width int
 
-	// Status bar — when StatusMsg is set, footer shows only this message
-	// (full-width banner) unless StatusIsInline is true, in which case it
-	// renders subtly in the hint slot (bt-y0k7).
+	// Status bar. The footer renders StatusMsg ONLY as a full-width banner, and
+	// ONLY when StatusIsInline is false - reserved for non-inline errors and
+	// explicit user-initiated confirmations. When StatusIsInline is true the
+	// footer renders nothing for it: the transient is owned by the floating
+	// notification bubble (toast_bubble.go), the single transient surface per the
+	// footer-speaks policy (bt-c3gpe). Footer line = persistent state only (lens,
+	// triad, degraded/daemon badges) plus that non-inline banner.
 	StatusMsg      string
 	StatusSeverity StatusSeverity
 	StatusIsInline bool
@@ -745,8 +753,11 @@ func (m *Model) extractAlertCounts() (total, critical, warning int) {
 // Foundation phase note: most per-view Maps and modal Maps are stubs in
 // bt-ift6.1 (only Global + Tree are wired). L1 will show empty hints in
 // views/modals whose Maps haven't been populated yet — bt-ift6.2-.9
-// fill them in. setInlineTransientStatus pre-empts ShortHelp() during
-// its display window unchanged (bt-y0k7).
+// fill them in. A transient status no longer pre-empts these hints: the
+// bt-2vshd lens redesign replaced the footer's dynamic hint slot, and inline
+// transients render in the floating bubble (toast_bubble.go), not the footer
+// (bt-c3gpe). (The bt-2vshd close flagged the resulting dead Hints plumbing
+// here as a pending cleanup rider.)
 func (m *Model) extractKeyHints() []FooterHint {
 	km := m.l1KeyMap()
 	if km == nil {
@@ -906,8 +917,11 @@ func (m Model) sidebarHelpGroups() [][]key.Binding {
 
 // Render produces the footer string from pre-computed FooterData.
 func (fd FooterData) Render() string {
-	// Full-width banner: reserved for errors or explicit user-initiated confirmations.
-	// Inline status renders subtly (bt-y0k7) — handled below by overriding HintText.
+	// Full-width banner: reserved for non-inline errors or explicit user-initiated
+	// confirmations. An inline status (StatusIsInline) is NOT rendered by the footer
+	// at all - it is owned by the floating notification bubble (toast_bubble.go), the
+	// single transient surface per the footer-speaks policy (bt-c3gpe). The footer's
+	// transient footprint is zero; only this non-inline banner path speaks.
 	if fd.StatusMsg != "" && !fd.StatusIsInline {
 		return fd.renderStatusBar()
 	}

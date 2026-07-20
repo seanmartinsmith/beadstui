@@ -14,6 +14,12 @@ import (
 // borrows the footer's right zone for notification content ("Toast
 // override" block, removed); this file owns the bubble that took its place.
 //
+// Footer-speaks policy (bt-c3gpe): this bubble is the SINGLE surface for a
+// transient status. The footer renders StatusMsg only as the non-inline
+// full-width banner (errors / explicit confirmations); an inline status
+// (StatusIsInline) has zero footer footprint. So a transient paints here and
+// nowhere else - no double surface.
+//
 // This is a PLACEMENT redesign only. The trigger conditions, data
 // (m.statusMsg / m.statusSeverity / m.statusIsInline), and timing/dismiss
 // semantics (statusDismissAge, the Degraded recovery path) are all
