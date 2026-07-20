@@ -738,27 +738,27 @@ func (w *BackgroundWorker) startLoop() {
 	}
 
 	done := make(chan struct{})
+	// loopCtx/loopCancel are created and published here, under the same lock
+	// that gates on WorkerStopped, instead of inside the spawned goroutine.
+	// Start()/attemptRecovery() previously returned before the goroutine had
+	// a chance to run, so a Stop() or checkHealth() call arriving right after
+	// could capture a still-nil w.loopCancel: loopCancel() became a no-op,
+	// the loop's context was never actually canceled, and the caller paid
+	// the full 5s/2s fallback wait on done. Publishing synchronously means
+	// any later reader of w.loopCancel/w.done always sees the live pair.
+	loopCtx, loopCancel := context.WithCancel(w.ctx)
 
 	w.done = done
+	w.loopCtx = loopCtx
+	w.loopCancel = loopCancel
 	w.lastHeartbeat = time.Now()
 	w.mu.Unlock()
 
-	go w.runProcessLoop(done)
+	go w.runProcessLoop(loopCtx, loopCancel, done)
 }
 
-func (w *BackgroundWorker) runProcessLoop(done chan struct{}) {
-	loopCtx, loopCancel := context.WithCancel(w.ctx)
+func (w *BackgroundWorker) runProcessLoop(loopCtx context.Context, loopCancel context.CancelFunc, done chan struct{}) {
 	defer loopCancel()
-
-	w.mu.Lock()
-	if w.state == WorkerStopped {
-		w.mu.Unlock()
-		return
-	}
-	w.loopCtx = loopCtx
-	w.loopCancel = loopCancel
-	w.mu.Unlock()
-
 	w.processLoop(loopCtx, done)
 }
 
