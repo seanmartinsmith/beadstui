@@ -131,10 +131,10 @@ func memoryMatchesQuery(mem source.Memory, query string) bool {
 }
 
 // rebuildRows recomputes m.rows from m.aggregate.Memories, applying the
-// active search query and origin filter, grouped by Origin.DisplayName
-// (sorted) then Key (sorted) within each group. The previously-selected
-// memory (by key+scope) is preserved if it survives the rebuild; otherwise
-// the cursor lands on the first memory row.
+// active search query and origin filter, grouped by Origin.Label() (sorted)
+// then Key (sorted) within each group. The previously-selected memory (by
+// key+scope) is preserved if it survives the rebuild; otherwise the cursor
+// lands on the first memory row.
 func (m *MemoriesModel) rebuildRows() {
 	prevKey, prevScope := "", ""
 	if mem, ok := m.selectedMemory(); ok {
@@ -152,10 +152,7 @@ func (m *MemoriesModel) rebuildRows() {
 		if !memoryMatchesQuery(mem, query) {
 			continue
 		}
-		label := mem.Origin.DisplayName
-		if label == "" {
-			label = mem.Origin.Scope
-		}
+		label := mem.Origin.Label()
 		if _, ok := groups[label]; !ok {
 			groupOrder = append(groupOrder, label)
 		}
@@ -326,11 +323,7 @@ func (m MemoriesModel) renderNotes() string {
 		names := make([]string, 0, shown)
 		for i := 0; i < shown; i++ {
 			u := m.aggregate.Unavailable[i]
-			label := u.Origin.DisplayName
-			if label == "" {
-				label = u.Origin.Scope
-			}
-			names = append(names, label)
+			names = append(names, u.Origin.Label())
 		}
 		suffix := ""
 		if n > shown {
