@@ -48,6 +48,31 @@ of the change.
 | `workflow:brainstorm` | Ideas, exploration, not yet implementation |
 | `workflow:collaborative` | Needs human input or multi-agent coordination |
 
+## Port
+
+| Label | Use for |
+|---|---|
+| `port:command-center` | Requirement harvested into the command-center port corpus |
+
+Added 2026-07-26 under decision `bt-2aa49` (bt's TUI is frozen to
+daily-usability fixes). The standalone clean-room command-center product ports
+*decisions, not code*, so bt's feature backlog is requirements provenance for it.
+
+**The label means harvested, not intended-to-harvest.** Apply it only once the
+bead's entry exists in the corpus
+(`~/.files/atlas/brainstorms/2026-07-26-command-center-port-corpus.md`) and cites
+this bead. Ordering is the safety property: entry first, then label, then close
+citing the entry id.
+
+Two things it does NOT mean:
+
+- It does not imply the bead is closed. Entries with `disposition: shared` are
+  class-2 foundation or class-3 design-lab work that bt keeps building; those
+  beads carry the label and stay open.
+- It does not propagate down an epic tree. An epic can be a port candidate while
+  its children are funded bt work, because bt filed epics by theme and the freeze
+  cuts by class. Disposition each child on its own merits.
+
 ## Rules
 
 - Labels must be assigned at creation time.
