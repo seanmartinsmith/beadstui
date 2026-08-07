@@ -21,6 +21,7 @@ import (
 	"image/color"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"charm.land/lipgloss/v2"
 	"gopkg.in/yaml.v3"
@@ -91,6 +92,11 @@ type ThemeColors struct {
 
 // ThemeFile is the top-level YAML structure.
 type ThemeFile struct {
+	// Theme names a vendored btop palette to use as the base (bt-o6xx1).
+	// Empty keeps bt's own embedded default. Any colors: block in the same
+	// file still overrides the named theme, so a user can pick a palette and
+	// tweak two tokens without restating the rest.
+	Theme  string      `yaml:"theme"`
 	Colors ThemeColors `yaml:"colors"`
 }
 
@@ -173,20 +179,52 @@ func LoadTheme() *ThemeFile {
 	// Layer 1: embedded defaults
 	base := loadEmbeddedTheme()
 
-	// Layer 2: user-level override (~/.config/bt/theme.yaml)
+	var user *ThemeFile
 	if home, err := os.UserHomeDir(); err == nil {
-		userPath := filepath.Join(home, ".config", "bt", "theme.yaml")
-		if user := loadThemeFile(userPath); user != nil {
-			mergeTheme(base, user)
+		user = loadThemeFile(filepath.Join(home, ".config", "bt", "theme.yaml"))
+	}
+	proj := loadThemeFile(filepath.Join(".bt", "theme.yaml"))
+
+	// Layer 2: a named btop palette, if one is selected (bt-o6xx1). This sits
+	// UNDER the hand-written overlays so picking a theme never discards the
+	// per-token tweaks a user already wrote; the name is read from the same
+	// files, most specific first, with the env var winning so a palette can be
+	// tried for one run without editing anything.
+	if name := selectedThemeName(user, proj); name != "" {
+		if btopTF, err := LoadBtopTheme(name); err == nil {
+			mergeTheme(base, btopTF)
 		}
+		// A bad name falls through to the default palette rather than
+		// failing startup: a typo in a cosmetic setting must not cost the
+		// user their TUI.
 	}
 
-	// Layer 3: project-level override (.bt/theme.yaml)
-	if proj := loadThemeFile(filepath.Join(".bt", "theme.yaml")); proj != nil {
+	// Layer 3: user-level override (~/.config/bt/theme.yaml)
+	if user != nil {
+		mergeTheme(base, user)
+	}
+
+	// Layer 4: project-level override (.bt/theme.yaml)
+	if proj != nil {
 		mergeTheme(base, proj)
 	}
 
 	return base
+}
+
+// selectedThemeName resolves which vendored btop palette to use, most
+// specific source first: BT_THEME, then the project file, then the user file.
+func selectedThemeName(user, proj *ThemeFile) string {
+	if n := strings.TrimSpace(os.Getenv("BT_THEME")); n != "" {
+		return n
+	}
+	if proj != nil && strings.TrimSpace(proj.Theme) != "" {
+		return strings.TrimSpace(proj.Theme)
+	}
+	if user != nil && strings.TrimSpace(user.Theme) != "" {
+		return strings.TrimSpace(user.Theme)
+	}
+	return ""
 }
 
 // getDefaults returns the light/dark fallback for a color pointer, or
