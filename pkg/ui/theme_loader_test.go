@@ -11,12 +11,17 @@ func TestLoadTheme_EmbeddedDefaults(t *testing.T) {
 	if tf == nil {
 		t.Fatal("LoadTheme returned nil")
 	}
-	// Embedded defaults should have primary teal color
+	// Embedded defaults should have primary teal color.
+	//
+	// This is matcha-dark-sea's actual hi_fg (bt-o6xx1). The previous value
+	// #8abeb7 was labelled "matcha-dark-sea teal" in theme.go but is Tomorrow
+	// Night's teal; the hand-copy never took matcha's own accent. Now that the
+	// theme is loaded rather than transcribed, the real one applies.
 	if tf.Colors.Primary == nil {
 		t.Fatal("embedded theme should have primary color")
 	}
-	if tf.Colors.Primary.Dark != "#8abeb7" {
-		t.Errorf("expected primary dark #8abeb7, got %s", tf.Colors.Primary.Dark)
+	if tf.Colors.Primary.Dark != "#2eb398" {
+		t.Errorf("expected primary dark #2eb398, got %s", tf.Colors.Primary.Dark)
 	}
 }
 

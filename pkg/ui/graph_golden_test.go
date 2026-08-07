@@ -80,7 +80,19 @@ func selectGraphID(t *testing.T, g *GraphModel, id string) {
 }
 
 func TestGraphView_GoldenASCII(t *testing.T) {
-	t.Parallel()
+	// Deliberately NOT parallel, and the theme is applied explicitly.
+	//
+	// graph.go reads the package-level Color* globals directly at 16 sites, so
+	// this golden output depends on whether anything has applied a theme yet --
+	// not on the Theme value passed to NewGraphModel. That made the test pass
+	// in isolation (globals still at their compile-time values) and fail in a
+	// full package run (some earlier test built a Model, which applies the
+	// loaded theme). Pinning the same state production establishes at startup
+	// makes the golden deterministic either way.
+	//
+	// The underlying ambient-globals coupling is bt-zq6z's territory and is
+	// tracked separately; this only stops the golden depending on test order.
+	ApplyThemeToGlobals(LoadTheme())
 
 	cases := []struct {
 		fixture    string
@@ -95,8 +107,6 @@ func TestGraphView_GoldenASCII(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.fixture, func(t *testing.T) {
-			t.Parallel()
-
 			issues := loadGraphFixture(t, tc.fixture)
 			analyzer := analysis.NewAnalyzer(issues)
 			stats := analyzer.AnalyzeWithConfig(analysis.FullAnalysisConfig())

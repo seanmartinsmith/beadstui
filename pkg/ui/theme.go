@@ -178,21 +178,30 @@ func DefaultTheme() Theme {
 		Bold(true).
 		Padding(0, 1)
 
-	// Pre-computed delegate styles (bv-o4cj optimization)
-	t.MutedText = lipgloss.NewStyle().Foreground(ColorMuted)
-	t.MutedTextItalic = lipgloss.NewStyle().Foreground(ColorMuted).Italic(true)
-	t.InfoText = lipgloss.NewStyle().Foreground(ColorInfo)
-	t.InfoBold = lipgloss.NewStyle().Foreground(ColorInfo).Bold(true)
+	// Pre-computed delegate styles (bv-o4cj optimization).
+	//
+	// Derived from this Theme's own fields, NOT from the Color* package
+	// globals. Reading the globals here made DefaultTheme() return a struct
+	// whose color fields were these literals while its styles reflected
+	// whatever theme had last been loaded, so its output depended on whether
+	// anything had called ApplyThemeToGlobals yet. That is the mutable-global
+	// coupling bt-zq6z identified; it surfaced as TestGraphView_GoldenASCII
+	// passing alone and failing in-suite once the embedded default named a
+	// btop palette (bt-o6xx1).
+	t.MutedText = lipgloss.NewStyle().Foreground(t.Muted)
+	t.MutedTextItalic = lipgloss.NewStyle().Foreground(t.Muted).Italic(true)
+	t.InfoText = lipgloss.NewStyle().Foreground(t.Info)
+	t.InfoBold = lipgloss.NewStyle().Foreground(t.Info).Bold(true)
 	t.SecondaryText = lipgloss.NewStyle().Foreground(t.Secondary)
 	t.PrimaryBold = lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
-	t.PriorityUpArrow = lipgloss.NewStyle().Foreground(ColorDanger).Bold(true)
-	t.PriorityDownArrow = lipgloss.NewStyle().Foreground(ColorPrimary).Bold(true)
+	t.PriorityUpArrow = lipgloss.NewStyle().Foreground(t.Danger).Bold(true)
+	t.PriorityDownArrow = lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
 	// TriageStar has no semantic Color* counterpart yet; closest is yellow
 	// (ColorPrioMedium). Kept as ThemeFg literal for now — see bt-pxbc
 	// audit follow-up #2 (promote to YAML token or alias).
 	t.TriageStar = lipgloss.NewStyle().Foreground(ThemeFg("#f0c674"))
-	t.TriageUnblocks = lipgloss.NewStyle().Foreground(ColorSuccess)
-	t.TriageUnblocksAlt = lipgloss.NewStyle().Foreground(ColorSecondary)
+	t.TriageUnblocks = lipgloss.NewStyle().Foreground(t.Success)
+	t.TriageUnblocksAlt = lipgloss.NewStyle().Foreground(t.Secondary)
 
 	return t
 }

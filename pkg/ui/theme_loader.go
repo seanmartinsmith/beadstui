@@ -190,7 +190,7 @@ func LoadTheme() *ThemeFile {
 	// per-token tweaks a user already wrote; the name is read from the same
 	// files, most specific first, with the env var winning so a palette can be
 	// tried for one run without editing anything.
-	if name := selectedThemeName(user, proj); name != "" {
+	if name := selectedThemeName(base, user, proj); name != "" {
 		if btopTF, err := LoadBtopTheme(name); err == nil {
 			mergeTheme(base, btopTF)
 		}
@@ -212,19 +212,29 @@ func LoadTheme() *ThemeFile {
 	return base
 }
 
-// selectedThemeName resolves which vendored btop palette to use, most
-// specific source first: BT_THEME, then the project file, then the user file.
-func selectedThemeName(user, proj *ThemeFile) string {
-	if n := strings.TrimSpace(os.Getenv("BT_THEME")); n != "" {
-		return n
-	}
-	if proj != nil && strings.TrimSpace(proj.Theme) != "" {
-		return strings.TrimSpace(proj.Theme)
-	}
-	if user != nil && strings.TrimSpace(user.Theme) != "" {
-		return strings.TrimSpace(user.Theme)
+// selectedThemeName resolves which vendored btop palette to use, most specific
+// source first: BT_THEME, then the project file, then the user file, then the
+// embedded default. Including the embedded default last is what lets bt ship a
+// named palette rather than a hand-maintained copy of one.
+func selectedThemeName(base, user, proj *ThemeFile) string {
+	for _, candidate := range []string{
+		os.Getenv("BT_THEME"),
+		themeNameOf(proj),
+		themeNameOf(user),
+		themeNameOf(base),
+	} {
+		if n := strings.TrimSpace(candidate); n != "" {
+			return n
+		}
 	}
 	return ""
+}
+
+func themeNameOf(tf *ThemeFile) string {
+	if tf == nil {
+		return ""
+	}
+	return tf.Theme
 }
 
 // getDefaults returns the light/dark fallback for a color pointer, or
@@ -422,21 +432,23 @@ func ApplyThemeToThemeStruct(t *Theme, tf *ThemeFile) {
 	applyThemeField(c.Warning, &t.Warning, "Warning")
 	applyThemeField(c.Danger, &t.Danger, "Danger")
 
-	// Rebuild pre-computed styles
-	t.MutedText = lipgloss.NewStyle().Foreground(ColorMuted)
-	t.MutedTextItalic = lipgloss.NewStyle().Foreground(ColorMuted).Italic(true)
-	t.InfoText = lipgloss.NewStyle().Foreground(ColorInfo)
-	t.InfoBold = lipgloss.NewStyle().Foreground(ColorInfo).Bold(true)
+	// Rebuild pre-computed styles from the fields just applied above, not from
+	// the Color* globals. Sourcing them from globals meant a Theme built from
+	// one ThemeFile could carry styles belonging to another (bt-zq6z).
+	t.MutedText = lipgloss.NewStyle().Foreground(t.Muted)
+	t.MutedTextItalic = lipgloss.NewStyle().Foreground(t.Muted).Italic(true)
+	t.InfoText = lipgloss.NewStyle().Foreground(t.Info)
+	t.InfoBold = lipgloss.NewStyle().Foreground(t.Info).Bold(true)
 	t.SecondaryText = lipgloss.NewStyle().Foreground(t.Secondary)
 	t.PrimaryBold = lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
-	t.PriorityUpArrow = lipgloss.NewStyle().Foreground(ColorDanger).Bold(true)
-	t.PriorityDownArrow = lipgloss.NewStyle().Foreground(ColorPrimary).Bold(true)
+	t.PriorityUpArrow = lipgloss.NewStyle().Foreground(t.Danger).Bold(true)
+	t.PriorityDownArrow = lipgloss.NewStyle().Foreground(t.Primary).Bold(true)
 	// TriageStar has no semantic Color* counterpart yet; closest is yellow
 	// (ColorPrioMedium). Kept as ThemeFg literal for now — see bt-pxbc
 	// audit follow-up #2 (promote to YAML token or alias).
 	t.TriageStar = lipgloss.NewStyle().Foreground(ThemeFg("#f0c674"))
-	t.TriageUnblocks = lipgloss.NewStyle().Foreground(ColorSuccess)
-	t.TriageUnblocksAlt = lipgloss.NewStyle().Foreground(ColorSecondary)
+	t.TriageUnblocks = lipgloss.NewStyle().Foreground(t.Success)
+	t.TriageUnblocksAlt = lipgloss.NewStyle().Foreground(t.Secondary)
 }
 
 // --- Internal helpers ---

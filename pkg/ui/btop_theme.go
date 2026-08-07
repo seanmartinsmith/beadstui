@@ -292,26 +292,6 @@ func (b *BtopTheme) color(keys ...string) (srgb, bool) {
 	return srgb{}, false
 }
 
-// ramp resolves a btop three-stop gradient. Only the endpoints are reliable
-// across the corpus: the `*_mid` stop is absent or empty in up to 9 of the 41
-// upstream themes and `*_end` in up to 2, so both degrade rather than
-// defaulting to black. A missing mid is interpolated, never assumed.
-func (b *BtopTheme) ramp(prefix string) (start, mid, end srgb, ok bool) {
-	start, ok = b.color(prefix + "_start")
-	if !ok {
-		return srgb{}, srgb{}, srgb{}, false
-	}
-	end, hasEnd := b.color(prefix + "_end")
-	if !hasEnd {
-		end = start
-	}
-	mid, hasMid := b.color(prefix + "_mid")
-	if !hasMid {
-		mid = mixRamp(start, end, 0.5)
-	}
-	return start, mid, end, true
-}
-
 // accentMinContrast is the floor for colors this adapter *derives* (info,
 // review, and the type colors built from them). Upstream's own semantic picks
 // -- danger from temp_end, success from temp_start, primary from hi_fg -- are
@@ -352,6 +332,70 @@ func (b *BtopTheme) accentPool(bg srgb) []srgb {
 	return pool
 }
 
+// Hue anchors for bt's fixed semantics. Red means blocked and green means open
+// in every issue tracker anyone has used; those meanings are bt's, not the
+// theme's, so they are matched by hue rather than read off a gradient.
+const (
+	hueRed   = 5.0
+	hueAmber = 45.0
+	hueGreen = 135.0
+)
+
+// anchorMinSat is deliberately below accentPool's floor. A theme's warm tone
+// can legitimately be desaturated -- matcha-dark-sea's only warm color is the
+// dusty #D8B8B2 at 0.18 -- and excluding it would leave that theme with no
+// color to mean "blocked" at all.
+const anchorMinSat = 0.12
+
+// semanticAnchor returns the theme's own color nearest a target hue, within a
+// band, or ok=false when the theme contains nothing in that region.
+//
+// This exists because a btop gradient is reliable as a *gradient* but not as a
+// *semantic scale*. matcha-dark-sea's temp ramp runs purple -> rose -> green,
+// so reading severity off its endpoints would render blocked in green and open
+// in purple. The gradient still orders bt's priority steps; it just does not
+// get to decide which end means danger.
+func (b *BtopTheme) semanticAnchor(bg srgb, target, band float64) (srgb, bool) {
+	keys := make([]string, 0, len(b.Keys))
+	for k := range b.Keys {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys) // determinism: map order must not pick the color
+
+	var best srgb
+	bestScore, found := math.Inf(1), false
+	for _, k := range keys {
+		c, ok := parseBtopColor(b.Keys[k])
+		if !ok {
+			continue
+		}
+		h, s := c.hueSat()
+		if s < anchorMinSat || contrastRatio(c, bg) < accentMinContrast {
+			continue
+		}
+		d := hueDist(h, target)
+		if d > band {
+			continue
+		}
+		// Hue proximity alone is not enough. matcha-dark-sea's #75715e sits at
+		// hue 50 -- five degrees off amber -- but is a near-grey olive at 0.20
+		// saturation, and it beat that theme's actual yellow #E6DB74 (hue 54,
+		// saturation 0.50) on distance, handing the P2 step a muddy 3.1:1 tone
+		// dimmer than every other step in the ramp. Penalising low saturation
+		// lets a slightly-further but genuinely chromatic color win.
+		score := d + (1-s)*saturationPenalty
+		if score < bestScore {
+			best, bestScore, found = c, score, true
+		}
+	}
+	return best, found
+}
+
+// saturationPenalty converts "how washed out is this" into hue-degrees so the
+// two can be traded off in one score. At 40, a fully desaturated color is
+// treated as 40 degrees further from the target than a fully saturated one.
+const saturationPenalty = 40.0
+
 // pickDistinctHue returns the pool color whose hue is farthest from every
 // already-taken hue, and whether one was available at all.
 //
@@ -390,6 +434,41 @@ func pickDistinctHue(pool []srgb, taken []srgb) (srgb, bool) {
 		}
 	}
 	return best, bestScore >= 0
+}
+
+// synthesizeHue builds a color at the requested hue wearing the saturation and
+// value of a reference taken from the theme, so a synthesized accent still
+// belongs tonally even though its hue is bt's choice rather than the theme's.
+//
+// Needed because some themes contain no warm color whatsoever: kyli0x's entire
+// temp ramp is teal (#21d6c9, #1aaba0, #5ec4bc) and gotham's hot end is plain
+// white. Those themes cannot express "blocked" with their own palette, and
+// rendering blocked in teal is worse than rendering it in a red that matches
+// the theme's intensity.
+func synthesizeHue(reference srgb, hue float64) srgb {
+	_, s := reference.hueSat()
+	v := math.Max(reference.r, math.Max(reference.g, reference.b))
+	// A washed-out or dim reference would yield an alarm color too faint to
+	// function as one, so both are floored.
+	if s < 0.35 {
+		s = 0.55
+	}
+	if v < 0.45 {
+		v = 0.65
+	}
+	return hsvToRGB(hue, s, v)
+}
+
+// mostSaturated returns the pool's most saturated color, or fallback for an
+// empty pool. Used as the tonal reference for synthesized accents.
+func mostSaturated(pool []srgb, fallback srgb) srgb {
+	best, bestSat := fallback, -1.0
+	for _, c := range pool {
+		if _, s := c.hueSat(); s > bestSat {
+			best, bestSat = c, s
+		}
+	}
+	return best
 }
 
 // distinctVariant returns a lightness variant of base that duplicates nothing
@@ -482,12 +561,33 @@ func (b *BtopTheme) ThemeFile() *ThemeFile {
 	inactive, _ := b.color("inactive_fg")
 
 	// --- semantic ramp --------------------------------------------------
-	// temp_* is the one gradient with both endpoints defined in all 41
-	// themes, and its semantics (cool -> hot) match bt's priority and
-	// severity ramps exactly.
-	rampLow, rampMid, rampHigh, hasRamp := b.ramp("temp")
-	if !hasRamp {
-		rampLow, rampMid, rampHigh, _ = b.ramp("cpu")
+	// Matched by hue, not read off a gradient. btop's temp_* ramp is reliable
+	// as a gradient but not as a severity scale: several themes author it
+	// decoratively, and matcha-dark-sea's runs purple -> rose -> green so its
+	// "hot" end is green. Reading severity off the endpoints would render
+	// blocked in green and open in purple. red-means-blocked is bt's
+	// semantics and stays bt's to decide.
+	pool := b.accentPool(bg)
+	tonalRef := mostSaturated(pool, hiFg)
+
+	// The red band is deliberately tight. At 45 degrees it swallowed amber and
+	// picked elementarish's #b28602 (hue 45) as "blocked", which then collided
+	// with the warning step and collapsed the ramp; gotham's desaturated tan at
+	// hue 35 was chosen the same way. Red really is a narrow band, and a theme
+	// whose warmest color is a tan does not have a red.
+	rampHigh, ok := b.semanticAnchor(bg, hueRed, 25)
+	if !ok {
+		rampHigh = synthesizeHue(tonalRef, hueRed)
+	}
+	rampLow, ok := b.semanticAnchor(bg, hueGreen, 55)
+	if !ok {
+		rampLow = synthesizeHue(tonalRef, hueGreen)
+	}
+	rampMid, ok := b.semanticAnchor(bg, hueAmber, 30)
+	if !ok || rampMid.hex() == rampHigh.hex() || rampMid.hex() == rampLow.hex() {
+		// No usable amber: sit the middle step on the hue arc between the two
+		// ends so the ramp still reads as a gradient instead of collapsing.
+		rampMid = mixRamp(rampLow, rampHigh, 0.5)
 	}
 	// P1 sits between medium and critical rather than reusing either, so all
 	// four priority steps stay distinguishable.
@@ -512,11 +612,9 @@ func (b *BtopTheme) ThemeFile() *ThemeFile {
 	}
 
 	// --- derived accents ------------------------------------------------
-	// The temp ramp is upstream's own severity gradient and is never
-	// substituted. Only in-progress genuinely must be separable from it: in a
-	// dense list, confusing in-progress with blocked or open is the costly
+	// Only in-progress genuinely must be separable from the severity ramp: in
+	// a dense list, confusing in-progress with blocked or open is the costly
 	// mistake, so it takes the hue farthest from all three ramp stops.
-	pool := b.accentPool(bg)
 	rampStops := []srgb{rampHigh, rampLow, rampMid}
 	info, ok := pickDistinctHue(pool, rampStops)
 	if !ok {

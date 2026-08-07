@@ -171,29 +171,63 @@ func TestBtopNoAccidentalBlack(t *testing.T) {
 	}
 }
 
-// TestBtopMissingMidInterpolates covers the themes the corpus survey flagged as
-// having no temp_mid: the adapter must synthesize a stop between the endpoints
-// rather than leaving it black or duplicating an endpoint.
-func TestBtopMissingMidInterpolates(t *testing.T) {
-	// greyscale and orange both ship temp_start/temp_end with an empty mid.
-	for _, name := range []string{"greyscale", "orange", "gruvbox_dark_v2"} {
-		raw, err := LoadBtopThemeRaw(name)
+// TestBtopSeverityIsSemanticNotPositional is the reason the adapter stopped
+// reading btop gradients positionally.
+//
+// matcha-dark-sea's temp ramp runs purple -> rose -> green, so its "hot" end is
+// green. Taking severity from the endpoints rendered blocked in green and open
+// in purple. Severity is matched by hue instead, because red-means-blocked is
+// bt's semantics rather than the theme author's.
+func TestBtopSeverityIsSemanticNotPositional(t *testing.T) {
+	raw, err := LoadBtopThemeRaw("matcha-dark-sea")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.TrimSpace(raw.Keys["temp_end"]); got != "#33b165" {
+		t.Skipf("matcha-dark-sea temp_end is now %q upstream; fixture no longer valid", got)
+	}
+
+	tf := raw.ThemeFile()
+	blocked, _ := parseBtopColor(tf.Colors.Status["blocked"].Dark)
+	open, _ := parseBtopColor(tf.Colors.Status["open"].Dark)
+
+	bh, _ := blocked.hueSat()
+	oh, _ := open.hueSat()
+	// blocked must be warm, not the theme's green temp_end.
+	if hueDist(bh, hueRed) > 60 {
+		t.Errorf("blocked resolved to hue %.0f (%s), which is not a warm/alarm hue",
+			bh, blocked.hex())
+	}
+	// open must be green-ish, not the theme's purple temp_start.
+	if hueDist(oh, hueGreen) > 60 {
+		t.Errorf("open resolved to hue %.0f (%s), which is not a green hue",
+			oh, open.hex())
+	}
+}
+
+// TestBtopSynthesizesMissingAlarmHue covers themes with no warm color at all:
+// kyli0x's whole temp ramp is teal and gotham's hot end is white. Neither can
+// express "blocked" from its own palette, and rendering blocked in teal is
+// worse than a synthesized red carrying the theme's own intensity.
+func TestBtopSynthesizesMissingAlarmHue(t *testing.T) {
+	for _, name := range []string{"kyli0x", "gotham"} {
+		tf, err := LoadBtopTheme(name)
 		if err != nil {
 			t.Fatalf("%s: %v", name, err)
 		}
-		if got := strings.TrimSpace(raw.Keys["temp_mid"]); got != "" {
-			t.Skipf("%s now defines temp_mid=%q upstream; fixture no longer valid", name, got)
+		blocked, _ := parseBtopColor(tf.Colors.Status["blocked"].Dark)
+		open, _ := parseBtopColor(tf.Colors.Status["open"].Dark)
+		bh, bs := blocked.hueSat()
+		if hueDist(bh, hueRed) > 60 {
+			t.Errorf("%s: blocked resolved to hue %.0f (%s), not a warm hue",
+				name, bh, blocked.hex())
 		}
-		start, mid, end, ok := raw.ramp("temp")
-		if !ok {
-			t.Fatalf("%s: temp ramp did not resolve", name)
+		if bs < 0.3 {
+			t.Errorf("%s: synthesized alarm color %s is too washed out to alarm (sat %.2f)",
+				name, blocked.hex(), bs)
 		}
-		want := mixRamp(start, end, 0.5)
-		if mid.hex() != want.hex() {
-			t.Errorf("%s: interpolated mid = %s, want %s", name, mid.hex(), want.hex())
-		}
-		if mid.hex() == "#000000" && start.hex() != "#000000" {
-			t.Errorf("%s: mid collapsed to black", name)
+		if blocked.hex() == open.hex() {
+			t.Errorf("%s: blocked and open collapsed to %s", name, blocked.hex())
 		}
 	}
 }
@@ -402,27 +436,31 @@ func TestBtopDeterministic(t *testing.T) {
 }
 
 func TestSelectedThemeName(t *testing.T) {
+	base := &ThemeFile{Theme: "matcha-dark-sea"}
 	user := &ThemeFile{Theme: "nord"}
 	proj := &ThemeFile{Theme: "gruvbox_dark"}
 
 	t.Setenv("BT_THEME", "")
-	if got := selectedThemeName(user, proj); got != "gruvbox_dark" {
+	if got := selectedThemeName(base, user, proj); got != "gruvbox_dark" {
 		t.Errorf("project file should outrank user file, got %q", got)
 	}
-	if got := selectedThemeName(user, nil); got != "nord" {
+	if got := selectedThemeName(base, user, nil); got != "nord" {
 		t.Errorf("user file should apply when no project file, got %q", got)
 	}
-	if got := selectedThemeName(nil, nil); got != "" {
+	if got := selectedThemeName(base, nil, nil); got != "matcha-dark-sea" {
+		t.Errorf("embedded default should apply when nothing else selects, got %q", got)
+	}
+	if got := selectedThemeName(nil, nil, nil); got != "" {
 		t.Errorf("no source should select nothing, got %q", got)
 	}
 	// Whitespace-only is not a selection.
-	if got := selectedThemeName(&ThemeFile{Theme: "  "}, nil); got != "" {
+	if got := selectedThemeName(nil, &ThemeFile{Theme: "  "}, nil); got != "" {
 		t.Errorf("blank theme should select nothing, got %q", got)
 	}
 
 	t.Setenv("BT_THEME", "tokyo-night")
-	if got := selectedThemeName(user, proj); got != "tokyo-night" {
-		t.Errorf("env should outrank both files, got %q", got)
+	if got := selectedThemeName(base, user, proj); got != "tokyo-night" {
+		t.Errorf("env should outrank every file, got %q", got)
 	}
 }
 
