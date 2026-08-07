@@ -595,6 +595,12 @@ func GetStatusIcon(s string) string {
 		return activeGlyphs.StClosed
 	case "deferred":
 		return activeGlyphs.StDeferred
+	case "pinned":
+		return activeGlyphs.StPinned
+	case "hooked":
+		return activeGlyphs.StHooked
+	case "review":
+		return activeGlyphs.StReview
 	default:
 		return activeGlyphs.StUnknown
 	}

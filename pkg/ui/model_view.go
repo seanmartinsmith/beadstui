@@ -577,11 +577,16 @@ func (m Model) splitViewHeader() string {
 	return headerStyle.Render(headerText)
 }
 
+// issueListColumnHeader labels the row layout produced by IssueDelegate.Render.
+// The three-letter "TYPE PRI STATUS" run described the old three separate
+// badges; those are now one 3-cell chip (bt-evuf.2), so the header names the
+// chip once rather than advertising columns that no longer exist. Keep this in
+// step with the delegate: it is what tells the reader what the glyphs mean.
 func issueListColumnHeader(workspaceMode bool) string {
 	if workspaceMode {
-		return "  REPO TYPE PRI STATUS      ID    TITLE"
+		return "  REPO T S P ID    TITLE"
 	}
-	return "  TYPE PRI STATUS      ID    TITLE"
+	return "  T S P ID    TITLE"
 }
 
 func (m Model) renderListWithHeader() string {
@@ -740,7 +745,15 @@ func (m Model) renderIssuesPanel(outerWidth, panelHeight int, focused bool) stri
 	// height is fixed across all FilterStates. This also keeps the
 	// click-row math (splitViewListChromeHeight) deterministic.
 	searchRow := m.renderSearchRow(listInnerWidth)
-	splitParts := []string{searchRow, header, m.list.View(), pageLine}
+	splitParts := []string{searchRow, header, m.list.View()}
+	// Selection peek strip (bt-evuf.3) sits between the list and the page
+	// indicator, so it reads as belonging to the list rather than to the panel
+	// chrome. Empty string when not part of this layout; the height it costs is
+	// subtracted in applyListDetailSizing under the same predicate.
+	if peek := m.renderPeekStrip(listInnerWidth); peek != "" {
+		splitParts = append(splitParts, peek)
+	}
+	splitParts = append(splitParts, pageLine)
 	listContent := lipgloss.JoinVertical(lipgloss.Left, splitParts...)
 
 	// The badge is rendered as the right-side label (bt-fxbl precedent) —

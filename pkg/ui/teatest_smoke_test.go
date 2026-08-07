@@ -27,11 +27,13 @@ func TestTeatestSmoke(t *testing.T) {
 	tm := teatest.NewTestModel(t, m, teatest.WithInitialTermSize(120, 32))
 
 	// Init + first render happened in the real program loop; wait for the list
-	// column header (TYPE) plus an actual data row (test-* IDs) to prove the
-	// issues pane rendered with data. Don't key on "TITLE": at 120 wide the
-	// model is in split view and the list header clips before that column.
+	// column header plus an actual data row (test-* IDs) to prove the issues
+	// pane rendered with data. Keyed on "T S P", the chip column label
+	// (bt-evuf.2, formerly "TYPE PRI STATUS"): it sits at the head of the
+	// header so it survives the clipping that hides "TITLE" at 120 wide, where
+	// the model is in split view.
 	teatest.WaitFor(t, tm.Output(), func(b []byte) bool {
-		return bytes.Contains(b, []byte("TYPE")) && bytes.Contains(b, []byte("test-"))
+		return bytes.Contains(b, []byte("T S P")) && bytes.Contains(b, []byte("test-"))
 	}, teatest.WithDuration(8*time.Second))
 
 	// Drive a real interaction through the loop (open/focus detail). We assert

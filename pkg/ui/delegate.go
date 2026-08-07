@@ -61,15 +61,17 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 	// Layout: [sel] [type] [prio-badge] [status-badge] [ID] [title...] [meta]
 	// ══════════════════════════════════════════════════════════════════════════
 
-	// Get all the data
-	icon, iconColor := t.GetTypeIcon(string(i.Issue.IssueType))
+	// Get all the data. Type, status and priority render as one chip
+	// (bt-evuf.2) rather than three separately-padded badges; see
+	// RenderIssueChip for why.
+	chip := RenderIssueChip(string(i.Issue.IssueType), string(i.Issue.Status), i.Issue.Priority)
 	idStr := CompactIssueID(i.Issue.ID, i.RepoPrefix)
 	title := i.Issue.Title
 	ageStr := FormatTimeRel(i.Issue.UpdatedAt)
 	commentCount := len(i.Issue.Comments)
 
-	// Measure actual icon display width (emojis vary: 1-2 cells)
-	iconDisplayWidth := lipgloss.Width(icon)
+	// Measure actual display width; glyphs vary between 1 and 2 cells.
+	chipWidth := lipgloss.Width(chip)
 
 	// Calculate widths for right-side columns (fixed)
 	rightWidth := 0
@@ -160,10 +162,11 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 		rightWidth += 23
 	}
 
-	// Left side fixed columns with polished badges
-	// [selector 2] [repo-badge 0-6] [icon 1-2] [prio-badge 3] [hint 1-2] [status-badge 6] [id dynamic] [space]
-	// Use measured iconDisplayWidth instead of hardcoded value for proper alignment
-	leftFixedWidth := 2 + iconDisplayWidth + 1 // selector(2) + icon(measured) + space(1)
+	// Left side fixed columns.
+	// [selector 2] [repo-badge 0-6] [chip 3] [hint 1-2] [id dynamic] [space]
+	// Use the measured chip width rather than a hardcoded value so 2-cell
+	// glyphs stay aligned.
+	leftFixedWidth := 2 + chipWidth + 1 // selector(2) + chip(measured) + space(1)
 
 	// Repo badge width (workspace mode)
 	var repoBadge string
@@ -175,11 +178,6 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 		repoBadge = RenderRepoBadge(model.DisplayRepoName(i.RepoPrefix))
 		leftFixedWidth += lipgloss.Width(repoBadge) + 1
 	}
-
-	// Priority badge (polished)
-	prioBadge := RenderPriorityBadge(i.Issue.Priority)
-	prioBadgeWidth := lipgloss.Width(prioBadge)
-	leftFixedWidth += prioBadgeWidth + 1
 
 	// Priority hint indicator
 	if d.ShowPriorityHints {
@@ -238,11 +236,6 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 		}
 	}
 
-	// Status badge (polished)
-	statusBadge := RenderStatusBadge(string(i.Issue.Status))
-	statusBadgeWidth := lipgloss.Width(statusBadge)
-	leftFixedWidth += statusBadgeWidth + 1
-
 	// ID width - use actual visual width, but cap reasonably
 	idWidth := lipgloss.Width(idStr)
 	if idWidth > 35 {
@@ -297,12 +290,8 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 		leftSide.WriteString(" ")
 	}
 
-	// Type icon with color
-	leftSide.WriteString(lipgloss.NewStyle().Foreground(iconColor).Render(icon))
-	leftSide.WriteString(" ")
-
-	// Priority badge (polished)
-	leftSide.WriteString(prioBadge)
+	// Type + status + priority as one chip (bt-evuf.2)
+	leftSide.WriteString(chip)
 	leftSide.WriteString(" ")
 
 	// Priority hint indicator (↑/↓) - using pre-computed styles
@@ -350,10 +339,6 @@ func (d IssueDelegate) Render(w io.Writer, m list.Model, index int, listItem lis
 		leftSide.WriteString(epicBadge)
 		leftSide.WriteString(" ")
 	}
-
-	// Status badge (polished)
-	leftSide.WriteString(statusBadge)
-	leftSide.WriteString(" ")
 
 	// ID with secondary styling (using pre-computed style base)
 	idStyle := t.SecondaryText

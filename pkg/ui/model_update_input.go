@@ -2154,6 +2154,13 @@ func (m *Model) applyListDetailSizing(bodyW, bodyHeight int) {
 			innerWidth = 10
 		}
 		listHeight := bodyHeight - 4
+		// The selection peek strip (bt-evuf.3) occupies rows below the list in
+		// the fullscreen-issues layout, so the list must give them up. Gated on
+		// the same predicate the renderer uses; if these two ever disagree the
+		// list overflows its panel and every row shifts.
+		if m.showPeekStrip() {
+			listHeight -= peekStripHeight
+		}
 		if listHeight < 3 {
 			listHeight = 3
 		}

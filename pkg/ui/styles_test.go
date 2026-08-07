@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"charm.land/lipgloss/v2"
+
 	"github.com/seanmartinsmith/beadstui/pkg/model"
 )
 
@@ -28,6 +30,49 @@ func TestRenderPriorityBadge(t *testing.T) {
 		if !strings.Contains(got, tt.want) {
 			t.Errorf("RenderPriorityBadge(%d) = %q, want to contain %q", tt.prio, got, tt.want)
 		}
+	}
+}
+
+// TestRenderIssueChipIsCompactAndLossless is the contract that justifies the
+// chip existing: it must say everything the three badges said, in far less
+// width. The width claim is the whole point -- at a ~48-cell pane the old
+// badges left about 13 cells for the title (bt-evuf.2).
+func TestRenderIssueChipIsCompactAndLossless(t *testing.T) {
+	chip := RenderIssueChip("bug", "open", 0)
+	oldWidth := lipgloss.Width(activeGlyphs.TypeBug) + 1 +
+		lipgloss.Width(RenderPriorityBadge(0)) + 1 +
+		lipgloss.Width(RenderStatusBadge("open"))
+	if w := lipgloss.Width(chip); w >= oldWidth {
+		t.Errorf("chip width %d is not narrower than the %d cells the three "+
+			"separate badges used", w, oldWidth)
+	}
+
+	// Every status must still be distinguishable, or the density came at the
+	// cost of the information the row exists to convey.
+	seen := map[string]string{}
+	statuses := []string{"open", "in_progress", "blocked", "deferred",
+		"pinned", "hooked", "review", "closed"}
+	for _, s := range statuses {
+		got := RenderIssueChip("task", s, 2)
+		if prev, dup := seen[got]; dup {
+			t.Errorf("status %q and %q render the same chip %q", prev, s, got)
+		}
+		seen[got] = s
+	}
+
+	// Same for priority.
+	seenPrio := map[string]int{}
+	for p := 0; p <= 4; p++ {
+		got := RenderIssueChip("task", "open", p)
+		if prev, dup := seenPrio[got]; dup {
+			t.Errorf("priority %d and %d render the same chip %q", prev, p, got)
+		}
+		seenPrio[got] = p
+	}
+
+	// An unknown priority must not panic or silently read as P0.
+	if got := RenderIssueChip("task", "open", 99); got == RenderIssueChip("task", "open", 0) {
+		t.Error("out-of-range priority renders identically to P0")
 	}
 }
 

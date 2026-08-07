@@ -1619,12 +1619,15 @@ func TestHelpOverlay_FloatsOverDimmedBackground(t *testing.T) {
 		if cardRow < 0 && strings.Contains(l, "shortcuts") {
 			cardRow = i
 		}
-		if bgRow < 0 && strings.Contains(l, "TYPE") {
+		// TITLE, not TYPE: this asserts the background is still visible behind
+		// the modal, and TITLE is the column label that survived type/pri/status
+		// fusing into a chip (bt-evuf.2).
+		if bgRow < 0 && strings.Contains(l, "TITLE") {
 			bgRow = i
 		}
 	}
 	if bgRow < 0 {
-		t.Fatalf("expected the underlying view (column header 'TYPE') visible behind the floating help modal")
+		t.Fatalf("expected the underlying view (column header 'TITLE') visible behind the floating help modal")
 	}
 	if cardRow <= 0 {
 		t.Fatalf("expected the help card title floated below the top row, got line %d", cardRow)

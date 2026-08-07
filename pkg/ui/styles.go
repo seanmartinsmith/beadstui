@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"image/color"
+	"strconv"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -289,6 +290,87 @@ func RenderStatusBadge(status string) string {
 		Background(bg).
 		Padding(0, 0).
 		Render(label)
+}
+
+// RenderIssueChip renders type, status and priority as one dense cluster:
+// <type glyph><status glyph><priority digit>, each colored by its own scale.
+//
+// It replaces the separate type icon + "P0" badge + "OPEN" badge in list rows
+// (bt-evuf.2). Those three consumed roughly 15 cells of a ~48-cell pane and
+// repeated near-identically down the whole list, leaving about 13 cells for
+// the one field that actually differs per row. This says the same three things
+// in 3 cells.
+//
+// Deliberately foreground-only. The badges it replaces filled backgrounds on
+// every row, which striped the pane and made the list read as noise; color
+// carries the meaning here and the glyph shapes stay distinct enough to read
+// without it. The glyph vocabulary is the existing lifecycle set already used
+// by the tree and detail pane, so the list stops being the odd one out.
+func RenderIssueChip(issueType, status string, priority int) string {
+	typeGlyph, typeColor := issueTypeMark(issueType)
+
+	statusColor := ColorMuted
+	switch status {
+	case "open":
+		statusColor = ColorStatusOpen
+	case "in_progress":
+		statusColor = ColorStatusInProgress
+	case "blocked":
+		statusColor = ColorStatusBlocked
+	case "deferred":
+		statusColor = ColorStatusDeferred
+	case "pinned":
+		statusColor = ColorStatusPinned
+	case "hooked":
+		statusColor = ColorStatusHooked
+	case "review":
+		statusColor = ColorStatusReview
+	case "closed":
+		statusColor = ColorStatusClosed
+	case "tombstone":
+		statusColor = ColorStatusTombstone
+	}
+
+	// The "P" of "P0" carried no information once the digit is colored by the
+	// priority ramp, so only the digit survives.
+	prioColor := ColorMuted
+	switch priority {
+	case 0:
+		prioColor = ColorPrioCritical
+	case 1:
+		prioColor = ColorPrioHigh
+	case 2:
+		prioColor = ColorPrioMedium
+	case 3:
+		prioColor = ColorPrioLow
+	}
+	prioLabel := "?"
+	if priority >= 0 && priority <= 9 {
+		prioLabel = strconv.Itoa(priority)
+	}
+
+	return lipgloss.NewStyle().Foreground(typeColor).Render(typeGlyph) +
+		lipgloss.NewStyle().Foreground(statusColor).Render(GetStatusIcon(status)) +
+		lipgloss.NewStyle().Foreground(prioColor).Bold(true).Render(prioLabel)
+}
+
+// issueTypeMark is the package-level counterpart to Theme.GetTypeIcon, for
+// renderers that work from the Color* globals rather than a Theme value.
+func issueTypeMark(issueType string) (string, color.Color) {
+	switch issueType {
+	case "bug":
+		return activeGlyphs.TypeBug, ColorTypeBug
+	case "feature":
+		return activeGlyphs.TypeFeature, ColorTypeFeature
+	case "task":
+		return activeGlyphs.TypeTask, ColorTypeTask
+	case "epic":
+		return activeGlyphs.TypeEpic, ColorTypeEpic
+	case "chore":
+		return activeGlyphs.TypeChore, ColorTypeChore
+	default:
+		return activeGlyphs.Bullet, ColorMuted
+	}
 }
 
 // RenderGateBadge returns a styled badge for gate-blocked issues.
