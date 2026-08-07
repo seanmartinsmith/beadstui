@@ -1075,16 +1075,13 @@ func (m *Model) updateViewportContent() {
 	// generalised by bt-gfxhz).
 	addANSI(buildPropertyBlockANSI(item))
 
-	// State dimensions (bt-jprp) - parsed from dimension:value labels
-	if dims := parseStateDimensions(item.Labels); len(dims) > 0 {
-		var sb strings.Builder
-		sb.WriteString("### " + activeGlyphs.Tag + " State Dimensions\n")
-		for _, d := range dims {
-			sb.WriteString(fmt.Sprintf("- **%s:** %s\n", d.Dimension, d.Value))
-		}
-		sb.WriteString("\n")
-		addMD(sb.String())
-	}
+	// State dimensions (bt-jprp) are parsed from dimension:value labels and are
+	// NOT re-listed here. The property block directly above already prints
+	// every label, so a bead labelled area:tooling rendered "Labels
+	// area:tooling" and then a State Dimensions section saying "area: tooling"
+	// -- a whole heading and row to restate the line above it. The dimensional
+	// reading of those labels belongs in how the labels themselves are
+	// rendered (bt-eiec / bt-36h7 / bt-6fn2), not in a duplicate section.
 
 	// Capabilities (bt-t0z6) - cross-project capability labels in workspace mode
 	if m.workspaceMode {
@@ -1121,8 +1118,11 @@ func (m *Model) updateViewportContent() {
 		sb.WriteString("\n")
 		addMD(sb.String())
 	} else if hasHumanLabel(item.Labels) {
-		// Advisory human flag (label, not gate)
-		addMD("### " + activeGlyphs.Tag + " Flagged for Human Input\nThis issue is flagged for human review (advisory - not blocking workflow).\n\n")
+		// Advisory human flag (label, not gate). One line, not a heading plus a
+		// sentence: this restates a label already visible in the property block,
+		// and a real gate above gets the section treatment because it actually
+		// blocks. Advisory does not earn the same weight as blocking.
+		addMD("**" + activeGlyphs.Tag + " Flagged for human review** (advisory, not blocking)\n\n")
 	}
 
 	// Molecule/wisp metadata (bt-c69c)
@@ -1171,98 +1171,118 @@ func (m *Model) updateViewportContent() {
 		))
 	}
 
-	// Centrality (bt-46p6.12 AC3) — surface graph-position signals next to
-	// the issue itself, so users don't need to enter the insights view to
-	// understand how central a bead is. Gated on Phase 2 readiness because
-	// PageRank/betweenness are async and only populated post-warmup.
-	if m.data.analysis != nil && m.data.analysis.IsPhase2Ready() {
-		if rank, ok := m.data.analysis.PageRankRankValue(item.ID); ok {
-			prVal, _ := m.data.analysis.PageRankValue(item.ID)
-			var sb strings.Builder
-			sb.WriteString("### " + activeGlyphs.BarChart + " Centrality\n")
-			sb.WriteString(fmt.Sprintf("- **PageRank:** rank #%d · %.4f\n", rank, prVal))
-			if brank, bok := m.data.analysis.BetweennessRankValue(item.ID); bok {
-				bval, _ := m.data.analysis.BetweennessValue(item.ID)
-				sb.WriteString(fmt.Sprintf("- **Betweenness:** rank #%d · %.4f\n", brank, bval))
+	// Derived analytics (centrality, triage, search scores, graph metrics) are
+	// BUILT here but EMITTED after the bead's own content, via emitAnalytics
+	// below (bt-krx1).
+	//
+	// They previously rendered above the description, so the only text unique
+	// to a bead sat beneath roughly a dozen sections of computed numbers and
+	// the reader scrolled past all of it to reach the thing they opened the
+	// bead for. Ordering is the fix: what the bead says first, what bt infers
+	// about it second.
+	emitAnalytics := func() {
+		// Centrality (bt-46p6.12 AC3) — surface graph-position signals next to
+		// the issue itself, so users don't need to enter the insights view to
+		// understand how central a bead is. Gated on Phase 2 readiness because
+		// PageRank/betweenness are async and only populated post-warmup.
+		if m.data.analysis != nil && m.data.analysis.IsPhase2Ready() {
+			if rank, ok := m.data.analysis.PageRankRankValue(item.ID); ok {
+				prVal, _ := m.data.analysis.PageRankValue(item.ID)
+				var sb strings.Builder
+				sb.WriteString("### " + activeGlyphs.BarChart + " Centrality\n")
+				sb.WriteString(fmt.Sprintf("- **PageRank:** rank #%d · %.4f\n", rank, prVal))
+				if brank, bok := m.data.analysis.BetweennessRankValue(item.ID); bok {
+					bval, _ := m.data.analysis.BetweennessValue(item.ID)
+					sb.WriteString(fmt.Sprintf("- **Betweenness:** rank #%d · %.4f\n", brank, bval))
+				}
+				sb.WriteString(fmt.Sprintf("- **Degree:** in %d / out %d\n",
+					m.data.analysis.InDegree[item.ID], m.data.analysis.OutDegree[item.ID]))
+				sb.WriteString("\n")
+				addMD(sb.String())
 			}
-			sb.WriteString(fmt.Sprintf("- **Degree:** in %d / out %d\n",
-				m.data.analysis.InDegree[item.ID], m.data.analysis.OutDegree[item.ID]))
+		}
+
+		// Triage Insights (bv-151)
+		if issueItem.TriageScore > 0 || issueItem.TriageReason != "" || issueItem.UnblocksCount > 0 || issueItem.IsQuickWin || issueItem.IsBlocker {
+			var sb strings.Builder
+			sb.WriteString("### " + activeGlyphs.Target + " Triage Insights\n")
+
+			// Score with visual indicator
+			scoreIcon := activeGlyphs.DotInfo
+			if issueItem.TriageScore >= 0.7 {
+				scoreIcon = activeGlyphs.DotBlocked
+			} else if issueItem.TriageScore >= 0.4 {
+				scoreIcon = activeGlyphs.DotHigh
+			}
+			sb.WriteString(fmt.Sprintf("- **Triage Score:** %s %.2f/1.00\n", scoreIcon, issueItem.TriageScore))
+
+			// Special flags
+			if issueItem.IsQuickWin {
+				sb.WriteString("- **" + activeGlyphs.Star + " Quick Win** — Low effort, high impact opportunity\n")
+			}
+			if issueItem.IsBlocker {
+				sb.WriteString("- **" + activeGlyphs.DotBlocked + " Critical Blocker** — Completing this unblocks significant downstream work\n")
+			}
+
+			// Unblocks count
+			if issueItem.UnblocksCount > 0 {
+				sb.WriteString(fmt.Sprintf("- **"+activeGlyphs.Unlock+" Unblocks:** %d downstream items when completed\n", issueItem.UnblocksCount))
+			}
+
+			// Reasons. The primary reason is also the first entry of TriageReasons,
+			// so printing a "Primary Reason" line AND an "All Reasons" list that
+			// repeats it spent two blocks saying one thing. Lead with the primary
+			// and list only what it did not already cover.
+			if issueItem.TriageReason != "" {
+				sb.WriteString(fmt.Sprintf("- **Why:** %s\n", issueItem.TriageReason))
+			}
+			for _, reason := range issueItem.TriageReasons {
+				if reason == issueItem.TriageReason {
+					continue
+				}
+				sb.WriteString(fmt.Sprintf("  - %s\n", reason))
+			}
+
 			sb.WriteString("\n")
 			addMD(sb.String())
 		}
-	}
 
-	// Triage Insights (bv-151)
-	if issueItem.TriageScore > 0 || issueItem.TriageReason != "" || issueItem.UnblocksCount > 0 || issueItem.IsQuickWin || issueItem.IsBlocker {
-		var sb strings.Builder
-		sb.WriteString("### " + activeGlyphs.Target + " Triage Insights\n")
-
-		// Score with visual indicator
-		scoreIcon := activeGlyphs.DotInfo
-		if issueItem.TriageScore >= 0.7 {
-			scoreIcon = activeGlyphs.DotBlocked
-		} else if issueItem.TriageScore >= 0.4 {
-			scoreIcon = activeGlyphs.DotHigh
-		}
-		sb.WriteString(fmt.Sprintf("- **Triage Score:** %s %.2f/1.00\n", scoreIcon, issueItem.TriageScore))
-
-		// Special flags
-		if issueItem.IsQuickWin {
-			sb.WriteString("- **" + activeGlyphs.Star + " Quick Win** — Low effort, high impact opportunity\n")
-		}
-		if issueItem.IsBlocker {
-			sb.WriteString("- **" + activeGlyphs.DotBlocked + " Critical Blocker** — Completing this unblocks significant downstream work\n")
-		}
-
-		// Unblocks count
-		if issueItem.UnblocksCount > 0 {
-			sb.WriteString(fmt.Sprintf("- **"+activeGlyphs.Unlock+" Unblocks:** %d downstream items when completed\n", issueItem.UnblocksCount))
-		}
-
-		// Primary reason
-		if issueItem.TriageReason != "" {
-			sb.WriteString(fmt.Sprintf("- **Primary Reason:** %s\n", issueItem.TriageReason))
-		}
-
-		// All reasons (if multiple)
-		if len(issueItem.TriageReasons) > 1 {
-			sb.WriteString("- **All Reasons:**\n")
-			for _, reason := range issueItem.TriageReasons {
-				sb.WriteString(fmt.Sprintf("  - %s\n", reason))
+		// Search Scores (hybrid mode). Heading via Glamour for consistent H3
+		// styling with neighbouring sections. Body via ANSI so lipgloss bar
+		// characters and muted labels survive without Glamour's ESC-stripping
+		// code-fence path (bt-x5xc4 class). Same two-track pattern as Graph
+		// Analysis. (bt-gfxhz.6)
+		if m.semanticSearchEnabled && m.semanticHybridEnabled && issueItem.SearchScoreSet && m.list.FilterState() != list.Unfiltered {
+			summary := searchScoreSummary(issueItem.SearchComponents, item)
+			heading := "### " + activeGlyphs.Search + " Search Scores"
+			if summary != "" {
+				heading += "  (" + summary + ")"
 			}
+			addMD(heading + "\n")
+			addANSI(buildSearchScoresANSI(issueItem.SearchComponents, issueItem.SearchScore, issueItem.SearchTextScore, item))
 		}
 
-		sb.WriteString("\n")
-		addMD(sb.String())
-	}
-
-	// Search Scores (hybrid mode). Heading via Glamour for consistent H3
-	// styling with neighbouring sections. Body via ANSI so lipgloss bar
-	// characters and muted labels survive without Glamour's ESC-stripping
-	// code-fence path (bt-x5xc4 class). Same two-track pattern as Graph
-	// Analysis. (bt-gfxhz.6)
-	if m.semanticSearchEnabled && m.semanticHybridEnabled && issueItem.SearchScoreSet && m.list.FilterState() != list.Unfiltered {
-		summary := searchScoreSummary(issueItem.SearchComponents, item)
-		heading := "### " + activeGlyphs.Search + " Search Scores"
-		if summary != "" {
-			heading += "  (" + summary + ")"
+		// Graph Analysis. Heading stays on Glamour so its H3 styling matches
+		// neighbouring sections (Centrality, Search Scores). Only the
+		// numeric rows go through ANSI — labels in ColorMuted, values default —
+		// since that's where the lipgloss styling actually matters (bt-x5xc4).
+		pr := m.data.analysis.GetPageRankScore(item.ID)
+		bt := m.data.analysis.GetBetweennessScore(item.ID)
+		imp := m.data.analysis.GetCriticalPathScore(item.ID)
+		ev := m.data.analysis.GetEigenvectorScore(item.ID)
+		hub := m.data.analysis.GetHubScore(item.ID)
+		auth := m.data.analysis.GetAuthorityScore(item.ID)
+		// Rendered only when the graph actually says something. A bead with no
+		// edges has all six metrics structurally zero, and printing
+		// "PR 0.0000 - BW 0.0000 - EV 0.0000 - Hub 0.0000 - Authority 0.0000"
+		// spends four lines to report the absence of information. The
+		// dependency-tree section already follows this rule by returning ""
+		// when a bead has no edges; this makes the analytics consistent with it.
+		if pr != 0 || bt != 0 || imp != 0 || ev != 0 || hub != 0 || auth != 0 {
+			addMD("### Graph Analysis\n")
+			addANSI(buildGraphAnalysisANSI(pr, bt, imp, ev, hub, auth))
 		}
-		addMD(heading + "\n")
-		addANSI(buildSearchScoresANSI(issueItem.SearchComponents, issueItem.SearchScore, issueItem.SearchTextScore, item))
 	}
-
-	// Graph Analysis. Heading stays on Glamour so its H3 styling matches
-	// neighbouring sections (Centrality, Search Scores). Only the
-	// numeric rows go through ANSI — labels in ColorMuted, values default —
-	// since that's where the lipgloss styling actually matters (bt-x5xc4).
-	pr := m.data.analysis.GetPageRankScore(item.ID)
-	bt := m.data.analysis.GetBetweennessScore(item.ID)
-	imp := m.data.analysis.GetCriticalPathScore(item.ID)
-	ev := m.data.analysis.GetEigenvectorScore(item.ID)
-	hub := m.data.analysis.GetHubScore(item.ID)
-	auth := m.data.analysis.GetAuthorityScore(item.ID)
-	addMD("### Graph Analysis\n")
-	addANSI(buildGraphAnalysisANSI(pr, bt, imp, ev, hub, auth))
 
 	// Description
 	if item.Description != "" {
@@ -1288,6 +1308,9 @@ func (m *Model) updateViewportContent() {
 	if item.Status.IsClosed() && item.CloseReason != nil && *item.CloseReason != "" {
 		addMD("### Resolution\n" + *item.CloseReason + "\n\n")
 	}
+
+	// What bt infers about the bead, after everything the bead itself says.
+	emitAnalytics()
 
 	// Dependency Graph (ANSI). Built first, rendered iff the tree has any
 	// children — covers both outgoing dep edges and inverse parent_child
