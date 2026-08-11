@@ -211,9 +211,12 @@ func loadThemeWith(override string) *ThemeFile {
 	// Layer 1: embedded defaults
 	base := loadEmbeddedTheme()
 
+	// Same helper the save path uses (bt-4ibsq). Deriving this path
+	// independently in each place is how bt ends up writing a theme to one
+	// file and reading it back from another.
 	var user *ThemeFile
-	if home, err := os.UserHomeDir(); err == nil {
-		user = loadThemeFile(filepath.Join(home, ".config", "bt", "theme.yaml"))
+	if path, err := userThemePath(); err == nil {
+		user = loadThemeFile(path)
 	}
 	proj := loadThemeFile(filepath.Join(".bt", "theme.yaml"))
 
@@ -257,9 +260,12 @@ func loadThemeWith(override string) *ThemeFile {
 // and the embedded colors: block is in force.
 func SelectedThemeName() string {
 	base := loadEmbeddedTheme()
+	// Same helper the save path uses (bt-4ibsq). Deriving this path
+	// independently in each place is how bt ends up writing a theme to one
+	// file and reading it back from another.
 	var user *ThemeFile
-	if home, err := os.UserHomeDir(); err == nil {
-		user = loadThemeFile(filepath.Join(home, ".config", "bt", "theme.yaml"))
+	if path, err := userThemePath(); err == nil {
+		user = loadThemeFile(path)
 	}
 	proj := loadThemeFile(filepath.Join(".bt", "theme.yaml"))
 	return selectedThemeName(base, user, proj)

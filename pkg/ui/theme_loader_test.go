@@ -7,6 +7,14 @@ import (
 )
 
 func TestLoadTheme_EmbeddedDefaults(t *testing.T) {
+	// Isolate from the developer's real ~/.config/bt/theme.yaml. LoadTheme
+	// deliberately reads it, so without this the assertion below depends on
+	// whatever palette the person running the test has picked -- which is a
+	// machine-dependent test, not a failing feature. Latent until bt-4ibsq
+	// gave the picker the ability to create that file.
+	withThemeConfigHome(t)
+	t.Setenv("BT_THEME", "")
+
 	tf := LoadTheme()
 	if tf == nil {
 		t.Fatal("LoadTheme returned nil")

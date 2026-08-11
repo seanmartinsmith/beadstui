@@ -196,6 +196,19 @@ func (s *SettingsModalModel) Reset() {
 // OriginalTheme is the palette to restore if the user cancels.
 func (s *SettingsModalModel) OriginalTheme() string { return s.originalTheme }
 
+// SelectedThemeNameFromModal returns the palette currently selected on the
+// screen, or "" if the theme setting is not present. Free function rather than
+// a method because it reaches into the settingItem list, which is the screen's
+// internal representation and should stay that way as more settings land.
+func SelectedThemeNameFromModal(s *SettingsModalModel) string {
+	for _, it := range s.items {
+		if ts, ok := it.(*themeSetting); ok {
+			return ts.Value()
+		}
+	}
+	return ""
+}
+
 // MoveUp moves the selection up the settings list.
 func (s *SettingsModalModel) MoveUp() {
 	if s.selected > 0 {

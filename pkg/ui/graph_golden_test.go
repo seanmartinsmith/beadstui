@@ -92,6 +92,14 @@ func TestGraphView_GoldenASCII(t *testing.T) {
 	//
 	// The underlying ambient-globals coupling is bt-zq6z's territory and is
 	// tracked separately; this only stops the golden depending on test order.
+	//
+	// Isolated from the developer's real ~/.config/bt/theme.yaml and from
+	// BT_THEME as well (bt-4ibsq). These goldens encode the embedded default
+	// palette, and LoadTheme deliberately layers a user's chosen theme over
+	// it -- so without this, picking any palette in the settings screen turns
+	// the golden suite red on that machine only.
+	withThemeConfigHome(t)
+	t.Setenv("BT_THEME", "")
 	ApplyThemeToGlobals(LoadTheme())
 
 	cases := []struct {
