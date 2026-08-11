@@ -1,6 +1,26 @@
-# beadstui default theme: Tomorrow Night + matcha-dark-sea
-# Copy to ~/.config/bt/theme.yaml or .bt/theme.yaml to customize.
-# Only include the colors you want to override - everything else inherits.
+# beadstui default theme.
+#
+# `theme` names a palette from either of two sources (bt-o6xx1, bt-ba9fc):
+#
+#   pkg/ui/themes/bt/    bt-authored palettes, written in this same schema
+#   pkg/ui/themes/btop/  the vendored upstream btop corpus, adapted at load
+#
+# Override it with BT_THEME=<name>, or by setting `theme:` in
+# ~/.config/bt/theme.yaml or .bt/theme.yaml.
+#
+# A bare name checks the bt-native directory first and falls back to the btop
+# corpus, so a bt-authored palette shadows a vendored one of the same name --
+# it is written directly in bt's token vocabulary, so it is the better answer
+# to that name, and the vendored files cannot be edited to say so because they
+# must stay byte-identical to upstream for re-vendoring. Pin a source
+# explicitly with a prefix: `bt:greyscale` or `btop:greyscale`.
+#
+# The `colors:` block below is the fallback that applies when no named theme
+# resolves, and it stays as the historical Tomorrow Night + matcha-dark-sea
+# pairing so bt still renders correctly if the embedded themes are ever
+# unavailable. Anything you write into a colors: block of your own still wins
+# over the named theme, so you can pick a palette and tweak two tokens.
+theme: matcha-dark-sea
 
 colors:
   # Base palette

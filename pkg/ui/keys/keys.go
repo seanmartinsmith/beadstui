@@ -62,6 +62,7 @@ type AppKeys struct {
 	RecipePicker      RecipePickerKeys
 	BQLQuery          BQLQueryKeys
 	TimeTravelInput   TimeTravelInputKeys
+	Settings          SettingsKeys
 
 	// RepoPicker splits into Nav + Search sub-states (Wave 2, bt-9lpib), same
 	// pattern as LabelPicker. Dispatcher selects via m.repoPicker.IsSearchFocused().
@@ -110,6 +111,7 @@ func NewAppKeys() AppKeys {
 		RecipePicker:      NewRecipePickerKeys(),
 		BQLQuery:          NewBQLQueryKeys(),
 		TimeTravelInput:   NewTimeTravelInputKeys(),
+		Settings:          NewSettingsKeys(),
 		RepoPickerNav:     NewRepoPickerNavKeys(),
 		RepoPickerSearch:  NewRepoPickerSearchKeys(),
 

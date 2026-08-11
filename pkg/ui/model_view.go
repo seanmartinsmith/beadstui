@@ -169,6 +169,12 @@ func (m Model) View() tea.View {
 	case ModalRecipePicker:
 		// Handled as overlay after background renders (below) — bt-vklk
 		// Phase 1: dimmed backdrop, rounded border, title-in-border.
+	case ModalSettings:
+		// Handled as overlay after background renders (below). The dimmed
+		// backdrop matters more here than elsewhere: cycling a palette
+		// repaints the UI behind the screen, and that repaint IS the preview.
+	case ModalSettingsMenu:
+		// Handled as overlay after background renders (below).
 	case ModalRepoPicker:
 		// Handled as overlay after background renders (below)
 	case ModalLabelPicker:
@@ -291,6 +297,12 @@ func (m Model) View() tea.View {
 	}
 	if m.activeModal == ModalRecipePicker {
 		body = OverlayCenterDimBackdrop(body, m.recipePicker.View(), m.width, m.height-1)
+	}
+	if m.activeModal == ModalSettings {
+		body = OverlayCenterDimBackdrop(body, m.settingsModal.View(), m.width, m.height-1)
+	}
+	if m.activeModal == ModalSettingsMenu {
+		body = OverlayCenterDimBackdrop(body, m.settingsMenu.View(), m.width, m.height-1)
 	}
 	if m.activeModal == ModalTimeTravelInput {
 		body = OverlayCenterDimBackdrop(body, m.renderTimeTravelPrompt(), m.width, m.height-1)

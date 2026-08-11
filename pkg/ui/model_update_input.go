@@ -581,6 +581,25 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// Settings screen (bt-54c3). This early return is what makes esc safe as
+	// the open key: while the screen is up, esc lands here and cancels, so the
+	// global "back / cancel" binding never sees it.
+	if m.activeModal == ModalSettings {
+		if msg.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
+		m = m.handleSettingsModalKeys(msg)
+		return m, nil
+	}
+
+	if m.activeModal == ModalSettingsMenu {
+		if msg.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
+		m = m.handleSettingsMenuKeys(msg)
+		return m, nil
+	}
+
 	// Handle quit confirmation first
 	if m.activeModal == ModalQuitConfirm {
 		switch msg.String() {
@@ -1081,14 +1100,23 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 				m.focused = focusList
 				return m, nil
 			}
-			// At main list - first ESC clears filters, second shows quit confirm
+			// At main list - first ESC clears filters, second opens settings
 			if m.hasActiveFilters() {
 				m.clearAllFilters()
 				return m, nil
 			}
-			// No filters active - show quit confirmation
-			m.openModal(ModalQuitConfirm)
-			m.focused = focusQuitConfirm
+			// Nothing left to back out of, so esc has reached its base state.
+			// btop opens its menu here, which is the behaviour asked for
+			// (bt-54c3, and the bt-2aa49 amendment that funds this surface).
+			//
+			// The old esc-to-quit-confirm is not lost, it moves one level in:
+			// QUIT is an entry on this menu, exactly as in btop. `q` still
+			// quits directly without passing through here at all.
+			m.openModal(ModalSettingsMenu)
+			m.settingsMenu.Reset()
+			m.settingsMenu.SetTheme(m.theme)
+			m.settingsMenu.SetSize(m.width, m.height-1)
+			m.focused = focusSettingsMenu
 			return m, nil
 
 		case key.Matches(msg, m.keys.Global.Board):
@@ -1502,6 +1530,10 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			// BQL modal already handled in overlay dispatch above; no-op here
 			return m, nil
 
+		case focusSettings:
+			m = m.handleSettingsModalKeys(msg)
+		case focusSettingsMenu:
+			m = m.handleSettingsMenuKeys(msg)
 		case focusRecipePicker:
 			m = m.handleRecipePickerKeys(msg)
 

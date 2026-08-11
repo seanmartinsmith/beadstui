@@ -198,6 +198,61 @@ func (k RecipePickerKeys) ShortHelp() []key.Binding {
 	return []key.Binding{k.Up, k.Down, k.Apply, k.Cancel}
 }
 
+// SettingsKeys are the bindings for the settings screen (bt-54c3).
+//
+// Up/Down select a setting; Prev/Next change the selected one's value, which
+// is btop's model and the reason there is no Apply here -- values take effect
+// as you move through them. Keep leaves them in place, Cancel restores what
+// was rendering when the screen opened.
+type SettingsKeys struct {
+	// Nav between settings
+	Up   key.Binding
+	Down key.Binding
+
+	// Change the selected setting's value
+	Prev key.Binding
+	Next key.Binding
+
+	// Exit
+	Keep   key.Binding
+	Cancel key.Binding
+}
+
+// NewSettingsKeys returns the default settings screen keymap.
+func NewSettingsKeys() SettingsKeys {
+	return SettingsKeys{
+		Up: key.NewBinding(
+			key.WithKeys("up", "k"),
+			key.WithHelp("↑/k", "move up"),
+		),
+		Down: key.NewBinding(
+			key.WithKeys("down", "j"),
+			key.WithHelp("↓/j", "move down"),
+		),
+		Prev: key.NewBinding(
+			key.WithKeys("left", "h"),
+			key.WithHelp("←/h", "previous value"),
+		),
+		Next: key.NewBinding(
+			key.WithKeys("right", "l"),
+			key.WithHelp("→/l", "next value"),
+		),
+		Keep: key.NewBinding(
+			key.WithKeys("enter"),
+			key.WithHelp("⏎", "keep"),
+		),
+		Cancel: key.NewBinding(
+			key.WithKeys("esc"),
+			key.WithHelp("esc", "cancel"),
+		),
+	}
+}
+
+// ShortHelp returns the status-bar hint for the settings screen.
+func (k SettingsKeys) ShortHelp() []key.Binding {
+	return []key.Binding{k.Up, k.Down, k.Prev, k.Next, k.Cancel}
+}
+
 // FullHelp returns column-grouped bindings for the ; sidebar and ? overlay.
 func (k RecipePickerKeys) FullHelp() [][]key.Binding {
 	return [][]key.Binding{

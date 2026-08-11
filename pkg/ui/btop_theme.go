@@ -1,0 +1,872 @@
+package ui
+
+// btop theme adapter (bt-o6xx1).
+//
+// bt's default palette was originally hand-copied out of btop's
+// `tomorrow-night` theme plus a `matcha-dark-sea` teal accent (see the comment
+// at the top of theme.go). That copy took only flat colors and discarded the
+// part of a btop theme that actually carries hierarchy: every btop theme
+// defines three-stop gradients (temp_start/mid/end, cpu_*, used_*, ...) that
+// describe a low -> mid -> high ramp. bt has exactly such ramps to express
+// (priority P4..P0, staleness, graph heat) and was expressing them with four
+// unrelated colors at identical saturation, which is why nothing read as
+// hierarchy.
+//
+// This file ingests the upstream btop corpus (vendored under themes/btop) and
+// maps it onto bt's existing token set, so bt ships the whole collection
+// instead of one flattened palette. The vendored .theme files are the upstream
+// originals rather than pre-converted bt YAML: keeping the mapping as code
+// means a mapping fix does not require regenerating 41 files, and the rules
+// below stay reviewable and testable in one place.
+//
+// Hex literals in this file are permitted for the same reason as theme.go /
+// theme_loader.go / styles.go: they are polarity anchors for color math
+// (pure black / pure white), not palette values.
+
+import (
+	"embed"
+	"fmt"
+	"io/fs"
+	"math"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+)
+
+//go:embed themes/btop/*.theme
+var btopThemeFS embed.FS
+
+const btopThemeDir = "themes/btop"
+
+// btopAssignRe matches a btop theme assignment: theme[key]="value".
+// Upstream files are shell-ish key/value with # comments; only this form is
+// significant.
+var btopAssignRe = regexp.MustCompile(`^\s*theme\[([a-z_]+)\]\s*=\s*"([^"]*)"`)
+
+// BtopTheme is a parsed btop .theme file: its name plus the raw key -> value
+// map exactly as written upstream. Values are kept as strings because btop
+// permits three encodings (see parseBtopColor) and an intentionally empty
+// value is meaningful.
+type BtopTheme struct {
+	Name string
+	Keys map[string]string
+}
+
+// srgb is an sRGB triple with components in [0,1]. Sufficient for the mixing
+// and hue comparisons this adapter needs; no color-appearance model is
+// warranted for picking accent hues out of a 20-color palette.
+type srgb struct{ r, g, b float64 }
+
+// parseBtopColor decodes the three encodings btop documents in every theme
+// header: "#RRGGBB" hex, "#BW" two-character greyscale, and "R G B" decimal
+// triples in 0-255. Returns ok=false for an empty or unparseable value; an
+// empty value is legal upstream and means "use the terminal default".
+func parseBtopColor(s string) (srgb, bool) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return srgb{}, false
+	}
+
+	if strings.HasPrefix(s, "#") {
+		h := s[1:]
+		switch len(h) {
+		case 6:
+			v, err := strconv.ParseUint(h, 16, 32)
+			if err != nil {
+				return srgb{}, false
+			}
+			return srgb{
+				r: float64((v>>16)&0xff) / 255,
+				g: float64((v>>8)&0xff) / 255,
+				b: float64(v&0xff) / 255,
+			}, true
+		case 2:
+			// "#BW": a two-character greyscale shorthand.
+			v, err := strconv.ParseUint(h, 16, 32)
+			if err != nil {
+				return srgb{}, false
+			}
+			g := float64(v) / 255
+			return srgb{r: g, g: g, b: g}, true
+		default:
+			return srgb{}, false
+		}
+	}
+
+	// "R G B" decimal triple.
+	fields := strings.Fields(s)
+	if len(fields) != 3 {
+		return srgb{}, false
+	}
+	var out [3]float64
+	for i, f := range fields {
+		v, err := strconv.Atoi(f)
+		if err != nil || v < 0 || v > 255 {
+			return srgb{}, false
+		}
+		out[i] = float64(v) / 255
+	}
+	return srgb{r: out[0], g: out[1], b: out[2]}, true
+}
+
+func (c srgb) hex() string {
+	clamp := func(v float64) int {
+		i := int(math.Round(v * 255))
+		if i < 0 {
+			return 0
+		}
+		if i > 255 {
+			return 255
+		}
+		return i
+	}
+	return fmt.Sprintf("#%02x%02x%02x", clamp(c.r), clamp(c.g), clamp(c.b))
+}
+
+// luminance is the WCAG relative luminance, used for polarity detection and
+// contrast ratios.
+func (c srgb) luminance() float64 {
+	lin := func(v float64) float64 {
+		if v <= 0.03928 {
+			return v / 12.92
+		}
+		return math.Pow((v+0.055)/1.055, 2.4)
+	}
+	return 0.2126*lin(c.r) + 0.7152*lin(c.g) + 0.0722*lin(c.b)
+}
+
+// contrastRatio returns the WCAG contrast ratio between two colors (1.0..21.0).
+func contrastRatio(a, b srgb) float64 {
+	la, lb := a.luminance(), b.luminance()
+	if la < lb {
+		la, lb = lb, la
+	}
+	return (la + 0.05) / (lb + 0.05)
+}
+
+// lstarOf converts a WCAG relative luminance to CIE L* (0..100).
+//
+// Contrast ratio is the right measure for legibility but the wrong one for
+// *spacing*: it is a ratio, so equal steps in it are not equal steps in
+// perceived lightness -- 3:1 to 6:1 is a far bigger visual jump than 15:1 to
+// 18:1. L* is perceptually uniform, which is what a palette with no hue left
+// to spend needs in order to space its roles evenly (bt-zelhm).
+func lstarOf(y float64) float64 {
+	if y > 216.0/24389.0 {
+		return 116*math.Cbrt(y) - 16
+	}
+	return y * 24389.0 / 27.0
+}
+
+func (c srgb) lstar() float64 { return lstarOf(c.luminance()) }
+
+// greyAtLstar returns the achromatic color with the given CIE L*.
+//
+// Because R=G=B the WCAG luminance weights sum to exactly 1, so the channel
+// value is just the gamma-encoded luminance. That makes this an exact inverse
+// of lstar rather than an approximation, and -- the property mono mode depends
+// on -- it cannot introduce chroma.
+func greyAtLstar(l float64) srgb {
+	var y float64
+	if l > 8 {
+		t := (l + 16) / 116
+		y = t * t * t
+	} else {
+		y = l * 27.0 / 24389.0
+	}
+	y = math.Max(0, math.Min(1, y))
+	v := y * 12.92
+	if y > 0.0031308 {
+		v = 1.055*math.Pow(y, 1/2.4) - 0.055
+	}
+	return srgb{r: v, g: v, b: v}
+}
+
+// lstarAtContrast returns the L* a foreground needs in order to reach the
+// given contrast ratio against bg, on whichever side of bg has room for it.
+func lstarAtContrast(bg srgb, target float64) float64 {
+	yb := bg.luminance()
+	if yb < 0.5 {
+		return lstarOf(math.Min(1, target*(yb+0.05)-0.05))
+	}
+	return lstarOf(math.Max(0, (yb+0.05)/target-0.05))
+}
+
+// hueSat returns the HSV hue in degrees and saturation in [0,1]. Achromatic
+// colors report saturation 0 and are excluded from accent picking.
+func (c srgb) hueSat() (float64, float64) {
+	maxV := math.Max(c.r, math.Max(c.g, c.b))
+	minV := math.Min(c.r, math.Min(c.g, c.b))
+	d := maxV - minV
+	if d < 1e-9 || maxV < 1e-9 {
+		return 0, 0
+	}
+	var h float64
+	switch maxV {
+	case c.r:
+		h = math.Mod((c.g-c.b)/d, 6)
+	case c.g:
+		h = (c.b-c.r)/d + 2
+	default:
+		h = (c.r-c.g)/d + 4
+	}
+	h *= 60
+	if h < 0 {
+		h += 360
+	}
+	return h, d / maxV
+}
+
+// hueDist is the shortest angular distance between two hues, in degrees.
+func hueDist(a, b float64) float64 {
+	d := math.Abs(a - b)
+	if d > 180 {
+		d = 360 - d
+	}
+	return d
+}
+
+// mixColor linearly interpolates between two colors; t=0 yields a, t=1 yields b.
+func mixColor(a, b srgb, t float64) srgb {
+	return srgb{
+		r: a.r + (b.r-a.r)*t,
+		g: a.g + (b.g-a.g)*t,
+		b: a.b + (b.b-a.b)*t,
+	}
+}
+
+// hsvToRGB converts hue in degrees plus saturation and value in [0,1].
+func hsvToRGB(h, s, v float64) srgb {
+	h = math.Mod(math.Mod(h, 360)+360, 360)
+	c := v * s
+	x := c * (1 - math.Abs(math.Mod(h/60, 2)-1))
+	m := v - c
+	var r, g, b float64
+	switch {
+	case h < 60:
+		r, g, b = c, x, 0
+	case h < 120:
+		r, g, b = x, c, 0
+	case h < 180:
+		r, g, b = 0, c, x
+	case h < 240:
+		r, g, b = 0, x, c
+	case h < 300:
+		r, g, b = x, 0, c
+	default:
+		r, g, b = c, 0, x
+	}
+	return srgb{r: r + m, g: g + m, b: b + m}
+}
+
+// mixRamp interpolates a gradient stop by rotating hue along the shorter arc
+// rather than blending channels.
+//
+// Straight RGB interpolation between distant hues passes through grey: in
+// adwaita-dark, whose temp ramp runs blue -> red, the midpoint landed on a
+// muddy #7e467e at 2.5:1 contrast. Rotating the hue keeps saturation and value
+// up, so every step of the priority ramp stays as legible as its endpoints.
+// Achromatic endpoints fall back to channel mixing, which is correct for them.
+func mixRamp(a, b srgb, t float64) srgb {
+	ha, sa := a.hueSat()
+	hb, sb := b.hueSat()
+	if sa < 0.1 || sb < 0.1 {
+		return mixColor(a, b, t)
+	}
+	// Rotate along the shorter arc.
+	d := hb - ha
+	if d > 180 {
+		d -= 360
+	} else if d < -180 {
+		d += 360
+	}
+	va := math.Max(a.r, math.Max(a.g, a.b))
+	vb := math.Max(b.r, math.Max(b.g, b.b))
+	return hsvToRGB(ha+d*t, sa+(sb-sa)*t, va+(vb-va)*t)
+}
+
+var (
+	srgbBlack = srgb{0, 0, 0}
+	srgbWhite = srgb{1, 1, 1}
+)
+
+// ParseBtopTheme parses the contents of a btop .theme file. Unknown keys are
+// retained; comments and blank lines are ignored. Parsing never fails -- a
+// line that is not an assignment simply contributes nothing.
+func ParseBtopTheme(name, content string) *BtopTheme {
+	t := &BtopTheme{Name: name, Keys: make(map[string]string)}
+	for _, line := range strings.Split(content, "\n") {
+		if m := btopAssignRe.FindStringSubmatch(line); m != nil {
+			t.Keys[m[1]] = m[2]
+		}
+	}
+	return t
+}
+
+// BtopThemeNames returns the vendored theme names, sorted. These are the
+// values accepted by LoadBtopTheme.
+func BtopThemeNames() []string {
+	entries, err := fs.ReadDir(btopThemeFS, btopThemeDir)
+	if err != nil {
+		return nil
+	}
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if n := strings.TrimSuffix(e.Name(), ".theme"); n != e.Name() {
+			names = append(names, n)
+		}
+	}
+	sort.Strings(names)
+	return names
+}
+
+// LoadBtopThemeRaw reads and parses a vendored btop theme by name.
+func LoadBtopThemeRaw(name string) (*BtopTheme, error) {
+	data, err := btopThemeFS.ReadFile(btopThemeDir + "/" + name + ".theme")
+	if err != nil {
+		return nil, fmt.Errorf("read btop theme %q: %w", name, err)
+	}
+	return ParseBtopTheme(name, string(data)), nil
+}
+
+// color returns the first key that parses to a color, in preference order.
+func (b *BtopTheme) color(keys ...string) (srgb, bool) {
+	for _, k := range keys {
+		if c, ok := parseBtopColor(b.Keys[k]); ok {
+			return c, true
+		}
+	}
+	return srgb{}, false
+}
+
+// accentMinContrast is the floor for colors this adapter *derives* (info,
+// review, and the type colors built from them). Upstream's own semantic picks
+// -- danger from temp_end, success from temp_start, primary from hi_fg -- are
+// passed through untouched even when they sit below this, because those are
+// the theme author's editorial choices. The floor applies only where bt is
+// making the choice, and 3.0 is the WCAG AA threshold for UI components.
+const accentMinContrast = 3.0
+
+// accentPool collects the theme's own chromatic colors, deduplicated, for
+// accent derivation. Only colors saturated enough to read as a hue and legible
+// enough against the background are eligible.
+func (b *BtopTheme) accentPool(bg srgb) []srgb {
+	seen := make(map[string]bool)
+	var pool []srgb
+	// Sorted for determinism: map iteration order must not change the palette.
+	keys := make([]string, 0, len(b.Keys))
+	for k := range b.Keys {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		c, ok := parseBtopColor(b.Keys[k])
+		if !ok {
+			continue
+		}
+		_, sat := c.hueSat()
+		if sat < 0.20 || contrastRatio(c, bg) < accentMinContrast {
+			continue
+		}
+		h := c.hex()
+		if seen[h] {
+			continue
+		}
+		seen[h] = true
+		pool = append(pool, c)
+	}
+	return pool
+}
+
+// Hue anchors for bt's fixed semantics. Red means blocked and green means open
+// in every issue tracker anyone has used; those meanings are bt's, not the
+// theme's, so they are matched by hue rather than read off a gradient.
+const (
+	hueRed   = 5.0
+	hueAmber = 45.0
+	hueGreen = 135.0
+)
+
+// anchorMinSat is deliberately below accentPool's floor. A theme's warm tone
+// can legitimately be desaturated -- matcha-dark-sea's only warm color is the
+// dusty #D8B8B2 at 0.18 -- and excluding it would leave that theme with no
+// color to mean "blocked" at all.
+const anchorMinSat = 0.12
+
+// semanticAnchor returns the theme's own color nearest a target hue, within a
+// band, or ok=false when the theme contains nothing in that region.
+//
+// This exists because a btop gradient is reliable as a *gradient* but not as a
+// *semantic scale*. matcha-dark-sea's temp ramp runs purple -> rose -> green,
+// so reading severity off its endpoints would render blocked in green and open
+// in purple. The gradient still orders bt's priority steps; it just does not
+// get to decide which end means danger.
+func (b *BtopTheme) semanticAnchor(bg srgb, target, band float64) (srgb, bool) {
+	keys := make([]string, 0, len(b.Keys))
+	for k := range b.Keys {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys) // determinism: map order must not pick the color
+
+	var best srgb
+	bestScore, found := math.Inf(1), false
+	for _, k := range keys {
+		c, ok := parseBtopColor(b.Keys[k])
+		if !ok {
+			continue
+		}
+		h, s := c.hueSat()
+		if s < anchorMinSat || contrastRatio(c, bg) < accentMinContrast {
+			continue
+		}
+		d := hueDist(h, target)
+		if d > band {
+			continue
+		}
+		// Hue proximity alone is not enough. matcha-dark-sea's #75715e sits at
+		// hue 50 -- five degrees off amber -- but is a near-grey olive at 0.20
+		// saturation, and it beat that theme's actual yellow #E6DB74 (hue 54,
+		// saturation 0.50) on distance, handing the P2 step a muddy 3.1:1 tone
+		// dimmer than every other step in the ramp. Penalising low saturation
+		// lets a slightly-further but genuinely chromatic color win.
+		score := d + (1-s)*saturationPenalty
+		if score < bestScore {
+			best, bestScore, found = c, score, true
+		}
+	}
+	return best, found
+}
+
+// saturationPenalty converts "how washed out is this" into hue-degrees so the
+// two can be traded off in one score. At 40, a fully desaturated color is
+// treated as 40 degrees further from the target than a fully saturated one.
+const saturationPenalty = 40.0
+
+// pickDistinctHue returns the pool color whose hue is farthest from every
+// already-taken hue, and whether one was available at all.
+//
+// This is a greedy farthest-point choice. It reports ok=false rather than
+// inventing a color because most btop themes carry only four or five distinct
+// chromatic hues -- tokyo-night's whole pool is red, orange, green and cyan --
+// which is fewer than bt has roles to fill. Callers decide what a genuinely
+// exhausted palette should degrade to; silently returning a duplicate would
+// make two roles indistinguishable without anyone noticing.
+func pickDistinctHue(pool []srgb, taken []srgb) (srgb, bool) {
+	isTaken := func(c srgb) bool {
+		for _, t := range taken {
+			if t.hex() == c.hex() {
+				return true
+			}
+		}
+		return false
+	}
+	var best srgb
+	bestScore := -1.0
+	for _, c := range pool {
+		if isTaken(c) {
+			continue
+		}
+		ch, _ := c.hueSat()
+		score := 360.0
+		for _, t := range taken {
+			th, _ := t.hueSat()
+			if d := hueDist(ch, th); d < score {
+				score = d
+			}
+		}
+		if score > bestScore {
+			bestScore = score
+			best = c
+		}
+	}
+	return best, bestScore >= 0
+}
+
+// synthesizeHue builds a color at the requested hue wearing the saturation and
+// value of a reference taken from the theme, so a synthesized accent still
+// belongs tonally even though its hue is bt's choice rather than the theme's.
+//
+// Needed because some themes contain no warm color whatsoever: kyli0x's entire
+// temp ramp is teal (#21d6c9, #1aaba0, #5ec4bc) and gotham's hot end is plain
+// white. Those themes cannot express "blocked" with their own palette, and
+// rendering blocked in teal is worse than rendering it in a red that matches
+// the theme's intensity.
+func synthesizeHue(reference srgb, hue float64) srgb {
+	_, s := reference.hueSat()
+	v := math.Max(reference.r, math.Max(reference.g, reference.b))
+	// A washed-out or dim reference would yield an alarm color too faint to
+	// function as one, so both are floored.
+	if s < 0.35 {
+		s = 0.55
+	}
+	if v < 0.45 {
+		v = 0.65
+	}
+	return hsvToRGB(hue, s, v)
+}
+
+// monoSatEpsilon is the saturation below which a color carries no usable hue.
+// btop's greyscale writes every value as 2-char shorthand, so R=G=B exactly and
+// its measured maximum is 0.0000; the epsilon only tolerates rounding in the
+// decimal-triple encoding. The next-least-saturated theme in the corpus is far
+// above it, so this threshold has no near misses to get wrong.
+const monoSatEpsilon = 0.02
+
+// isMono reports whether a theme contains no chroma anywhere.
+//
+// Such a theme has no hue to spend, so deriving bt's semantic ramp by hue --
+// and synthesizing an alarm hue when the match fails, which is what
+// synthesizeHue exists to do -- would paint in color the author deliberately
+// left out. greyscale is the corpus's only example (bt-zelhm).
+func (b *BtopTheme) isMono() bool {
+	found := false
+	for _, v := range b.Keys {
+		c, ok := parseBtopColor(v)
+		if !ok {
+			continue
+		}
+		found = true
+		if _, s := c.hueSat(); s >= monoSatEpsilon {
+			return false
+		}
+	}
+	return found
+}
+
+// monoAccentSlots is the number of rungs on the monochrome ladder. One each
+// for the four priority steps, plus in-progress and review, plus hooked --
+// which needs its own rung because it is a real status badge sharing the issues
+// list, and binding it to primary (as the chromatic path does) collapsed it
+// onto open at 0.3 L* in greyscale.
+const monoAccentSlots = 7
+
+// monoMinDeltaLstar is the smallest CIE L* gap the ladder may leave between
+// adjacent roles. Well above the ~2 L* just-noticeable difference for large
+// patches, because these are read while scanning a list rather than compared
+// side by side.
+const monoMinDeltaLstar = 6.0
+
+// monoLadder returns monoAccentSlots achromatic tones spaced evenly in CIE L*,
+// climbing from just past floor to the polarity extreme.
+//
+// The floor is the neutral ramp's muted tone rather than the bare legibility
+// limit, because closed is bound to muted: starting the ladder at the 3.0
+// contrast floor would put open *below* closed and render finished work louder
+// than live work. The ceiling is the extreme itself -- in a palette with no
+// hue, maximum contrast is the only alarm signal there is, and btop's own
+// greyscale says the same thing by putting #ff at the hot end of every ramp.
+func monoLadder(bg, floor srgb) []srgb {
+	lFloor := floor.lstar()
+	lCeil := 100.0
+	if bg.luminance() >= 0.5 {
+		lCeil = 0.0
+	}
+	// Never start the ladder somewhere illegible, even if muted sits there.
+	lLimit := lstarAtContrast(bg, accentMinContrast)
+	if lCeil > lFloor {
+		lFloor = math.Max(lFloor, lLimit)
+	} else {
+		lFloor = math.Min(lFloor, lLimit)
+	}
+	// A theme whose muted tone crowds the extreme leaves too little room to
+	// separate the rungs; widen back down, but never past legibility.
+	if need := float64(monoAccentSlots) * monoMinDeltaLstar; math.Abs(lCeil-lFloor) < need {
+		if lCeil > lFloor {
+			lFloor = math.Max(lLimit, lCeil-need)
+		} else {
+			lFloor = math.Min(lLimit, lCeil+need)
+		}
+	}
+
+	step := (lCeil - lFloor) / float64(monoAccentSlots)
+	out := make([]srgb, monoAccentSlots)
+	for i := range out {
+		out[i] = greyAtLstar(lFloor + step*float64(i+1))
+	}
+	return out
+}
+
+// mostSaturated returns the pool's most saturated color, or fallback for an
+// empty pool. Used as the tonal reference for synthesized accents.
+func mostSaturated(pool []srgb, fallback srgb) srgb {
+	best, bestSat := fallback, -1.0
+	for _, c := range pool {
+		if _, s := c.hueSat(); s > bestSat {
+			best, bestSat = c, s
+		}
+	}
+	return best
+}
+
+// distinctVariant returns a lightness variant of base that duplicates nothing
+// in taken. It is the fallback for themes with no spare hue: adwaita-dark, for
+// instance, carries three chromatic colors total and its hi_fg *is* the cool
+// end of its own temp ramp, so deriving in-progress by hue is impossible and
+// separating it by lightness is the only honest option left.
+func distinctVariant(base srgb, taken []srgb, toward, away srgb) srgb {
+	duplicates := func(c srgb) bool {
+		for _, k := range taken {
+			if k.hex() == c.hex() {
+				return true
+			}
+		}
+		return false
+	}
+	for _, amount := range []float64{0.35, 0.55, 0.22, 0.7} {
+		for _, dir := range []srgb{toward, away} {
+			if c := mixColor(base, dir, amount); !duplicates(c) {
+				return c
+			}
+		}
+	}
+	return mixColor(base, toward, 0.5)
+}
+
+// mixToContrast blends fg toward bg until it hits the target contrast ratio,
+// returning fg unchanged when fg is already at or below the target.
+//
+// A fixed blend fraction does not work here: contrast is non-linear in the
+// blend, so the same 45% step lands at 5.7:1 in tomorrow-night and 2.2:1 in
+// solarized_light. Targeting the ratio directly gives every theme the same
+// perceived hierarchy regardless of how much headroom it has.
+func mixToContrast(fg, bg srgb, target float64) srgb {
+	if contrastRatio(fg, bg) <= target {
+		return fg
+	}
+	lo, hi := 0.0, 1.0
+	// Contrast decreases monotonically as t goes 0 -> 1, so bisection is safe.
+	for i := 0; i < 24; i++ {
+		mid := (lo + hi) / 2
+		if contrastRatio(mixColor(fg, bg, mid), bg) > target {
+			lo = mid
+		} else {
+			hi = mid
+		}
+	}
+	return mixColor(fg, bg, (lo+hi)/2)
+}
+
+// ThemeFile converts a parsed btop theme into bt's ThemeFile.
+//
+// Both sides of every AdaptiveHex are filled with the same value. A btop theme
+// is a single palette, not a light/dark pair, and bt resolves AdaptiveHex
+// against terminal-detected polarity; filling both sides means an explicitly
+// chosen theme renders as chosen regardless of what the terminal reports,
+// which is the least surprising reading of "I picked gruvbox_light".
+func (b *BtopTheme) ThemeFile() *ThemeFile {
+	// --- polarity -------------------------------------------------------
+	// main_bg is intentionally empty in 3 upstream themes (btop's
+	// transparent-background convention). Fall back to selected_bg, which is
+	// non-empty in all 41 and always sits within a step of the real
+	// background, then push it away from the foreground so it still reads as
+	// a backdrop rather than as a selection band.
+	mainFg, _ := b.color("main_fg")
+	bg, hasBg := b.color("main_bg")
+	if !hasBg {
+		if sel, ok := b.color("selected_bg"); ok {
+			if mainFg.luminance() > sel.luminance() {
+				bg = mixColor(sel, srgbBlack, 0.4)
+			} else {
+				bg = mixColor(sel, srgbWhite, 0.4)
+			}
+		} else {
+			bg = srgbBlack
+		}
+	}
+	isDark := bg.luminance() < 0.5
+	// away is the direction "further from the text", used to deepen
+	// backgrounds; toward is the direction "closer to the text".
+	away, toward := srgbBlack, srgbWhite
+	if !isDark {
+		away, toward = srgbWhite, srgbBlack
+	}
+
+	// --- structure ------------------------------------------------------
+	title, _ := b.color("title", "main_fg")
+	hiFg, _ := b.color("hi_fg", "title", "main_fg")
+	selBg, _ := b.color("selected_bg")
+	inactive, _ := b.color("inactive_fg")
+
+	// --- neutral ramp ---------------------------------------------------
+	// Computed from the theme's own text and background rather than taken
+	// from proc_misc. btop's proc_misc is not reliably a dim tone: in
+	// tokyo-night it is #7dcfff, a full-strength cyan, which would render
+	// closed and de-emphasized rows brighter than live ones. Stepping
+	// text -> bg by contrast target guarantees a monotonically receding ramp
+	// in every theme, which is the value hierarchy the flat palette lacked.
+	//
+	// Derived before the semantic ramp because mono mode measures its ladder
+	// up from muted. Neither depends on the other, so the order is free.
+	textC := contrastRatio(mainFg, bg)
+	subtext := mixToContrast(mainFg, bg, math.Max(textC*0.72, math.Min(4.5, textC)))
+	muted := mixToContrast(mainFg, bg, math.Max(textC*0.45, math.Min(3.2, textC)))
+	// Keep upstream's inactive_fg for chrome when it is genuinely more
+	// subordinate than muted; otherwise synthesize a dimmer step so borders
+	// never out-shout body text.
+	chrome := inactive
+	if contrastRatio(chrome, bg) >= contrastRatio(muted, bg) {
+		chrome = mixToContrast(mainFg, bg, math.Max(textC*0.18, 1.3))
+	}
+
+	// --- semantic ramp and derived accents ------------------------------
+	mono := b.isMono()
+	var rampLow, rampMid, rampHighMid, rampHigh, info, review, hooked srgb
+
+	if mono {
+		// The theme has no hue to match and none to lend a synthesized alarm
+		// tone, so every role separates by lightness instead. The ladder runs
+		// dimmest to brightest, which makes severity read as intensity: open
+		// is the calmest thing in the list and blocked the loudest.
+		l := monoLadder(bg, muted)
+		rampLow, hooked, review, rampMid, info, rampHighMid, rampHigh =
+			l[0], l[1], l[2], l[3], l[4], l[5], l[6]
+	} else {
+		// Matched by hue, not read off a gradient. btop's temp_* ramp is
+		// reliable as a gradient but not as a severity scale: several themes
+		// author it decoratively, and matcha-dark-sea's runs purple -> rose ->
+		// green so its "hot" end is green. Reading severity off the endpoints
+		// would render blocked in green and open in purple. red-means-blocked
+		// is bt's semantics and stays bt's to decide.
+		pool := b.accentPool(bg)
+		tonalRef := mostSaturated(pool, hiFg)
+
+		// The red band is deliberately tight. At 45 degrees it swallowed amber
+		// and picked elementarish's #b28602 (hue 45) as "blocked", which then
+		// collided with the warning step and collapsed the ramp; gotham's
+		// desaturated tan at hue 35 was chosen the same way. Red really is a
+		// narrow band, and a theme whose warmest color is a tan has no red.
+		var ok bool
+		rampHigh, ok = b.semanticAnchor(bg, hueRed, 25)
+		if !ok {
+			rampHigh = synthesizeHue(tonalRef, hueRed)
+		}
+		rampLow, ok = b.semanticAnchor(bg, hueGreen, 55)
+		if !ok {
+			rampLow = synthesizeHue(tonalRef, hueGreen)
+		}
+		rampMid, ok = b.semanticAnchor(bg, hueAmber, 30)
+		if !ok || rampMid.hex() == rampHigh.hex() || rampMid.hex() == rampLow.hex() {
+			// No usable amber: sit the middle step on the hue arc between the
+			// two ends so the ramp still reads as a gradient, not a collapse.
+			rampMid = mixRamp(rampLow, rampHigh, 0.5)
+		}
+		// P1 sits between medium and critical rather than reusing either, so
+		// all four priority steps stay distinguishable.
+		rampHighMid = mixRamp(rampMid, rampHigh, 0.5)
+
+		// Only in-progress genuinely must be separable from the severity ramp:
+		// in a dense list, confusing in-progress with blocked or open is the
+		// costly mistake, so it takes the hue farthest from all three stops.
+		rampStops := []srgb{rampHigh, rampLow, rampMid}
+		info, ok = pickDistinctHue(pool, rampStops)
+		if !ok {
+			info = distinctVariant(hiFg, rampStops, toward, away)
+		}
+		// review has no upstream counterpart. Prefer a spare hue; when the
+		// theme has none left, step the in-progress hue toward the foreground
+		// extreme so it still reads as a distinct state rather than a copy.
+		reviewTaken := append(append([]srgb{}, rampStops...), info)
+		review, ok = pickDistinctHue(pool, reviewTaken)
+		if !ok {
+			review = distinctVariant(info, reviewTaken, toward, away)
+		}
+		// Outside mono, hooked borrows primary's hue: primary carries a hue of
+		// its own there, so the badge still reads as distinct from open.
+		hooked = hiFg
+	}
+
+	// primary is chrome -- the selection caret, focused borders, the selected
+	// title -- rather than a status, so it is allowed to share a tone with one.
+	// Substituting it would stop themes looking like themselves, which is the
+	// entire point of shipping the corpus.
+	primary := hiFg
+
+	ah := func(c srgb) *AdaptiveHex {
+		h := c.hex()
+		return &AdaptiveHex{Dark: h, Light: h}
+	}
+	// tint blends an accent most of the way into the background to produce the
+	// subtle status/priority band backgrounds bt's schema expects.
+	tint := func(c srgb) *AdaptiveHex { return ah(mixColor(bg, c, 0.18)) }
+
+	return &ThemeFile{Mono: mono, Colors: ThemeColors{
+		Bg:          ah(bg),
+		BgDark:      ah(mixColor(bg, away, 0.12)),
+		BgSubtle:    ah(selBg),
+		BgHighlight: ah(inactive),
+		Text:        ah(mainFg),
+		Subtext:     ah(subtext),
+		Muted:       ah(muted),
+
+		Primary:   ah(primary),
+		Secondary: ah(muted),
+		Info:      ah(info),
+		Success:   ah(rampLow),
+		Warning:   ah(rampMid),
+		Danger:    ah(rampHigh),
+
+		// Row titles are the densest reading surface in the TUI, so they take
+		// the theme's title color pushed slightly toward the foreground
+		// extreme for a little more separation from body text.
+		TextSecondary: ah(mixColor(title, toward, 0.15)),
+		BgContrast:    ah(bg),
+
+		Status: map[string]*AdaptiveHex{
+			"open":        ah(rampLow),
+			"in_progress": ah(info),
+			"blocked":     ah(rampHigh),
+			"deferred":    ah(rampMid),
+			"pinned":      ah(mixColor(info, toward, 0.2)),
+			"hooked":      ah(hooked),
+			"review":      ah(review),
+			"closed":      ah(muted),
+			"tombstone":   ah(chrome),
+		},
+		StatusBg: map[string]*AdaptiveHex{
+			"open":        tint(rampLow),
+			"in_progress": tint(info),
+			"blocked":     tint(rampHigh),
+			"deferred":    tint(rampMid),
+			"pinned":      tint(mixColor(info, toward, 0.2)),
+			"hooked":      tint(hooked),
+			"review":      tint(review),
+			"closed":      tint(muted),
+			"tombstone":   ah(bg),
+		},
+
+		Priority: map[string]*AdaptiveHex{
+			"critical": ah(rampHigh),
+			"high":     ah(rampHighMid),
+			"medium":   ah(rampMid),
+			"low":      ah(rampLow),
+		},
+		PriorityBg: map[string]*AdaptiveHex{
+			"critical": tint(rampHigh),
+			"high":     tint(rampHighMid),
+			"medium":   tint(rampMid),
+			"low":      tint(rampLow),
+		},
+
+		Type: map[string]*AdaptiveHex{
+			"bug":     ah(rampHigh),
+			"feature": ah(rampMid),
+			"task":    ah(primary),
+			"epic":    ah(review),
+			"chore":   ah(info),
+		},
+
+		Border:    ah(chrome),
+		Highlight: ah(selBg),
+	}}
+}
+
+// LoadBtopTheme resolves a vendored btop theme by name into a bt ThemeFile.
+func LoadBtopTheme(name string) (*ThemeFile, error) {
+	raw, err := LoadBtopThemeRaw(name)
+	if err != nil {
+		return nil, err
+	}
+	return raw.ThemeFile(), nil
+}

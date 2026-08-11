@@ -66,6 +66,8 @@ const (
 	focusActionable
 	focusRecipePicker
 	focusRepoPicker
+	focusSettings
+	focusSettingsMenu
 	focusHelp
 	focusQuitConfirm
 	focusTimeTravelInput
@@ -160,6 +162,10 @@ const (
 	ModalFieldPicker                         // Enum picker sub-modal: status/priority (bt-oiaj.5)
 	ModalFieldInput                          // Textinput sub-modal: title/assignee (bt-oiaj.5)
 	ModalLongformEdit                        // Textarea sub-modal: description/design/comment/notes/acceptance (bt-oiaj.6)
+	// Appended rather than grouped with the other pickers: these are iota
+	// values, so inserting mid-block renumbers every modal below it.
+	ModalSettings     // Settings / options screen (bt-54c3)
+	ModalSettingsMenu // esc menu routing to options/help/quit (bt-54c3)
 )
 
 // ModalTab identifies which tab the shared alerts/notifications modal is
@@ -848,6 +854,11 @@ type Model struct {
 
 	// Recipe picker (modal UI stays on Model, modal visibility via activeModal)
 	recipePicker RecipePickerModel
+
+	// settingsModal is the options screen, settingsMenu the esc menu that
+	// routes into it (bt-54c3).
+	settingsModal SettingsModalModel
+	settingsMenu  SettingsMenuModel
 
 	// BQL query modal (modal UI stays on Model, modal visibility via activeModal)
 	bqlQuery BQLQueryModal
@@ -1553,6 +1564,8 @@ func NewModel(issues []model.Issue, activeRecipe *recipe.Recipe, beadsPath strin
 		width:               defaultWidth,
 		height:              defaultHeight,
 		recipePicker:        recipePicker,
+		settingsModal:       NewSettingsModalModel(theme),
+		settingsMenu:        NewSettingsMenuModel(theme),
 		bqlQuery:            bqlQueryModal,
 		labelPicker:         labelPicker,
 		labelDrilldownCache: make(map[string][]model.Issue),
