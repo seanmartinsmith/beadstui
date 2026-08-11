@@ -50,32 +50,36 @@ func TestUpdateHelpQuitAndTabFocus(t *testing.T) {
 		t.Fatalf("expected list focus after second tab")
 	}
 
-	// Escape at the base state opens the settings screen (bt-54c3). It used to
-	// open the quit confirm; that moved one level in, matching btop, whose Esc
-	// menu lists QUIT as an entry. Quit is still directly reachable via 'q',
-	// asserted below so this test keeps covering the quit path it was written
-	// for.
+	// Escape at the base state opens the esc menu (bt-54c3). It used to open
+	// the quit confirm directly; that moved one level in, matching btop, whose
+	// Esc menu lists QUIT as an entry.
 	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
 	m = updated.(Model)
-	if m.activeModal != ModalSettings {
-		t.Fatalf("expected settings screen after esc, got modal %v", m.activeModal)
+	if m.activeModal != ModalSettingsMenu {
+		t.Fatalf("expected esc menu after esc, got modal %v", m.activeModal)
 	}
 
-	// esc again cancels back out rather than falling through to the global
-	// cascade -- the modal early-return owns the key while it is open.
+	// esc again backs out rather than falling through to the global cascade --
+	// the modal early-return owns the key while a modal is open.
 	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
 	m = updated.(Model)
 	if m.activeModal != ModalNone {
-		t.Fatalf("expected settings screen to close on esc, got modal %v", m.activeModal)
+		t.Fatalf("expected esc menu to close on esc, got modal %v", m.activeModal)
 	}
 
-	// 'q' quits directly, without the confirm and without passing through
-	// settings. Worth pinning: esc was the ONLY route to ModalQuitConfirm, so
-	// moving esc to the settings screen leaves that modal unreachable until
-	// the btop-style menu lands with its QUIT entry.
-	_, cmd := m.Update(tea.KeyPressMsg{Code: 'q', Text: "q"})
+	// The quit confirm is still reachable, now via the menu's QUIT entry, and
+	// 'y' still confirms. This is the path that replaced esc-esc-to-quit.
+	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
+	m = updated.(Model)
+	m.settingsMenu.selected = menuQuit
+	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	if m.activeModal != ModalQuitConfirm {
+		t.Fatalf("expected quit confirm from menu QUIT, got modal %v", m.activeModal)
+	}
+	_, cmd := m.Update(tea.KeyPressMsg{Code: 'y', Text: "y"})
 	if cmd == nil {
-		t.Fatalf("expected quit command from q at base state")
+		t.Fatalf("expected quit command on confirm quit")
 	}
 }
 

@@ -592,6 +592,14 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 
+	if m.activeModal == ModalSettingsMenu {
+		if msg.String() == "ctrl+c" {
+			return m, tea.Quit
+		}
+		m = m.handleSettingsMenuKeys(msg)
+		return m, nil
+	}
+
 	// Handle quit confirmation first
 	if m.activeModal == ModalQuitConfirm {
 		switch msg.String() {
@@ -1101,15 +1109,14 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			// btop opens its menu here, which is the behaviour asked for
 			// (bt-54c3, and the bt-2aa49 amendment that funds this surface).
 			//
-			// This displaces the old esc-to-quit-confirm. Quit is not lost: it
-			// moves one level in, exactly as in btop, whose Esc menu lists QUIT
-			// as an entry -- and `q` still quits directly without passing
-			// through here at all.
-			m.openModal(ModalSettings)
-			m.settingsModal.Reset()
-			m.settingsModal.SetTheme(m.theme)
-			m.settingsModal.SetSize(m.width, m.height-1)
-			m.focused = focusSettings
+			// The old esc-to-quit-confirm is not lost, it moves one level in:
+			// QUIT is an entry on this menu, exactly as in btop. `q` still
+			// quits directly without passing through here at all.
+			m.openModal(ModalSettingsMenu)
+			m.settingsMenu.Reset()
+			m.settingsMenu.SetTheme(m.theme)
+			m.settingsMenu.SetSize(m.width, m.height-1)
+			m.focused = focusSettingsMenu
 			return m, nil
 
 		case key.Matches(msg, m.keys.Global.Board):
@@ -1525,6 +1532,8 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 
 		case focusSettings:
 			m = m.handleSettingsModalKeys(msg)
+		case focusSettingsMenu:
+			m = m.handleSettingsMenuKeys(msg)
 		case focusRecipePicker:
 			m = m.handleRecipePickerKeys(msg)
 

@@ -116,6 +116,45 @@ func TestSettingsKeepDoesNotRevert(t *testing.T) {
 	}
 }
 
+// TestSettingsMenuRoutes covers the menu's whole job: every entry reaches the
+// surface it names. A menu entry that silently goes nowhere is worse than no
+// menu, because esc is the key a user presses when they are already lost.
+func TestSettingsMenuRoutes(t *testing.T) {
+	restoreThemeGlobals(t)
+
+	for _, tc := range []struct {
+		entry int
+		want  ModalType
+		name  string
+	}{
+		{menuOptions, ModalSettings, "OPTIONS"},
+		{menuHelp, ModalHelp, "HELP"},
+		{menuQuit, ModalQuitConfirm, "QUIT"},
+	} {
+		m := settingsTestModel(t)
+		m.openModal(ModalSettingsMenu)
+		m.settingsMenu.selected = tc.entry
+		m = m.handleSettingsMenuKeys(tea.KeyPressMsg{Code: tea.KeyEnter})
+		if m.activeModal != tc.want {
+			t.Errorf("%s routed to modal %v, want %v", tc.name, m.activeModal, tc.want)
+		}
+	}
+}
+
+// TestSettingsMenuWraps pins the wrap. Three entries is short enough that
+// stopping at the ends costs more keystrokes than it saves mistakes.
+func TestSettingsMenuWraps(t *testing.T) {
+	s := NewSettingsMenuModel(DefaultTheme())
+	s.MoveUp()
+	if got := s.SelectedIndex(); got != menuQuit {
+		t.Errorf("up from the first entry = %d, want %d (wrap to last)", got, menuQuit)
+	}
+	s.MoveDown()
+	if got := s.SelectedIndex(); got != menuOptions {
+		t.Errorf("down from the last entry = %d, want %d (wrap to first)", got, menuOptions)
+	}
+}
+
 // TestSettingsViewRendersWithoutPanic guards the layout math at the sizes that
 // break panels: a terminal narrow enough that the two columns collide.
 func TestSettingsViewRendersWithoutPanic(t *testing.T) {
@@ -126,7 +165,13 @@ func TestSettingsViewRendersWithoutPanic(t *testing.T) {
 		s := NewSettingsModalModel(DefaultTheme())
 		s.SetSize(size.w, size.h)
 		if out := s.View(); out == "" {
-			t.Errorf("%dx%d rendered empty", size.w, size.h)
+			t.Errorf("options %dx%d rendered empty", size.w, size.h)
+		}
+
+		menu := NewSettingsMenuModel(DefaultTheme())
+		menu.SetSize(size.w, size.h)
+		if out := menu.View(); out == "" {
+			t.Errorf("menu %dx%d rendered empty", size.w, size.h)
 		}
 	}
 }
