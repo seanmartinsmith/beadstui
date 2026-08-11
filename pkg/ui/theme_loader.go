@@ -96,7 +96,12 @@ type ThemeFile struct {
 	// Empty keeps bt's own embedded default. Any colors: block in the same
 	// file still overrides the named theme, so a user can pick a palette and
 	// tweak two tokens without restating the rest.
-	Theme  string      `yaml:"theme"`
+	Theme string `yaml:"theme"`
+	// Mono marks a palette that carries no chroma at all. The btop adapter
+	// detects it (bt-zelhm); a bt-native theme declares it. When set, bt never
+	// synthesizes a hue the palette does not already have, and separates every
+	// role by lightness instead.
+	Mono   bool        `yaml:"mono"`
 	Colors ThemeColors `yaml:"colors"`
 }
 
@@ -185,14 +190,15 @@ func LoadTheme() *ThemeFile {
 	}
 	proj := loadThemeFile(filepath.Join(".bt", "theme.yaml"))
 
-	// Layer 2: a named btop palette, if one is selected (bt-o6xx1). This sits
-	// UNDER the hand-written overlays so picking a theme never discards the
-	// per-token tweaks a user already wrote; the name is read from the same
-	// files, most specific first, with the env var winning so a palette can be
-	// tried for one run without editing anything.
+	// Layer 2: a named palette, if one is selected -- bt-native or vendored
+	// btop, resolved by ResolveTheme (bt-o6xx1, bt-ba9fc). This sits UNDER the
+	// hand-written overlays so picking a theme never discards the per-token
+	// tweaks a user already wrote; the name is read from the same files, most
+	// specific first, with the env var winning so a palette can be tried for
+	// one run without editing anything.
 	if name := selectedThemeName(base, user, proj); name != "" {
-		if btopTF, err := LoadBtopTheme(name); err == nil {
-			mergeTheme(base, btopTF)
+		if named, err := ResolveTheme(name); err == nil {
+			mergeTheme(base, named)
 		}
 		// A bad name falls through to the default palette rather than
 		// failing startup: a typo in a cosmetic setting must not cost the
@@ -479,6 +485,11 @@ func loadThemeFile(path string) *ThemeFile {
 
 // mergeTheme deep-merges overlay into base. Only non-nil fields override.
 func mergeTheme(base, overlay *ThemeFile) {
+	// Mono is sticky: it records that the palette underneath declared itself
+	// monochrome, which stays true of that palette even if a user overlay then
+	// paints a token on top of it.
+	base.Mono = base.Mono || overlay.Mono
+
 	bc := &base.Colors
 	oc := &overlay.Colors
 

@@ -1,0 +1,90 @@
+# loam - warm, earthy, ink-on-paper (bt-ba9fc)
+#
+# A soil palette: warm umber ground, bone-white text, and accents drawn from
+# rust, terracotta, amber, moss, verdigris and dried heather. flexoki-dark in
+# the vendored corpus is the nearest neighbour and was the reference point for
+# how much contrast a warm dark theme can carry; loam sits warmer and browner
+# than flexoki's near-neutral ink, and picks its accents from earth rather
+# than from a spectrum.
+#
+# An earth palette is hue-poor on purpose -- rust, terracotta and amber all
+# live inside a 30 degree arc -- so the three roles sharing that arc (blocked,
+# hooked, deferred) are pulled apart by lightness as well as hue. Measured as
+# CIELAB deltaE over open/in_progress/blocked/review/closed, loam's tightest
+# pair is 26.9, wider than 25 of the 41 vendored themes and wider than the
+# current default, matcha-dark-sea, at 19.4. Counting hooked and deferred too,
+# the tightest of all 21 status pairs is blocked/hooked at 17.5 -- still well
+# clear of the ~10 at which two colors stop reading as different.
+#
+# Both sides of every entry carry the same value, matching the btop adapter's
+# convention: this is one palette rather than a light/dark pair, and filling
+# both sides means an explicitly chosen theme renders as chosen regardless of
+# what the terminal reports its background to be.
+
+colors:
+  # Base. bg is a warm umber rather than a neutral black -- the ground the
+  # rest of the palette is named for.
+  bg:           { dark: "#181310", light: "#181310" }
+  bg_dark:      { dark: "#110d0b", light: "#110d0b" }
+  bg_subtle:    { dark: "#241c17", light: "#241c17" }
+  bg_highlight: { dark: "#33281f", light: "#33281f" }
+  text:         { dark: "#e6dac6", light: "#e6dac6" }   # bone        13.3:1
+  subtext:      { dark: "#c2b09a", light: "#c2b09a" }   # parchment    8.8:1
+  muted:        { dark: "#928477", light: "#928477" }   # driftwood    5.1:1
+
+  # Accents
+  primary:   { dark: "#c67f42", light: "#c67f42" }   # terracotta   5.7:1
+  secondary: { dark: "#928477", light: "#928477" }
+  info:      { dark: "#6da596", light: "#6da596" }   # verdigris    6.6:1
+  success:   { dark: "#9aa855", light: "#9aa855" }   # moss         7.1:1
+  warning:   { dark: "#dcb04a", light: "#dcb04a" }   # amber        9.1:1
+  danger:    { dark: "#e58060", light: "#e58060" }   # rust         6.7:1
+
+  text_secondary: { dark: "#f4ecdc", light: "#f4ecdc" }
+  bg_contrast:    { dark: "#181310", light: "#181310" }
+
+  status:
+    open:        { dark: "#9aa855", light: "#9aa855" }
+    in_progress: { dark: "#6da596", light: "#6da596" }
+    blocked:     { dark: "#e58060", light: "#e58060" }
+    deferred:    { dark: "#dcb04a", light: "#dcb04a" }
+    pinned:      { dark: "#8fbdb0", light: "#8fbdb0" }
+    hooked:      { dark: "#c67f42", light: "#c67f42" }
+    review:      { dark: "#b98aa8", light: "#b98aa8" }   # heather
+    closed:      { dark: "#928477", light: "#928477" }
+    tombstone:   { dark: "#5c4c3d", light: "#5c4c3d" }
+
+  status_bg:
+    open:        { dark: "#2f2e1c", light: "#2f2e1c" }
+    in_progress: { dark: "#272d28", light: "#272d28" }
+    blocked:     { dark: "#3d271e", light: "#3d271e" }
+    deferred:    { dark: "#3b2f1a", light: "#3b2f1a" }
+    pinned:      { dark: "#2d322d", light: "#2d322d" }
+    hooked:      { dark: "#372619", light: "#372619" }
+    review:      { dark: "#35282b", light: "#35282b" }
+    closed:      { dark: "#2e2723", light: "#2e2723" }
+    tombstone:   { dark: "#181310", light: "#181310" }
+
+  # Severity climbs rust <- amber, so the ramp reads as one gradient rather
+  # than four unrelated colors.
+  priority:
+    critical: { dark: "#e58060", light: "#e58060" }
+    high:     { dark: "#dc9a4d", light: "#dc9a4d" }
+    medium:   { dark: "#dcb04a", light: "#dcb04a" }
+    low:      { dark: "#9aa855", light: "#9aa855" }
+
+  priority_bg:
+    critical: { dark: "#3d271e", light: "#3d271e" }
+    high:     { dark: "#3b2b1b", light: "#3b2b1b" }
+    medium:   { dark: "#3b2f1a", light: "#3b2f1a" }
+    low:      { dark: "#2f2e1c", light: "#2f2e1c" }
+
+  type:
+    bug:     { dark: "#e58060", light: "#e58060" }
+    feature: { dark: "#dcb04a", light: "#dcb04a" }
+    task:    { dark: "#c67f42", light: "#c67f42" }
+    epic:    { dark: "#b98aa8", light: "#b98aa8" }
+    chore:   { dark: "#6da596", light: "#6da596" }
+
+  border:    { dark: "#453529", light: "#453529" }
+  highlight: { dark: "#33281f", light: "#33281f" }

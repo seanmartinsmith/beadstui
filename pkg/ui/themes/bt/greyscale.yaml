@@ -1,0 +1,95 @@
+# greyscale - a designed monochrome palette (bt-ba9fc, pairs with bt-zelhm)
+#
+# This name deliberately shadows the vendored btop greyscale. That file is a
+# btop theme adapted at load time; this one is authored directly against bt's
+# roles, so its rungs sit where bt needs them rather than wherever the
+# adapter's ladder happens to land. The original stays reachable as
+# BT_THEME=btop:greyscale and, with mono mode, now renders achromatically too
+# -- this is the better-tuned of the two, not the only correct one.
+#
+# mono: true is a contract, not a label. It says this palette has no chroma to
+# spend, so bt must never synthesize a hue to fill a role.
+#
+# Everything separates on one axis, so ordering carries the meaning: severity
+# reads as intensity. The seven status rungs are spaced evenly in CIE L* --
+# 7.99 apart, from AA body contrast (4.6:1) up to white -- because equal steps
+# in contrast ratio are not equal steps in perceived lightness. closed sits
+# below every live status, so finished work never out-shouts active work, and
+# blocked takes white because maximum contrast is the only alarm signal a
+# palette with no hue has.
+#
+# One axis cannot separate every role from every other, and pretending
+# otherwise would mean crowding the rungs that matter. The invariants held
+# here are: closed is the dimmest status, adjacent statuses stay >= 6 L*
+# apart, and every readable token clears 4.5:1 rather than merely the 3.0 UI
+# floor. Tokens that render in different columns -- body text against a status
+# badge, say -- are allowed to share a tone, because they are never adjacent
+# on screen to be confused.
+
+mono: true
+
+colors:
+  bg:           { dark: "#0f0f0f", light: "#0f0f0f" }
+  bg_dark:      { dark: "#090909", light: "#090909" }
+  bg_subtle:    { dark: "#1d1d1d", light: "#1d1d1d" }
+  bg_highlight: { dark: "#2b2b2b", light: "#2b2b2b" }
+  text:         { dark: "#c8c8c8", light: "#c8c8c8" }   # 11.5:1
+  subtext:      { dark: "#a8a8a8", light: "#a8a8a8" }   #  8.1:1
+  muted:        { dark: "#7c7c7c", light: "#7c7c7c" }   #  4.6:1
+
+  primary:   { dark: "#dedede", light: "#dedede" }   # 14.3:1
+  secondary: { dark: "#7c7c7c", light: "#7c7c7c" }
+  info:      { dark: "#e8e8e8", light: "#e8e8e8" }
+  success:   { dark: "#919191", light: "#919191" }
+  warning:   { dark: "#d2d2d2", light: "#d2d2d2" }
+  danger:    { dark: "#ffffff", light: "#ffffff" }
+
+  text_secondary: { dark: "#e2e2e2", light: "#e2e2e2" }
+  bg_contrast:    { dark: "#0f0f0f", light: "#0f0f0f" }
+
+  # The ladder, dimmest to brightest, 7.99 L* per rung:
+  # closed -> open -> hooked -> review -> deferred -> in_progress -> blocked
+  status:
+    closed:      { dark: "#7c7c7c", light: "#7c7c7c" }   #  4.6:1
+    open:        { dark: "#919191", light: "#919191" }   #  6.1:1
+    hooked:      { dark: "#a6a6a6", light: "#a6a6a6" }   #  7.9:1
+    review:      { dark: "#bbbbbb", light: "#bbbbbb" }   # 10.0:1
+    deferred:    { dark: "#d2d2d2", light: "#d2d2d2" }   # 12.6:1
+    in_progress: { dark: "#e8e8e8", light: "#e8e8e8" }   # 15.7:1
+    pinned:      { dark: "#f1f1f1", light: "#f1f1f1" }   # 16.9:1
+    blocked:     { dark: "#ffffff", light: "#ffffff" }   # 19.2:1
+    tombstone:   { dark: "#2e2e2e", light: "#2e2e2e" }
+
+  status_bg:
+    closed:      { dark: "#232323", light: "#232323" }
+    open:        { dark: "#262626", light: "#262626" }
+    hooked:      { dark: "#2a2a2a", light: "#2a2a2a" }
+    review:      { dark: "#2e2e2e", light: "#2e2e2e" }
+    deferred:    { dark: "#323232", light: "#323232" }
+    in_progress: { dark: "#363636", light: "#363636" }
+    pinned:      { dark: "#383838", light: "#383838" }
+    blocked:     { dark: "#3a3a3a", light: "#3a3a3a" }
+    tombstone:   { dark: "#0f0f0f", light: "#0f0f0f" }
+
+  # P0 and P3 land on blocked and open deliberately: same severity, same tone.
+  priority:
+    critical: { dark: "#ffffff", light: "#ffffff" }   # 19.2:1
+    high:     { dark: "#d9d9d9", light: "#d9d9d9" }   # 13.6:1
+    medium:   { dark: "#b4b4b4", light: "#b4b4b4" }   #  9.3:1
+    low:      { dark: "#919191", light: "#919191" }   #  6.1:1
+
+  priority_bg:
+    critical: { dark: "#3a3a3a", light: "#3a3a3a" }
+    high:     { dark: "#333333", light: "#333333" }
+    medium:   { dark: "#2d2d2d", light: "#2d2d2d" }
+    low:      { dark: "#262626", light: "#262626" }
+
+  type:
+    bug:     { dark: "#ffffff", light: "#ffffff" }
+    feature: { dark: "#d2d2d2", light: "#d2d2d2" }
+    task:    { dark: "#a6a6a6", light: "#a6a6a6" }
+    epic:    { dark: "#bbbbbb", light: "#bbbbbb" }
+    chore:   { dark: "#e8e8e8", light: "#e8e8e8" }
+
+  border:    { dark: "#3a3a3a", light: "#3a3a3a" }
+  highlight: { dark: "#2b2b2b", light: "#2b2b2b" }
