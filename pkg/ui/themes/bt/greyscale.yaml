@@ -47,18 +47,47 @@ colors:
   text_secondary: { dark: "#e2e2e2", light: "#e2e2e2" }
   bg_contrast:    { dark: "#0f0f0f", light: "#0f0f0f" }
 
-  # The ladder, dimmest to brightest, 7.99 L* per rung:
-  # closed -> open -> hooked -> review -> deferred -> in_progress -> blocked
+  # Four bands, not seven rungs (bt-sk00v).
+  #
+  # The first cut spaced all seven statuses evenly in L*, which is exactly
+  # wrong: even spacing says every state is equally important, and the eye
+  # reads that as a gradient of near-identical greys rather than as distinct
+  # states. Hierarchy is unequal by definition -- most things quiet and
+  # clustered, a few far away and loud.
+  #
+  # So lightness now groups statuses into bands by how much they should
+  # intrude, and status_attr below separates them by KIND within and across
+  # those bands. Attributes carry the categorical work a ramp cannot do.
+  #
+  #   receding   closed, deferred      faint
+  #   routine    open, hooked          plain
+  #   attention  review, pinned        underline
+  #   active     in_progress           bold
+  #   alarm      blocked               reverse
+  #
+  # deferred moved down two bands. It was the third-loudest token, louder than
+  # review, which inverts its meaning: deferred is work deliberately pushed
+  # away, so it recedes with closed rather than shouting near blocked. It
+  # inherits its tone from the ladder now, not from warning.
   status:
-    closed:      { dark: "#7c7c7c", light: "#7c7c7c" }   #  4.6:1
-    open:        { dark: "#919191", light: "#919191" }   #  6.1:1
-    hooked:      { dark: "#a6a6a6", light: "#a6a6a6" }   #  7.9:1
-    review:      { dark: "#bbbbbb", light: "#bbbbbb" }   # 10.0:1
-    deferred:    { dark: "#d2d2d2", light: "#d2d2d2" }   # 12.6:1
-    in_progress: { dark: "#e8e8e8", light: "#e8e8e8" }   # 15.7:1
-    pinned:      { dark: "#f1f1f1", light: "#f1f1f1" }   # 16.9:1
-    blocked:     { dark: "#ffffff", light: "#ffffff" }   # 19.2:1
     tombstone:   { dark: "#2e2e2e", light: "#2e2e2e" }
+    closed:      { dark: "#7c7c7c", light: "#7c7c7c" }   #  4.6:1  receding
+    deferred:    { dark: "#8f8f8f", light: "#8f8f8f" }   #  5.9:1  receding
+    open:        { dark: "#a8a8a8", light: "#a8a8a8" }   #  8.1:1  routine
+    hooked:      { dark: "#bbbbbb", light: "#bbbbbb" }   # 10.0:1  routine
+    review:      { dark: "#c8c8c8", light: "#c8c8c8" }   # 11.5:1  attention
+    pinned:      { dark: "#dedede", light: "#dedede" }   # 14.2:1  attention
+    in_progress: { dark: "#e8e8e8", light: "#e8e8e8" }   # 15.6:1  active
+    blocked:     { dark: "#ffffff", light: "#ffffff" }   # 19.2:1  alarm
+
+  # The categorical channel. A hueless palette has no other one.
+  status_attr:
+    closed:      faint
+    deferred:    faint
+    review:      underline
+    pinned:      underline
+    in_progress: bold
+    blocked:     reverse
 
   status_bg:
     closed:      { dark: "#232323", light: "#232323" }
@@ -71,12 +100,19 @@ colors:
     blocked:     { dark: "#3a3a3a", light: "#3a3a3a" }
     tombstone:   { dark: "#0f0f0f", light: "#0f0f0f" }
 
-  # P0 and P3 land on blocked and open deliberately: same severity, same tone.
+  # Priority IS quantitative -- P0 really is more than P3 -- so unlike status
+  # it belongs on a ramp, and the even spacing here is correct rather than a
+  # mistake. Attributes only mark the two ends, where the distinction is
+  # categorical rather than one more step: P0 demands action, P3 can wait.
   priority:
     critical: { dark: "#ffffff", light: "#ffffff" }   # 19.2:1
     high:     { dark: "#d9d9d9", light: "#d9d9d9" }   # 13.6:1
     medium:   { dark: "#b4b4b4", light: "#b4b4b4" }   #  9.3:1
     low:      { dark: "#919191", light: "#919191" }   #  6.1:1
+
+  priority_attr:
+    critical: bold
+    low:      faint
 
   priority_bg:
     critical: { dark: "#3a3a3a", light: "#3a3a3a" }

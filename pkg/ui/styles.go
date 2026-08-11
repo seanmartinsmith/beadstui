@@ -22,6 +22,83 @@ const (
 )
 
 // ══════════════════════════════════════════════════════════════════════════════
+// TEXT ATTRIBUTES - The categorical channel (bt-sk00v)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// TextAttr is a non-color rendering attribute a theme can attach to a semantic
+// token.
+//
+// Color ramps are quantitative: they say "more" and "less". Status is
+// categorical -- blocked is not a larger quantity of open. A chromatic palette
+// gets away with the mismatch because hue is categorical too, so the ramp is
+// carrying weight it was never actually asked to carry. A monochrome palette
+// has no hue to hide behind, and the whole status column collapses into shades
+// of the same thing.
+//
+// Attributes restore a categorical channel that survives with or without
+// chroma, which is how terminals encoded hierarchy before color: weight, dim,
+// inversion, underline.
+type TextAttr uint8
+
+const (
+	AttrNone TextAttr = iota
+	AttrBold
+	AttrFaint
+	AttrReverse
+	AttrUnderline
+)
+
+// ParseTextAttr maps a theme's YAML string to a TextAttr. An unknown or empty
+// value yields AttrNone rather than an error: an attribute is a refinement, and
+// a typo in one should not cost a user their whole palette.
+func ParseTextAttr(s string) TextAttr {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "bold":
+		return AttrBold
+	case "faint", "dim":
+		return AttrFaint
+	case "reverse", "invert", "inverse":
+		return AttrReverse
+	case "underline":
+		return AttrUnderline
+	default:
+		return AttrNone
+	}
+}
+
+// Apply returns s with the attribute set. AttrNone returns s untouched, so a
+// theme that declares nothing renders byte-identically to before bt-sk00v.
+func (a TextAttr) Apply(s lipgloss.Style) lipgloss.Style {
+	switch a {
+	case AttrBold:
+		return s.Bold(true)
+	case AttrFaint:
+		return s.Faint(true)
+	case AttrReverse:
+		return s.Reverse(true)
+	case AttrUnderline:
+		return s.Underline(true)
+	default:
+		return s
+	}
+}
+
+var (
+	// AttrStatus and AttrPriority hold the active theme's attribute per
+	// semantic key. Nil or missing entries mean AttrNone. Written by the theme
+	// loader on the bubbletea event loop, same as the Color* tokens, and read
+	// only from that loop (verified in bt-1n0b1).
+	AttrStatus   map[string]TextAttr
+	AttrPriority map[string]TextAttr
+)
+
+// statusAttr returns the active attribute for a status key.
+func statusAttr(key string) TextAttr { return AttrStatus[key] }
+
+// priorityAttr returns the active attribute for a priority key.
+func priorityAttr(key string) TextAttr { return AttrPriority[key] }
+
+// ══════════════════════════════════════════════════════════════════════════════
 // COLOR PALETTE - Resolved colors for the current light/dark background
 // WCAG AA compliance (contrast ratio >= 4.5:1) for light mode colors
 // ══════════════════════════════════════════════════════════════════════════════
@@ -284,11 +361,12 @@ func RenderStatusBadge(status string) string {
 		fg, bg, label = ColorMuted, ColorBgSubtle, "????"
 	}
 
-	return lipgloss.NewStyle().
-		Foreground(fg).
-		Background(bg).
-		Padding(0, 0).
-		Render(label)
+	return statusAttr(status).Apply(
+		lipgloss.NewStyle().
+			Foreground(fg).
+			Background(bg).
+			Padding(0, 0),
+	).Render(label)
 }
 
 // RenderGateBadge returns a styled badge for gate-blocked issues.

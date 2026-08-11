@@ -82,6 +82,21 @@ type ThemeColors struct {
 	Priority   map[string]*AdaptiveHex `yaml:"priority"`
 	PriorityBg map[string]*AdaptiveHex `yaml:"priority_bg"`
 
+	// Text attributes (bt-sk00v).
+	//
+	// Status is a categorical variable, but a color ramp is a quantitative
+	// channel. Encoding one on the other is why a monochrome palette reads as
+	// seven shades of the same thing: the states differ by degree when they
+	// need to differ in kind. Hue hides the error because hue is itself
+	// categorical; strip it and the mistake surfaces.
+	//
+	// Attributes are the categorical channel a palette with no hue still has,
+	// and the one monochrome terminals used before color existed. Values are
+	// TextAttr names; an absent or empty entry renders plain, so every existing
+	// theme is unaffected until it opts in.
+	StatusAttr   map[string]string `yaml:"status_attr"`
+	PriorityAttr map[string]string `yaml:"priority_attr"`
+
 	// Type
 	Type map[string]*AdaptiveHex `yaml:"type"`
 
@@ -273,6 +288,27 @@ func applyMapKey(m map[string]*AdaptiveHex, key string, target *color.Color) {
 	}
 }
 
+// parseAttrMap converts a theme's raw attribute strings into TextAttrs.
+//
+// Returns nil for an empty input rather than an empty map, so the common case
+// -- a palette that declares no attributes at all, which is every theme
+// predating bt-sk00v -- costs no allocation and reads as AttrNone on lookup.
+func parseAttrMap(raw map[string]string) map[string]TextAttr {
+	if len(raw) == 0 {
+		return nil
+	}
+	out := make(map[string]TextAttr, len(raw))
+	for k, v := range raw {
+		if a := ParseTextAttr(v); a != AttrNone {
+			out[k] = a
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 // ApplyThemeToGlobals writes the loaded theme colors into the Color* package
 // variables so all existing call sites work without changes. Call once at
 // startup after LoadTheme.
@@ -332,6 +368,13 @@ func ApplyThemeToGlobals(tf *ThemeFile) {
 	applyMapKey(c.PriorityBg, "high", &ColorPrioHighBg)
 	applyMapKey(c.PriorityBg, "medium", &ColorPrioMediumBg)
 	applyMapKey(c.PriorityBg, "low", &ColorPrioLowBg)
+
+	// Text attributes (bt-sk00v). Rebuilt wholesale rather than merged, so
+	// switching to a theme that declares none clears the previous theme's
+	// instead of inheriting them -- an attribute is part of the palette's
+	// design, not a user preference that outlives it.
+	AttrStatus = parseAttrMap(c.StatusAttr)
+	AttrPriority = parseAttrMap(c.PriorityAttr)
 
 	// Type
 	applyMapKey(c.Type, "bug", &ColorTypeBug)

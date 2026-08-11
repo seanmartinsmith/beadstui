@@ -72,8 +72,17 @@ func TestNativeThemesResolveCompletely(t *testing.T) {
 		}
 		v := reflect.ValueOf(tf.Colors)
 		for i := 0; i < v.NumField(); i++ {
+			fname := rt.Field(i).Name
+			// Attribute groups are optional by design (bt-sk00v): nil means
+			// "render plain", which is a complete answer rather than a hole a
+			// renderer falls through. Only loam declares none, and it is
+			// chromatic, so hue already does the categorical work attributes
+			// exist to restore for monochrome palettes.
+			if fname == "StatusAttr" || fname == "PriorityAttr" {
+				continue
+			}
 			if f := v.Field(i); (f.Kind() == reflect.Ptr || f.Kind() == reflect.Map) && f.IsNil() {
-				t.Errorf("%s: token group %s is unset", name, rt.Field(i).Name)
+				t.Errorf("%s: token group %s is unset", name, fname)
 			}
 		}
 		for label, hex := range collectHexes(t, tf.Colors) {
@@ -295,10 +304,22 @@ func TestNativeStatusesAreSeparable(t *testing.T) {
 				if tf.Mono {
 					d = math.Abs(ca.lstar() - cb.lstar())
 				}
-				if d < bar {
-					t.Errorf("%s: %s (%s) and %s (%s) differ by %s %.1f, want >= %.1f",
-						name, statuses[i], a.Dark, statuses[j], b.Dark, metric, d, bar)
+				if d >= bar {
+					continue
 				}
+				// Separable on the other channel (bt-sk00v). Two statuses that
+				// render at similar tone are still unmistakable if one is bold
+				// and the other faint -- that is a difference in kind, which is
+				// what status actually is. Requiring tone alone to carry every
+				// pair is what forced the first mono greyscale into seven
+				// evenly-spaced greys that read as one gradient.
+				attrA := ParseTextAttr(tf.Colors.StatusAttr[statuses[i]])
+				attrB := ParseTextAttr(tf.Colors.StatusAttr[statuses[j]])
+				if attrA != attrB {
+					continue
+				}
+				t.Errorf("%s: %s (%s) and %s (%s) differ by %s %.1f, want >= %.1f, and both render %v",
+					name, statuses[i], a.Dark, statuses[j], b.Dark, metric, d, bar, attrA)
 			}
 		}
 	}
@@ -351,5 +372,83 @@ func TestVendoredBtopDirStaysUpstream(t *testing.T) {
 		if _, err := btopThemeFS.ReadFile(btopThemeDir + "/" + name + ".yaml"); err == nil {
 			t.Errorf("bt-native theme %q has a file inside the vendored btop dir", name)
 		}
+	}
+}
+
+// TestTextAttrParse pins the spellings a theme file may use. "dim" and
+// "inverse" are accepted because they are what the terminal literature calls
+// these, and a palette author reaching for them should not get silent AttrNone.
+func TestTextAttrParse(t *testing.T) {
+	for in, want := range map[string]TextAttr{
+		"bold": AttrBold, "BOLD": AttrBold, " bold ": AttrBold,
+		"faint": AttrFaint, "dim": AttrFaint,
+		"reverse": AttrReverse, "invert": AttrReverse, "inverse": AttrReverse,
+		"underline": AttrUnderline,
+		"": AttrNone, "chartreuse": AttrNone,
+	} {
+		if got := ParseTextAttr(in); got != want {
+			t.Errorf("ParseTextAttr(%q) = %v, want %v", in, got, want)
+		}
+	}
+}
+
+// TestMonoThemesDeclareAttributes is the contract that keeps bt-sk00v from
+// regressing into the problem it was filed for. A palette with no chroma has
+// exactly one channel left, and encoding a categorical variable on it is what
+// made the first greyscale read as seven shades of the same thing. So a mono
+// theme MUST spend the categorical channel.
+func TestMonoThemesDeclareAttributes(t *testing.T) {
+	for _, name := range NativeThemeNames() {
+		tf, err := LoadNativeTheme(name)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if !tf.Mono {
+			continue
+		}
+		if len(tf.Colors.StatusAttr) == 0 {
+			t.Errorf("%s is mono but declares no status_attr; lightness alone cannot carry a categorical variable", name)
+			continue
+		}
+		// At least two distinct kinds, or the channel is declared but unused.
+		kinds := map[TextAttr]bool{}
+		for _, raw := range tf.Colors.StatusAttr {
+			kinds[ParseTextAttr(raw)] = true
+		}
+		if len(kinds) < 2 {
+			t.Errorf("%s declares status_attr but only %d distinct attribute(s); that separates nothing", name, len(kinds))
+		}
+	}
+}
+
+// TestAttrMapRoundTrip covers the loader path rather than the parser: a theme's
+// attributes must survive into the package globals the renderer reads, and a
+// theme that declares none must CLEAR the previous theme's rather than letting
+// them bleed across a live swap (bt-54c3 makes that swap reachable).
+func TestAttrMapRoundTrip(t *testing.T) {
+	restoreThemeGlobals(t)
+
+	mono, err := LoadNativeTheme("greyscale")
+	if err != nil {
+		t.Fatalf("load greyscale: %v", err)
+	}
+	ApplyThemeToGlobals(mono)
+	if got := statusAttr("blocked"); got != AttrReverse {
+		t.Errorf("greyscale blocked attr = %v, want AttrReverse", got)
+	}
+	if got := statusAttr("closed"); got != AttrFaint {
+		t.Errorf("greyscale closed attr = %v, want AttrFaint", got)
+	}
+	if got := statusAttr("open"); got != AttrNone {
+		t.Errorf("greyscale open attr = %v, want AttrNone (declared plain)", got)
+	}
+
+	chromatic, err := LoadNativeTheme("loam")
+	if err != nil {
+		t.Fatalf("load loam: %v", err)
+	}
+	ApplyThemeToGlobals(chromatic)
+	if got := statusAttr("blocked"); got != AttrNone {
+		t.Errorf("after swapping to a theme with no attributes, blocked = %v, want AttrNone; the previous palette's emphasis bled through", got)
 	}
 }

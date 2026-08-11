@@ -94,6 +94,13 @@ func collectHexes(t *testing.T, c ThemeColors) map[string]string {
 			out[name+".dark"] = ah.Dark
 			out[name+".light"] = ah.Light
 		case reflect.Map:
+			// Only the color maps hold *AdaptiveHex. The attribute maps
+			// (bt-sk00v) are map[string]string and carry no hex to collect,
+			// so gate on the element type rather than assuming every map on
+			// ThemeColors is a color group.
+			if f.Type().Elem() != reflect.TypeOf((*AdaptiveHex)(nil)) {
+				continue
+			}
 			for _, k := range f.MapKeys() {
 				mv := f.MapIndex(k)
 				if mv.IsNil() {
@@ -108,10 +115,55 @@ func collectHexes(t *testing.T, c ThemeColors) map[string]string {
 	return out
 }
 
+// swatchAttrSGR returns the ANSI attribute codes a theme assigns to a swatch
+// row's token, plus a plain-text name for the margin. Empty for tokens with no
+// attribute and for themes that declare none, which is every theme predating
+// bt-sk00v.
+func swatchAttrSGR(tf *ThemeFile, token string) (sgr, name string) {
+	var m map[string]string
+	switch {
+	case strings.HasPrefix(token, "Status["):
+		m = tf.Colors.StatusAttr
+	case strings.HasPrefix(token, "Priority["):
+		m = tf.Colors.PriorityAttr
+	default:
+		return "", ""
+	}
+	open, close := strings.Index(token, "["), strings.Index(token, "]")
+	if len(m) == 0 || open < 0 || close < open {
+		return "", ""
+	}
+	switch ParseTextAttr(m[token[open+1:close]]) {
+	case AttrBold:
+		return "\x1b[1m", "  bold"
+	case AttrFaint:
+		return "\x1b[2m", "  faint"
+	case AttrReverse:
+		return "\x1b[7m", "  reverse"
+	case AttrUnderline:
+		return "\x1b[4m", "  underline"
+	}
+	return "", ""
+}
+
 func TestBtopThemesResolveCompletely(t *testing.T) {
-	// Every field of ThemeColors must be populated by the adapter. Anything
-	// left nil would silently fall through to Tomorrow Night, mixing two
-	// palettes on screen.
+	// Every COLOR field of ThemeColors must be populated by the adapter.
+	// Anything left nil would silently fall through to Tomorrow Night, mixing
+	// two palettes on screen.
+	//
+	// The attribute groups (bt-sk00v) are exempt, and the reason is the same
+	// one that makes this test worth having. A nil color group is a HOLE -- the
+	// renderer reaches past it into another palette. A nil attribute group is
+	// an ANSWER: it means "render plain", which is complete and correct, and is
+	// what every theme predating attributes intends. Requiring the btop adapter
+	// to synthesize attributes would mean inventing emphasis no upstream author
+	// wrote, which is the same class of mistake as synthesizing a hue for a
+	// monochrome palette (bt-zelhm).
+	optionalGroups := map[string]bool{
+		"StatusAttr":   true,
+		"PriorityAttr": true,
+	}
+
 	wantFields := map[string]bool{}
 	rt := reflect.TypeOf(ThemeColors{})
 	for i := 0; i < rt.NumField(); i++ {
@@ -129,6 +181,9 @@ func TestBtopThemesResolveCompletely(t *testing.T) {
 		for i := 0; i < v.NumField(); i++ {
 			fname := rt.Field(i).Name
 			f := v.Field(i)
+			if optionalGroups[fname] {
+				continue
+			}
 			if (f.Kind() == reflect.Ptr || f.Kind() == reflect.Map) && f.IsNil() {
 				t.Errorf("%s: token group %s is unset", name, fname)
 			}
@@ -732,9 +787,13 @@ func TestBtopSwatchDump(t *testing.T) {
 			}
 			cr, cg, cb := int(c.r*255), int(c.g*255), int(c.b*255)
 			ratio := contrastRatio(c, bg)
+			// The sheet has to show the categorical channel too (bt-sk00v),
+			// or it reports a palette as a set of tones and hides the half of
+			// the design that separates states which sit at similar tone.
+			sgr, attrName := swatchAttrSGR(tf, r.token)
 			sheet.WriteString(fmt.Sprintf(
-				"\x1b[48;2;%d;%d;%dm\x1b[38;2;%d;%d;%dm  %-12s %s  %4.1f:1  \x1b[0m\n",
-				br, bgc, bb, cr, cg, cb, r.label, c.hex(), ratio))
+				"\x1b[48;2;%d;%d;%dm\x1b[38;2;%d;%d;%dm%s  %-12s %s  %4.1f:1  \x1b[0m%s\n",
+				br, bgc, bb, cr, cg, cb, sgr, r.label, c.hex(), ratio, attrName))
 			// border is chrome and is SUPPOSED to recede; holding it to a
 			// text threshold would flag every well-designed theme in the
 			// corpus, so it is excluded rather than reported as a defect.
