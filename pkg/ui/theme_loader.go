@@ -195,7 +195,19 @@ func init() {
 // LoadTheme loads the theme by merging layers: embedded defaults, user config,
 // project config. Each layer only overrides what it specifies.
 // Call ApplyThemeToGlobals after to update the Color* package vars.
-func LoadTheme() *ThemeFile {
+func LoadTheme() *ThemeFile { return loadThemeWith("") }
+
+// LoadThemeNamed resolves the full theme stack with an explicit palette name,
+// bypassing only the BT_THEME/file selection chain (bt-54c3).
+//
+// The picker previews through this rather than through ResolveTheme directly,
+// because ResolveTheme returns the palette alone. A user with per-token tweaks
+// in ~/.config/bt/theme.yaml would then see a preview that discards them and a
+// different UI once the choice was committed. Every other layer stays, so what
+// the picker shows is what the user gets.
+func LoadThemeNamed(name string) *ThemeFile { return loadThemeWith(name) }
+
+func loadThemeWith(override string) *ThemeFile {
 	// Layer 1: embedded defaults
 	base := loadEmbeddedTheme()
 
@@ -211,7 +223,11 @@ func LoadTheme() *ThemeFile {
 	// tweaks a user already wrote; the name is read from the same files, most
 	// specific first, with the env var winning so a palette can be tried for
 	// one run without editing anything.
-	if name := selectedThemeName(base, user, proj); name != "" {
+	name := override
+	if name == "" {
+		name = selectedThemeName(base, user, proj)
+	}
+	if name != "" {
 		if named, err := ResolveTheme(name); err == nil {
 			mergeTheme(base, named)
 		}
@@ -231,6 +247,22 @@ func LoadTheme() *ThemeFile {
 	}
 
 	return base
+}
+
+// SelectedThemeName reports the palette name bt would resolve right now,
+// reading the same sources in the same order as LoadTheme (bt-54c3).
+//
+// The settings screen opens on this so it shows what is actually rendering
+// rather than the first name in the corpus. Empty means no palette is selected
+// and the embedded colors: block is in force.
+func SelectedThemeName() string {
+	base := loadEmbeddedTheme()
+	var user *ThemeFile
+	if home, err := os.UserHomeDir(); err == nil {
+		user = loadThemeFile(filepath.Join(home, ".config", "bt", "theme.yaml"))
+	}
+	proj := loadThemeFile(filepath.Join(".bt", "theme.yaml"))
+	return selectedThemeName(base, user, proj)
 }
 
 // selectedThemeName resolves which vendored btop palette to use, most specific
