@@ -6,6 +6,32 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-07-26 — Full-backlog autonomy triage, port corpus, and the TUI freeze (bt-2aa49)
+
+**All 430 open beads classified for what an agent fleet can execute unattended vs what needs a human decision (100% coverage, 62 agents, adversarial second pass). The 2026-07-13 command-center product turn is now recorded as a citable bt decision instead of living only in memory files. Port candidates were harvested into an atlas corpus *before* closing, so requirement content survives the backlog shrinking. Open beads 425 → 358. No production code changed.**
+
+### Decision
+
+- **`bt-2aa49` — bt's TUI is frozen to daily-usability fixes.** Funded: (1) fixes to views that already exist, (2) shared-foundation data/robot surfaces, (3) design-lab work whose *decisions* port. Not funded: new top-level views, new TUI subsystems, deep redesigns, cockpit-shaped epics. Bug fixes in existing views are explicitly NOT frozen, and non-TUI areas are untouched. The freeze does not authorise closing anything on its own: a corpus entry must exist first.
+
+### Ships
+
+- **`port:command-center` added to `.beads/conventions/labels.md`** — new Port section. The label means *harvested*, not intended-to-harvest. Documents two non-obvious properties learned by executing the pass: it does not imply closed (`disposition: shared` beads stay open), and it does not propagate down an epic tree.
+- **Port corpus written to atlas** (`~/.files/atlas/brainstorms/2026-07-26-command-center-port-corpus.md`) — ~30 feature entries across ten groups, each carrying layer/v1/disposition and per-bead provenance, plus six LESSON entries, an Unhoused list, four FINDINGs, and the reproducible method. Backing store `…verdicts.jsonl`, 453 records with evidence, tagged `source: bt` so a sym pass appends.
+- **133 beads labelled, 68 closed** citing their corpus entry. All closes reversible via `bd reopen`.
+
+### Findings
+
+- **CI has been lying.** It never ran `go vet` despite AGENTS.md rule 7 mandating it, and never covered `./internal/...`, so the binding `bdroute` write-routing contract had zero enforcement. Separately `pkg/export` is at 66.0% against a required 68, so the coverage gate fails on `main` today (`bt-7q26`).
+- **Five ghost features trace to one cause** — sprint reads a missing file, `V` shells a renamed binary, `O` opens a Dolt-deleted JSONL, `x` dumps to the project root, robot sprint subcommands are hollow. One backend migration orphaned five frontends because rendering is not a test.
+- **Fourteen `type=decision` beads have a written `## Decision` section and are still open**, six of which the new product inherits.
+- **Disposition is not inheritable through the epic tree.** Nine epics refused to close because their open children are funded bt work; bt filed epics by theme while the freeze cuts by class. Epics close last, never via `--force`.
+
+### Notes
+
+- Held back from closing pending decisions the user has not made: five ghost-feature beads, two live class-1 bugs, `bt-dcby` (gates a fleet-executable child), `bt-gfxhz.4` (detail-pane owner undecided).
+- The sym half of the corpus is deliberately empty and labelled as such; until it exists, any v1 cut rests on bt evidence only.
+
 ## 2026-07-20 — Merge wave: BackgroundWorker race, label robustness, footer policy, e2e parallelization (PRs #44–#48)
 
 **Wrap of the interrupted 2026-07-19 autonomous PM session (pc:bt:f50ec17c): four adversarially-reviewed draft PRs reviewed, merged, and their beads closed; the parked e2e-parallelization diff verified and re-shipped; small housekeeping and follow-ups filed. All four feature PRs merged on green CI; `go build`/`go vet`/`go install` clean and affected-package tests green on merged main.**
