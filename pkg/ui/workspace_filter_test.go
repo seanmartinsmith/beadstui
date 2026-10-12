@@ -623,3 +623,101 @@ func TestGetCrossFlowsForLabelRespectsActiveRepos(t *testing.T) {
 		t.Fatalf("expected incoming count scoped to 1 after proja filter, got %d (projb contribution leaked)", got)
 	}
 }
+
+// buildLabelPickerScopeFixture returns two projects that share one label
+// ("shared") and each carry one project-only label, so a leak across the
+// project filter shows up both as a foreign label and as an inflated count.
+func buildLabelPickerScopeFixture() []model.Issue {
+	return []model.Issue{
+		{ID: "proja-1", Title: "a1", Status: model.StatusOpen, Labels: []string{"shared", "a-only"}},
+		{ID: "proja-2", Title: "a2", Status: model.StatusOpen, Labels: []string{"shared"}},
+		{ID: "projb-1", Title: "b1", Status: model.StatusOpen, Labels: []string{"shared", "b-only"}},
+		{ID: "projb-2", Title: "b2", Status: model.StatusOpen, Labels: []string{"shared", "b-only"}},
+	}
+}
+
+func newLabelPickerScopeModel(t *testing.T) Model {
+	t.Helper()
+	m := NewModel(buildLabelPickerScopeFixture(), nil, "", nil, nil)
+	updated, _ := m.Update(tea.WindowSizeMsg{Width: 140, Height: 40})
+	m = updated.(Model)
+	m.EnableWorkspaceMode(WorkspaceInfo{
+		Enabled:      true,
+		RepoCount:    2,
+		RepoPrefixes: []string{"proja-", "projb-"},
+	})
+	return m
+}
+
+// TestLabelPickerRespectsActiveRepos is the repro for bt-dcby.1 (GH #61):
+// with the project filter narrowed via 'w', the 'l' label picker listed
+// every project's labels with system-wide counts.
+func TestLabelPickerRespectsActiveRepos(t *testing.T) {
+	m := newLabelPickerScopeModel(t)
+
+	// No project filter: the complete taxonomy with global counts.
+	updated, _ := m.Update(tea.KeyPressMsg{Code: 'l', Text: "l"})
+	unscoped := updated.(Model)
+	if unscoped.activeModal != ModalLabelPicker {
+		t.Fatalf("expected label picker to open, got modal %v", unscoped.activeModal)
+	}
+	wantUnscoped := map[string]int{"shared": 4, "a-only": 1, "b-only": 2}
+	if len(unscoped.labelPicker.allLabels) != len(wantUnscoped) {
+		t.Fatalf("unscoped picker labels = %v, want %v", unscoped.labelPicker.allLabels, wantUnscoped)
+	}
+	for label, want := range wantUnscoped {
+		if got := unscoped.labelPicker.labelCounts[label]; got != want {
+			t.Fatalf("unscoped count for %q = %d, want %d", label, got, want)
+		}
+	}
+
+	// Scoped to proja: projb's labels and counts must not leak in.
+	m.activeRepos = map[string]bool{"proja": true}
+	updated, _ = m.Update(tea.KeyPressMsg{Code: 'l', Text: "l"})
+	scoped := updated.(Model)
+	wantScoped := map[string]int{"shared": 2, "a-only": 1}
+	if len(scoped.labelPicker.allLabels) != len(wantScoped) {
+		t.Fatalf("scoped picker labels = %v, want only %v (projb labels leaked)", scoped.labelPicker.allLabels, wantScoped)
+	}
+	for _, label := range scoped.labelPicker.allLabels {
+		want, ok := wantScoped[label]
+		if !ok {
+			t.Fatalf("out-of-scope label %q leaked into scoped picker", label)
+		}
+		if got := scoped.labelPicker.labelCounts[label]; got != want {
+			t.Fatalf("scoped count for %q = %d, want %d (global count leaked)", label, got, want)
+		}
+	}
+}
+
+// TestLabelPickerKeepsOutOfScopeActiveLabel guards the scoping above: a
+// label filter set before the project filter narrowed must stay listed in
+// the picker, or it would be invisible yet silently cleared by an
+// unchanged Enter (applyLabelPickerSelection's "deselected all" path).
+func TestLabelPickerKeepsOutOfScopeActiveLabel(t *testing.T) {
+	m := newLabelPickerScopeModel(t)
+	m.filter.labelFilter = "b-only"
+	m.activeRepos = map[string]bool{"proja": true}
+
+	updated, _ := m.Update(tea.KeyPressMsg{Code: 'l', Text: "l"})
+	m = updated.(Model)
+
+	found := false
+	for _, label := range m.labelPicker.allLabels {
+		if label == "b-only" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("active filter label b-only missing from picker labels %v", m.labelPicker.allLabels)
+	}
+	if got := m.labelPicker.labelCounts["b-only"]; got != 0 {
+		t.Fatalf("out-of-scope active label count = %d, want 0 in proja scope", got)
+	}
+
+	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	if m.filter.labelFilter != "b-only" {
+		t.Fatalf("unchanged Enter rewrote label filter to %q, want b-only", m.filter.labelFilter)
+	}
+}
