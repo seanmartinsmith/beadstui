@@ -6,6 +6,17 @@ For architectural decisions, see `docs/adr/`. For issue tracking, use `bd list`.
 
 ---
 
+## 2026-10-12 - Label picker scoped to the project filter (GH #61)
+
+**GH #61 reported that after narrowing the board to some projects with `w`, the `l` label picker still listed every project's labels with system-wide counts. The picker rebuilt its list from the full cross-project issue set on every open and never consulted the project filter. This session (pc:bt:ef335c4f) fixed it under bt-dcby.1, one of the surfaces in the bt-dcby "features ignore activeRepos" umbrella.**
+
+- **fix(tui): `l` lists only the active projects' labels, with scoped counts.** The open handler in `pkg/ui/model_update_input.go` now extracts labels from `workspacePrefilter(m.data.issues)`, the project-only scope the label dashboard has used since bt-dcby.3. The status/label filter is deliberately not applied, so every label in scope stays pickable. With no project filter the full taxonomy shows, as before.
+- **An active label filter outside the new scope stays listed, at count 0.** Without that, narrowing the projects after setting a label filter hid the label from the picker, and an unchanged Enter silently cleared the filter.
+- **Tests:** `TestLabelPickerRespectsActiveRepos` and `TestLabelPickerKeepsOutOfScopeActiveLabel` in `pkg/ui/workspace_filter_test.go`, both failing before the fix.
+- **Bead bookkeeping:** bt-x9yil (an open duplicate of the same bug) marked a duplicate of bt-dcby.1. The bt-dcby umbrella stays open on bt-zko2, bt-rhqs and bt-6yjh.
+
+---
+
 ## 2026-10-06 - README key tables re-synced with the keymap, plus a drift test
 
 **The README told a first-time user that `l` opens the list view and that `f`/`p`/`t` filter by status, priority and type. In the code they open the label picker, the flow matrix, priority hints and time travel (bt-aj3l.6, filed from a usage inventory by pc:bt:b745cf98). This session (pc:bt:a14d7a99) audited both README key tables against `pkg/ui/keys/*.go`, not just those four keys, and added a test so they can't drift silently again.**

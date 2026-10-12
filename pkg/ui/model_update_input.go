@@ -7,6 +7,7 @@ package ui
 import (
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -1497,16 +1498,27 @@ func (m Model) handleKeyPress(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			if len(m.data.issues) == 0 {
 				return m, nil
 			}
-			// Update labels in case they changed
-			labelExtraction := analysis.ExtractLabels(m.data.issues)
+			// Update labels in case they changed. Scoped to the project filter
+			// (bt-dcby.1) but not the status/label filter, so every label in
+			// the active projects stays pickable.
+			labelExtraction := analysis.ExtractLabels(m.workspacePrefilter(m.data.issues))
 			labelCounts := extractLabelCounts(labelExtraction.Stats)
-			m.labelPicker.SetLabels(labelExtraction.Labels, labelCounts)
-			// Set active labels so the picker opens to the current filter
+			var activeLabels []string
 			if m.filter.labelFilter != "" {
-				m.labelPicker.SetActiveLabels(strings.Split(m.filter.labelFilter, ","))
-			} else {
-				m.labelPicker.SetActiveLabels(nil)
+				activeLabels = strings.Split(m.filter.labelFilter, ",")
 			}
+			// An active filter label can fall outside the project scope. Keep
+			// it listed (count 0) so it stays visible, and an unchanged Enter
+			// re-applies it instead of silently clearing the filter.
+			labels := labelExtraction.Labels
+			for _, l := range activeLabels {
+				if !slices.Contains(labels, l) {
+					labels = append(labels, l)
+				}
+			}
+			m.labelPicker.SetLabels(labels, labelCounts)
+			// Set active labels so the picker opens to the current filter
+			m.labelPicker.SetActiveLabels(activeLabels)
 			m.labelPicker.Reset()
 			m.labelPicker.SetSize(m.width, m.height-1)
 			m.openModal(ModalLabelPicker)
